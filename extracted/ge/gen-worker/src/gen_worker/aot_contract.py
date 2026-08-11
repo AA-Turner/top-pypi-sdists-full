@@ -1,11 +1,13 @@
 """Mint CONTRACT types — the vocabulary, with none of the mint driver.
 
 Extracted from :mod:`gen_worker.aot_mint` (pgw#868) for one measured reason:
-``cell_key.compute`` keys a dynamo cell on ``code_closure``, the CONTENT digest
-of the static import-graph closure of the compile entrypoints — and that walk
-is an AST walk, so it follows function-level imports too. ``models.provision``
-is one of those entrypoints, so anything the ARM reaches statically enters the
-identity of every dynamo cell in the fleet.
+``compile_cache``'s local re-trace memo records ``code_closure``, the CONTENT
+digest of the static import-graph closure of the compile entrypoints — and
+that walk is an AST walk, so it follows function-level imports too.
+``models.provision`` is one of those entrypoints, so anything the ARM reaches
+statically enters that recorded closure fleet-wide. (The closure left cell
+IDENTITY in pgw#990 — and the pre-trace cell key itself is gone since
+pgw#1059 — but the memo and the layering rule both stand.)
 
 The numerics gate (pgw#868) has to build a probe feed the way the MINT builds
 one — that is its whole parity argument — which means the arm now reaches
@@ -118,7 +120,15 @@ class ExportSpec:
     family: str
     target: str
     weight_lane: str = ""
-    precision: str = "bf16"
+    #: pgw#1076: EMPTY, not "bf16". This field is a MEASUREMENT — what the
+    #: traced modules actually compute in — and it is stamped into the cell's
+    #: `metadata.json` and printed on every arm line. Defaulting it made an
+    #: fp32 cell say `precision: bf16`, which cost a debugging cycle chasing a
+    #: cast that never happened (the real cause was TF32 conv kernels). A
+    #: caller that KNOWS the lane sets it; a caller that does not leaves it
+    #: absent and `aot_mint._mint_cell` derives it from the modules in hand.
+    #: Unmeasurable stays "" — an absent fact beats a plausible wrong one.
+    precision: str = ""
     lora_bucket: int = 0
     shapes: Tuple[Tuple[int, ...], ...] = ()
     # (pgw#1030: `batch` deleted — zero readers. The traced batch is a

@@ -37,7 +37,7 @@ class ImportWorkloadResponse(object):
         'session_id': 'str',
         'workload_spec_id': 'str',
         'created': 'bool',
-        'state': 'HaJobStates',
+        'state': 'str',
         'bucket_log_prefix': 'str',
         'cloud_id': 'str',
         'organization_id': 'str',
@@ -209,7 +209,7 @@ class ImportWorkloadResponse(object):
 
 
         :return: The state of this ImportWorkloadResponse.  # noqa: E501
-        :rtype: HaJobStates
+        :rtype: str
         """
         return self._state
 
@@ -219,7 +219,7 @@ class ImportWorkloadResponse(object):
 
 
         :param state: The state of this ImportWorkloadResponse.  # noqa: E501
-        :type: HaJobStates
+        :type: str
         """
         if self.local_vars_configuration.client_side_validation and state is None:  # noqa: E501
             raise ValueError("Invalid value for `state`, must not be `None`")  # noqa: E501

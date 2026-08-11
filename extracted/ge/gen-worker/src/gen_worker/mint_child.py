@@ -70,6 +70,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 import msgspec
 
 from . import warm_spans, worker_goals
+from .api.errors import ValidationError
 from .config import load_settings
 from .mint_process import (
     EXIT_BAD_REQUEST,
@@ -106,6 +107,35 @@ class MintChildRefused(RuntimeError):
     ) -> None:
         super().__init__(*args)
         self.mint_phases: Dict[str, Any] = dict(mint_phases or {})
+
+
+def _declaration_refusal(exc: ValidationError) -> MintChildRefused:
+    """pgw#1075: a declared value this SDK's own vocabulary rejects is a
+    REFUSAL, not a crash — and the author's fix is already in the message.
+
+    ``api.errors.ValidationError`` means, verbatim, "bad user input; do not
+    retry". Inside this process the "user input" IS the declaration: the
+    family's ``Compile`` block, the mint request's spec, the axis values the
+    endpoint declares. Every property the parent's retry policy reads off a
+    refusal already holds for it — deterministic, identical on the next card,
+    fixed by editing the declaration and by nothing else — so it took the one
+    exit that says none of that.
+
+    Measured on the rig 2026-08-09: a vehicle declaring ``lora_bucket=8``
+    (``RANK_BUCKETS = (16, 32, 64, 128)``) makes ``enable_lora_branches``
+    raise its typed ``ValidationError`` — the refusal is CORRECT — and the
+    child reported ``mint-child crashed: the mint process exited 1`` with a
+    truncated traceback tail. The sentence naming the fix, and the fact that
+    it was a refusal at all, both died at the process boundary. pgw#999's
+    rule: refusals carry a class.
+
+    The wrapper is the same shape ``aot_mint.export_program`` already applies
+    to a custom op with no fake kernel (pgw#1062) — the message is the
+    authoring contract, so it is carried whole and never summarised.
+    """
+    return MintChildRefused(
+        f"declaration refused: {type(exc).__name__}: {exc}",
+        mint_phases=getattr(exc, "mint_phases", None))
 
 
 # th#1322: per-phase spans, measured HERE because this process owns the clock
@@ -160,17 +190,30 @@ def _write_report(path: Path, report: MintReport) -> None:
 def cap_vram(device: int, cap_bytes: int) -> str:
     """Bound this process's device allocations to its reservation.
 
-    Returns a human note (empty when there is nothing to cap). The fraction is
-    computed from the card's REAL total, so the bound is the parent's byte
-    reservation and not a fraction anybody guessed.
+    Returns a human note, ALWAYS non-empty, so the caller frames it. The
+    fraction is computed from the card's REAL total, so the bound is the
+    parent's byte reservation and not a fraction anybody guessed.
+
+    pgw#973 (§4.24 item 4): every path that does NOT cap now says so. A mint
+    child sharing a card with the serving process runs uncapped whenever
+    `MintRequest.vram_cap_bytes` is 0 — which is the legitimate value for an
+    unprobeable card (`mint_budget.co_residency` reports `probed=False`) and
+    equally the value a budget that computed to nothing produces. Both used to
+    return "" here, the caller framed nothing, and the phase table recorded a
+    capped mint and an uncapped mint identically. "Uncapped" is a state to
+    STATE, not an absence to infer.
     """
     if cap_bytes <= 0:
-        return ""
+        note = (
+            "vram cap NOT applied: the request carries no cap "
+            "(vram_cap_bytes=0) — this child may allocate the whole card")
+        logger.warning("mint-child: %s", note)
+        return note
     try:
         import torch
 
         if not torch.cuda.is_available():
-            return ""
+            return "vram cap NOT applied: no CUDA in this process"
         # pgw#877 #6. `mint_process.child_env` pins CUDA_VISIBLE_DEVICES only
         # when `request.device >= 0`, so "the pin already chose for us" is
         # true for a named device and FALSE for -1 — and this used to cap
@@ -193,7 +236,8 @@ def cap_vram(device: int, cap_bytes: int) -> str:
         torch.cuda.set_device(dev)
         _free, total = torch.cuda.mem_get_info(dev)
         if total <= 0:
-            return ""
+            return (f"vram cap NOT applied: cuda:{dev} reports no total "
+                    f"memory, so there is no fraction to compute")
         fraction = min(1.0, max(0.01, cap_bytes / float(total)))
         torch.cuda.set_per_process_memory_fraction(fraction, dev)
         return (
@@ -201,7 +245,7 @@ def cap_vram(device: int, cap_bytes: int) -> str:
             f"({fraction:.3f} of {total / (1 << 30):.2f}GiB)")
     except Exception as exc:  # noqa: BLE001 — an uncappable child still mints
         logger.warning("mint-child: could not cap VRAM (%s)", exc)
-        return ""
+        return f"vram cap NOT applied: {type(exc).__name__}: {exc}"
 
 
 def select_specs(
@@ -242,7 +286,7 @@ def mint_identity(request: MintRequest) -> str:
     DB read before anyone could say which of a pod's cells had died.
     """
     return (
-        f"mint family={request.family!r} arm_key={request.cell_key!r} "
+        f"mint family={request.family!r} arm_key={request.arm_token!r} "
         f"lane={request.execution_lane or '(unset)'!r} "
         f"fn={request.function!r}")
 
@@ -269,9 +313,17 @@ def bind_slots(specs: Sequence[Any], resolved: Mapping[str, MintSlot]) -> None:
 
 
 def assert_slots_resolvable(
-    specs: Sequence[Any], request: MintRequest,
+    specs: Sequence[Any],
+    slots: Mapping[str, MintSlot],
+    *,
+    what: str = "",
 ) -> None:
     """pgw#969: refuse a request whose slots cannot resolve — before the load.
+
+    ``slots`` + ``what`` rather than the whole ``MintRequest`` (pgw#1089): the
+    boot-trace child resolves the same slots for the same reason and must get
+    the same refusal, and a second copy of this check would be a second answer
+    to "can this process trace the checkpoint the parent serves".
 
     Two distinct failures, both named rather than deferred to a handler's
     first dereference nine seconds later:
@@ -288,7 +340,7 @@ def assert_slots_resolvable(
     """
     from . import warmup as warmup_mod
 
-    bound = set(request.slots)
+    bound = set(slots)
     problems: List[str] = []
     for spec in specs:
         missing = sorted(
@@ -306,7 +358,7 @@ def assert_slots_resolvable(
                 f"{sorted(bound) or '(nothing)'})")
         errors = warmup_mod.resolved_slots_kwargs(spec, None)["slot_errors"]
         for name, why in sorted(errors.items()):
-            resolved = request.slots.get(name)
+            resolved = slots.get(name)
             if resolved is not None:
                 problems.append(
                     f"slot {name!r} of {spec.name!r}: the parent's binding "
@@ -315,7 +367,7 @@ def assert_slots_resolvable(
     if not problems:
         return
     raise MintChildRefused(
-        f"{mint_identity(request)}: cannot build the warmup request — "
+        f"{what or 'slot resolution'}: cannot build the warmup request — "
         + "; ".join(problems)
         + ". A mint cannot trace a graph for a pipeline it was never told "
           "to load.")
@@ -352,7 +404,12 @@ def assert_composable(resolved: Mapping[str, MintSlot]) -> None:
         + "; ".join(f"{slot}={resolved[slot].path}" for slot in bad))
 
 
-def _pick_compile_target(loaded: Dict[str, Any], cfg: Any) -> Tuple[str, Any]:
+def pick_compile_target(loaded: Dict[str, Any], cfg: Any) -> Tuple[str, Any]:
+    """The loaded slot that actually carries the declared compile target(s).
+
+    Public since pgw#1089: the boot-trace child must pick the SAME slot this
+    child picks, and two pickers would be two compile targets.
+    """
     from . import compile_cache as cc
 
     for slot, obj in loaded.items():
@@ -517,7 +574,9 @@ def _measure_execution_lane(execution_lane: str, load: Any) -> Any:
             execution_lane=execution_lane, unavailable=f"build: {type(exc).__name__}: {exc}")
 
 
-def execution_lane_verdict_for(load: Any) -> Tuple[Any, Any, Any, Any]:
+def execution_lane_verdict_for(
+    load: Any, *, meta_mint: bool = False,
+) -> Tuple[Any, Any, Any, Any]:
     """MEASURE which serving-kernel lane wins on THIS card (pgw#947).
 
     Returns ``(verdict, endpoint instance, pipeline, spec)`` — the winning
@@ -552,6 +611,24 @@ def execution_lane_verdict_for(load: Any) -> Tuple[Any, Any, Any, Any]:
     from . import kernel_path
 
     candidates = kernel_path.candidates_here()
+    if meta_mint and len(candidates) >= 2:
+        # pgw#1080, coordinator ruling 2026-08-10: option (a). The A/B is a
+        # WHOLE-MODEL benchmark (`bench_step` times a real pipeline step), so
+        # running it would put weight-scale values back in the one process
+        # this slice exists to keep empty — to buy a verdict with no consumer
+        # below Blackwell, where `fused_candidate_gap` leaves one candidate
+        # and no A/B runs at all. Typed absence, with its reason.
+        verdict = kernel_path.unmeasured(
+            candidates[0],
+            "meta-mint: this child holds no weights (pgw#1080) and the lane "
+            "A/B is a whole-model benchmark; the serving side treats a cell "
+            "with no verdict as the documented conservative default")
+        kernel_path.pin(verdict.winner, f"meta-mint: {verdict.detail}")
+        frame(phase="load",
+              note=f"kernel lane {verdict.winner} (unmeasured, meta-mint)")
+        instance, pipe, spec = load(verdict.winner)
+        return verdict, instance, pipe, spec
+
     if len(candidates) < 2:
         _axes, gaps = kernel_path.candidate_axes()
         detail = "; ".join(
@@ -595,13 +672,14 @@ def _mint_aot(
     started: float, sha256_file: Any,
     execution_lane_verdict: Any = None,
     spec: Any = None,
+    footprint: Optional[Dict[str, Any]] = None,
 ) -> MintReport:
     """pgw#805: the AOT recipe — torch.export + AOTInductor over the family's
     whole declared graph-class set, packed as ONE multi-graph cell (pgw#758).
 
     This is the wire that never existed. ``aot_mint.mint`` has been complete
-    and operator-driven since pgw#723/#758, and ``aot_cells.discover`` has
-    filtered for its artifact kind since pgw#722 — but no serving-pod code
+    and operator-driven since pgw#723/#758, and discovery filtered for its
+    artifact kind since pgw#722 — but no serving-pod code
     path imported ``aot_mint``, so a discovery MISS could only ever fall
     through to the dynamo recipe, whose cell that filter rejects. Every pod
     missed, "re-minted" the wrong kind, and the next pod missed identically.
@@ -657,7 +735,11 @@ def _mint_aot(
             # pgw#947: the MEASURED serving-kernel lane for this card. The
             # discrete verdict lands in the packed envelope (serving reads it
             # instead of an SM tuple); the numbers ride the result metadata.
-            execution_lane_verdict=execution_lane_verdict)
+            execution_lane_verdict=execution_lane_verdict,
+            # pgw#1053: this process exits when the mint ends — its pipeline
+            # serves nobody after the last export, so surrender it and let
+            # the compile pool re-derive K against the freed card.
+            release_residents=True)
     except aot_mint.MintRefused as exc:
         # A named export refusal is a REFUSAL, not a crash: the parent must
         # not retry it, and the sentence is the whole diagnostic on a pod
@@ -675,7 +757,19 @@ def _mint_aot(
         os.replace(artifact, target)
     frame(phase="finalize", note=f"cell {result.cell_key}")
 
-    peak = _peak_vram()
+    # pgw#1053: the release resets the allocator's high-water so the pool can
+    # regrant K — the TRUE peak was banked into the timings first, and the
+    # report must carry it or `record_child_peak` learns the post-release
+    # residue instead of what the mint really held.
+    peak = max(
+        _peak_vram(),
+        int(result.timings.get("peak_vram_before_release_bytes", 0) or 0))
+    # pgw#1080: the EXPORT half of the footprint, measured from the peak reset
+    # that follows the warm proof. This is the ceiling the pgw#992 census must
+    # size the next export child against — the whole point of the slice is
+    # that it is autotune-scratch scale and not weight scale.
+    marks = dict(footprint or {})
+    marks.setdefault("export_peak_bytes", peak)
     return MintReport(
         status="minted",
         artifact=str(target),
@@ -685,10 +779,19 @@ def _mint_aot(
             f"exported {len((result.metadata.get('entries') or {}))} graph "
             f"class(es) for family {cfg.family!r} as one aot-inductor cell"),
         phase="finalize",
-        peak_vram_bytes=peak,
+        peak_vram_bytes=max(
+            peak, int(marks.get("warm_proof_peak_bytes", 0) or 0)),
         elapsed_s=time.monotonic() - started,
         phases=_close_phases(),
         mint_phases=dict(result.metadata.get("mint_phases") or {}),
+        structure_only_components=tuple(
+            marks.get("structure_only_components") or ()),
+        structure_refusal=str(marks.get("structure_refusal") or ""),
+        virtual_param_bytes=int(marks.get("virtual_param_bytes", 0) or 0),
+        structure_real_bytes=int(marks.get("structure_real_bytes", 0) or 0),
+        warm_proof_peak_bytes=int(marks.get("warm_proof_peak_bytes", 0) or 0),
+        warm_proof_values=str(marks.get("warm_proof_values") or ""),
+        export_peak_bytes=int(marks.get("export_peak_bytes", 0) or 0),
     )
 
 
@@ -717,9 +820,8 @@ def mint(request: MintRequest) -> MintReport:
 
     frame(phase="load", note="env seal")
     env_seal.establish()
-    note = cap_vram(request.device, request.vram_cap_bytes)
-    if note:
-        frame(phase="load", note=note)
+    # Always framed: `cap_vram` states the uncapped cases too (pgw#973).
+    frame(phase="load", note=cap_vram(request.device, request.vram_cap_bytes))
 
     if not cc.toolchain_present():
         raise MintChildRefused(
@@ -739,7 +841,8 @@ def mint(request: MintRequest) -> MintReport:
     # pgw#969: the parent's resolution, installed on the rediscovered specs
     # BEFORE anything is loaded — and the refusal, if it cannot be.
     bind_slots(siblings, request.slots)
-    assert_slots_resolvable(siblings, request)
+    assert_slots_resolvable(
+        siblings, request.slots, what=mint_identity(request))
     # pgw#1034: the wire struct IS the cfg. It used to be re-inflated into a
     # `registry.CompileCell` to keep `contract_facts()` byte-identical for a
     # key the child computed — the child has computed no key since pgw#758, so
@@ -754,17 +857,35 @@ def mint(request: MintRequest) -> MintReport:
         + (f" (+{sum(len(c) for c in overrides.values())} component "
            f"override(s))" if overrides else "")))
 
+    # pgw#1080: the compile targets are built from CODE + CONFIG, so the
+    # process that exports and compiles never holds a checkpoint value. A
+    # component that cannot be built that way says so, typed, and that slot
+    # loads its weights the old way — the property is then reported as NOT
+    # held for this mint rather than silently assumed.
+    structure_targets = tuple(cfg.targets)
+    structure_refusals: List[str] = []
+
     def _load(_execution_lane: str) -> Tuple[Any, Any, Any]:
         """One full endpoint load on the currently pinned kernel lane: the
         endpoint instance, its compile-target pipeline, and that pipeline's
         export spec."""
         from . import fleet_cells
+        from .models.structure_only import StructureOnlyUnsupported
 
         obj = spec.cls()
-        got = run_setup(
-            obj, dict(paths), arm_compile=False,
-            return_loaded=True, component_paths=overrides) or {}
-        _slot, loaded_pipe = _pick_compile_target(got, cfg)
+        try:
+            got = run_setup(
+                obj, dict(paths), arm_compile=False,
+                return_loaded=True, component_paths=overrides,
+                structure_only=structure_targets) or {}
+        except StructureOnlyUnsupported as exc:
+            structure_refusals.append(str(exc))
+            frame(phase="load", note=f"structure-only declined: {exc}")
+            obj = spec.cls()
+            got = run_setup(
+                obj, dict(paths), arm_compile=False,
+                return_loaded=True, component_paths=overrides) or {}
+        _slot, loaded_pipe = pick_compile_target(got, cfg)
         frame(phase="load", note=f"compile target on slot {_slot!r}")
         if cfg.lora_bucket:
             cc.apply_lora_execution_lane(loaded_pipe, cfg.lora_bucket)
@@ -774,7 +895,26 @@ def mint(request: MintRequest) -> MintReport:
     # exported, so the cell can carry the verdict instead of the fleet
     # re-deriving it from a hand-maintained SM tuple. The probe loads once per
     # candidate; the winner's pipeline is what gets minted.
-    verdict, instance, pipe, aot_spec = execution_lane_verdict_for(_load)
+    verdict, instance, pipe, aot_spec = execution_lane_verdict_for(
+        _load, meta_mint=bool(structure_targets))
+    from .models import structure_only
+
+    facts = structure_only.facts_of(pipe)
+    virtual_modules = structure_only.modules_of(pipe)
+    footprint: Dict[str, Any] = {
+        "structure_only_components": tuple(name for name, _m in virtual_modules),
+        "virtual_param_bytes": sum(f.virtual_param_bytes for f in facts),
+        "structure_real_bytes": sum(f.real_buffer_bytes for f in facts),
+        "structure_refusal": "; ".join(structure_refusals)[:400],
+    }
+    if facts:
+        frame(phase="load", note=(
+            "structure-only "
+            + ", ".join(
+                f"{f.component}({f.cls_name}): "
+                f"{f.virtual_param_bytes / 2 ** 20:.1f} MiB virtual, "
+                f"{f.real_buffer_bytes / 2 ** 20:.1f} MiB real buffers"
+                for f in facts)))
     # pgw#984: PROVE the endpoint's own forward runs, before a byte is
     # exported. `torch.export` traces the declared graph classes off the
     # modules directly and never enters the handler, so an AOT mint's
@@ -788,7 +928,73 @@ def mint(request: MintRequest) -> MintReport:
     # a full eager pass would buy minutes and prove nothing more than the first
     # job does. Eager — nothing is armed here — so it specializes no graph the
     # export then has to trace around.
+    #
+    # pgw#1080 (coordinator ruling 2026-08-10): on a structure-only mint the
+    # proof runs on RANDOM values. It is a does-it-run proof, not a numerics
+    # one, and the ratified variability rule already forbids value-dependent
+    # program structure — so a handler whose control flow breaks under random
+    # weights is violating that rule and surfacing it here is the point.
+    # Random values are NOT checkpoint values, but they ARE weight-scale for
+    # the length of the proof, so the window is measured and reported
+    # separately from the export's, which is the number the pgw#992 census
+    # must size the next export child against.
+    device_label = _device_label(request)
+    if virtual_modules:
+        _reset_peak()
+        randomized = sum(
+            structure_only.materialize_random(module, device=device_label)
+            for _name, module in virtual_modules)
+        frame(phase="warmup_forward", note=(
+            f"values=random ({randomized / 2 ** 20:.1f} MiB) on "
+            f"{[name for name, _m in virtual_modules]}"))
+        # The BASELINE for the call-time check below. The lane installs real
+        # tensors of its own before any forward runs — LoRA branch containers
+        # are the standing example, and they are legitimate (a lifted adapter
+        # is a graph INPUT, not a baked constant). What the check is looking
+        # for is a tensor that APPEARS during the proof, so it compares
+        # against what was already there instead of hardcoding a vocabulary.
+        strays_before = {
+            f"{name}.{path}"
+            for name, module in virtual_modules
+            for path, _tensor in structure_only.stray_real_tensors(module)
+        }
     _drive_warm_plan(instance, _warm_jobs(siblings), request, proof_only=True)
+    if virtual_modules:
+        footprint["warm_proof_peak_bytes"] = _peak_vram()
+        footprint["warm_proof_values"] = "random"
+        for _name, module in virtual_modules:
+            structure_only.restore_virtual(module, device=device_label)
+        # ie#628's call-time class, caught where it CAN be caught on a
+        # weightless mint. Inside a fake-mode export every allocation is fake,
+        # so the mode-based gate cannot see a lazily-built pinned table — but
+        # the warm proof just ran the handler for real, so if one was built it
+        # is now cached on a plain attribute, still real, about to be traced.
+        strays = [
+            (f"{name}.{path}", tensor)
+            for name, module in virtual_modules
+            for path, tensor in structure_only.stray_real_tensors(module)
+            if f"{name}.{path}" not in strays_before
+        ]
+        if strays:
+            raise MintChildRefused(
+                "meta-instantiation gate (ie#628, call-time): after the warm "
+                "proof released its random values, "
+                + ", ".join(
+                    f"{path} still holds a REAL {tuple(t.shape)} "
+                    f"{t.dtype} tensor on {t.device}" for path, t in strays[:4])
+                + ". A weightless mint traces what the module holds, so this "
+                "tensor would be exported as an anonymous graph literal and "
+                "the cell would carry values no adopter can rebind. It is "
+                "built at CALL time instead of at __init__: register derived "
+                "tables with `register_buffer` and NO device pin (ie#630's "
+                "`rope_buffers` is the worked example); an explicit "
+                "`with torch.device(...)` inside model code is itself the "
+                "violation to remove.")
+        _release()
+        frame(phase="warmup_forward", note=(
+            f"random values released; warm-proof device peak "
+            f"{footprint['warm_proof_peak_bytes'] / 2 ** 20:.1f} MiB"))
+    _reset_peak()
     # Deliberately NOT `aot_mint.compose_for_mint` (which builds a pipeline
     # from a model ref for an operator's mint pod): the graphs this cell must
     # serve are the graphs the ENDPOINT's own composed pipeline runs, and
@@ -796,7 +1002,40 @@ def mint(request: MintRequest) -> MintReport:
     # cannot adopt.
     return _mint_aot(
         request, pipe, cfg, target, started=started,
-        sha256_file=sha256_file, execution_lane_verdict=verdict, spec=aot_spec)
+        sha256_file=sha256_file, execution_lane_verdict=verdict, spec=aot_spec,
+        footprint=footprint)
+
+
+def _device_label(request: MintRequest) -> str:
+    """Where this child's tensors live — the ordinal the parent chose, or the
+    card this process defaults to. ``cpu`` on a cardless box, stated rather
+    than assumed: a structure built as "cpu" compiles a CPU cell."""
+    try:
+        import torch
+
+        if not torch.cuda.is_available():
+            return "cpu"
+    except Exception:  # noqa: BLE001 — torch-less: nothing to place
+        return "cpu"
+    ordinal = int(getattr(request, "device", -1) or -1)
+    return f"cuda:{ordinal}" if ordinal >= 0 else "cuda"
+
+
+def _reset_peak() -> None:
+    """Start a fresh device high-water window (pgw#1080).
+
+    The warm proof's random-value window and the export's window are two
+    different measurements, and reporting their max as one number is what let
+    weight residency size an export child that no longer needs it.
+    """
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            torch.cuda.reset_peak_memory_stats()
+    except Exception:  # noqa: BLE001 — a probe never fails a mint
+        logger.debug("mint-child: reset_peak_memory_stats failed",
+                     exc_info=True)
 
 
 def _peak_vram() -> int:
@@ -902,7 +1141,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     report_path = Path(request.report)
     started = time.monotonic()
     try:
-        report = mint(request)
+        try:
+            report = mint(request)
+        except ValidationError as exc:
+            # pgw#1075: classified HERE and not deeper, because every path into
+            # this process — spec build, composition check, branch arm, export
+            # declaration — can raise it and they all mean the same thing.
+            raise _declaration_refusal(exc) from exc
     except MintChildRefused as exc:
         # th#1322: a refused mint's phase table is where it spent the time
         # BEFORE refusing — the most useful half of a failed mint. The OPEN
@@ -943,5 +1188,6 @@ if __name__ == "__main__":  # pragma: no cover
 
 
 __all__ = ["MintChildRefused", "assert_composable", "assert_slots_resolvable",
+           "pick_compile_target",
            "bind_slots", "cap_vram", "frame", "main",
            "mint_identity", "mint", "select_specs"]

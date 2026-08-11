@@ -1,7 +1,6 @@
 import contextlib
 import copy
 import csv
-import gzip
 import json
 import logging
 import os
@@ -36,13 +35,13 @@ from pathlib import Path
 
 from siliconcompiler.schema import BaseSchema, NamedSchema, DocsSchema, LazyLoad
 from siliconcompiler.schema import EditableSchema, Parameter, PerNode, Scope
-from siliconcompiler.schema.parametertype import NodeType, NodeEnumType
+from siliconcompiler.schema.parametertype import NodeType
 from siliconcompiler.schema.utils import trim
 
 from siliconcompiler import utils, NodeStatus, Flowgraph
 from siliconcompiler import sc_open
 from siliconcompiler.utils import paths
-from siliconcompiler.utils.multiprocessing import MPManager
+from siliconcompiler.utils.multiprocessing import MPManager, forking
 
 from siliconcompiler.schema_support.pathschema import PathSchema
 from siliconcompiler.schema_support.record import RecordTool, RecordSchema
@@ -225,7 +224,8 @@ def _run_breakpoint(exe: str, cmdlist: List[str], log_path: str) -> int:
     except OSError:
         tty_fd = -1
 
-    pid, master_fd = pty.fork()
+    with forking():
+        pid, master_fd = pty.fork()
     if pid == 0:
         # Child: replace ourselves with the target binary. argv[0] is set to
         # ``exe`` so diagnostic output identifies the tool by its real name.
@@ -1026,6 +1026,12 @@ class Task(NamedSchema, PathSchema, DocsSchema):
             def increase_indent(self, flow=False, indentless=False):
                 return super().increase_indent(flow=flow, indentless=indentless)
 
+        # Emit tuples, such as the (step, index) pairs in the flowgraph, as plain
+        # sequences. The default representer tags them '!!python/tuple', which
+        # only a python reader can load.
+        YamlIndentDumper.add_representer(
+            tuple, lambda dumper, data: dumper.represent_list(list(data)))
+
         fout.write(yaml.dump(manifest.getdict(), Dumper=YamlIndentDumper,
                              default_flow_style=False))
 
@@ -1074,10 +1080,6 @@ class Task(NamedSchema, PathSchema, DocsSchema):
             valstr = param.gettcl(step=self.__step, index=self.__index)
             if valstr is None:
                 continue
-
-            # Ensure empty values are represented as empty Tcl lists
-            if valstr == '':
-                valstr = '{}'
 
             tcl_set_cmds.append(f"dict set sc_cfg {keystr} {valstr}")
 
@@ -1131,27 +1133,28 @@ class Task(NamedSchema, PathSchema, DocsSchema):
         # Generate a schema with absolute paths for the manifest
         schema = self.__abspath_schema()
 
-        if re.search(r'\.json(\.gz)?$', manifest_path):
+        if suffix == "json":
             schema.write_manifest(manifest_path)
         else:
-            # Format-specific dumping
-            if manifest_path.endswith('.gz'):
-                fout = gzip.open(manifest_path, 'wt', encoding='UTF-8')
-            elif re.search(r'\.csv$', manifest_path):
-                fout = open(manifest_path, 'w', newline='')
-            else:
-                fout = open(manifest_path, 'w')
-            try:
-                if re.search(r'(\.yaml|\.yml)(\.gz)?$', manifest_path):
+            # Pin UTF-8 rather than taking the platform default. A design name
+            # or file path with a non-ASCII character would otherwise fail to
+            # write on any host whose locale is not UTF-8 -- LANG=C in a
+            # minimal container, or a Windows code page -- and it would fail
+            # mid-run, while writing the node's manifest. Python 3.15 makes
+            # UTF-8 the default and hides this; the versions SC supports today
+            # do not.
+            fopen_args = {}
+            if suffix == "csv":
+                fopen_args['newline'] = ''
+            with open(manifest_path, 'w', encoding='UTF-8', **fopen_args) as fout:
+                if suffix == "yaml":
                     self.__write_yaml_manifest(fout, schema)
-                elif re.search(r'\.tcl(\.gz)?$', manifest_path):
+                elif suffix == "tcl":
                     self.__write_tcl_manifest(fout, schema)
-                elif re.search(r'\.csv(\.gz)?$', manifest_path):
+                elif suffix == "csv":
                     self.__write_csv_manifest(fout, schema)
                 else:
                     raise ValueError(f"{manifest_path} is not a recognized path type")
-            finally:
-                fout.close()
 
     def __abspath_schema(self) -> "Project":
         """
@@ -1471,9 +1474,15 @@ class Task(NamedSchema, PathSchema, DocsSchema):
                                           f'({e.available_mb:.1f} MB available)')
                         self.__terminate_exe(proc)
                         raise
-
-                    # Read any remaining I/O
-                    read_stdio(stdout_reader, stderr_reader, flush=True)
+                    finally:
+                        # Drain any remaining I/O, including a buffered trailing
+                        # partial line, so output emitted right before the
+                        # process exits reaches the log. This runs on the normal
+                        # exit path AND after an abnormal termination
+                        # (timeout/OOM/ctrl-c), where the process has already
+                        # been terminated above and its final output would
+                        # otherwise be lost.
+                        read_stdio(stdout_reader, stderr_reader, flush=True)
 
                     retcode = proc.returncode
 
@@ -2392,15 +2401,15 @@ class Task(NamedSchema, PathSchema, DocsSchema):
 
                 val_type = param.get(field="type")
                 encode_type = NodeType.parse(val_type)
-                if NodeType.contains(encode_type, NodeEnumType):
+                if NodeType.contains(encode_type, "enum"):
                     try:
-                        if val_type.startswith('['):
-                            allowed = list(encode_type)[0].values
+                        if NodeType.istype(encode_type, "list"):
+                            allowed = next(iter(encode_type)).values
                             val_type = "[enum]"
-                        elif val_type.startswith('{'):
-                            allowed = list(encode_type)[0].values
+                        elif NodeType.istype(encode_type, "set"):
+                            allowed = next(iter(encode_type)).values
                             val_type = "{enum}"
-                        elif val_type.startswith('('):
+                        elif NodeType.istype(encode_type, "tuple"):
                             allowed = []
                             val_type = val_type
                         else:
@@ -2757,7 +2766,8 @@ class OpenTask(Task):
         This method recursively finds all subclasses and also loads tasks from
         any installed plugins. Tasks are registered in a stable order:
         1. Core siliconcompiler tasks (sorted by module path)
-        2. Plugin-provided tasks (in plugin load order)
+        2. The built-in siliconcompiler viewers, in their preferred order
+        3. Plugin-provided tasks (in plugin load order)
 
         This ensures that later-registered extensions take precedence over
         earlier core tasks when multiple tools support the same extension.
@@ -2788,6 +2798,16 @@ class OpenTask(Task):
         # Register core tasks first
         for c in core_classes:
             cls.register_task(c)
+
+        # Register the built-in viewers, in the order showtools prefers.
+        #
+        # Imported here rather than at module scope because showtools imports from
+        # siliconcompiler, which imports this module. The import must also stay below the
+        # recursion above: it is what pulls the viewer modules in, and if it ran first the
+        # recursion would register them in module-path order and showtools could no longer
+        # influence which one wins (re-registering a task does not reorder it).
+        from siliconcompiler.utils.showtools import showtasks
+        showtasks()
 
         # Support non-SC defined tasks from plugins (these override core tasks)
         # Sort plugins deterministically for consistent ordering
@@ -3125,7 +3145,7 @@ def schema_task(schema):
     schema.insert(
         'format',
         Parameter(
-            '<json,tcl,yaml>',
+            '<json,tcl,yaml,csv>',
             scope=Scope.JOB,
             pernode=PerNode.OPTIONAL,
             shorthelp="Tool: file format",

@@ -24,7 +24,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 from .. import artifact_meta
 from ..cell_adopt import AdoptOutcome
@@ -47,6 +47,9 @@ from .loading import (
 from .memory import place_pipeline
 from .refs import DEFAULT_REF_TAG, parse_model_ref
 from .. import activity as activity_mod
+
+if TYPE_CHECKING:
+    from ..aot_identity import ExpectedIdentity
 
 __all__ = ["model_index_components"]  # re-export: single source in loading.py (gw#521)
 
@@ -169,6 +172,11 @@ def load_slot(
             components=components or None,
             component_trees=component_trees or None,
             declared_vram_gb=declared_vram_gb,
+            ref=ref,
+            # pgw#1063: the loader's own host-RAM decisions depend on where
+            # this pipeline will END UP. `place_pipeline(mode=...)` below is
+            # the same knowledge arriving too late to inform them.
+            placement_mode=mode,
         )
         out.obj = pipe
 
@@ -261,6 +269,7 @@ def arm_route(mode: str) -> Optional[str]:
 def arm_aot(
     pipe: Any, cfg: Any, cache_dir: Optional[Path], artifact: Path,
     bucket: int, meta: Optional[Dict[str, Any]] = None,
+    *, expected: "Optional[ExpectedIdentity]" = None,
 ) -> AdoptOutcome:
     """Arm ONE exported ``.pt2`` cell on ``pipe``. The whole AOT arm, in one
     place, for every source of such an artifact.
@@ -338,8 +347,28 @@ def arm_aot(
                 targets[0] if targets else "")
         lifted_target = (
             getattr(pipe, module_name, None) if module_name else None)
-        if (lifted_target is not None
-                and lora_lifted.lifted_binding(lifted_target) is None):
+        if lifted_target is None:
+            # pgw#1098: a declared bucket whose lifted target cannot be
+            # RESOLVED is a refusal, never a skip. Falling through leaves the
+            # module unlifted and hands `assert_lifted_contract` a guaranteed
+            # `lifted_inputs_unbindable` — the gate then names itself and the
+            # real cause (an envelope with no readable targets, a pipeline
+            # missing the named component) is nowhere on the wire. That is
+            # exactly how row 7 read as a LoRA-contract defect when the
+            # envelope had simply not been read. pgw#1001 closed this hole for
+            # its two known causes; this closes it for every future one, by
+            # refusing to leave the branch silently.
+            lifted_install_error = (
+                f"no lifted target resolved: metadata names module="
+                f"{str((meta or {}).get('module') or '') or '<absent>'} "
+                f"targets={targets or '<absent>'}, branch-capable="
+                f"{sorted(branch_capable) or '<none>'}"
+                + ("; the cell envelope was unreadable" if meta is None else ""))
+            logger.warning(
+                "aot arm: bucket=%d declared but no lifted target resolved "
+                "(%s); a lifted artifact will refuse at "
+                "assert_lifted_contract", bucket, lifted_install_error)
+        elif lora_lifted.lifted_binding(lifted_target) is None:
             try:
                 lora_lifted.install_lifted_lora_forward(lifted_target, bucket)
                 lifted_installed = True
@@ -356,14 +385,15 @@ def arm_aot(
                     "aot arm: lifted-binding install failed on %r (%s); a "
                     "lifted artifact will refuse at assert_lifted_contract",
                     module_name, exc)
-    outcome = aot_serve.enable(pipe, cfg, cache_dir, artifact)
+    outcome = aot_serve.enable(pipe, cfg, cache_dir, artifact, expected=expected)
     if not outcome.armed and lifted_install_error:
         # The refusal is real; its ROOT is one frame up. Both, in the order a
         # reader needs them: what refused, and what made it refuse.
         outcome = AdoptOutcome.miss(
             outcome.reason or "lifted_install_failed",
-            f"{outcome.detail} [root: lifted-binding install failed on "
-            f"{module_name!r} — {lifted_install_error}]".strip(),
+            f"{outcome.detail} [root: the lifted binding was never installed"
+            + (f" on {module_name!r}" if module_name else "")
+            + f" — {lifted_install_error}]".strip(),
             outcome.identity)
     if outcome.armed:
         if gate_cell_numerics(pipe, cfg):

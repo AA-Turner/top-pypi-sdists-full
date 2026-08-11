@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nbdev
-Version: 3.3.10
+Version: 3.3.11
 Summary: Create delightful software with Jupyter Notebooks
 Author-email: "Jeremy Howard and the fast.ai community" <j@fast.ai>
 License: Apache-2.0
@@ -17,7 +17,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: fastcore>=2.2.7
-Requires-Dist: execnb>=0.2.11
+Requires-Dist: execnb>=0.3.2
 Requires-Dist: astunparse
 Requires-Dist: ghapi>=2.0.2
 Requires-Dist: watchdog

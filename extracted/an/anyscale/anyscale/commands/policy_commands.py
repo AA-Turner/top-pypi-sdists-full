@@ -45,7 +45,12 @@ def policy_cli() -> None:
         CommandExample(
             description="Set the policy of a cloud from a YAML config file.",
             command="anyscale policy set --resource-type cloud --resource-id cld_abc123 -f policy.yaml",
-            output_raw=command_examples.POLICY_SET_EXAMPLE,
+            output_raw="Policy for cloud cld_abc123 has been updated.\n",
+        ),
+        CommandExample(
+            description="Set the policy for your organization (no --resource-id).",
+            command="anyscale policy set --resource-type organization -f org_policy.yaml",
+            output_raw="Policy for organization your organization has been updated.\n",
         ),
     ],
 )
@@ -159,8 +164,7 @@ def set_policy(
 @command_metadata(
     status=ReleaseStatus.BETA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
     examples=[
         CommandExample(
             description="Get the policy of a cloud.",
@@ -199,10 +203,11 @@ def set_policy(
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 def get_policy(
@@ -263,8 +268,7 @@ def get_policy(
 @command_metadata(
     status=ReleaseStatus.BETA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
     examples=[
         CommandExample(
             description="List the policies of all clouds with bindings configured.",
@@ -302,10 +306,11 @@ def get_policy(
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 def list_policies(resource_type: str, output_format: str) -> None:

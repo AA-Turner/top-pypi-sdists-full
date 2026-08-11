@@ -63,7 +63,8 @@ def _ensure_ingested_titles(orch: Any) -> set[str]:
         Set of lowered, stripped task titles already on the server.
     """
     if not hasattr(orch, "_ingested_titles"):
-        orch._ingested_titles: set[str] = set()
+        ingested: set[str] = set()
+        orch._ingested_titles = ingested
         with contextlib.suppress(Exception):
             resp = orch._client.get(f"{orch._config.server_url}/tasks")
             resp.raise_for_status()
@@ -93,7 +94,7 @@ def _parse_candidates(
     Returns:
         Priority-sorted list of (path, parsed_task) tuples.
     """
-    from bernstein.core.backlog_parser import parse_backlog_text
+    from bernstein.core.backlog_parser import BacklogParseError, parse_backlog_text
 
     candidates: list[tuple[Path, ParsedBacklogTask]] = []
     for backlog_file in backlog_files:
@@ -101,7 +102,15 @@ def _parse_candidates(
             continue
 
         content = backlog_file.read_text(encoding="utf-8")
-        parsed_task = parse_backlog_text(backlog_file.name, content)
+        try:
+            parsed_task = parse_backlog_text(backlog_file.name, content)
+        except BacklogParseError as exc:
+            # Fail-closed per file (#3110): a malformed declaration is refused
+            # with the offending field named and never becomes a code_diff
+            # task; the scan continues with the other files.
+            logger.error("ingest_backlog: refused %s - %s", backlog_file.name, exc)
+            _claim_backlog_file(orch, backlog_file, open_dir, claimed_dir)
+            continue
         if parsed_task is None:
             logger.warning("ingest_backlog: could not parse %s - skipping", backlog_file.name)
             _claim_backlog_file(orch, backlog_file, open_dir, claimed_dir)

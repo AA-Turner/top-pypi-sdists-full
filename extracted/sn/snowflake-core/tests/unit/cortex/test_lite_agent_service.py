@@ -23,7 +23,10 @@ def test_run(fake_root, agent_service):
             "model": "my_model",
             "messages": [{"role": "", "content": []}],
             "tool_choice": None,
+            "skill_choice": None,
             "origin_application": "external",
+            "stream": True,
+            "background": False,
         },
         _preload_content=False,
     )

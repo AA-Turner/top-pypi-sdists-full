@@ -22,8 +22,6 @@
 # ############################################################################*/
 """Browse a data file with a GUI"""
 
-from __future__ import annotations
-
 __authors__ = ["V. Valls"]
 __license__ = "MIT"
 __date__ = "15/01/2019"
@@ -989,7 +987,7 @@ class Viewer(qt.QMainWindow):
         model.createFromNxdata(h5nxdata)
 
     def _copyNameToClipboard(self, obj):
-        qt.Application.clipboard().setText(obj.name)
+        qt.QApplication.clipboard().setText(obj.name)
 
     def customContextMenu(self, event):
         """Called to populate the context menu

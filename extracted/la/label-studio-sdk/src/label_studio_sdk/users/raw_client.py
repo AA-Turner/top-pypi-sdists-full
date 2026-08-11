@@ -11,6 +11,11 @@ from ..core.jsonable_encoder import encode_path_param
 from ..core.parse_error import ParsingError
 from ..core.request_options import RequestOptions
 from ..core.unchecked_base_model import construct_type
+from ..errors.bad_request_error import BadRequestError
+from ..errors.forbidden_error import ForbiddenError
+from ..errors.internal_server_error import InternalServerError
+from ..errors.not_found_error import NotFoundError
+from ..errors.unauthorized_error import UnauthorizedError
 from ..types.hotkeys import Hotkeys
 from ..types.lse_user import LseUser
 from ..types.lse_user_api import LseUserApi
@@ -150,9 +155,6 @@ class RawUsersClient:
                 "phone": phone,
                 "username": username,
             },
-            headers={
-                "content-type": "application/json",
-            },
             request_options=request_options,
             omit=OMIT,
         )
@@ -175,12 +177,17 @@ class RawUsersClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    def get_hotkeys(self, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[Hotkeys]:
+    def get_hotkeys(
+        self, *, project: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[Hotkeys]:
         """
-        Retrieve the custom hotkeys configuration for the current user.
+        Retrieve the current user’s account hotkeys, or their stored personal override for the optional project scope.
 
         Parameters
         ----------
+        project : typing.Optional[int]
+            Project ID for a personal project-specific hotkey override. Omit for account defaults.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -192,6 +199,9 @@ class RawUsersClient:
         _response = self._client_wrapper.httpx_client.request(
             "api/current-user/hotkeys/",
             method="GET",
+            params={
+                "project": project,
+            },
             request_options=request_options,
         )
         try:
@@ -204,6 +214,61 @@ class RawUsersClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -216,14 +281,18 @@ class RawUsersClient:
     def update_hotkeys(
         self,
         *,
+        project: typing.Optional[int] = None,
         custom_hotkeys: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Hotkeys]:
         """
-        Update the custom hotkeys configuration for the current user.
+        Update the current user’s account hotkeys, or their personal override for the optional project scope.
 
         Parameters
         ----------
+        project : typing.Optional[int]
+            Project ID for a personal project-specific hotkey override. Omit for account defaults.
+
         custom_hotkeys : typing.Optional[typing.Dict[str, typing.Any]]
 
         request_options : typing.Optional[RequestOptions]
@@ -237,6 +306,9 @@ class RawUsersClient:
         _response = self._client_wrapper.httpx_client.request(
             "api/current-user/hotkeys/",
             method="PATCH",
+            params={
+                "project": project,
+            },
             json={
                 "custom_hotkeys": custom_hotkeys,
             },
@@ -256,6 +328,61 @@ class RawUsersClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -432,15 +559,16 @@ class RawUsersClient:
     def create(
         self,
         *,
+        username: str,
+        active_organization: typing.Optional[int] = OMIT,
         allow_newsletters: typing.Optional[bool] = OMIT,
-        avatar: typing.Optional[str] = OMIT,
+        custom_hotkeys: typing.Optional[typing.Any] = OMIT,
+        date_joined: typing.Optional[dt.datetime] = OMIT,
         email: typing.Optional[str] = OMIT,
         first_name: typing.Optional[str] = OMIT,
-        id: typing.Optional[int] = OMIT,
-        initials: typing.Optional[str] = OMIT,
         last_name: typing.Optional[str] = OMIT,
+        password: typing.Optional[str] = OMIT,
         phone: typing.Optional[str] = OMIT,
-        username: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[LseUser]:
         """
@@ -448,32 +576,27 @@ class RawUsersClient:
 
         Parameters
         ----------
-        allow_newsletters : typing.Optional[bool]
-            Whether the user allows newsletters
+        username : str
 
-        avatar : typing.Optional[str]
-            Avatar URL of the user
+        active_organization : typing.Optional[int]
+
+        allow_newsletters : typing.Optional[bool]
+            Allow sending newsletters to user
+
+        custom_hotkeys : typing.Optional[typing.Any]
+            Custom keyboard shortcuts configuration for the user interface
+
+        date_joined : typing.Optional[dt.datetime]
 
         email : typing.Optional[str]
-            Email of the user
 
         first_name : typing.Optional[str]
-            First name of the user
-
-        id : typing.Optional[int]
-            User ID
-
-        initials : typing.Optional[str]
-            Initials of the user
 
         last_name : typing.Optional[str]
-            Last name of the user
+
+        password : typing.Optional[str]
 
         phone : typing.Optional[str]
-            Phone number of the user
-
-        username : typing.Optional[str]
-            Username of the user
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -487,13 +610,14 @@ class RawUsersClient:
             "api/users/",
             method="POST",
             json={
+                "active_organization": active_organization,
                 "allow_newsletters": allow_newsletters,
-                "avatar": avatar,
+                "custom_hotkeys": custom_hotkeys,
+                "date_joined": date_joined,
                 "email": email,
                 "first_name": first_name,
-                "id": id,
-                "initials": initials,
                 "last_name": last_name,
+                "password": password,
                 "phone": phone,
                 "username": username,
             },
@@ -602,13 +726,16 @@ class RawUsersClient:
         self,
         id: int,
         *,
+        active_organization: typing.Optional[int] = OMIT,
         allow_newsletters: typing.Optional[bool] = OMIT,
-        avatar: typing.Optional[str] = OMIT,
-        email: typing.Optional[str] = OMIT,
+        custom_hotkeys: typing.Optional[typing.Any] = OMIT,
+        date_joined: typing.Optional[dt.datetime] = OMIT,
+        email_notification_settings: typing.Optional[typing.Any] = OMIT,
         first_name: typing.Optional[str] = OMIT,
-        request_user_id: typing.Optional[int] = OMIT,
-        initials: typing.Optional[str] = OMIT,
+        is_email_verified: typing.Optional[bool] = OMIT,
         last_name: typing.Optional[str] = OMIT,
+        onboarding_state: typing.Optional[str] = OMIT,
+        password: typing.Optional[str] = OMIT,
         phone: typing.Optional[str] = OMIT,
         username: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -623,32 +750,31 @@ class RawUsersClient:
         id : int
             User ID
 
+        active_organization : typing.Optional[int]
+
         allow_newsletters : typing.Optional[bool]
-            Whether the user allows newsletters
+            Allow sending newsletters to user
 
-        avatar : typing.Optional[str]
-            Avatar URL of the user
+        custom_hotkeys : typing.Optional[typing.Any]
+            Custom keyboard shortcuts configuration for the user interface
 
-        email : typing.Optional[str]
-            Email of the user
+        date_joined : typing.Optional[dt.datetime]
+
+        email_notification_settings : typing.Optional[typing.Any]
 
         first_name : typing.Optional[str]
-            First name of the user
 
-        request_user_id : typing.Optional[int]
-            User ID
-
-        initials : typing.Optional[str]
-            Initials of the user
+        is_email_verified : typing.Optional[bool]
 
         last_name : typing.Optional[str]
-            Last name of the user
+
+        onboarding_state : typing.Optional[str]
+
+        password : typing.Optional[str]
 
         phone : typing.Optional[str]
-            Phone number of the user
 
         username : typing.Optional[str]
-            Username of the user
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -662,13 +788,16 @@ class RawUsersClient:
             f"api/users/{encode_path_param(id)}/",
             method="PATCH",
             json={
+                "active_organization": active_organization,
                 "allow_newsletters": allow_newsletters,
-                "avatar": avatar,
-                "email": email,
+                "custom_hotkeys": custom_hotkeys,
+                "date_joined": date_joined,
+                "email_notification_settings": email_notification_settings,
                 "first_name": first_name,
-                "id": request_user_id,
-                "initials": initials,
+                "is_email_verified": is_email_verified,
                 "last_name": last_name,
+                "onboarding_state": onboarding_state,
+                "password": password,
                 "phone": phone,
                 "username": username,
             },
@@ -827,9 +956,6 @@ class AsyncRawUsersClient:
                 "phone": phone,
                 "username": username,
             },
-            headers={
-                "content-type": "application/json",
-            },
             request_options=request_options,
             omit=OMIT,
         )
@@ -853,13 +979,16 @@ class AsyncRawUsersClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def get_hotkeys(
-        self, *, request_options: typing.Optional[RequestOptions] = None
+        self, *, project: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[Hotkeys]:
         """
-        Retrieve the custom hotkeys configuration for the current user.
+        Retrieve the current user’s account hotkeys, or their stored personal override for the optional project scope.
 
         Parameters
         ----------
+        project : typing.Optional[int]
+            Project ID for a personal project-specific hotkey override. Omit for account defaults.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -871,6 +1000,9 @@ class AsyncRawUsersClient:
         _response = await self._client_wrapper.httpx_client.request(
             "api/current-user/hotkeys/",
             method="GET",
+            params={
+                "project": project,
+            },
             request_options=request_options,
         )
         try:
@@ -883,6 +1015,61 @@ class AsyncRawUsersClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -895,14 +1082,18 @@ class AsyncRawUsersClient:
     async def update_hotkeys(
         self,
         *,
+        project: typing.Optional[int] = None,
         custom_hotkeys: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Hotkeys]:
         """
-        Update the custom hotkeys configuration for the current user.
+        Update the current user’s account hotkeys, or their personal override for the optional project scope.
 
         Parameters
         ----------
+        project : typing.Optional[int]
+            Project ID for a personal project-specific hotkey override. Omit for account defaults.
+
         custom_hotkeys : typing.Optional[typing.Dict[str, typing.Any]]
 
         request_options : typing.Optional[RequestOptions]
@@ -916,6 +1107,9 @@ class AsyncRawUsersClient:
         _response = await self._client_wrapper.httpx_client.request(
             "api/current-user/hotkeys/",
             method="PATCH",
+            params={
+                "project": project,
+            },
             json={
                 "custom_hotkeys": custom_hotkeys,
             },
@@ -935,6 +1129,61 @@ class AsyncRawUsersClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -1111,15 +1360,16 @@ class AsyncRawUsersClient:
     async def create(
         self,
         *,
+        username: str,
+        active_organization: typing.Optional[int] = OMIT,
         allow_newsletters: typing.Optional[bool] = OMIT,
-        avatar: typing.Optional[str] = OMIT,
+        custom_hotkeys: typing.Optional[typing.Any] = OMIT,
+        date_joined: typing.Optional[dt.datetime] = OMIT,
         email: typing.Optional[str] = OMIT,
         first_name: typing.Optional[str] = OMIT,
-        id: typing.Optional[int] = OMIT,
-        initials: typing.Optional[str] = OMIT,
         last_name: typing.Optional[str] = OMIT,
+        password: typing.Optional[str] = OMIT,
         phone: typing.Optional[str] = OMIT,
-        username: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[LseUser]:
         """
@@ -1127,32 +1377,27 @@ class AsyncRawUsersClient:
 
         Parameters
         ----------
-        allow_newsletters : typing.Optional[bool]
-            Whether the user allows newsletters
+        username : str
 
-        avatar : typing.Optional[str]
-            Avatar URL of the user
+        active_organization : typing.Optional[int]
+
+        allow_newsletters : typing.Optional[bool]
+            Allow sending newsletters to user
+
+        custom_hotkeys : typing.Optional[typing.Any]
+            Custom keyboard shortcuts configuration for the user interface
+
+        date_joined : typing.Optional[dt.datetime]
 
         email : typing.Optional[str]
-            Email of the user
 
         first_name : typing.Optional[str]
-            First name of the user
-
-        id : typing.Optional[int]
-            User ID
-
-        initials : typing.Optional[str]
-            Initials of the user
 
         last_name : typing.Optional[str]
-            Last name of the user
+
+        password : typing.Optional[str]
 
         phone : typing.Optional[str]
-            Phone number of the user
-
-        username : typing.Optional[str]
-            Username of the user
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1166,13 +1411,14 @@ class AsyncRawUsersClient:
             "api/users/",
             method="POST",
             json={
+                "active_organization": active_organization,
                 "allow_newsletters": allow_newsletters,
-                "avatar": avatar,
+                "custom_hotkeys": custom_hotkeys,
+                "date_joined": date_joined,
                 "email": email,
                 "first_name": first_name,
-                "id": id,
-                "initials": initials,
                 "last_name": last_name,
+                "password": password,
                 "phone": phone,
                 "username": username,
             },
@@ -1285,13 +1531,16 @@ class AsyncRawUsersClient:
         self,
         id: int,
         *,
+        active_organization: typing.Optional[int] = OMIT,
         allow_newsletters: typing.Optional[bool] = OMIT,
-        avatar: typing.Optional[str] = OMIT,
-        email: typing.Optional[str] = OMIT,
+        custom_hotkeys: typing.Optional[typing.Any] = OMIT,
+        date_joined: typing.Optional[dt.datetime] = OMIT,
+        email_notification_settings: typing.Optional[typing.Any] = OMIT,
         first_name: typing.Optional[str] = OMIT,
-        request_user_id: typing.Optional[int] = OMIT,
-        initials: typing.Optional[str] = OMIT,
+        is_email_verified: typing.Optional[bool] = OMIT,
         last_name: typing.Optional[str] = OMIT,
+        onboarding_state: typing.Optional[str] = OMIT,
+        password: typing.Optional[str] = OMIT,
         phone: typing.Optional[str] = OMIT,
         username: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -1306,32 +1555,31 @@ class AsyncRawUsersClient:
         id : int
             User ID
 
+        active_organization : typing.Optional[int]
+
         allow_newsletters : typing.Optional[bool]
-            Whether the user allows newsletters
+            Allow sending newsletters to user
 
-        avatar : typing.Optional[str]
-            Avatar URL of the user
+        custom_hotkeys : typing.Optional[typing.Any]
+            Custom keyboard shortcuts configuration for the user interface
 
-        email : typing.Optional[str]
-            Email of the user
+        date_joined : typing.Optional[dt.datetime]
+
+        email_notification_settings : typing.Optional[typing.Any]
 
         first_name : typing.Optional[str]
-            First name of the user
 
-        request_user_id : typing.Optional[int]
-            User ID
-
-        initials : typing.Optional[str]
-            Initials of the user
+        is_email_verified : typing.Optional[bool]
 
         last_name : typing.Optional[str]
-            Last name of the user
+
+        onboarding_state : typing.Optional[str]
+
+        password : typing.Optional[str]
 
         phone : typing.Optional[str]
-            Phone number of the user
 
         username : typing.Optional[str]
-            Username of the user
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1345,13 +1593,16 @@ class AsyncRawUsersClient:
             f"api/users/{encode_path_param(id)}/",
             method="PATCH",
             json={
+                "active_organization": active_organization,
                 "allow_newsletters": allow_newsletters,
-                "avatar": avatar,
-                "email": email,
+                "custom_hotkeys": custom_hotkeys,
+                "date_joined": date_joined,
+                "email_notification_settings": email_notification_settings,
                 "first_name": first_name,
-                "id": request_user_id,
-                "initials": initials,
+                "is_email_verified": is_email_verified,
                 "last_name": last_name,
+                "onboarding_state": onboarding_state,
+                "password": password,
                 "phone": phone,
                 "username": username,
             },

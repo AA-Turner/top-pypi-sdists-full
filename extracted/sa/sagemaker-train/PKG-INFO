@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sagemaker-train
-Version: 1.18.0
+Version: 1.19.0
 Summary: Open source library for training and deploying models on Amazon SageMaker.
 Author: Amazon Web Services
 Project-URL: Homepage, https://github.com/aws/sagemaker-python-sdk
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: sagemaker-core>=2.18.0
+Requires-Dist: sagemaker-core>=2.19.0
 Requires-Dist: graphene<4,>=3
 Requires-Dist: typing_extensions>=4.9.0
 Requires-Dist: tblib>=1.7.0
@@ -46,6 +46,7 @@ Provides-Extra: notebook
 Requires-Dist: ipywidgets>=8.0.0; extra == "notebook"
 Requires-Dist: rich>=13.0.0; extra == "notebook"
 Requires-Dist: matplotlib>=3.5.0; extra == "notebook"
+Requires-Dist: pandas; extra == "notebook"
 Dynamic: license-file
 
 .. image:: https://github.com/aws/sagemaker-python-sdk/raw/master/branding/icon/sagemaker-banner.png

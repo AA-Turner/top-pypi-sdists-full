@@ -13,7 +13,10 @@ from contextvars import ContextVar
 from types import TracebackType
 from typing import Any, ClassVar, TypeVar, cast, overload
 
-from .functional import DependencyFactory, _FunctionalDependency
+from .functional import (
+    DependencyFactory,
+    _FunctionalDependency,  # pyright: ignore[reportPrivateUsage]
+)
 from .introspection import get_dependency_parameters
 
 R = TypeVar("R")
@@ -52,7 +55,9 @@ class _Shared(_FunctionalDependency[R]):
         parameters = get_dependency_parameters(self.factory)
 
         for parameter, dependency in parameters.items():
-            arguments[parameter] = await stack.enter_async_context(dependency)
+            arguments[parameter] = await stack.enter_async_context(
+                dependency.for_parameter(parameter)
+            )
 
         return arguments
 

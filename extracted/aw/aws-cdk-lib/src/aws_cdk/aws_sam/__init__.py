@@ -13145,7 +13145,7 @@ class CfnStateMachineProps:
                 definition_uri="definitionUri",
                 events={
                     "events_key": sam.CfnStateMachine.EventSourceProperty(
-                        properties=sam.CfnStateMachine.ScheduleEventProperty(
+                        properties=sam.CfnStateMachine.ApiEventProperty(
                             method="method",
                             path="path",
             

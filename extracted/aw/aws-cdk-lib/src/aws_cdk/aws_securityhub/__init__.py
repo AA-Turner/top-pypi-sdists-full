@@ -6428,6 +6428,729 @@ class CfnConfigurationPolicyProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_securityhub_cd2f4c4f.IConnectorRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnConnector(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_securityhub.CfnConnector",
+):
+    '''Creates a connector to a third-party cloud provider in Security Hub CSPM.
+
+    A connector establishes a connection between Security Hub CSPM and a third-party cloud provider, enabling Security Hub CSPM to ingest security findings and resource data from the connected environment.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-connector.html
+    :cloudformationResource: AWS::SecurityHub::Connector
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_securityhub as securityhub
+        
+        cfn_connector = securityhub.CfnConnector(self, "MyCfnConnector",
+            name="name",
+            provider=securityhub.CfnConnector.ProviderProperty(
+                azure=securityhub.CfnConnector.AzureProviderConfigurationProperty(
+                    aws_config_connector_arn="awsConfigConnectorArn",
+                    azure_regions=["azureRegions"],
+                    scope_configuration=securityhub.CfnConnector.AzureScopeConfigurationProperty(
+                        scope_type="scopeType",
+        
+                        # the properties below are optional
+                        scope_values=["scopeValues"]
+                    )
+                )
+            ),
+        
+            # the properties below are optional
+            description="description",
+            tags={
+                "tags_key": "tags"
+            }
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        provider: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.ProviderProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Create a new ``AWS::SecurityHub::Connector``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the connector.
+        :param provider: 
+        :param description: The description of the connector.
+        :param tags: A key-value pair to associate with a resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f8eefa8f13ba18debb05f9ab439a42b7dafcdf0d3d67f33607a63fc4f04798e8)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnConnectorProps(
+            name=name, provider=provider, description=description, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForConnector")
+    @builtins.classmethod
+    def arn_for_connector(
+        cls,
+        resource: "_aws_securityhub_cd2f4c4f.IConnectorRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3bbbe1676e3f13f02f982ef19ecef62a17dc8c3bf38c65f8c90aac6e4a218f11)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConnector", [resource]))
+
+    @jsii.member(jsii_name="isCfnConnector")
+    @builtins.classmethod
+    def is_cfn_connector(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnConnector.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bb47b07e065cefdd04c3ab95d5db4c69db4ec5d598f855574ed7c13e8f9b2f2b)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConnector", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__369747ad19d56bb847d81b440147950766ac2b212577f87c016de838bdd09719)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c9bf8b8bfb154567cae23aa15f275c4e086f78eb9c61c0eba6274b66b3a05ad8)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrConnectorArn")
+    def attr_connector_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: ConnectorArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrConnectorArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrConnectorId")
+    def attr_connector_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: ConnectorId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrConnectorId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrConnectorStatus")
+    def attr_connector_status(self) -> builtins.str:
+        '''The status of the connector.
+
+        :cloudformationAttribute: ConnectorStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrConnectorStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp formatted in ISO8601.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedBy")
+    def attr_created_by(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: CreatedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEnablementStatus")
+    def attr_enablement_status(self) -> builtins.str:
+        '''The enablement status of the connector.
+
+        :cloudformationAttribute: EnablementStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEnablementStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIssues")
+    def attr_issues(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''
+        :cloudformationAttribute: Issues
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrIssues"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastCheckedAt")
+    def attr_last_checked_at(self) -> builtins.str:
+        '''The timestamp formatted in ISO8601.
+
+        :cloudformationAttribute: LastCheckedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastCheckedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedAt")
+    def attr_last_updated_at(self) -> builtins.str:
+        '''The timestamp formatted in ISO8601.
+
+        :cloudformationAttribute: LastUpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMessage")
+    def attr_message(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Message
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrMessage"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorRef")
+    def connector_ref(self) -> "_aws_securityhub_cd2f4c4f.ConnectorReference":
+        '''A reference to a Connector resource.'''
+        return typing.cast("_aws_securityhub_cd2f4c4f.ConnectorReference", jsii.get(self, "connectorRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the connector.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d581f70710430ab0e0dabda26dbeef5e04a360ef9242f9e3efb670b7ba3860f2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="provider")
+    def provider(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.ProviderProperty"]:
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.ProviderProperty"], jsii.get(self, "provider"))
+
+    @provider.setter
+    def provider(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.ProviderProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__88bbc128624de20b8407eca09dd38a9629b99861b2f08d2c2d2550a0184414ae)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "provider", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the connector.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__50cfbd6de1fe5d56b0ba238704e4cdd87c3e615526a7a4537c224a084f8db98e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''A key-value pair to associate with a resource.'''
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__18b1e19fa361a5de7fb876351edb17936eadeffe3adbe7e6894e24c3999ef255)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnConnector.AzureProviderConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "aws_config_connector_arn": "awsConfigConnectorArn",
+            "azure_regions": "azureRegions",
+            "scope_configuration": "scopeConfiguration",
+        },
+    )
+    class AzureProviderConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            aws_config_connector_arn: builtins.str,
+            azure_regions: typing.Sequence[builtins.str],
+            scope_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.AzureScopeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The configuration for connecting to an Azure environment.
+
+            :param aws_config_connector_arn: The ARN of the multi-cloud configuration connector used to establish the connection to Azure.
+            :param azure_regions: The list of Azure regions to monitor.
+            :param scope_configuration: The scope configuration for an Azure connector, defining the tenant or subscription scope.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connector-azureproviderconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                azure_provider_configuration_property = securityhub.CfnConnector.AzureProviderConfigurationProperty(
+                    aws_config_connector_arn="awsConfigConnectorArn",
+                    azure_regions=["azureRegions"],
+                    scope_configuration=securityhub.CfnConnector.AzureScopeConfigurationProperty(
+                        scope_type="scopeType",
+                
+                        # the properties below are optional
+                        scope_values=["scopeValues"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__7ccac5d842a8f3bcb9c57305820f38ceb66b9cdbcdde5b4d9914e1e3ec468247)
+                check_type(argname="argument aws_config_connector_arn", value=aws_config_connector_arn, expected_type=type_hints["aws_config_connector_arn"])
+                check_type(argname="argument azure_regions", value=azure_regions, expected_type=type_hints["azure_regions"])
+                check_type(argname="argument scope_configuration", value=scope_configuration, expected_type=type_hints["scope_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "aws_config_connector_arn": aws_config_connector_arn,
+                "azure_regions": azure_regions,
+                "scope_configuration": scope_configuration,
+            }
+
+        @builtins.property
+        def aws_config_connector_arn(self) -> builtins.str:
+            '''The ARN of the multi-cloud configuration connector used to establish the connection to Azure.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connector-azureproviderconfiguration.html#cfn-securityhub-connector-azureproviderconfiguration-awsconfigconnectorarn
+            '''
+            result = self._values.get("aws_config_connector_arn")
+            assert result is not None, "Required property 'aws_config_connector_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def azure_regions(self) -> typing.List[builtins.str]:
+            '''The list of Azure regions to monitor.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connector-azureproviderconfiguration.html#cfn-securityhub-connector-azureproviderconfiguration-azureregions
+            '''
+            result = self._values.get("azure_regions")
+            assert result is not None, "Required property 'azure_regions' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def scope_configuration(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.AzureScopeConfigurationProperty"]:
+            '''The scope configuration for an Azure connector, defining the tenant or subscription scope.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connector-azureproviderconfiguration.html#cfn-securityhub-connector-azureproviderconfiguration-scopeconfiguration
+            '''
+            result = self._values.get("scope_configuration")
+            assert result is not None, "Required property 'scope_configuration' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.AzureScopeConfigurationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AzureProviderConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnConnector.AzureScopeConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"scope_type": "scopeType", "scope_values": "scopeValues"},
+    )
+    class AzureScopeConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            scope_type: builtins.str,
+            scope_values: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''The scope configuration for an Azure connector, defining the tenant or subscription scope.
+
+            :param scope_type: The type of scope. Valid values are ``tenant`` and ``subscription``.
+            :param scope_values: The list of scope values, such as subscription IDs, when the scope type is ``subscription``.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connector-azurescopeconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                azure_scope_configuration_property = securityhub.CfnConnector.AzureScopeConfigurationProperty(
+                    scope_type="scopeType",
+                
+                    # the properties below are optional
+                    scope_values=["scopeValues"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3aea7bbc36e51418cfb16bf4df4e4ce5c72caf9360d2fd71faec255a876db5fa)
+                check_type(argname="argument scope_type", value=scope_type, expected_type=type_hints["scope_type"])
+                check_type(argname="argument scope_values", value=scope_values, expected_type=type_hints["scope_values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "scope_type": scope_type,
+            }
+            if scope_values is not None:
+                self._values["scope_values"] = scope_values
+
+        @builtins.property
+        def scope_type(self) -> builtins.str:
+            '''The type of scope.
+
+            Valid values are ``tenant`` and ``subscription``.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connector-azurescopeconfiguration.html#cfn-securityhub-connector-azurescopeconfiguration-scopetype
+            '''
+            result = self._values.get("scope_type")
+            assert result is not None, "Required property 'scope_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def scope_values(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The list of scope values, such as subscription IDs, when the scope type is ``subscription``.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connector-azurescopeconfiguration.html#cfn-securityhub-connector-azurescopeconfiguration-scopevalues
+            '''
+            result = self._values.get("scope_values")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AzureScopeConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnConnector.HealthIssueProperty",
+        jsii_struct_bases=[],
+        name_mapping={"code": "code", "message": "message"},
+    )
+    class HealthIssueProperty:
+        def __init__(self, *, code: builtins.str, message: builtins.str) -> None:
+            '''Represents a specific health issue detected for a connector.
+
+            :param code: The code identifying the type of health issue.
+            :param message: A human-readable message that describes the health issue.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connector-healthissue.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                health_issue_property = securityhub.CfnConnector.HealthIssueProperty(
+                    code="code",
+                    message="message"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__4a96d0fadb0043f004fa1944253bb3995c5d347c39c005f210adea0302fa7764)
+                check_type(argname="argument code", value=code, expected_type=type_hints["code"])
+                check_type(argname="argument message", value=message, expected_type=type_hints["message"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "code": code,
+                "message": message,
+            }
+
+        @builtins.property
+        def code(self) -> builtins.str:
+            '''The code identifying the type of health issue.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connector-healthissue.html#cfn-securityhub-connector-healthissue-code
+            '''
+            result = self._values.get("code")
+            assert result is not None, "Required property 'code' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def message(self) -> builtins.str:
+            '''A human-readable message that describes the health issue.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connector-healthissue.html#cfn-securityhub-connector-healthissue-message
+            '''
+            result = self._values.get("message")
+            assert result is not None, "Required property 'message' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HealthIssueProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnConnector.ProviderProperty",
+        jsii_struct_bases=[],
+        name_mapping={"azure": "azure"},
+    )
+    class ProviderProperty:
+        def __init__(
+            self,
+            *,
+            azure: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.AzureProviderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The CSPM provider configuration for the connector.
+
+            :param azure: The configuration for connecting to an Azure environment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connector-provider.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                provider_property = securityhub.CfnConnector.ProviderProperty(
+                    azure=securityhub.CfnConnector.AzureProviderConfigurationProperty(
+                        aws_config_connector_arn="awsConfigConnectorArn",
+                        azure_regions=["azureRegions"],
+                        scope_configuration=securityhub.CfnConnector.AzureScopeConfigurationProperty(
+                            scope_type="scopeType",
+                
+                            # the properties below are optional
+                            scope_values=["scopeValues"]
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3a601f77414e9fd920d4efa40895ec8960b5ccb3315d5ab44da873a3aea6e854)
+                check_type(argname="argument azure", value=azure, expected_type=type_hints["azure"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "azure": azure,
+            }
+
+        @builtins.property
+        def azure(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.AzureProviderConfigurationProperty"]:
+            '''The configuration for connecting to an Azure environment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connector-provider.html#cfn-securityhub-connector-provider-azure
+            '''
+            result = self._values.get("azure")
+            assert result is not None, "Required property 'azure' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.AzureProviderConfigurationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProviderProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityhub.CfnConnectorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "provider": "provider",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnConnectorProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        provider: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnector.ProviderProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnConnector``.
+
+        :param name: The name of the connector.
+        :param provider: 
+        :param description: The description of the connector.
+        :param tags: A key-value pair to associate with a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-connector.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityhub as securityhub
+            
+            cfn_connector_props = securityhub.CfnConnectorProps(
+                name="name",
+                provider=securityhub.CfnConnector.ProviderProperty(
+                    azure=securityhub.CfnConnector.AzureProviderConfigurationProperty(
+                        aws_config_connector_arn="awsConfigConnectorArn",
+                        azure_regions=["azureRegions"],
+                        scope_configuration=securityhub.CfnConnector.AzureScopeConfigurationProperty(
+                            scope_type="scopeType",
+            
+                            # the properties below are optional
+                            scope_values=["scopeValues"]
+                        )
+                    )
+                ),
+            
+                # the properties below are optional
+                description="description",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__842c2fc4bdc1bbd39f24065eb6814cf9fae7c2c4f1e68824b09a724cb3f1186c)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "provider": provider,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-connector.html#cfn-securityhub-connector-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def provider(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.ProviderProperty"]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-connector.html#cfn-securityhub-connector-provider
+        '''
+        result = self._values.get("provider")
+        assert result is not None, "Required property 'provider' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnector.ProviderProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-connector.html#cfn-securityhub-connector-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''A key-value pair to associate with a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityhub-connector.html#cfn-securityhub-connector-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConnectorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_securityhub_cd2f4c4f.IConnectorV2Ref, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnConnectorV2(
     _aws_cdk_0cae9daa.CfnResource,
@@ -6449,6 +7172,16 @@ class CfnConnectorV2(
         cfn_connector_v2 = securityhub.CfnConnectorV2(self, "MyCfnConnectorV2",
             name="name",
             provider=securityhub.CfnConnectorV2.ProviderProperty(
+                azure=securityhub.CfnConnectorV2.AzureProviderConfigurationProperty(
+                    aws_config_connector_arn="awsConfigConnectorArn",
+                    azure_regions=["azureRegions"],
+                    scope_configuration=securityhub.CfnConnectorV2.AzureScopeConfigurationProperty(
+                        scope_type="scopeType",
+        
+                        # the properties below are optional
+                        scope_values=["scopeValues"]
+                    )
+                ),
                 jira_cloud=securityhub.CfnConnectorV2.JiraCloudProviderConfigurationProperty(
                     project_key="projectKey"
                 ),
@@ -6581,6 +7314,33 @@ class CfnConnectorV2(
         return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrEnablementStatus")
+    def attr_enablement_status(self) -> builtins.str:
+        '''The enablement status of the connector.
+
+        :cloudformationAttribute: EnablementStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEnablementStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEnablementStatusReason")
+    def attr_enablement_status_reason(self) -> builtins.str:
+        '''The reason for the enablement status of the connector.
+
+        :cloudformationAttribute: EnablementStatusReason
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEnablementStatusReason"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIssues")
+    def attr_issues(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The list of health issues associated with the connector.
+
+        :cloudformationAttribute: Issues
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrIssues"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrLastCheckedAt")
     def attr_last_checked_at(self) -> builtins.str:
         '''The most recent timestamp when the V2 connector was checked on health status.
@@ -6703,6 +7463,242 @@ class CfnConnectorV2(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnConnectorV2.AzureProviderConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "aws_config_connector_arn": "awsConfigConnectorArn",
+            "azure_regions": "azureRegions",
+            "scope_configuration": "scopeConfiguration",
+        },
+    )
+    class AzureProviderConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            aws_config_connector_arn: builtins.str,
+            azure_regions: typing.Sequence[builtins.str],
+            scope_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorV2.AzureScopeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The configuration settings required to establish an integration between AWS Security Hub and Azure.
+
+            :param aws_config_connector_arn: The ARN of the AWS Config connector used for the Azure integration.
+            :param azure_regions: The list of Azure regions to include in the connector scope.
+            :param scope_configuration: The scope configuration for an Azure connector.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connectorv2-azureproviderconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                azure_provider_configuration_property = securityhub.CfnConnectorV2.AzureProviderConfigurationProperty(
+                    aws_config_connector_arn="awsConfigConnectorArn",
+                    azure_regions=["azureRegions"],
+                    scope_configuration=securityhub.CfnConnectorV2.AzureScopeConfigurationProperty(
+                        scope_type="scopeType",
+                
+                        # the properties below are optional
+                        scope_values=["scopeValues"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__8f891300e7db871a81d9b6bf443063773050b359b8797f9c78dbbf11cc9cf2b4)
+                check_type(argname="argument aws_config_connector_arn", value=aws_config_connector_arn, expected_type=type_hints["aws_config_connector_arn"])
+                check_type(argname="argument azure_regions", value=azure_regions, expected_type=type_hints["azure_regions"])
+                check_type(argname="argument scope_configuration", value=scope_configuration, expected_type=type_hints["scope_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "aws_config_connector_arn": aws_config_connector_arn,
+                "azure_regions": azure_regions,
+                "scope_configuration": scope_configuration,
+            }
+
+        @builtins.property
+        def aws_config_connector_arn(self) -> builtins.str:
+            '''The ARN of the AWS Config connector used for the Azure integration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connectorv2-azureproviderconfiguration.html#cfn-securityhub-connectorv2-azureproviderconfiguration-awsconfigconnectorarn
+            '''
+            result = self._values.get("aws_config_connector_arn")
+            assert result is not None, "Required property 'aws_config_connector_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def azure_regions(self) -> typing.List[builtins.str]:
+            '''The list of Azure regions to include in the connector scope.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connectorv2-azureproviderconfiguration.html#cfn-securityhub-connectorv2-azureproviderconfiguration-azureregions
+            '''
+            result = self._values.get("azure_regions")
+            assert result is not None, "Required property 'azure_regions' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def scope_configuration(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorV2.AzureScopeConfigurationProperty"]:
+            '''The scope configuration for an Azure connector.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connectorv2-azureproviderconfiguration.html#cfn-securityhub-connectorv2-azureproviderconfiguration-scopeconfiguration
+            '''
+            result = self._values.get("scope_configuration")
+            assert result is not None, "Required property 'scope_configuration' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorV2.AzureScopeConfigurationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AzureProviderConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnConnectorV2.AzureScopeConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"scope_type": "scopeType", "scope_values": "scopeValues"},
+    )
+    class AzureScopeConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            scope_type: builtins.str,
+            scope_values: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''The scope configuration for an Azure connector.
+
+            :param scope_type: The scope type for the Azure connector.
+            :param scope_values: The list of scope values for the Azure connector.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connectorv2-azurescopeconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                azure_scope_configuration_property = securityhub.CfnConnectorV2.AzureScopeConfigurationProperty(
+                    scope_type="scopeType",
+                
+                    # the properties below are optional
+                    scope_values=["scopeValues"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__930d39e44802fda6bae322ccb97bb23a2a9b58b8ba2f42c27313c7f247e180ab)
+                check_type(argname="argument scope_type", value=scope_type, expected_type=type_hints["scope_type"])
+                check_type(argname="argument scope_values", value=scope_values, expected_type=type_hints["scope_values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "scope_type": scope_type,
+            }
+            if scope_values is not None:
+                self._values["scope_values"] = scope_values
+
+        @builtins.property
+        def scope_type(self) -> builtins.str:
+            '''The scope type for the Azure connector.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connectorv2-azurescopeconfiguration.html#cfn-securityhub-connectorv2-azurescopeconfiguration-scopetype
+            '''
+            result = self._values.get("scope_type")
+            assert result is not None, "Required property 'scope_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def scope_values(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The list of scope values for the Azure connector.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connectorv2-azurescopeconfiguration.html#cfn-securityhub-connectorv2-azurescopeconfiguration-scopevalues
+            '''
+            result = self._values.get("scope_values")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AzureScopeConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityhub.CfnConnectorV2.HealthIssueProperty",
+        jsii_struct_bases=[],
+        name_mapping={"code": "code", "message": "message"},
+    )
+    class HealthIssueProperty:
+        def __init__(self, *, code: builtins.str, message: builtins.str) -> None:
+            '''A health issue associated with the connector.
+
+            :param code: The code identifying the type of health issue.
+            :param message: The message describing the health issue.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connectorv2-healthissue.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityhub as securityhub
+                
+                health_issue_property = securityhub.CfnConnectorV2.HealthIssueProperty(
+                    code="code",
+                    message="message"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__31f819e10a5ce746a2e1a5bc13fbc7a0c72b798461e7373f55da15eee1650782)
+                check_type(argname="argument code", value=code, expected_type=type_hints["code"])
+                check_type(argname="argument message", value=message, expected_type=type_hints["message"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "code": code,
+                "message": message,
+            }
+
+        @builtins.property
+        def code(self) -> builtins.str:
+            '''The code identifying the type of health issue.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connectorv2-healthissue.html#cfn-securityhub-connectorv2-healthissue-code
+            '''
+            result = self._values.get("code")
+            assert result is not None, "Required property 'code' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def message(self) -> builtins.str:
+            '''The message describing the health issue.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connectorv2-healthissue.html#cfn-securityhub-connectorv2-healthissue-message
+            '''
+            result = self._values.get("message")
+            assert result is not None, "Required property 'message' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HealthIssueProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_securityhub.CfnConnectorV2.JiraCloudProviderConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"project_key": "projectKey"},
@@ -6757,17 +7753,23 @@ class CfnConnectorV2(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_securityhub.CfnConnectorV2.ProviderProperty",
         jsii_struct_bases=[],
-        name_mapping={"jira_cloud": "jiraCloud", "service_now": "serviceNow"},
+        name_mapping={
+            "azure": "azure",
+            "jira_cloud": "jiraCloud",
+            "service_now": "serviceNow",
+        },
     )
     class ProviderProperty:
         def __init__(
             self,
             *,
+            azure: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorV2.AzureProviderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             jira_cloud: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorV2.JiraCloudProviderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             service_now: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConnectorV2.ServiceNowProviderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The third-party provider detail for a service configuration.
 
+            :param azure: The configuration settings required to establish an integration between AWS Security Hub and Azure.
             :param jira_cloud: Details about a Jira Cloud integration.
             :param service_now: Details about a ServiceNow ITSM integration.
 
@@ -6781,6 +7783,16 @@ class CfnConnectorV2(
                 from aws_cdk import aws_securityhub as securityhub
                 
                 provider_property = securityhub.CfnConnectorV2.ProviderProperty(
+                    azure=securityhub.CfnConnectorV2.AzureProviderConfigurationProperty(
+                        aws_config_connector_arn="awsConfigConnectorArn",
+                        azure_regions=["azureRegions"],
+                        scope_configuration=securityhub.CfnConnectorV2.AzureScopeConfigurationProperty(
+                            scope_type="scopeType",
+                
+                            # the properties below are optional
+                            scope_values=["scopeValues"]
+                        )
+                    ),
                     jira_cloud=securityhub.CfnConnectorV2.JiraCloudProviderConfigurationProperty(
                         project_key="projectKey"
                     ),
@@ -6792,13 +7804,27 @@ class CfnConnectorV2(
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__385615b63cd2c77c5b846bc27e032e61da566cc349ee44e0c13fe7ff15cebefb)
+                check_type(argname="argument azure", value=azure, expected_type=type_hints["azure"])
                 check_type(argname="argument jira_cloud", value=jira_cloud, expected_type=type_hints["jira_cloud"])
                 check_type(argname="argument service_now", value=service_now, expected_type=type_hints["service_now"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if azure is not None:
+                self._values["azure"] = azure
             if jira_cloud is not None:
                 self._values["jira_cloud"] = jira_cloud
             if service_now is not None:
                 self._values["service_now"] = service_now
+
+        @builtins.property
+        def azure(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorV2.AzureProviderConfigurationProperty"]]:
+            '''The configuration settings required to establish an integration between AWS Security Hub and Azure.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-connectorv2-provider.html#cfn-securityhub-connectorv2-provider-azure
+            '''
+            result = self._values.get("azure")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConnectorV2.AzureProviderConfigurationProperty"]], result)
 
         @builtins.property
         def jira_cloud(
@@ -6946,6 +7972,16 @@ class CfnConnectorV2Props:
             cfn_connector_v2_props = securityhub.CfnConnectorV2Props(
                 name="name",
                 provider=securityhub.CfnConnectorV2.ProviderProperty(
+                    azure=securityhub.CfnConnectorV2.AzureProviderConfigurationProperty(
+                        aws_config_connector_arn="awsConfigConnectorArn",
+                        azure_regions=["azureRegions"],
+                        scope_configuration=securityhub.CfnConnectorV2.AzureScopeConfigurationProperty(
+                            scope_type="scopeType",
+            
+                            # the properties below are optional
+                            scope_values=["scopeValues"]
+                        )
+                    ),
                     jira_cloud=securityhub.CfnConnectorV2.JiraCloudProviderConfigurationProperty(
                         project_key="projectKey"
                     ),
@@ -14008,6 +15044,8 @@ __all__ = [
     "CfnAutomationRuleV2Props",
     "CfnConfigurationPolicy",
     "CfnConfigurationPolicyProps",
+    "CfnConnector",
+    "CfnConnectorProps",
     "CfnConnectorV2",
     "CfnConnectorV2Props",
     "CfnDelegatedAdmin",
@@ -14686,6 +15724,108 @@ def _typecheckingstub__9df36e470a5cb19a48e0918f07ba5c7fe4f2f6e13983d94bef33b262d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f8eefa8f13ba18debb05f9ab439a42b7dafcdf0d3d67f33607a63fc4f04798e8(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    provider: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.ProviderProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3bbbe1676e3f13f02f982ef19ecef62a17dc8c3bf38c65f8c90aac6e4a218f11(
+    resource: _aws_securityhub_cd2f4c4f.IConnectorRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bb47b07e065cefdd04c3ab95d5db4c69db4ec5d598f855574ed7c13e8f9b2f2b(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__369747ad19d56bb847d81b440147950766ac2b212577f87c016de838bdd09719(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c9bf8b8bfb154567cae23aa15f275c4e086f78eb9c61c0eba6274b66b3a05ad8(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d581f70710430ab0e0dabda26dbeef5e04a360ef9242f9e3efb670b7ba3860f2(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__88bbc128624de20b8407eca09dd38a9629b99861b2f08d2c2d2550a0184414ae(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnConnector.ProviderProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__50cfbd6de1fe5d56b0ba238704e4cdd87c3e615526a7a4537c224a084f8db98e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18b1e19fa361a5de7fb876351edb17936eadeffe3adbe7e6894e24c3999ef255(
+    value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ccac5d842a8f3bcb9c57305820f38ceb66b9cdbcdde5b4d9914e1e3ec468247(
+    *,
+    aws_config_connector_arn: builtins.str,
+    azure_regions: typing.Sequence[builtins.str],
+    scope_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.AzureScopeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3aea7bbc36e51418cfb16bf4df4e4ce5c72caf9360d2fd71faec255a876db5fa(
+    *,
+    scope_type: builtins.str,
+    scope_values: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4a96d0fadb0043f004fa1944253bb3995c5d347c39c005f210adea0302fa7764(
+    *,
+    code: builtins.str,
+    message: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a601f77414e9fd920d4efa40895ec8960b5ccb3315d5ab44da873a3aea6e854(
+    *,
+    azure: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.AzureProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__842c2fc4bdc1bbd39f24065eb6814cf9fae7c2c4f1e68824b09a724cb3f1186c(
+    *,
+    name: builtins.str,
+    provider: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnector.ProviderProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0ef6634a11594ce6670b3fa3a22acf7613b48c83a9615d9927bda1afc4564ad4(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -14747,6 +15887,31 @@ def _typecheckingstub__ac72e62418072a31c573c483dc22453150eff1b7712f1df2e3e690c16
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8f891300e7db871a81d9b6bf443063773050b359b8797f9c78dbbf11cc9cf2b4(
+    *,
+    aws_config_connector_arn: builtins.str,
+    azure_regions: typing.Sequence[builtins.str],
+    scope_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorV2.AzureScopeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__930d39e44802fda6bae322ccb97bb23a2a9b58b8ba2f42c27313c7f247e180ab(
+    *,
+    scope_type: builtins.str,
+    scope_values: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__31f819e10a5ce746a2e1a5bc13fbc7a0c72b798461e7373f55da15eee1650782(
+    *,
+    code: builtins.str,
+    message: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5c22a7c2425e51cb0fed34a463120885679d014c72c667f1b8f72cc473552997(
     *,
     project_key: builtins.str,
@@ -14756,6 +15921,7 @@ def _typecheckingstub__5c22a7c2425e51cb0fed34a463120885679d014c72c667f1b8f72cc47
 
 def _typecheckingstub__385615b63cd2c77c5b846bc27e032e61da566cc349ee44e0c13fe7ff15cebefb(
     *,
+    azure: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorV2.AzureProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     jira_cloud: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorV2.JiraCloudProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     service_now: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectorV2.ServiceNowProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

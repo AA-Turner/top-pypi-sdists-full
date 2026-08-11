@@ -27,6 +27,7 @@ from .response import (
     IterableRegisteredAPIsResponse,
     IterableRunLogsResponse,
     IterableRunsResponse,
+    IterableWebInputsResponse,
 )
 
 if sys.version_info >= (3, 11):
@@ -50,6 +51,10 @@ class FlowsClient(client.BaseClient):
     service_name = "flows"
     scopes = FlowsScopes
     default_scope_requirements = [FlowsScopes.all]
+
+    # annotate but do not assign 'resource_server'
+    # because we know that the classproperty of this name will evaluate to a string
+    resource_server: str
 
     def create_flow(
         self,
@@ -812,7 +817,7 @@ class FlowsClient(client.BaseClient):
         Update the metadata of a specific run.
 
         :param run_id: The ID of the run to update
-        :param label: A short human-readable title (1 - 64 chars)
+        :param label: A short human-readable title.
         :param tags: A collection of searchable tags associated with the run.
             Tags are normalized by stripping leading and trailing whitespace,
             and replacing all whitespace with a single space.
@@ -983,6 +988,181 @@ class FlowsClient(client.BaseClient):
             self.get("/registered_apis", query_params=query_params)
         )
 
+    @paging.has_paginator(
+        paging.NullableMarkerPaginator, items_key="web_input_summaries"
+    )
+    def list_web_inputs(
+        self,
+        *,
+        filter_roles: (
+            t.Literal["viewer", "respondent"]
+            | t.Iterable[t.Literal["viewer", "respondent"]]
+            | MissingType
+        ) = MISSING,
+        filter_states: (
+            t.Literal["open", "closed"]
+            | t.Iterable[t.Literal["open", "closed"]]
+            | MissingType
+        ) = MISSING,
+        filter_flow_ids: (
+            t.Iterable[uuid.UUID | str] | uuid.UUID | str | MissingType
+        ) = MISSING,
+        filter_run_ids: (
+            t.Iterable[uuid.UUID | str] | uuid.UUID | str | MissingType
+        ) = MISSING,
+        orderby: str | t.Iterable[str] | MissingType = MISSING,
+        per_page: int | MissingType = MISSING,
+        marker: str | MissingType = MISSING,
+        query_params: dict[str, t.Any] | None = None,
+    ) -> IterableWebInputsResponse:
+        """
+        List web inputs.
+
+        :param filter_roles:
+            Filter web inputs to only include those the user has the given role for.
+        :param filter_states:
+            Filter web inputs to only include those in the given state(s).
+        :param filter_flow_ids:
+            Filter web inputs to only include those associated with the given flow IDs.
+        :param filter_run_ids:
+            Filter web inputs to only include those associated with the given run IDs.
+        :param orderby:
+            A criterion for ordering web inputs in the listing. Known criteria include
+            ``created_timestamp``, ``edited_timestamp``, and ``closed_timestamp``.
+            An optional sort order can be provided (either ``ASC`` or ``DESC``)
+            and must be separated by a space.
+            For example: ``"created_timestamp DESC"``.
+        :param per_page:
+            The number of results to return per page.
+        :param marker:
+            A marker for pagination. Provided by the server on a previous request.
+        :param query_params:
+            Any additional parameters to be passed through as query params.
+
+        .. tab-set::
+
+            .. tab-item:: Example Usage
+
+                .. code-block:: python
+
+                    from globus_sdk import FlowsClient
+
+                    flows = FlowsClient(...)
+                    for web_input in flows.list_web_inputs(filter_states="open"):
+                        print(f"Title: {web_input['title']}")
+                        print(f"Status: {web_input['status']}")
+
+            .. tab-item:: Paginated Usage
+
+                .. paginatedusage:: list_web_inputs
+
+            .. tab-item:: Example Response Data
+
+                .. expandtestfixture:: flows.list_web_inputs
+
+            .. tab-item:: API Info
+
+                .. extdoclink:: List Web Inputs
+                    :service: flows
+                    :ref: Web-Inputs/paths/~1web_inputs/get
+        """
+        query_params = {
+            "filter_roles": commajoin(filter_roles),
+            "filter_states": commajoin(filter_states),
+            "filter_flow_ids": commajoin(filter_flow_ids),
+            "filter_run_ids": commajoin(filter_run_ids),
+            # if `orderby` is an iterable (e.g., generator expression), it gets
+            # converted to a list in this step
+            "orderby": commajoin(orderby),
+            "per_page": per_page,
+            "marker": marker,
+            **(query_params or {}),
+        }
+        return IterableWebInputsResponse(
+            self.get("/web_inputs", query_params=query_params)
+        )
+
+    def get_web_input(
+        self,
+        web_input_id: uuid.UUID | str,
+    ) -> GlobusHTTPResponse:
+        """
+        Get a web input by ID.
+
+        Returns data about the web input if the current user has any role on it
+        (``viewer`` or ``respondent``). If the web input's flow has an associated
+        authentication policy that the caller's session does not satisfy, the
+        service may instead respond with a GARE (Globus Auth Requirements Error)
+        requiring reauthentication.
+
+        :param web_input_id: The ID of the web input to fetch
+
+        .. tab-set::
+
+            .. tab-item:: Example Usage
+
+                .. code-block:: python
+
+                    from globus_sdk import FlowsClient
+
+                    flows = FlowsClient(...)
+                    flows.get_web_input("11111111-2222-3333-4444-555555555555")
+
+            .. tab-item:: Example Response Data
+
+                .. expandtestfixture:: flows.get_web_input
+
+            .. tab-item:: API Info
+
+                .. extdoclink:: Get Web Input
+                    :service: flows
+                    :ref: Web-Inputs/paths/~1web_inputs~1{web_input_id}/get
+        """
+        return self.get(f"/web_inputs/{web_input_id}")
+
+    def respond_to_web_input(
+        self,
+        web_input_id: uuid.UUID | str,
+        value: t.Any,
+    ) -> GlobusHTTPResponse:
+        """
+        Submit a response to a web input.
+
+        The caller must have the ``respondent`` role on the web input.
+
+        If the web input is a ``selection``-type web input,
+        ``value`` must be the ``option_id`` of one of the web input's options.
+
+        :param web_input_id: The ID of the web input to respond to
+        :param value: The response value
+
+        .. tab-set::
+
+            .. tab-item:: Example Usage
+
+                .. code-block:: python
+
+                    from globus_sdk import FlowsClient
+
+                    flows = FlowsClient(...)
+                    flows.respond_to_web_input(
+                        "11111111-2222-3333-4444-555555555555",
+                        value="22222222-3333-4444-5555-666666666666",
+                    )
+
+            .. tab-item:: Example Response Data
+
+                .. expandtestfixture:: flows.respond_to_web_input
+
+            .. tab-item:: API Info
+
+                .. extdoclink:: Respond to Web Input
+                    :service: flows
+                    :ref: Web-Inputs/paths/~1web_inputs~1{web_input_id}~1respond/post
+        """
+        data = {"response": {"value": value}}
+        return self.post(f"/web_inputs/{web_input_id}/respond", data=data)
+
 
 class SpecificFlowClient(client.BaseClient):
     r"""
@@ -1106,7 +1286,7 @@ class SpecificFlowClient(client.BaseClient):
         """
         :param body: The input json object handed to the first flow state. The flows
             service will validate this object against the flow's supplied input schema.
-        :param label: A short human-readable title (1 - 64 chars)
+        :param label: A short human-readable title.
         :param tags: A collection of searchable tags associated with the run. Tags are
             normalized by stripping leading and trailing whitespace, and replacing all
             whitespace with a single space.

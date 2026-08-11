@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: switchbot_api
-Version: 2.12.0
+Version: 2.13.0
 Summary: An asynchronous library to use Switchbot API
 License: MIT
 License-File: LICENSE

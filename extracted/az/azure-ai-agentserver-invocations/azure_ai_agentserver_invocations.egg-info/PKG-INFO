@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: azure-ai-agentserver-invocations
-Version: 1.0.0b8
+Version: 1.0.0
 Summary: Invocations protocol for Azure AI Hosted Agents
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
 Project-URL: repository, https://github.com/Azure/azure-sdk-for-python
 Keywords: azure,azure sdk,agent,agentserver,invocations
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: azure-ai-agentserver-core>=2.0.0b10
+Requires-Dist: azure-ai-agentserver-core>=2.0.0
 Requires-Dist: aiohttp<4.0.0a0,>=3.10.0
 Dynamic: license-file
 
@@ -337,6 +337,7 @@ The handler receives a Starlette [`WebSocket`][starlette-ws] and returns `None`.
 
 | Environment variable | Default | Description |
 |---|---|---|
+| `SSE_KEEPALIVE_INTERVAL` | unset (disabled) | Platform-injected interval, in seconds, for SSE comments on idle `POST /invocations` streams. `0` disables keep-alive. Surfaced on `app.config.sse_keepalive_interval`. |
 | `WS_KEEPALIVE_INTERVAL` | unset (disabled) | Platform-injected WebSocket Ping interval, in seconds. `0` disables keep-alive. Surfaced on `app.config.ws_ping_interval` and wired into Hypercorn's `websocket_ping_interval` by `AgentServerHost`. |
 
 ### Reference: close codes

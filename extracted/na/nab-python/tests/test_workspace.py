@@ -5,6 +5,7 @@ from __future__ import annotations
 import errno
 import logging
 import re
+from collections.abc import Callable
 from contextlib import AbstractContextManager
 from pathlib import Path
 from typing import Any
@@ -297,6 +298,19 @@ class TestReadWorkspaceMembers:
         with pytest.raises(WorkspaceDiscoveryError, match="globs in"):
             read_workspace_members(root)
 
+    def test_member_with_nul_raises(self, tmp_path: Path) -> None:
+        # An embedded NUL is valid TOML, so the parser hands it through.
+        root = _write(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "ws"\nversion = "0"\n'
+            "[tool.nab.workspace]\n"
+            'members = ["pk\\u0000g"]\n',
+        )
+        with pytest.raises(
+            WorkspaceDiscoveryError, match="is not a usable filesystem path"
+        ):
+            read_workspace_members(root)
+
     def test_member_without_pyproject_raises(self, tmp_path: Path) -> None:
         root = _write(
             tmp_path / "pyproject.toml",
@@ -396,6 +410,32 @@ class TestReadWorkspaceMembers:
         )
         with (
             _deny_open(member),
+            pytest.raises(
+                WorkspaceDiscoveryError,
+                match=rf"cannot read {re.escape(str(member))}.*Permission denied",
+            ),
+        ):
+            read_workspace_members(root)
+
+    def test_member_in_unsearchable_directory_raises(
+        self,
+        tmp_path: Path,
+        deny_access: Callable[[Path], AbstractContextManager[None]],
+    ) -> None:
+        # EACCES on the presence check's stat must not escape raw, and the
+        # member is there, so it is not the has-no-pyproject.toml error.
+        root = _write(
+            tmp_path / "pyproject.toml",
+            '[project]\nname = "ws"\nversion = "0"\n'
+            "[tool.nab.workspace]\n"
+            'members = ["pkg"]\n',
+        )
+        member = _write(
+            tmp_path / "pkg" / "pyproject.toml",
+            '[project]\nname = "pkg"\nversion = "0"\n',
+        )
+        with (
+            deny_access(member),
             pytest.raises(
                 WorkspaceDiscoveryError,
                 match=rf"cannot read {re.escape(str(member))}.*Permission denied",

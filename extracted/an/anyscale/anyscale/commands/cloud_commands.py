@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from io import StringIO
 import pathlib
 import re
@@ -45,6 +46,7 @@ from anyscale.commands.list_util import (
     display_list,
     MAX_PAGE_SIZE,
     NON_INTERACTIVE_DEFAULT_MAX_ITEMS,
+    resolve_interactive,
     validate_page_size,
 )
 from anyscale.commands.output_format import (
@@ -52,6 +54,7 @@ from anyscale.commands.output_format import (
     OUTPUT_FLAG_LONG,
     OutputFormat,
     print_output,
+    warn_deprecated_flag,
 )
 from anyscale.commands.setup_k8s import (
     setup_kubernetes_cloud,
@@ -67,7 +70,10 @@ from anyscale.util import (
     validate_non_negative_arg,
 )
 from anyscale.utils.azure_util import disabled_on_azure
-from anyscale.utils.cloud_utils import validate_aws_credentials
+from anyscale.utils.cloud_utils import (
+    placeholder_credential_problems,
+    validate_aws_credentials,
+)
 from anyscale.utils.imports.gcp import (
     try_import_gcp_managed_setup_utils,
     try_import_gcp_utils,
@@ -75,6 +81,10 @@ from anyscale.utils.imports.gcp import (
 
 
 log = BlockLogger()  # CLI Logger
+
+# The providers `cloud register` can route. Narrower than CloudProviders, which
+# also carries CLOUDGATEWAY and PCP.
+_REGISTER_PROVIDERS = ("aws", "gcp", "azure", "generic")
 
 
 def setup_vm_cloud_resource(  # noqa: PLR0912, PLR0913
@@ -362,8 +372,27 @@ def default_region(provider: str) -> str:
     examples=[
         CommandExample(
             description="Set up an AWS cloud with a Kubernetes compute stack.",
-            command="anyscale cloud setup --provider aws --region us-west-2 --name my-cloud --stack k8s",
+            command=(
+                "anyscale cloud setup --provider aws --region us-west-2 --name my-cloud "
+                "--stack k8s --cluster-name my-eks-cluster"
+            ),
             output_raw=command_examples.CLOUD_SETUP_K8S_AWS_EXAMPLE,
+        ),
+        CommandExample(
+            description="Set up a GCP cloud with a Kubernetes compute stack.",
+            command=(
+                "anyscale cloud setup --provider gcp --region us-central1 --name my-cloud "
+                "--stack k8s --cluster-name my-gke-cluster --project-id my-project-123"
+            ),
+            output_raw=command_examples.CLOUD_SETUP_K8S_GCP_EXAMPLE,
+        ),
+        CommandExample(
+            description="Set up a Kubernetes cloud, writing the generated Helm values to a specific path.",
+            command=(
+                "anyscale cloud setup --provider aws --region us-west-2 --name my-cloud "
+                "--stack k8s --cluster-name my-eks-cluster --values-file /path/to/custom-values.yaml"
+            ),
+            output_raw=command_examples.CLOUD_SETUP_K8S_CUSTOM_VALUES_EXAMPLE,
         ),
     ],
 )
@@ -594,7 +623,13 @@ def setup_cloud(  # noqa: PLR0913
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="List the clouds in your Anyscale organization.",
@@ -662,7 +697,6 @@ def setup_cloud(  # noqa: PLR0913
     type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 @click.option(
@@ -682,7 +716,11 @@ def list_cloud(  # noqa: A001
     output_format: str,
     json_output: bool,
 ) -> None:
+    if json_output:
+        warn_deprecated_flag("--json", "-o json")
     json_output = json_output or output_format == OutputFormat.JSON.value
+
+    interactive = resolve_interactive(interactive, json_output)
 
     if max_items is not None and interactive:
         raise click.UsageError("--max-items only allowed with --no-interactive")
@@ -829,9 +867,20 @@ def cloud_resource_create(
     output_formats=[OutputFormat.TEXT],
     examples=[
         CommandExample(
-            description="Set up cloud resources for an existing cloud.",
-            command="anyscale cloud resource setup --provider aws --region us-west-2 --cloud my-cloud",
-            output_raw=command_examples.CLOUD_RESOURCE_SETUP_EXAMPLE,
+            description="Set up K8s resources in an existing cloud on AWS.",
+            command=(
+                "anyscale cloud resource setup --provider aws --region us-west-2 "
+                "--cloud my-cloud --stack k8s --cluster-name my-eks-cluster"
+            ),
+            output_raw="Kubernetes cloud resource setup for 'my-cloud' completed successfully!\n",
+        ),
+        CommandExample(
+            description="Set up VM resources in an existing cloud on GCP.",
+            command=(
+                "anyscale cloud resource setup --provider gcp --region us-central1 "
+                "--cloud my-cloud --stack vm --project-id my-project-abc123"
+            ),
+            output_raw="Successfully added VM resources to cloud 'my-cloud'.\n",
         ),
     ],
 )
@@ -1224,7 +1273,7 @@ def cloud_update_storage_cors(
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
     examples=[
         CommandExample(
             description="Get the current configuration for a cloud.",
@@ -1274,7 +1323,6 @@ def cloud_update_storage_cors(
     ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 def cloud_config_get(
@@ -1398,9 +1446,25 @@ def _handle_system_cluster_config(enable_system_cluster: Optional[bool]) -> None
     output_formats=[OutputFormat.TEXT],
     examples=[
         CommandExample(
-            description="Update the configuration for a cloud.",
-            command="anyscale cloud config update -n my-cloud --enable-log-ingestion",
-            output_raw=command_examples.CLOUD_CONFIG_UPDATE_EXAMPLE,
+            description="Enable log ingestion and the system cluster for a cloud (prompts for confirmation).",
+            command=(
+                "anyscale cloud config update -n my-cloud "
+                "--enable-log-ingestion --enable-system-cluster"
+            ),
+            output_raw=(
+                "Successfully updated log ingestion configuration for cloud, cld_abc123 to True\n"
+                "Successfully enabled system cluster for cloud cld_abc123\n"
+            ),
+        ),
+        CommandExample(
+            description="Update a cloud's configuration from a spec file.",
+            command="anyscale cloud config update -n my-cloud --spec-file iam.yaml",
+            output_raw="Successfully updated cloud configuration for cloud my-cloud (resource: cldrsrc_abc123)\n",
+        ),
+        CommandExample(
+            description="Update the configuration of a specific cloud resource.",
+            command="anyscale cloud config update -n my-cloud --resource shared-usw2 --spec-file iam.yaml",
+            output_raw="Successfully updated cloud configuration for cloud my-cloud (resource: cldrsrc_abc456)\n",
         ),
     ],
 )
@@ -1520,6 +1584,10 @@ def cloud_config_update(  # noqa: PLR0913
             description="Register an AWS cloud with your own resources.",
             command="anyscale cloud register --provider aws --region us-west-2 --name my-cloud",
         ),
+        CommandExample(
+            description="Register a cloud from a cloud resource file, which supplies the provider and region.",
+            command="anyscale cloud register --name my-cloud --resource-file cloud.yaml",
+        ),
     ],
 )
 @cloud_cli.command(
@@ -1530,15 +1598,15 @@ def cloud_config_update(  # noqa: PLR0913
 )
 @click.option(
     "--provider",
-    help="The cloud provider type.",
-    required=True,
-    type=click.Choice(["aws", "gcp", "azure", "generic"], case_sensitive=False),
+    help="The cloud provider type. Required unless a cloud resource file is provided with --resource-file.",
+    required=False,
+    type=click.Choice(_REGISTER_PROVIDERS, case_sensitive=False),
 )
 @click.option(
     "--region",
     cls=OptionPromptNull,
-    help="Region to set up the credentials in.",
-    required=True,
+    help="Region to set up the credentials in. Defaults to a per-provider region. Required unless a cloud resource file is provided with --resource-file, in which case this option is ignored.",
+    required=False,
     default_option="provider",
     default=default_region,
     show_default=True,
@@ -1550,6 +1618,27 @@ def cloud_config_update(  # noqa: PLR0913
     type=click.Choice([ComputeStack.VM, ComputeStack.K8S], case_sensitive=False),
     default=ComputeStack.VM,
     # TODO (shomilj): Unhide this option when full support for Kubernetes has been rolled out.
+    hidden=True,
+)
+@click.option(
+    "--per-cloud-domain",
+    is_flag=True,
+    default=False,
+    help=(
+        "Use a cloud-scoped DNS namespace for Session and Service hostnames. "
+        "Requires --compute-stack k8s."
+    ),
+    hidden=True,
+)
+@click.option(
+    "--per-cloud-domain-label",
+    type=str,
+    default=None,
+    help=(
+        "Override the derived cloud DNS ID with a fixed label, so the "
+        "cloud-scoped namespace becomes '*.<label>.n.<domain>'. Requires "
+        "--per-cloud-domain."
+    ),
     hidden=True,
 )
 @click.option(
@@ -1774,9 +1863,11 @@ def cloud_config_update(  # noqa: PLR0913
 )
 @disabled_on_azure("cloud register")
 def register_cloud(  # noqa: PLR0913, PLR0912, C901
-    provider: str,
-    region: str,
+    provider: Optional[str],
+    region: Optional[str],
     compute_stack: ComputeStack,
+    per_cloud_domain: bool,
+    per_cloud_domain_label: Optional[str],
     name: str,
     vpc_id: str,
     subnet_ids: str,
@@ -1817,6 +1908,10 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
     enable_auto_add_user: bool,
     resource_file: Optional[str],
 ) -> None:
+    if per_cloud_domain_label and not per_cloud_domain:
+        raise click.UsageError("--per-cloud-domain-label requires --per-cloud-domain.")
+    if per_cloud_domain and compute_stack != ComputeStack.K8S:
+        raise click.UsageError("--per-cloud-domain requires --compute-stack k8s.")
     # Load CloudDeployment from the resource file if provided, otherwise build from CLI flags
     if resource_file:
         # Read the spec file.
@@ -1826,8 +1921,15 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
         if not path.is_file():
             raise click.ClickException(f"{resource_file} is not a file.")
 
-        spec = yaml.safe_load(path.read_text())
         try:
+            # Reading and parsing stay inside the guard: this path is reachable
+            # with no flags at all, so a YAML syntax error must not surface as a
+            # traceback.
+            spec = yaml.safe_load(path.read_text())
+            if not isinstance(spec, dict):
+                raise ValueError(
+                    f"expected a mapping of cloud resource fields, got {type(spec).__name__}"
+                )
             cloud_resource = CloudDeployment(**spec)
 
             # Convert nested dict objects to model objects
@@ -1855,7 +1957,31 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
         except Exception as e:  # noqa: BLE001
             raise click.ClickException(f"Failed to parse cloud resource: {e}")
 
+        # The file is the input source, so routing derives from it. The model's
+        # setter only rejects None -- it checks neither casing nor membership --
+        # so both have to be enforced here.
+        file_provider = str(cloud_resource.provider).strip().lower()
+        if file_provider not in _REGISTER_PROVIDERS:
+            raise click.ClickException(
+                f"Invalid Cloud provider: {cloud_resource.provider} in {resource_file}. "
+                f"Available providers are [{', '.join(_REGISTER_PROVIDERS)}]."
+            )
+        if provider is not None and provider.lower() != file_provider:
+            raise click.ClickException(
+                f"--provider {provider} conflicts with provider {cloud_resource.provider} "
+                f"in {resource_file}. Omit --provider to use the value from the file."
+            )
+        # The parsed model is sent to the backend verbatim, so store the canonical
+        # uppercase enum value rather than whatever casing the file used.
+        cloud_resource.provider = file_provider.upper()
+        provider = file_provider
+
     else:
+        if not provider:
+            raise click.ClickException(
+                "--provider is required unless a cloud resource file is provided with --resource-file/-f."
+            )
+
         missing_args: List[str] = []
 
         # Validate K8S-only storage flags
@@ -2114,8 +2240,13 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
 
         else:
             raise click.ClickException(
-                f"Invalid Cloud provider: {provider}. Available providers are [aws, gcp, azure, generic]."
+                f"Invalid Cloud provider: {provider}. Available providers are [{', '.join(_REGISTER_PROVIDERS)}]."
             )
+
+    if cloud_resource.compute_stack != ComputeStack.VM:
+        placeholder_problems = placeholder_credential_problems(cloud_resource)
+        if placeholder_problems:
+            raise click.ClickException(" ".join(placeholder_problems))
 
     if provider == "aws":
         CloudController().register_aws_cloud(
@@ -2126,6 +2257,8 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
             yes=yes,
             skip_verifications=skip_verifications,
             auto_add_user=enable_auto_add_user,
+            per_cloud_domain=per_cloud_domain,
+            per_cloud_domain_label=per_cloud_domain_label,
         )
     elif provider == "gcp":
         CloudController().register_gcp_cloud(
@@ -2136,6 +2269,8 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
             yes=yes,
             skip_verifications=skip_verifications,
             auto_add_user=enable_auto_add_user,
+            per_cloud_domain=per_cloud_domain,
+            per_cloud_domain_label=per_cloud_domain_label,
         )
     elif provider in ("azure", "generic"):
         CloudController().register_azure_or_generic_cloud(
@@ -2143,10 +2278,12 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
             provider=provider,
             cloud_resource=cloud_resource,
             auto_add_user=enable_auto_add_user,
+            per_cloud_domain=per_cloud_domain,
+            per_cloud_domain_label=per_cloud_domain_label,
         )
     else:
         raise click.ClickException(
-            f"Invalid Cloud provider: {provider}. Available providers are [aws, gcp, azure, generic]."
+            f"Invalid Cloud provider: {provider}. Available providers are [{', '.join(_REGISTER_PROVIDERS)}]."
         )
 
 
@@ -2503,7 +2640,13 @@ def _get_cloud_info(
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
+    option_docs={
+        "--output": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use --output-file instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="Get information about a cloud by name.",
@@ -2511,10 +2654,19 @@ def _get_cloud_info(
             output_raw=command_examples.CLOUD_GET_CLOUD_EXAMPLE,
             output_instance=lambda: CloudInfo(
                 name="my-cloud",
-                id="cld_kvedZWag2qA8i5BjxUevf5i7",
+                id="cld_abc123",
                 created_at=None,
                 is_default=None,
-                resources=[{"name": "my-cloud-resource", "provider": "AWS"}],
+                resources=[
+                    {
+                        "cloud_resource_id": "cldrsrc_abc123",
+                        "name": "vm-aws-us-west-2",
+                        "provider": "AWS",
+                        "compute_stack": "VM",
+                        "region": "us-west-2",
+                        "networking_mode": "PUBLIC",
+                    }
+                ],
             ),
         ),
     ],
@@ -2541,6 +2693,13 @@ def _get_cloud_info(
     required=False,
 )
 @click.option(
+    "--output-file",
+    "output_file",
+    help="File to write the output YAML to.",
+    type=click.Path(),
+    required=False,
+)
+@click.option(
     "--output",
     "-o",
     help="File to write the output YAML to.",
@@ -2550,15 +2709,17 @@ def _get_cloud_info(
 @click.option(
     "--output-format",
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
-    help="Output format for the result. Ignored when --output is provided.",
+    help="Output format for the result. Ignored when writing to a file.",
 )
 def get_cloud(
     cloud_id: Optional[str],
     name: Optional[str],
+    output_file: Optional[str],
     output: Optional[str],
     output_format: str,
 ) -> None:
@@ -2571,15 +2732,27 @@ def get_cloud(
     :param cloud_id: The ID of the cloud to retrieve.
     :param name: The name of the cloud to retrieve.
     """
+    if output:
+        warn_deprecated_flag("-o/--output", "--output-file")
     _get_cloud_info(
-        cloud_id, name, output, include_status=False, output_format=output_format
+        cloud_id,
+        name,
+        output_file or output,
+        include_status=False,
+        output_format=output_format,
     )
 
 
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
+    option_docs={
+        "--output": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use --output-file instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="Get the full status of a cloud by name.",
@@ -2587,14 +2760,25 @@ def get_cloud(
             output_raw=command_examples.CLOUD_STATUS_EXAMPLE,
             output_instance=lambda: CloudInfo(
                 name="my-cloud",
-                id="cld_kvedZWag2qA8i5BjxUevf5i7",
-                created_at=None,
+                id="cld_abc123",
+                created_at=datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
                 is_default=True,
                 resources=[
                     {
-                        "name": "my-cloud-resource",
+                        "cloud_resource_id": "cldrsrc_abc123",
+                        "name": "k8s-aws-us-west-2",
                         "provider": "AWS",
-                        "operator_status": "ACTIVE",
+                        "compute_stack": "K8S",
+                        "region": "us-west-2",
+                        "operator_status": "HEALTHY",
+                        "operator_status_details": {
+                            "operator_version": "1.2.1",
+                            "check_results": [
+                                {"name": "kubernetes_permissions", "status": "HEALTHY"},
+                                {"name": "iam_identity", "status": "HEALTHY"},
+                            ],
+                            "reported_at": "2026-01-01T00:00:00+00:00",
+                        },
                     }
                 ],
             ),
@@ -2623,6 +2807,13 @@ def get_cloud(
     required=False,
 )
 @click.option(
+    "--output-file",
+    "output_file",
+    help="File to write the output YAML to.",
+    type=click.Path(),
+    required=False,
+)
+@click.option(
     "--output",
     "-o",
     help="File to write the output YAML to.",
@@ -2632,15 +2823,17 @@ def get_cloud(
 @click.option(
     "--output-format",
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
-    help="Output format for the result. Ignored when --output is provided.",
+    help="Output format for the result. Ignored when writing to a file.",
 )
 def cloud_status(
     cloud_id: Optional[str],
     name: Optional[str],
+    output_file: Optional[str],
     output: Optional[str],
     output_format: str,
 ) -> None:
@@ -2654,15 +2847,21 @@ def cloud_status(
     :param cloud_id: The ID of the cloud to retrieve.
     :param name: The name of the cloud to retrieve.
     """
+    if output:
+        warn_deprecated_flag("-o/--output", "--output-file")
     _get_cloud_info(
-        cloud_id, name, output, include_status=True, output_format=output_format
+        cloud_id,
+        name,
+        output_file or output,
+        include_status=True,
+        output_format=output_format,
     )
 
 
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
     examples=[
         CommandExample(
             description="Get the default cloud for your organization.",
@@ -2670,7 +2869,7 @@ def cloud_status(
             output_raw=command_examples.CLOUD_GET_DEFAULT_CLOUD_EXAMPLE,
             output_instance=lambda: Cloud(
                 name="my-cloud",
-                id="cld_kvedZWag2qA8i5BjxUevf5i7",
+                id="cld_abc123",
                 provider=CloudProvider.AWS,
                 compute_stack=CloudModelComputeStack.VM,
                 region="us-west-2",
@@ -2690,10 +2889,11 @@ def cloud_status(
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 def get_default_cloud(output_format: str) -> None:

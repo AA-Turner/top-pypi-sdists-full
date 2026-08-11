@@ -1309,51 +1309,6 @@ class _IFleetMetricRefProxy(
 typing.cast(typing.Any, IFleetMetricRef).__jsii_proxy_class__ = lambda : _IFleetMetricRefProxy
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iot.IIndexRef")
-class IIndexRef(
-    _constructs_77d1e7e8.IConstruct,
-    _interfaces_8ca7e747.IEnvironmentAware,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a Index.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="indexRef")
-    def index_ref(self) -> "IndexReference":
-        '''(experimental) A reference to a Index resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IIndexRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Index.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_iot.IIndexRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="indexRef")
-    def index_ref(self) -> "IndexReference":
-        '''(experimental) A reference to a Index resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("IndexReference", jsii.get(self, "indexRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IIndexRef).__jsii_proxy_class__ = lambda : _IIndexRefProxy
-
-
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iot.IJobTemplateRef")
 class IJobTemplateRef(
     _constructs_77d1e7e8.IConstruct,
@@ -2166,66 +2121,6 @@ class _ITopicRuleRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ITopicRuleRef).__jsii_proxy_class__ = lambda : _ITopicRuleRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_iot.IndexReference",
-    jsii_struct_bases=[],
-    name_mapping={"index_arn": "indexArn", "index_id": "indexId"},
-)
-class IndexReference:
-    def __init__(self, *, index_arn: builtins.str, index_id: builtins.str) -> None:
-        '''A reference to a Index resource.
-
-        :param index_arn: The ARN of the Index resource.
-        :param index_id: The Id of the Index resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk.interfaces import aws_iot as interfaces_iot
-            
-            index_reference = interfaces_iot.IndexReference(
-                index_arn="indexArn",
-                index_id="indexId"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__a6607e9ee6abcf79302536f9fe64b50ff57b1a85746ae268c7f0d6a56079f435)
-            check_type(argname="argument index_arn", value=index_arn, expected_type=type_hints["index_arn"])
-            check_type(argname="argument index_id", value=index_id, expected_type=type_hints["index_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "index_arn": index_arn,
-            "index_id": index_id,
-        }
-
-    @builtins.property
-    def index_arn(self) -> builtins.str:
-        '''The ARN of the Index resource.'''
-        result = self._values.get("index_arn")
-        assert result is not None, "Required property 'index_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def index_id(self) -> builtins.str:
-        '''The Id of the Index resource.'''
-        result = self._values.get("index_id")
-        assert result is not None, "Required property 'index_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "IndexReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
 @jsii.data_type(
@@ -3319,7 +3214,6 @@ __all__ = [
     "IDomainConfigurationRef",
     "IEncryptionConfigurationRef",
     "IFleetMetricRef",
-    "IIndexRef",
     "IJobTemplateRef",
     "ILoggingRef",
     "IMitigationActionRef",
@@ -3338,7 +3232,6 @@ __all__ = [
     "IThingTypeRef",
     "ITopicRuleDestinationRef",
     "ITopicRuleRef",
-    "IndexReference",
     "JobTemplateReference",
     "LoggingReference",
     "MitigationActionReference",
@@ -3449,14 +3342,6 @@ def _typecheckingstub__4243e6eeb1178b52ca431a8df25777c644a24a26ede98fac89e27a981
 def _typecheckingstub__87bcc885b51342fc4a7fd186621f27ba55cc31a51b3cd22d20675d422894e639(
     *,
     metric_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a6607e9ee6abcf79302536f9fe64b50ff57b1a85746ae268c7f0d6a56079f435(
-    *,
-    index_arn: builtins.str,
-    index_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3598,5 +3483,5 @@ def _typecheckingstub__eedeb429f63d21682b03ce0a579ac335118e4919a1318e377d4376db9
     """Type checking stubs"""
     pass
 
-for cls in [IAccountAuditConfigurationRef, IAuthorizerRef, IBillingGroupRef, ICACertificateRef, ICertificateProviderRef, ICertificateRef, ICommandRef, ICustomMetricRef, IDimensionRef, IDomainConfigurationRef, IEncryptionConfigurationRef, IFleetMetricRef, IIndexRef, IJobTemplateRef, ILoggingRef, IMitigationActionRef, IPolicyPrincipalAttachmentRef, IPolicyRef, IProvisioningTemplateRef, IResourceSpecificLoggingRef, IRoleAliasRef, IScheduledAuditRef, ISecurityProfileRef, ISoftwarePackageRef, ISoftwarePackageVersionRef, IThingGroupRef, IThingPrincipalAttachmentRef, IThingRef, IThingTypeRef, ITopicRuleDestinationRef, ITopicRuleRef]:
+for cls in [IAccountAuditConfigurationRef, IAuthorizerRef, IBillingGroupRef, ICACertificateRef, ICertificateProviderRef, ICertificateRef, ICommandRef, ICustomMetricRef, IDimensionRef, IDomainConfigurationRef, IEncryptionConfigurationRef, IFleetMetricRef, IJobTemplateRef, ILoggingRef, IMitigationActionRef, IPolicyPrincipalAttachmentRef, IPolicyRef, IProvisioningTemplateRef, IResourceSpecificLoggingRef, IRoleAliasRef, IScheduledAuditRef, ISecurityProfileRef, ISoftwarePackageRef, ISoftwarePackageVersionRef, IThingGroupRef, IThingPrincipalAttachmentRef, IThingRef, IThingTypeRef, ITopicRuleDestinationRef, ITopicRuleRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

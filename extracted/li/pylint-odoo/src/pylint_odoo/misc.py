@@ -1,11 +1,11 @@
 import os
 import re
-import subprocess
-import sys
-from contextlib import contextmanager
-from functools import lru_cache
+import warnings
 from pathlib import Path
+from types import CodeType
 from urllib.parse import urlsplit
+
+import dill
 
 MANIFEST_DATA_KEYS = ["data", "demo", "demo_xml", "init_xml", "test", "update_xml"]
 
@@ -47,6 +47,54 @@ class StringParseError(TypeError):
     pass
 
 
+def patch_dill_missing_lnotab():
+    """Support pylint --jobs for python 3.15 removing "code.co_lnotab"
+
+    The parallel mode serializes the linter using dill, including the code
+    objects of the functions that can not be pickled by reference, but
+    dill<=0.4.1 save_code still reads "code.co_lnotab", removed in python 3.15,
+    raising AttributeError for any "pylint --jobs" run.
+
+    Feed the original save_code with an empty co_lnotab. It is safe since
+    dill._dill._create_code only uses that value to build the code objects of
+    payloads serialized by python<3.10, so the workers do not need any patch to
+    deserialize them.
+
+    TODO: Remove it when a dill release supports python 3.15
+    """
+    code_sample = patch_dill_missing_lnotab.__code__
+    with warnings.catch_warnings():
+        # Deprecated before being removed. hasattr emits DeprecationWarning
+        warnings.simplefilter("ignore", DeprecationWarning)
+        if hasattr(code_sample, "co_lnotab"):
+            return
+    original_save_code = dill.Pickler.dispatch[CodeType]
+    if getattr(original_save_code, "_pylint_odoo_patch", False):
+        return
+    try:
+        dill.dumps(code_sample)
+        return  # New dill release already supporting it
+    except AttributeError:
+        pass
+
+    class CodeWithLnotab:
+        """Expose the attributes of a code object with an empty co_lnotab"""
+
+        def __init__(self, code):
+            self._code = code
+
+        def __getattr__(self, name):
+            if name == "co_lnotab":
+                return b""
+            return getattr(self.__dict__["_code"], name)
+
+    def save_code_with_lnotab(pickler, obj):
+        original_save_code(pickler, CodeWithLnotab(obj))
+
+    save_code_with_lnotab._pylint_odoo_patch = True
+    dill.Pickler.dispatch[CodeType] = save_code_with_lnotab
+
+
 def version_parse(version_str):
     try:
         return tuple(map(int, version_str.split(".")))
@@ -68,53 +116,87 @@ def get_plugin_msgs(pylint_run_res):
     return all_plugin_msgs
 
 
-@contextmanager
-def chdir(directory):
-    """Change the current directory similar to command 'cd directory'
-    but remembering the previous value to be revert at final
-    Similar to run 'original_dir=$(pwd) && cd odoo && cd ${original_dir}'
-    """
-    original_dir = os.getcwd()
-    os.chdir(directory)
-    try:
-        yield
-    finally:
-        os.chdir(original_dir)
+# Cache of the top level path resolved for each path already visited and
+# set of the top level paths already found containing a ".git" entry
+_top_path_cache = {}
+_known_top_paths = set()
 
 
-@lru_cache(maxsize=256)
 def top_path(path):
-    """Get the top level path based on git
+    """Get the top level path based on the first parent path containing a ".git"
+    entry (a directory for regular repositories or a file for submodules and worktrees)
     But if it is not a git repository so the top is the drive name
     e.g. / or C:\\
-    It is using lru_cache in order to re-use top level path values
-    if multiple files are sharing the same path
+    The values are cached and the children paths of a top level path already found
+    re-use it directly based on the path prefix so they are resolved without
+    checking ".git" for each parent path again
     """
-    try:
-        with chdir(path):
-            return subprocess.check_output(["git", "rev-parse", "--show-toplevel"]).decode(sys.stdout.encoding).strip()
-    except (FileNotFoundError, subprocess.CalledProcessError):
-        path = Path(path)
-        return path.root or path.drive
+    top = _top_path_cache.get(path)
+    if top is not None:
+        return top
+    path_obj = Path(path)
+    for known_top_path in _known_top_paths:
+        if path_obj.is_relative_to(known_top_path):
+            _top_path_cache[path] = known_top_path
+            return known_top_path
+    if (path_obj / ".git").exists():
+        _known_top_paths.add(path)
+        _top_path_cache[path] = path
+        return path
+    parent_path = path_obj.parent
+    if parent_path == path_obj:
+        top = path_obj.root or path_obj.drive
+    else:
+        top = top_path(str(parent_path))
+    _top_path_cache[path] = top
+    return top
 
 
 def full_norm_path(path):
     """Expand paths in all possible ways"""
-    return os.path.normpath(os.path.realpath(os.path.abspath(os.path.expanduser(os.path.expandvars(path.strip())))))
+    return Path(os.path.expandvars(str(path).strip())).expanduser().resolve()
 
 
-@lru_cache(maxsize=256)
+# Cache of the results already resolved by path, filenames and top and the
+# parent paths where one of the filenames was already found by filenames
+_walk_up_cache = {}
+_known_walk_up_dirs = {}
+
+
 def walk_up(path, filenames, top):
     """Look for "filenames" walking up in parent paths of "path"
     but limited only to "top" path
+    The results are cached and the children paths of a parent path where one of
+    the filenames was already found re-use it directly without checking the
+    filesystem for each parent path again
     """
-    if full_norm_path(path) == full_norm_path(top):
-        return None
-    for filename in filenames:
-        path_filename = os.path.join(path, filename)
-        if os.path.isfile(full_norm_path(path_filename)):
-            return path_filename
-    return walk_up(os.path.dirname(path), filenames, top)
+    cache_key = (path, filenames, top)
+    try:
+        return _walk_up_cache[cache_key]
+    except KeyError:
+        pass
+    known_dirs = _known_walk_up_dirs.setdefault(filenames, {})
+    path_obj = Path(path)
+    result = None
+    for parent_path in (path_obj, *path_obj.parents):
+        result = known_dirs.get((str(parent_path), top))
+        if result is not None:
+            break
+    if result is None:
+        top_norm_path = full_norm_path(top)
+        current_path = path_obj
+        while full_norm_path(current_path) != top_norm_path:
+            for filename in filenames:
+                path_filename = current_path / filename
+                if full_norm_path(path_filename).is_file():
+                    result = str(path_filename)
+                    known_dirs[(str(current_path), top)] = result
+                    break
+            if result is not None or current_path.parent == current_path:
+                break
+            current_path = current_path.parent
+    _walk_up_cache[cache_key] = result
+    return result
 
 
 class InvalidVersion(Exception):

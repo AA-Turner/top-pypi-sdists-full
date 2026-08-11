@@ -9,17 +9,18 @@ from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.datetime_utils import serialize_datetime
 from ...core.http_response import AsyncHttpResponse, HttpResponse
 from ...core.jsonable_encoder import encode_path_param
+from ...core.pagination import AsyncPager, SyncPager
 from ...core.parse_error import ParsingError
 from ...core.request_options import RequestOptions
 from ...core.unchecked_base_model import construct_type
 from ...errors.forbidden_error import ForbiddenError
 from ...errors.method_not_allowed_error import MethodNotAllowedError
 from ...errors.not_found_error import NotFoundError
+from ...types.assignable_organization_role_enum import AssignableOrganizationRoleEnum
 from ...types.lse_organization_member_list import LseOrganizationMemberList
 from ...types.organization_member import OrganizationMember
-from ...types.organization_role_enum import OrganizationRoleEnum
 from ...types.paginated_lse_organization_member_list_list import PaginatedLseOrganizationMemberListList
-from .types.list_members_request_scope import ListMembersRequestScope
+from ...types.standard_user_type_enum import StandardUserTypeEnum
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -35,43 +36,33 @@ class RawMembersClient:
         id: int,
         *,
         contributed_to_projects: typing.Optional[bool] = None,
-        exclude_project_id: typing.Optional[int] = None,
-        exclude_workspace_id: typing.Optional[int] = None,
+        exclude_project_id: typing.Optional[float] = None,
+        exclude_workspace_id: typing.Optional[float] = None,
         is_deleted: typing.Optional[bool] = None,
         ordering: typing.Optional[str] = None,
         page: typing.Optional[int] = None,
         page_size: typing.Optional[int] = None,
-        role: typing.Optional[str] = None,
-        scope: typing.Optional[ListMembersRequestScope] = None,
+        role: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         search: typing.Optional[str] = None,
-        tags: typing.Optional[str] = None,
+        tags: typing.Optional[typing.Union[int, typing.Sequence[int]]] = None,
         user_last_activity_gte: typing.Optional[dt.datetime] = None,
         user_last_activity_lte: typing.Optional[dt.datetime] = None,
         user_type: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[PaginatedLseOrganizationMemberListList]:
+    ) -> SyncPager[LseOrganizationMemberList, PaginatedLseOrganizationMemberListList]:
         """
-        <Card href="https://humansignal.com/goenterprise">
-                <img style="pointer-events: none; margin-left: 0px; margin-right: 0px;" src="https://docs.humansignal.com/images/badge.svg" alt="Label Studio Enterprise badge"/>
-                <p style="margin-top: 10px; font-size: 14px;">
-                    This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
-                </p>
-            </Card>
-        Retrieve a list of all users and roles in a specific organization.
+        Retrieve a list of the organization members and their IDs.
 
         Parameters
         ----------
         id : int
-            A unique integer value identifying this organization.
 
         contributed_to_projects : typing.Optional[bool]
             Whether to include projects created and contributed to by the members.
 
-        exclude_project_id : typing.Optional[int]
-            Project ID to exclude users who are already associated with this project (direct members, workspace members, or implicit admin/owner access).
+        exclude_project_id : typing.Optional[float]
 
-        exclude_workspace_id : typing.Optional[int]
-            Workspace ID to exclude users who are already associated with this workspace (direct workspace members or implicit admin/owner access).
+        exclude_workspace_id : typing.Optional[float]
 
         is_deleted : typing.Optional[bool]
 
@@ -84,30 +75,14 @@ class RawMembersClient:
         page_size : typing.Optional[int]
             Number of results to return per page.
 
-        role : typing.Optional[str]
-            Filter members by organization role. Accepts single role or comma-separated list of roles.
-
-            **Format:**
-            - Single role: `?role=RE`
-            - Multiple roles: `?role=AN,RE` (users with ANY of these roles)
-
-            **Role Codes:**
-            - `OW` = Owner
-            - `AD` = Administrator
-            - `MA` = Manager
-            - `RE` = Reviewer
-            - `AN` = Annotator
-            - `NO` = Not Activated
-            - `DI` = Disabled
-
-        scope : typing.Optional[ListMembersRequestScope]
-            Member visibility scope. `accessible` (default) limits Managers to members in their projects/workspaces. `all` returns all organization members. Only affects Manager role.
+        role : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Multiple values may be separated by commas.
 
         search : typing.Optional[str]
             A search term.
 
-        tags : typing.Optional[str]
-            Filter members by tags. Use a comma-separated list of tag IDs.
+        tags : typing.Optional[typing.Union[int, typing.Sequence[int]]]
+            Multiple values may be separated by commas.
 
         user_last_activity_gte : typing.Optional[dt.datetime]
 
@@ -121,9 +96,11 @@ class RawMembersClient:
 
         Returns
         -------
-        HttpResponse[PaginatedLseOrganizationMemberListList]
+        SyncPager[LseOrganizationMemberList, PaginatedLseOrganizationMemberListList]
 
         """
+        page = page if page is not None else 1
+
         _response = self._client_wrapper.httpx_client.request(
             f"api/organizations/{encode_path_param(id)}/memberships",
             method="GET",
@@ -135,10 +112,9 @@ class RawMembersClient:
                 "ordering": ordering,
                 "page": page,
                 "page_size": page_size,
-                "role": role,
-                "scope": scope,
+                "role": ",".join(map(str, role)) if isinstance(role, (list, tuple, set)) else role,
                 "search": search,
-                "tags": tags,
+                "tags": ",".join(map(str, tags)) if isinstance(tags, (list, tuple, set)) else tags,
                 "user__last_activity__gte": serialize_datetime(user_last_activity_gte)
                 if user_last_activity_gte is not None
                 else None,
@@ -151,14 +127,33 @@ class RawMembersClient:
         )
         try:
             if 200 <= _response.status_code < 300:
-                _data = typing.cast(
+                _parsed_response = typing.cast(
                     PaginatedLseOrganizationMemberListList,
                     construct_type(
                         type_=PaginatedLseOrganizationMemberListList,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                return HttpResponse(response=_response, data=_data)
+                _items = _parsed_response.results
+                _has_next = len(_items or []) > 0
+                _get_next = lambda: self.list(
+                    id,
+                    contributed_to_projects=contributed_to_projects,
+                    exclude_project_id=exclude_project_id,
+                    exclude_workspace_id=exclude_workspace_id,
+                    is_deleted=is_deleted,
+                    ordering=ordering,
+                    page=page + 1,
+                    page_size=page_size,
+                    role=role,
+                    search=search,
+                    tags=tags,
+                    user_last_activity_gte=user_last_activity_gte,
+                    user_last_activity_lte=user_last_activity_lte,
+                    user_type=user_type,
+                    request_options=request_options,
+                )
+                return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -172,8 +167,9 @@ class RawMembersClient:
         self,
         id: int,
         *,
-        role: typing.Optional[OrganizationRoleEnum] = OMIT,
+        role: typing.Optional[AssignableOrganizationRoleEnum] = OMIT,
         user_id: typing.Optional[int] = OMIT,
+        user_type: typing.Optional[StandardUserTypeEnum] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[LseOrganizationMemberList]:
         """
@@ -202,7 +198,7 @@ class RawMembersClient:
         id : int
             A unique integer value identifying this organization.
 
-        role : typing.Optional[OrganizationRoleEnum]
+        role : typing.Optional[AssignableOrganizationRoleEnum]
             Organization role
 
             * `OW` - Owner
@@ -215,6 +211,11 @@ class RawMembersClient:
 
         user_id : typing.Optional[int]
             Member
+
+        user_type : typing.Optional[StandardUserTypeEnum]
+            Membership seat type. Assigning a working role to a View-Only member upgrades them to a paid Standard seat. View-Only is not accepted because paid-to-View-Only downgrade is not supported.
+
+            * `standard` - Standard
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -230,6 +231,7 @@ class RawMembersClient:
             json={
                 "role": role,
                 "user_id": user_id,
+                "user_type": user_type,
             },
             headers={
                 "content-type": "application/json",
@@ -392,43 +394,33 @@ class AsyncRawMembersClient:
         id: int,
         *,
         contributed_to_projects: typing.Optional[bool] = None,
-        exclude_project_id: typing.Optional[int] = None,
-        exclude_workspace_id: typing.Optional[int] = None,
+        exclude_project_id: typing.Optional[float] = None,
+        exclude_workspace_id: typing.Optional[float] = None,
         is_deleted: typing.Optional[bool] = None,
         ordering: typing.Optional[str] = None,
         page: typing.Optional[int] = None,
         page_size: typing.Optional[int] = None,
-        role: typing.Optional[str] = None,
-        scope: typing.Optional[ListMembersRequestScope] = None,
+        role: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         search: typing.Optional[str] = None,
-        tags: typing.Optional[str] = None,
+        tags: typing.Optional[typing.Union[int, typing.Sequence[int]]] = None,
         user_last_activity_gte: typing.Optional[dt.datetime] = None,
         user_last_activity_lte: typing.Optional[dt.datetime] = None,
         user_type: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[PaginatedLseOrganizationMemberListList]:
+    ) -> AsyncPager[LseOrganizationMemberList, PaginatedLseOrganizationMemberListList]:
         """
-        <Card href="https://humansignal.com/goenterprise">
-                <img style="pointer-events: none; margin-left: 0px; margin-right: 0px;" src="https://docs.humansignal.com/images/badge.svg" alt="Label Studio Enterprise badge"/>
-                <p style="margin-top: 10px; font-size: 14px;">
-                    This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
-                </p>
-            </Card>
-        Retrieve a list of all users and roles in a specific organization.
+        Retrieve a list of the organization members and their IDs.
 
         Parameters
         ----------
         id : int
-            A unique integer value identifying this organization.
 
         contributed_to_projects : typing.Optional[bool]
             Whether to include projects created and contributed to by the members.
 
-        exclude_project_id : typing.Optional[int]
-            Project ID to exclude users who are already associated with this project (direct members, workspace members, or implicit admin/owner access).
+        exclude_project_id : typing.Optional[float]
 
-        exclude_workspace_id : typing.Optional[int]
-            Workspace ID to exclude users who are already associated with this workspace (direct workspace members or implicit admin/owner access).
+        exclude_workspace_id : typing.Optional[float]
 
         is_deleted : typing.Optional[bool]
 
@@ -441,30 +433,14 @@ class AsyncRawMembersClient:
         page_size : typing.Optional[int]
             Number of results to return per page.
 
-        role : typing.Optional[str]
-            Filter members by organization role. Accepts single role or comma-separated list of roles.
-
-            **Format:**
-            - Single role: `?role=RE`
-            - Multiple roles: `?role=AN,RE` (users with ANY of these roles)
-
-            **Role Codes:**
-            - `OW` = Owner
-            - `AD` = Administrator
-            - `MA` = Manager
-            - `RE` = Reviewer
-            - `AN` = Annotator
-            - `NO` = Not Activated
-            - `DI` = Disabled
-
-        scope : typing.Optional[ListMembersRequestScope]
-            Member visibility scope. `accessible` (default) limits Managers to members in their projects/workspaces. `all` returns all organization members. Only affects Manager role.
+        role : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Multiple values may be separated by commas.
 
         search : typing.Optional[str]
             A search term.
 
-        tags : typing.Optional[str]
-            Filter members by tags. Use a comma-separated list of tag IDs.
+        tags : typing.Optional[typing.Union[int, typing.Sequence[int]]]
+            Multiple values may be separated by commas.
 
         user_last_activity_gte : typing.Optional[dt.datetime]
 
@@ -478,9 +454,11 @@ class AsyncRawMembersClient:
 
         Returns
         -------
-        AsyncHttpResponse[PaginatedLseOrganizationMemberListList]
+        AsyncPager[LseOrganizationMemberList, PaginatedLseOrganizationMemberListList]
 
         """
+        page = page if page is not None else 1
+
         _response = await self._client_wrapper.httpx_client.request(
             f"api/organizations/{encode_path_param(id)}/memberships",
             method="GET",
@@ -492,10 +470,9 @@ class AsyncRawMembersClient:
                 "ordering": ordering,
                 "page": page,
                 "page_size": page_size,
-                "role": role,
-                "scope": scope,
+                "role": ",".join(map(str, role)) if isinstance(role, (list, tuple, set)) else role,
                 "search": search,
-                "tags": tags,
+                "tags": ",".join(map(str, tags)) if isinstance(tags, (list, tuple, set)) else tags,
                 "user__last_activity__gte": serialize_datetime(user_last_activity_gte)
                 if user_last_activity_gte is not None
                 else None,
@@ -508,14 +485,36 @@ class AsyncRawMembersClient:
         )
         try:
             if 200 <= _response.status_code < 300:
-                _data = typing.cast(
+                _parsed_response = typing.cast(
                     PaginatedLseOrganizationMemberListList,
                     construct_type(
                         type_=PaginatedLseOrganizationMemberListList,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
-                return AsyncHttpResponse(response=_response, data=_data)
+                _items = _parsed_response.results
+                _has_next = len(_items or []) > 0
+
+                async def _get_next():
+                    return await self.list(
+                        id,
+                        contributed_to_projects=contributed_to_projects,
+                        exclude_project_id=exclude_project_id,
+                        exclude_workspace_id=exclude_workspace_id,
+                        is_deleted=is_deleted,
+                        ordering=ordering,
+                        page=page + 1,
+                        page_size=page_size,
+                        role=role,
+                        search=search,
+                        tags=tags,
+                        user_last_activity_gte=user_last_activity_gte,
+                        user_last_activity_lte=user_last_activity_lte,
+                        user_type=user_type,
+                        request_options=request_options,
+                    )
+
+                return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -529,8 +528,9 @@ class AsyncRawMembersClient:
         self,
         id: int,
         *,
-        role: typing.Optional[OrganizationRoleEnum] = OMIT,
+        role: typing.Optional[AssignableOrganizationRoleEnum] = OMIT,
         user_id: typing.Optional[int] = OMIT,
+        user_type: typing.Optional[StandardUserTypeEnum] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[LseOrganizationMemberList]:
         """
@@ -559,7 +559,7 @@ class AsyncRawMembersClient:
         id : int
             A unique integer value identifying this organization.
 
-        role : typing.Optional[OrganizationRoleEnum]
+        role : typing.Optional[AssignableOrganizationRoleEnum]
             Organization role
 
             * `OW` - Owner
@@ -572,6 +572,11 @@ class AsyncRawMembersClient:
 
         user_id : typing.Optional[int]
             Member
+
+        user_type : typing.Optional[StandardUserTypeEnum]
+            Membership seat type. Assigning a working role to a View-Only member upgrades them to a paid Standard seat. View-Only is not accepted because paid-to-View-Only downgrade is not supported.
+
+            * `standard` - Standard
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -587,6 +592,7 @@ class AsyncRawMembersClient:
             json={
                 "role": role,
                 "user_id": user_id,
+                "user_type": user_type,
             },
             headers={
                 "content-type": "application/json",

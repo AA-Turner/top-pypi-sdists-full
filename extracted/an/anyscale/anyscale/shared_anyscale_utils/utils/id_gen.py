@@ -137,6 +137,8 @@ class IDTypes(Enum):
     skills_versions = "sklv"
     skills_terms_acceptances = "sklta"
     kuberay_crs = "kcr"
+    kuberay_cr_states = "kcrst"
+    kuberay_cr_scheduling_states = "kcrsch"
     workload_specs = "wspec"
 
 

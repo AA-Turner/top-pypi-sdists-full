@@ -20,6 +20,7 @@ from anyscale.commands.list_util import (
     create_table,
     display_list,
     NON_INTERACTIVE_DEFAULT_MAX_ITEMS,
+    resolve_interactive,
     validate_page_size,
 )
 from anyscale.commands.output_format import (
@@ -28,6 +29,7 @@ from anyscale.commands.output_format import (
     OutputFormat,
     print_output,
     resolve_output_format,
+    warn_deprecated_flag,
 )
 from anyscale.commands.util import AnyscaleCommand
 from anyscale.controllers.schedule_controller import ScheduleController
@@ -266,8 +268,13 @@ def _print_schedule_list_diagnostics(  # noqa: PLR0913
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to [TEXT, JSON] when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="List schedules matching a name.",
@@ -275,7 +282,7 @@ def _print_schedule_list_diagnostics(  # noqa: PLR0913
             output_raw=command_examples.SCHEDULE_LIST_EXAMPLE,
             output_instance=[
                 {
-                    "id": "cronjob_vrjrbwcnfjjid7fsld3sfkn8jz",
+                    "id": "cronjob_abc123",
                     "name": "my-schedule",
                     "state": "ENABLED",
                     "cron_expression": "0 0 * * * *",
@@ -352,7 +359,6 @@ def _print_schedule_list_diagnostics(  # noqa: PLR0913
     type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result. Only with --v2.",
 )
 @click.option(
@@ -393,10 +399,17 @@ def list(  # noqa: A001 PLR0913
 
     You can optionally filter schedules by name, project, cloud, or creator.
     """
+    if json_output:
+        warn_deprecated_flag("--json", "-o json")
     json_output = json_output or output_format == OutputFormat.JSON.value
 
     if v2:
-        # Validate max_items only allowed with --no-interactive (v2 only)
+        # Resolve inside the v2 branch only: the legacy else-branch reads the raw
+        # flag to reject --no-interactive without --v2.
+        interactive = resolve_interactive(interactive, json_output)
+
+        # Validate max_items only allowed with --no-interactive (v2 only); check
+        # the resolved value so a piped or --json run accepts --max-items.
         if max_items is not None and interactive:
             raise click.UsageError("--max-items only allowed with --no-interactive")
         # New SDK path with pagination and output options
@@ -624,25 +637,23 @@ def resume(
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="Query the status of a schedule by name.",
             command="anyscale schedule status -n my-schedule",
             output_raw=command_examples.SCHEDULE_STATUS_EXAMPLE,
-            output_instance=lambda: ScheduleStatus(
-                id="cronjob_vrjrbwcnfjjid7fsld3sfkn8jz",
-                name="my-schedule",
-                state=ScheduleState.ENABLED,
-                config=ScheduleConfig(
-                    job_config=JobConfig(
-                        name="my-schedule", entrypoint="python main.py"
-                    ),
-                    cron_expression="0 0 * * * *",
-                    timezone="UTC",
-                ),
-            ),
+            output_instance={
+                "id": "cronjob_abc123",
+                "name": "my-schedule",
+                "state": "ENABLED",
+            },
         ),
     ],
     output_schema=ScheduleStatus,
@@ -679,10 +690,11 @@ def resume(
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 @click.option(
@@ -720,6 +732,8 @@ def status(
     To specify the schedule by config file, use --config-file. Ensure that name and optionally cloud and project are specified in the
     config file's job config.
     """
+    if json:
+        warn_deprecated_flag("--json", "-o json")
     _validate_schedule_identifiers(name=name, id=id, config_file=config_file)
 
     if id is not None:
@@ -894,7 +908,7 @@ def _validate_delete_identifiers(
     examples=[
         CommandExample(
             description="Delete a schedule by ID or by name.",
-            command="anyscale schedule delete --id cronjob_vrjrbwcnfjjid7fsld3sfkn8jz",
+            command="anyscale schedule delete --id cronjob_abc123",
             output_raw=command_examples.SCHEDULE_DELETE_EXAMPLE,
         ),
     ],

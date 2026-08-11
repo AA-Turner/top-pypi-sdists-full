@@ -26,8 +26,6 @@
 This script compares the rendering of PlotWidget's matplotlib and OpenGL backends.
 """
 
-from __future__ import annotations
-
 __license__ = "MIT"
 
 import numpy
@@ -110,6 +108,8 @@ class MyPlotWindow(qt.QMainWindow):
         self.clear()
         for p in [self._plot1, self._plot2]:
             p.clear()
+            p.getXAxis().setScale("linear")
+            p.getYAxis().setScale("linear")
             setupFunc(self, p)
             p.resetZoom()
 
@@ -352,6 +352,22 @@ class MyPlotWindow(qt.QMainWindow):
         addCompositeLine([50, 0], [50, 100], "caretdown", "caretup", "l4", "red")
         addCompositeLine([30, 0], [30, 100], "tickleft", "tickright", "l5", "blue")
         addCompositeLine([70, 0], [70, 100], "_", "_", "l6", "black")
+
+    @_register("log", "Log")
+    def _logLines(self, plot):
+        x = numpy.arange(1, 10, 0.1)
+        plot.addCurve(x=x, y=x, legend="a", color="gray")
+        plot.addCurve(x=x, y=x**2, legend="b", color="blue")
+        plot.addCurve(x=x, y=x**3, legend="c", color="green")
+        plot.getYAxis().setScale("log")
+
+    @_register("arcsinh", "Arcsinh")
+    def _asinhLines(self, plot):
+        x = numpy.arange(1, 10, 0.1)
+        plot.addCurve(x=x, y=x, legend="a", color="gray")
+        plot.addCurve(x=x, y=x**2, legend="b", color="blue")
+        plot.addCurve(x=x, y=x**3, legend="c", color="green")
+        plot.getYAxis().setScale("asinh")
 
 
 def main():

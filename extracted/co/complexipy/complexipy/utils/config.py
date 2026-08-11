@@ -4,6 +4,7 @@ from typing import (
     List,
     Optional,
     Tuple,
+    cast,
 )
 
 import typer
@@ -13,9 +14,9 @@ from complexipy.types import (
     RunConfig,
     Sort,
     TOMLConfig,
+    TOMLDiffSection,
 )
 from complexipy.utils.toml import (
-    get_argument_value,
     get_arguments_value,
 )
 
@@ -52,13 +53,9 @@ def resolve_config(
     sort: Optional[Sort],
     output_format: Optional[List[str]],
     output: Optional[str],
-    output_csv: Optional[bool],
-    output_json: Optional[bool],
-    output_gitlab: Optional[bool],
-    output_sarif: Optional[bool],
     diff: Optional[str],
     diff_only: Optional[str],
-    ratchet: Optional[bool],
+    staged: Optional[bool],
     top: Optional[int],
     plain: Optional[bool],
     suggest_refactors: Optional[bool],
@@ -79,10 +76,6 @@ def resolve_config(
         "sort": sort,
         "output_format": output_format,
         "output": output,
-        "output_csv": output_csv,
-        "output_json": output_json,
-        "output_gitlab": output_gitlab,
-        "output_sarif": output_sarif,
         "exclude": exclude,
         "check_script": check_script,
         "no_ignore": no_ignore,
@@ -112,7 +105,20 @@ def resolve_config(
 
     no_ignore = bool(no_ignore)
     report_ignored = bool(report_ignored)
-    ratchet = bool(get_argument_value(toml_config, "ratchet", ratchet, False))
+    cli_staged = staged
+    staged = bool(staged)
+
+    diff_section = (
+        cast(Optional[TOMLDiffSection], toml_config.get("diff"))
+        if toml_config is not None
+        else None
+    )
+    if diff_section is not None:
+        branch = diff_section.get("branch")
+        if diff is None and diff_only is None and branch:
+            diff = cast(str, branch)
+        if "staged" in diff_section and cli_staged is None:
+            staged = bool(diff_section["staged"])
 
     plain, suggest_refactors = validate_cli_arguments(
         plain, suggest_refactors, top, quiet
@@ -134,12 +140,12 @@ def resolve_config(
         check_script=check_script,
         no_ignore=no_ignore,
         report_ignored=report_ignored,
-        ratchet=ratchet,
         plain=plain,
         suggest_refactors=suggest_refactors,
         top=top,
         diff=diff,
         diff_only=diff_only,
+        staged=staged,
     )
 
 

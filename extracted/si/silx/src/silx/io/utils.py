@@ -239,7 +239,7 @@ def save1D(
             y_array = numpy.asarray(y)
             # make sure y_array is a 2D array even for a single curve
             if y_array.ndim == 1:
-                y_array.shape = 1, -1
+                y_array = y_array.reshape(1, -1)
             elif y_array.ndim not in [1, 2]:
                 raise IndexError("y must be a 1D or 2D array")
 
@@ -1100,7 +1100,7 @@ def rawfile_to_h5_external_dataset(bin_file, output_url, shape, dtype, overwrite
     v_majeur, v_mineur, v_micro = (int(i) for i in h5py.version.version.split(".")[:3])
     if calc_hexversion(v_majeur, v_mineur, v_micro) < calc_hexversion(2, 9, 0):
         raise Exception(
-            "h5py >= 2.9 should be installed to access the " "external feature."
+            "h5py >= 2.9 should be installed to access the external feature."
         )
 
     with h5py.File(output_url.file_path(), mode="a") as _h5_file:

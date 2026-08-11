@@ -1,4 +1,3 @@
-import os
 import queue
 import threading
 
@@ -9,6 +8,7 @@ from fivetran_connector_sdk.constants import (
     CHECKPOINT_OP_TIMEOUT_IN_SEC
 )
 from fivetran_connector_sdk.protos import connector_sdk_pb2
+from fivetran_connector_sdk.protos import common_pb2
 
 
 class _OperationStream:
@@ -81,6 +81,24 @@ class _OperationStream:
         with self._producer_lock:
             self._queue.put(record)
 
+    def add_task(self, task):
+        """Adds a task to the stream. Guarantees that operations within a single thread are processed in the order.
+
+        Args:
+            task (common_pb2.Task): The task operation to add to the stream.
+        """
+        with self._producer_lock:
+            self._queue.put(task)
+
+    def add_warning(self, warning):
+        """Adds a warning to the stream. Guarantees that operations within a single thread are processed in the order.
+
+        Args:
+            warning (common_pb2.Warning): The warning operation to add to the stream.
+        """
+        with self._producer_lock:
+            self._queue.put(warning)
+
     def add_file_upload(self, chunks, metadata_record):
         """
         Adds file upload chunks and the metadata record contiguously to the stream.
@@ -129,11 +147,12 @@ class _OperationStream:
     def _build_next_batch(self):
         """
         Core logic to build the batch. The loop continues until the buffer is full,
-        but can be interrupted by a checkpoint or a sentinel from the producer.
+        but can be interrupted by a checkpoint, warning, task, file upload chunk, or a sentinel from the producer.
 
         Returns:
             connector_sdk_pb2.UpdateResponse or list[connector_sdk_pb2.UpdateResponse]: Either a single response
-            containing records or checkpoint, or a list of responses when flushing data with a checkpoint.
+            containing records, or a list of responses when flushing buffered records ahead of a checkpoint,
+            warning, task, or file upload chunk.
 
         """
         while self._buffer_record_count < MAX_RECORDS_IN_BATCH and self._buffer_size_bytes < MAX_BATCH_SIZE_IN_BYTES:
@@ -150,8 +169,14 @@ class _OperationStream:
             # Case 2: if operation is a Checkpoint, flush the buffer and send the checkpoint.
             elif isinstance(operation, connector_sdk_pb2.Checkpoint):
                 return self._flush_buffer_on_checkpoint(operation)
+            # Case 3: if operation is a Warning, flush the buffer and send the warning.
+            elif isinstance(operation, common_pb2.Warning):
+                return self._flush_buffer_on_warning(operation)
+            # Case 4: if operation is a Task, flush the buffer and send the task.
+            elif isinstance(operation, common_pb2.Task):
+                return self._flush_buffer_on_task(operation)
 
-            # Case 3: if operation is a UnstructuredRecord, flush the buffer and send the chunk on its own.
+            # Case 5: if operation is a UnstructuredRecord, flush the buffer and send the chunk on its own.
             # It must not be batched into StructuredRecords like a regular record.
             elif isinstance(operation, connector_sdk_pb2.UnstructuredRecord):
                 return self._flush_buffer_on_file_upload_chunk(operation)
@@ -161,7 +186,7 @@ class _OperationStream:
             self._buffer_size_bytes += operation.ByteSize()
             self._buffer.append(operation)
 
-        # Case 4: If buffer size limit is reached, flush the buffer and return the response.
+        # Case 6: If buffer size limit is reached, flush the buffer and return the response.
         return self._flush_buffer()
 
     def _flush_buffer_on_checkpoint(self, checkpoint: connector_sdk_pb2.Checkpoint):
@@ -185,6 +210,9 @@ class _OperationStream:
     def _flush_buffer_before(self, response: connector_sdk_pb2.UpdateResponse):
         """
         Returns any buffered records before the given response, preserving stream order.
+
+        Args:
+            response (connector_sdk_pb2.UpdateResponse): The response to place after any buffered records.
         """
         responses = []
         if self._buffer:
@@ -192,6 +220,24 @@ class _OperationStream:
 
         responses.append(response)
         return responses
+
+    def _flush_buffer_on_warning(self, warning: common_pb2.Warning):
+        """
+        Creates the responses containing the buffered records (if any) followed by the warning.
+
+        Args:
+            warning (common_pb2.Warning): Warning operation to be added to the response.
+        """
+        return self._flush_buffer_before(connector_sdk_pb2.UpdateResponse(warning=warning))
+
+    def _flush_buffer_on_task(self, task: common_pb2.Task):
+        """
+        Creates the responses containing the buffered records (if any) followed by the task.
+
+        Args:
+            task (common_pb2.Task): Task operation to be added to the response.
+        """
+        return self._flush_buffer_before(connector_sdk_pb2.UpdateResponse(task=task))
 
     def _flush_buffer(self):
         """
@@ -204,9 +250,6 @@ class _OperationStream:
         self._buffer = []
         self._buffer_record_count = 0
         self._buffer_size_bytes = 0
-        if os.environ.get("ConnectorSdkEnableExtendInUpdateResponse", "false") == "true":
-            response = connector_sdk_pb2.UpdateResponse()
-            response.structured_records.structured_records.extend(batch_to_flush)
-            return response
-        else:
-            return connector_sdk_pb2.UpdateResponse(structured_records=connector_sdk_pb2.StructuredRecords(structured_records=batch_to_flush))
+        response = connector_sdk_pb2.UpdateResponse()
+        response.structured_records.structured_records.extend(batch_to_flush)
+        return response

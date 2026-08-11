@@ -1,6 +1,6 @@
 [project]
 name = "nab-resolver"
-version = "0.0.12"
+version = "0.0.13"
 description = "Generic PubGrub dependency-resolver core"
 readme = "README.md"
 license = "MIT"
@@ -19,9 +19,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Typing :: Typed",
 ]
-dependencies = [
-    "typing_extensions>=4.6",
-]
+dependencies = []
 
 [project.urls]
 Homepage = "https://github.com/notatallshaw/nab"

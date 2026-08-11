@@ -56,6 +56,10 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 from .. import activity as activity_mod
 from ..component_vocab import denoiser_components
 from ..api.errors import RefCompatibilitySurprise, ValidationError
+# Flat staging buffers above this size stay pageable — pinned host memory
+# is shared and non-swappable, and the cache holds up to _MAPCACHE_MAX.
+# ONE owner for the worker's whole pinned budget (pgw#973 §4.24).
+from ..media_transfer import PIN_MAX_BYTES as _PIN_MAX_BYTES
 from . import adapter_fidelity
 from .fp8_storage import structural_base
 from .w8a8 import fp8_scaled_linear_class
@@ -436,11 +440,6 @@ def _validated_pair(path: str, mod: Any, a: Any, b: Any, *, ref: str) -> Tuple[A
     return a, b
 
 
-# Flat staging buffers above this size stay pageable — pinned host memory is
-# a shared, non-swappable resource and the cache holds up to _MAPCACHE_MAX.
-_PIN_MAX_BYTES = 512 << 20
-
-
 def _stage_adapter(mapped: Dict[str, Tuple[Any, Any, float]]) -> Dict[str, Any]:
     """One adapter's swap-ready form: per-dtype flat CPU staging tensors
     (pinned when small enough on CUDA hosts) + an index of every layer's
@@ -662,10 +661,6 @@ def clear_branch_execution_lanes(pipe: Any) -> None:
     """Deactivate every denoiser's branch (canonical: zero B; sparse: drop)."""
     for model in branch_targets(pipe).values():
         clear_branch_adapters(model)
-
-
-def branch_execution_lanes_active(pipe: Any) -> bool:
-    return any(branches_active(m) for m in branch_targets(pipe).values())
 
 
 def pipeline_branch_bucket(pipe: Any) -> int:
@@ -1133,7 +1128,6 @@ __all__ = [
     "apply_branch_adapters",
     "branch_bucket",
     "branch_execution_lane",
-    "branch_execution_lanes_active",
     "branch_modules",
     "branch_targets",
     "branches_active",

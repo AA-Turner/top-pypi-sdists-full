@@ -25,7 +25,7 @@ from siliconcompiler.tool import TaskExecutableNotFound, TaskExecutableNotReceiv
 
 from siliconcompiler import utils
 from siliconcompiler.utils.logging import SCLoggerFormatter
-from siliconcompiler.utils.multiprocessing import MPManager
+from siliconcompiler.utils.multiprocessing import MPManager, get_process_context, forking
 from siliconcompiler.scheduler import send_messages, SCRuntimeError
 from siliconcompiler.utils.paths import collectiondir, jobdir
 from siliconcompiler.utils.curation import collect
@@ -120,6 +120,11 @@ class Scheduler:
                 node_cls = SlurmSchedulerNode
             elif node_scheduler == 'docker':
                 node_cls = DockerSchedulerNode
+            elif node_scheduler is None:
+                pass
+            else:
+                raise SCRuntimeError(
+                    f"Unsupported scheduler '{node_scheduler}' for node {step}/{index}")
             self.__tasks[(step, index)] = node_cls(self.__project, step, index)
             if self.__flow.get(step, index, "tool") == "builtin":
                 self.__tasks[(step, index)].set_builtin()
@@ -305,12 +310,18 @@ class Scheduler:
         except KeyboardInterrupt:
             pass
         except SCRuntimeError:
+            # Stop the dashboard before propagating so the terminal handler is
+            # un-suppressed and the full log tail is dumped to scrollback;
+            # otherwise an early failure's output stays hidden behind the
+            # (now torn-down) live screen.
+            if self.__project._Project__dashboard:
+                self.__project._Project__dashboard.stop(force=True)
             raise
         except Exception as e:
             utils.print_traceback(self.__logger, e)
 
             if self.__project._Project__dashboard:
-                self.__project._Project__dashboard.stop()
+                self.__project._Project__dashboard.stop(force=True)
 
             MPManager.error(str(e) or "uncaught exception")
 
@@ -712,7 +723,7 @@ class Scheduler:
         # Call this in case this was invoked without __main__
         multiprocessing.freeze_support()
 
-        with multiprocessing.get_context("spawn").Pool(pool_size) as pool:
+        with forking(), get_process_context().Pool(pool_size) as pool:
             while True:
                 # Filter nodes
                 filter_nodes(nodes)

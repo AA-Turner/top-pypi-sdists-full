@@ -14,6 +14,7 @@ from .environment import LabelStudioEnvironment
 if typing.TYPE_CHECKING:
     from .actions.client import ActionsClient, AsyncActionsClient
     from .activity_logs.client import ActivityLogsClient, AsyncActivityLogsClient
+    from .analytics.client import AnalyticsClient, AsyncAnalyticsClient
     from .annotation_history.client import AnnotationHistoryClient, AsyncAnnotationHistoryClient
     from .annotation_reviews.client import AnnotationReviewsClient, AsyncAnnotationReviewsClient
     from .annotations.client import AnnotationsClient, AsyncAnnotationsClient
@@ -133,6 +134,7 @@ class LabelStudioBase:
             logging=logging,
         )
         self._activity_logs: typing.Optional[ActivityLogsClient] = None
+        self._analytics: typing.Optional[AnalyticsClient] = None
         self._annotation_history: typing.Optional[AnnotationHistoryClient] = None
         self._annotation_reviews: typing.Optional[AnnotationReviewsClient] = None
         self._annotations: typing.Optional[AnnotationsClient] = None
@@ -154,6 +156,7 @@ class LabelStudioBase:
         self._project_templates: typing.Optional[ProjectTemplatesClient] = None
         self._projects: typing.Optional[ProjectsClient] = None
         self._tasks: typing.Optional[TasksClient] = None
+        self._sso: typing.Optional[SsoClient] = None
         self._session_policy: typing.Optional[SessionPolicyClient] = None
         self._import_storage: typing.Optional[ImportStorageClient] = None
         self._export_storage: typing.Optional[ExportStorageClient] = None
@@ -161,7 +164,6 @@ class LabelStudioBase:
         self._versions: typing.Optional[VersionsClient] = None
         self._webhooks: typing.Optional[WebhooksClient] = None
         self._workspaces: typing.Optional[WorkspacesClient] = None
-        self._sso: typing.Optional[SsoClient] = None
 
     @property
     def activity_logs(self):
@@ -170,6 +172,14 @@ class LabelStudioBase:
 
             self._activity_logs = ActivityLogsClient(client_wrapper=self._client_wrapper)
         return self._activity_logs
+
+    @property
+    def analytics(self):
+        if self._analytics is None:
+            from .analytics.client import AnalyticsClient  # noqa: E402
+
+            self._analytics = AnalyticsClient(client_wrapper=self._client_wrapper)
+        return self._analytics
 
     @property
     def annotation_history(self):
@@ -340,6 +350,14 @@ class LabelStudioBase:
         return self._tasks
 
     @property
+    def sso(self):
+        if self._sso is None:
+            from .sso.client import SsoClient  # noqa: E402
+
+            self._sso = SsoClient(client_wrapper=self._client_wrapper)
+        return self._sso
+
+    @property
     def session_policy(self):
         if self._session_policy is None:
             from .session_policy.client import SessionPolicyClient  # noqa: E402
@@ -394,14 +412,6 @@ class LabelStudioBase:
 
             self._workspaces = WorkspacesClient(client_wrapper=self._client_wrapper)
         return self._workspaces
-
-    @property
-    def sso(self):
-        if self._sso is None:
-            from .sso.client import SsoClient  # noqa: E402
-
-            self._sso = SsoClient(client_wrapper=self._client_wrapper)
-        return self._sso
 
 
 def _make_default_async_client(
@@ -509,6 +519,7 @@ class AsyncLabelStudioBase:
             logging=logging,
         )
         self._activity_logs: typing.Optional[AsyncActivityLogsClient] = None
+        self._analytics: typing.Optional[AsyncAnalyticsClient] = None
         self._annotation_history: typing.Optional[AsyncAnnotationHistoryClient] = None
         self._annotation_reviews: typing.Optional[AsyncAnnotationReviewsClient] = None
         self._annotations: typing.Optional[AsyncAnnotationsClient] = None
@@ -530,6 +541,7 @@ class AsyncLabelStudioBase:
         self._project_templates: typing.Optional[AsyncProjectTemplatesClient] = None
         self._projects: typing.Optional[AsyncProjectsClient] = None
         self._tasks: typing.Optional[AsyncTasksClient] = None
+        self._sso: typing.Optional[AsyncSsoClient] = None
         self._session_policy: typing.Optional[AsyncSessionPolicyClient] = None
         self._import_storage: typing.Optional[AsyncImportStorageClient] = None
         self._export_storage: typing.Optional[AsyncExportStorageClient] = None
@@ -537,7 +549,6 @@ class AsyncLabelStudioBase:
         self._versions: typing.Optional[AsyncVersionsClient] = None
         self._webhooks: typing.Optional[AsyncWebhooksClient] = None
         self._workspaces: typing.Optional[AsyncWorkspacesClient] = None
-        self._sso: typing.Optional[AsyncSsoClient] = None
 
     @property
     def activity_logs(self):
@@ -546,6 +557,14 @@ class AsyncLabelStudioBase:
 
             self._activity_logs = AsyncActivityLogsClient(client_wrapper=self._client_wrapper)
         return self._activity_logs
+
+    @property
+    def analytics(self):
+        if self._analytics is None:
+            from .analytics.client import AsyncAnalyticsClient  # noqa: E402
+
+            self._analytics = AsyncAnalyticsClient(client_wrapper=self._client_wrapper)
+        return self._analytics
 
     @property
     def annotation_history(self):
@@ -716,6 +735,14 @@ class AsyncLabelStudioBase:
         return self._tasks
 
     @property
+    def sso(self):
+        if self._sso is None:
+            from .sso.client import AsyncSsoClient  # noqa: E402
+
+            self._sso = AsyncSsoClient(client_wrapper=self._client_wrapper)
+        return self._sso
+
+    @property
     def session_policy(self):
         if self._session_policy is None:
             from .session_policy.client import AsyncSessionPolicyClient  # noqa: E402
@@ -770,14 +797,6 @@ class AsyncLabelStudioBase:
 
             self._workspaces = AsyncWorkspacesClient(client_wrapper=self._client_wrapper)
         return self._workspaces
-
-    @property
-    def sso(self):
-        if self._sso is None:
-            from .sso.client import AsyncSsoClient  # noqa: E402
-
-            self._sso = AsyncSsoClient(client_wrapper=self._client_wrapper)
-        return self._sso
 
 
 def _get_base_url(*, base_url: typing.Optional[str] = None, environment: LabelStudioEnvironment) -> str:

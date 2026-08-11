@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvista-zstd
-Version: 0.2.4
+Version: 0.3.0
 Summary: VTK zstandard compression library.
 Author-email: The PyVista developers <info@pyvista.org>
 License-Expression: MIT
@@ -102,6 +102,12 @@ Compatible with all VTK dataset types. Uses
    # read in and show these are identical
    ds_in = pyvista_zstd.read("dataset.pv")
    assert ds == ds_in
+
+For cell arrays where every cell contains the same number of points,
+``pyvista-zstd`` stores the common cell width in the dataset metadata and omits
+the redundant offsets array. This applies to triangles, quads, tetrahedra, and
+any other fixed-width cell topology. Mixed-width cell arrays retain their
+explicit offsets.
 
 **Alternative VTK example**
 

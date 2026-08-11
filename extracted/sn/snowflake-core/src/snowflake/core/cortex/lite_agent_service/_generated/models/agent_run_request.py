@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator
 from typing_extensions import Annotated
 
 from snowflake.core.cortex.lite_agent_service._generated.models.agent_instructions import (
@@ -30,11 +30,14 @@ from snowflake.core.cortex.lite_agent_service._generated.models.agent_orchestrat
     AgentOrchestration,
     AgentOrchestrationModel,
 )
+from snowflake.core.cortex.lite_agent_service._generated.models.mcp_config import McpConfig, McpConfigModel
 from snowflake.core.cortex.lite_agent_service._generated.models.mcp_server_wrapper import (
     McpServerWrapper,
     McpServerWrapperModel,
 )
 from snowflake.core.cortex.lite_agent_service._generated.models.message import Message, MessageModel
+from snowflake.core.cortex.lite_agent_service._generated.models.skill_choice import SkillChoice, SkillChoiceModel
+from snowflake.core.cortex.lite_agent_service._generated.models.skill_wrapper import SkillWrapper, SkillWrapperModel
 from snowflake.core.cortex.lite_agent_service._generated.models.tool import Tool, ToolModel
 from snowflake.core.cortex.lite_agent_service._generated.models.tool_choice import ToolChoice, ToolChoiceModel
 
@@ -47,33 +50,18 @@ class AgentRunRequest(BaseModel):
     Parameters
     __________
     messages : list[Message]
-        The conversation history and current message.
-        Contains both user queries and assistant responses in chronological order.
-    models : AgentModels, optional
-
-    orchestration : AgentOrchestration, optional
-
-    instructions : AgentInstructions, optional
-
-    model : str, optional
-        The identifier of the LLM to use for processing.
-    response_instruction : str, optional
-        Optional instructions to guide the model's response style and behavior.
-        Can be used to set the tone, format, or specific requirements for responses.
-    experimental : object, optional
-        reserved
-    tools : list[Tool], optional
-        List of tools available for the agent to use.
-        Tools may have a corresponding configuration in tool_resources.
-    tool_resources : Dict[str, object], optional
-        Configuration for each tool referenced in the tools array.
-        Keys must match the name field of tools.
-    tool_choice : ToolChoice, optional
-
+        If thread id and parent message id are present, the current user messages in this conversation turn.
+        Else, the conversation history and current message. Contains both user queries and assistant responses in chronological order.
     thread_id : int, optional
         The id of the thread.
     parent_message_id : int, optional
         The id of the message from which this run should begin.
+    tool_choice : ToolChoice, optional
+
+    skill_choice : SkillChoice, optional
+
+    experimental : object, optional
+        reserved
     variables : object, optional
         Dictionary of variables with metadata.
         Each variable can include value, type information, and flags indicating whether it's a session or prompt variable.
@@ -90,10 +78,66 @@ class AgentRunRequest(BaseModel):
     client_metadata : object, optional
         Client-provided metadata for the request. Can be used by clients
         to pass additional context or configuration.
+    stream : bool,  default True
+        Whether to return a streaming response (`text/event-stream`) or a non-streaming JSON response (`application/json`).
+        If true, the response will be streamed as Server-Sent Events. If false, the response will be returned as JSON.
+    background : bool,  default False
+        Whether to execute this request in background mode (asynchronously).
+    models : AgentModels, optional
+
+    orchestration : AgentOrchestration, optional
+
+    instructions : AgentInstructions, optional
+
+    model : str, optional
+        The identifier of the LLM to use for processing.
+    response_instruction : str, optional
+        Optional instructions to guide the model's response style and behavior.
+        Can be used to set the tone, format, or specific requirements for responses.
+    tools : list[Tool], optional
+        List of tools available for the agent to use.
+        Tools may have a corresponding configuration in tool_resources.
+    tool_resources : Dict[str, object], optional
+        Configuration for each tool referenced in the tools array.
+        Keys must match the name field of tools.
     mcp_servers : list[McpServerWrapper], optional
         List of MCP (Model Context Protocol) servers to use for this request.
         Each server is specified with a server_spec containing its fully qualified name.
+        Used when mcp_config.selection is "specified" (the default).
+    mcp_config : McpConfig, optional
+
+    skills : list[SkillWrapper], optional
+        List of skills available for the agent to use.
+        Each skill references external code from a stage or git repository.
     """
+
+    thread_id: Optional[StrictInt] = None
+
+    parent_message_id: Optional[StrictInt] = None
+
+    messages: Annotated[List[Message], Field(min_length=1)]
+
+    tool_choice: Optional[ToolChoice] = None
+
+    skill_choice: Optional[SkillChoice] = None
+
+    experimental: Optional[Dict[str, Any]] = None
+
+    variables: Optional[Dict[str, Any]] = None
+
+    query_tags: Optional[List[Dict[str, Any]]] = None
+
+    tool_bindings: Optional[Dict[str, Any]] = None
+
+    origin_application: Optional[StrictStr] = "external"
+
+    internal_metadata: Optional[Dict[str, Any]] = None
+
+    client_metadata: Optional[Dict[str, Any]] = None
+
+    stream: Optional[StrictBool] = True
+
+    background: Optional[StrictBool] = False
 
     models: Optional[AgentModels] = None
 
@@ -105,63 +149,64 @@ class AgentRunRequest(BaseModel):
 
     response_instruction: Optional[StrictStr] = None
 
-    experimental: Optional[Dict[str, Any]] = None
-
-    messages: Annotated[List[Message], Field(min_length=1)]
-
     tools: Optional[List[Tool]] = None
 
     tool_resources: Optional[Dict[str, Dict[str, Any]]] = None
 
-    tool_choice: Optional[ToolChoice] = None
-
-    thread_id: Optional[StrictInt] = None
-
-    parent_message_id: Optional[StrictInt] = None
-
-    variables: Optional[Dict[str, Any]] = None
-
-    query_tags: Optional[List[Any]] = None
-
-    tool_bindings: Optional[Dict[str, Any]] = None
-
-    origin_application: Optional[StrictStr] = "external"
-
-    internal_metadata: Optional[Dict[str, Any]] = None
-
-    client_metadata: Optional[Dict[str, Any]] = None
-
     mcp_servers: Optional[List[McpServerWrapper]] = None
 
+    mcp_config: Optional[McpConfig] = None
+
+    skills: Optional[List[SkillWrapper]] = None
+
     __properties = [
-        "models",
-        "orchestration",
-        "instructions",
-        "model",
-        "response_instruction",
-        "experimental",
-        "messages",
-        "tools",
-        "tool_resources",
-        "tool_choice",
         "thread_id",
         "parent_message_id",
+        "messages",
+        "tool_choice",
+        "skill_choice",
+        "experimental",
         "variables",
         "query_tags",
         "tool_bindings",
         "origin_application",
         "internal_metadata",
         "client_metadata",
+        "stream",
+        "background",
+        "models",
+        "orchestration",
+        "instructions",
+        "model",
+        "response_instruction",
+        "tools",
+        "tool_resources",
         "mcp_servers",
+        "mcp_config",
+        "skills",
     ]
 
     @field_validator("origin_application")
     def origin_application_validate_enum(cls, v):
+
         if v is None:
             return v
-        if v not in ("inline_copilot", "data_science_agent", "microsoft_teams", "coding_agent", "external"):
+        if v not in (
+            "inline_copilot",
+            "data_science_agent",
+            "microsoft_teams",
+            "coding_agent",
+            "external",
+            "snowflake_intelligence",
+            "mcp",
+            "agent_admin_ui",
+            "cortex_code_snowsight",
+            "autosuggest",
+            "cortex_code_desktop",
+            "sql_function",
+        ):
             raise ValueError(
-                "must validate the enum values ('inline_copilot','data_science_agent','microsoft_teams','coding_agent','external')"
+                "must validate the enum values ('inline_copilot','data_science_agent','microsoft_teams','coding_agent','external','snowflake_intelligence','mcp','agent_admin_ui','cortex_code_snowsight','autosuggest','cortex_code_desktop','sql_function')"
             )
         return v
 
@@ -195,6 +240,22 @@ class AgentRunRequest(BaseModel):
 
         _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
+        # override the default output from pydantic by calling `to_dict()` of each item in messages (list)
+        _items = []
+        if self.messages:
+            for _item in self.messages:
+                if _item:
+                    _items.append(_item.to_dict())
+            _dict["messages"] = _items
+
+        # override the default output from pydantic by calling `to_dict()` of tool_choice
+        if self.tool_choice:
+            _dict["tool_choice"] = self.tool_choice.to_dict()
+
+        # override the default output from pydantic by calling `to_dict()` of skill_choice
+        if self.skill_choice:
+            _dict["skill_choice"] = self.skill_choice.to_dict()
+
         # override the default output from pydantic by calling `to_dict()` of models
         if self.models:
             _dict["models"] = self.models.to_dict()
@@ -207,14 +268,6 @@ class AgentRunRequest(BaseModel):
         if self.instructions:
             _dict["instructions"] = self.instructions.to_dict()
 
-        # override the default output from pydantic by calling `to_dict()` of each item in messages (list)
-        _items = []
-        if self.messages:
-            for _item in self.messages:
-                if _item:
-                    _items.append(_item.to_dict())
-            _dict["messages"] = _items
-
         # override the default output from pydantic by calling `to_dict()` of each item in tools (list)
         _items = []
         if self.tools:
@@ -222,10 +275,6 @@ class AgentRunRequest(BaseModel):
                 if _item:
                     _items.append(_item.to_dict())
             _dict["tools"] = _items
-
-        # override the default output from pydantic by calling `to_dict()` of tool_choice
-        if self.tool_choice:
-            _dict["tool_choice"] = self.tool_choice.to_dict()
 
         # override the default output from pydantic by calling `to_dict()` of each item in mcp_servers (list)
         _items = []
@@ -235,9 +284,25 @@ class AgentRunRequest(BaseModel):
                     _items.append(_item.to_dict())
             _dict["mcp_servers"] = _items
 
+        # override the default output from pydantic by calling `to_dict()` of mcp_config
+        if self.mcp_config:
+            _dict["mcp_config"] = self.mcp_config.to_dict()
+
+        # override the default output from pydantic by calling `to_dict()` of each item in skills (list)
+        _items = []
+        if self.skills:
+            for _item in self.skills:
+                if _item:
+                    _items.append(_item.to_dict())
+            _dict["skills"] = _items
+
         # set to None if tool_choice (nullable) is None
         if self.tool_choice is None:
             _dict["tool_choice"] = None
+
+        # set to None if skill_choice (nullable) is None
+        if self.skill_choice is None:
+            _dict["skill_choice"] = None
 
         return _dict
 
@@ -256,6 +321,28 @@ class AgentRunRequest(BaseModel):
 
         _obj = AgentRunRequest.model_validate(
             {
+                "thread_id": obj.get("thread_id"),
+                "parent_message_id": obj.get("parent_message_id"),
+                "messages": [Message.from_dict(_item) for _item in obj.get("messages")]
+                if obj.get("messages") is not None
+                else None,
+                "tool_choice": ToolChoice.from_dict(obj.get("tool_choice"))
+                if obj.get("tool_choice") is not None
+                else None,
+                "skill_choice": SkillChoice.from_dict(obj.get("skill_choice"))
+                if obj.get("skill_choice") is not None
+                else None,
+                "experimental": obj.get("experimental"),
+                "variables": obj.get("variables"),
+                "query_tags": obj.get("query_tags"),
+                "tool_bindings": obj.get("tool_bindings"),
+                "origin_application": obj.get("origin_application")
+                if obj.get("origin_application") is not None
+                else "external",
+                "internal_metadata": obj.get("internal_metadata"),
+                "client_metadata": obj.get("client_metadata"),
+                "stream": obj.get("stream") if obj.get("stream") is not None else True,
+                "background": obj.get("background") if obj.get("background") is not None else False,
                 "models": AgentModels.from_dict(obj.get("models")) if obj.get("models") is not None else None,
                 "orchestration": AgentOrchestration.from_dict(obj.get("orchestration"))
                 if obj.get("orchestration") is not None
@@ -265,29 +352,16 @@ class AgentRunRequest(BaseModel):
                 else None,
                 "model": obj.get("model"),
                 "response_instruction": obj.get("response_instruction"),
-                "experimental": obj.get("experimental"),
-                "messages": [Message.from_dict(_item) for _item in obj.get("messages")]
-                if obj.get("messages") is not None
-                else None,
                 "tools": [Tool.from_dict(_item) for _item in obj.get("tools")]
                 if obj.get("tools") is not None
                 else None,
                 "tool_resources": obj.get("tool_resources"),
-                "tool_choice": ToolChoice.from_dict(obj.get("tool_choice"))
-                if obj.get("tool_choice") is not None
-                else None,
-                "thread_id": obj.get("thread_id"),
-                "parent_message_id": obj.get("parent_message_id"),
-                "variables": obj.get("variables"),
-                "query_tags": obj.get("query_tags"),
-                "tool_bindings": obj.get("tool_bindings"),
-                "origin_application": obj.get("origin_application")
-                if obj.get("origin_application") is not None
-                else "external",
-                "internal_metadata": obj.get("internal_metadata"),
-                "client_metadata": obj.get("client_metadata"),
                 "mcp_servers": [McpServerWrapper.from_dict(_item) for _item in obj.get("mcp_servers")]
                 if obj.get("mcp_servers") is not None
+                else None,
+                "mcp_config": McpConfig.from_dict(obj.get("mcp_config")) if obj.get("mcp_config") is not None else None,
+                "skills": [SkillWrapper.from_dict(_item) for _item in obj.get("skills")]
+                if obj.get("skills") is not None
                 else None,
             }
         )
@@ -300,24 +374,29 @@ class AgentRunRequestModel:
         self,
         messages: list[Message],
         # optional properties
-        models: Optional[AgentModels] = None,
-        orchestration: Optional[AgentOrchestration] = None,
-        instructions: Optional[AgentInstructions] = None,
-        model: Optional[str] = None,
-        response_instruction: Optional[str] = None,
-        experimental: Optional[object] = None,
-        tools: Optional[list[Tool]] = None,
-        tool_resources: Optional[Dict[str, object]] = None,
-        tool_choice: Optional[ToolChoice] = None,
         thread_id: Optional[int] = None,
         parent_message_id: Optional[int] = None,
+        tool_choice: Optional[ToolChoice] = None,
+        skill_choice: Optional[SkillChoice] = None,
+        experimental: Optional[object] = None,
         variables: Optional[object] = None,
         query_tags: Optional[list[object]] = None,
         tool_bindings: Optional[object] = None,
         origin_application: Optional[str] = "external",
         internal_metadata: Optional[object] = None,
         client_metadata: Optional[object] = None,
+        stream: Optional[bool] = True,
+        background: Optional[bool] = False,
+        models: Optional[AgentModels] = None,
+        orchestration: Optional[AgentOrchestration] = None,
+        instructions: Optional[AgentInstructions] = None,
+        model: Optional[str] = None,
+        response_instruction: Optional[str] = None,
+        tools: Optional[list[Tool]] = None,
+        tool_resources: Optional[Dict[str, object]] = None,
         mcp_servers: Optional[list[McpServerWrapper]] = None,
+        mcp_config: Optional[McpConfig] = None,
+        skills: Optional[list[SkillWrapper]] = None,
     ):
         """A model object representing the AgentRunRequest resource.
 
@@ -326,32 +405,8 @@ class AgentRunRequestModel:
                 Parameters
                 __________
                 messages : list[Message]
-                    The conversation history and current message.
-        Contains both user queries and assistant responses in chronological order.
-
-                models : AgentModels, optional
-
-                orchestration : AgentOrchestration, optional
-
-                instructions : AgentInstructions, optional
-
-                model : str, optional
-                    The identifier of the LLM to use for processing.
-                response_instruction : str, optional
-                    Optional instructions to guide the model's response style and behavior.
-        Can be used to set the tone, format, or specific requirements for responses.
-
-                experimental : object, optional
-                    reserved
-                tools : list[Tool], optional
-                    List of tools available for the agent to use.
-        Tools may have a corresponding configuration in tool_resources.
-
-                tool_resources : Dict[str, object], optional
-                    Configuration for each tool referenced in the tools array.
-        Keys must match the name field of tools.
-
-                tool_choice : ToolChoice, optional
+                    If thread id and parent message id are present, the current user messages in this conversation turn.
+        Else, the conversation history and current message. Contains both user queries and assistant responses in chronological order.
 
                 thread_id : int, optional
                     The id of the thread.
@@ -359,6 +414,12 @@ class AgentRunRequestModel:
                 parent_message_id : int, optional
                     The id of the message from which this run should begin.
 
+                tool_choice : ToolChoice, optional
+
+                skill_choice : SkillChoice, optional
+
+                experimental : object, optional
+                    reserved
                 variables : object, optional
                     Dictionary of variables with metadata.
         Each variable can include value, type information, and flags indicating whether it's a session or prompt variable.
@@ -381,50 +442,93 @@ class AgentRunRequestModel:
                     Client-provided metadata for the request. Can be used by clients
         to pass additional context or configuration.
 
+                stream : bool,  default True
+                    Whether to return a streaming response (`text/event-stream`) or a non-streaming JSON response (`application/json`).
+        If true, the response will be streamed as Server-Sent Events. If false, the response will be returned as JSON.
+
+                background : bool,  default False
+                    Whether to execute this request in background mode (asynchronously).
+                models : AgentModels, optional
+
+                orchestration : AgentOrchestration, optional
+
+                instructions : AgentInstructions, optional
+
+                model : str, optional
+                    The identifier of the LLM to use for processing.
+                response_instruction : str, optional
+                    Optional instructions to guide the model's response style and behavior.
+        Can be used to set the tone, format, or specific requirements for responses.
+
+                tools : list[Tool], optional
+                    List of tools available for the agent to use.
+        Tools may have a corresponding configuration in tool_resources.
+
+                tool_resources : Dict[str, object], optional
+                    Configuration for each tool referenced in the tools array.
+        Keys must match the name field of tools.
+
                 mcp_servers : list[McpServerWrapper], optional
                     List of MCP (Model Context Protocol) servers to use for this request.
         Each server is specified with a server_spec containing its fully qualified name.
+        Used when mcp_config.selection is "specified" (the default).
+
+                mcp_config : McpConfig, optional
+
+                skills : list[SkillWrapper], optional
+                    List of skills available for the agent to use.
+        Each skill references external code from a stage or git repository.
         """
-        self.models = models
-        self.orchestration = orchestration
-        self.instructions = instructions
-        self.model = model
-        self.response_instruction = response_instruction
-        self.experimental = experimental
-        self.messages = messages
-        self.tools = tools
-        self.tool_resources = tool_resources
-        self.tool_choice = tool_choice
         self.thread_id = thread_id
         self.parent_message_id = parent_message_id
+        self.messages = messages
+        self.tool_choice = tool_choice
+        self.skill_choice = skill_choice
+        self.experimental = experimental
         self.variables = variables
         self.query_tags = query_tags
         self.tool_bindings = tool_bindings
         self.origin_application = origin_application
         self.internal_metadata = internal_metadata
         self.client_metadata = client_metadata
+        self.stream = stream
+        self.background = background
+        self.models = models
+        self.orchestration = orchestration
+        self.instructions = instructions
+        self.model = model
+        self.response_instruction = response_instruction
+        self.tools = tools
+        self.tool_resources = tool_resources
         self.mcp_servers = mcp_servers
+        self.mcp_config = mcp_config
+        self.skills = skills
 
     __properties = [
-        "models",
-        "orchestration",
-        "instructions",
-        "model",
-        "response_instruction",
-        "experimental",
-        "messages",
-        "tools",
-        "tool_resources",
-        "tool_choice",
         "thread_id",
         "parent_message_id",
+        "messages",
+        "tool_choice",
+        "skill_choice",
+        "experimental",
         "variables",
         "query_tags",
         "tool_bindings",
         "origin_application",
         "internal_metadata",
         "client_metadata",
+        "stream",
+        "background",
+        "models",
+        "orchestration",
+        "instructions",
+        "model",
+        "response_instruction",
+        "tools",
+        "tool_resources",
         "mcp_servers",
+        "mcp_config",
+        "skills",
     ]
 
     def __repr__(self) -> str:
@@ -432,51 +536,61 @@ class AgentRunRequestModel:
 
     def _to_model(self):
         return AgentRunRequest(
-            models=self.models._to_model() if self.models is not None else None,
-            orchestration=self.orchestration._to_model() if self.orchestration is not None else None,
-            instructions=self.instructions._to_model() if self.instructions is not None else None,
-            model=self.model,
-            response_instruction=self.response_instruction,
-            experimental=self.experimental,
-            messages=[x._to_model() for x in self.messages] if self.messages is not None else None,
-            tools=[x._to_model() for x in self.tools] if self.tools is not None else None,
-            tool_resources=self.tool_resources,
-            tool_choice=self.tool_choice._to_model() if self.tool_choice is not None else None,
             thread_id=self.thread_id,
             parent_message_id=self.parent_message_id,
+            messages=[x._to_model() for x in self.messages] if self.messages is not None else None,
+            tool_choice=self.tool_choice._to_model() if self.tool_choice is not None else None,
+            skill_choice=self.skill_choice._to_model() if self.skill_choice is not None else None,
+            experimental=self.experimental,
             variables=self.variables,
             query_tags=self.query_tags,
             tool_bindings=self.tool_bindings,
             origin_application=self.origin_application,
             internal_metadata=self.internal_metadata,
             client_metadata=self.client_metadata,
+            stream=self.stream,
+            background=self.background,
+            models=self.models._to_model() if self.models is not None else None,
+            orchestration=self.orchestration._to_model() if self.orchestration is not None else None,
+            instructions=self.instructions._to_model() if self.instructions is not None else None,
+            model=self.model,
+            response_instruction=self.response_instruction,
+            tools=[x._to_model() for x in self.tools] if self.tools is not None else None,
+            tool_resources=self.tool_resources,
             mcp_servers=[x._to_model() for x in self.mcp_servers] if self.mcp_servers is not None else None,
+            mcp_config=self.mcp_config._to_model() if self.mcp_config is not None else None,
+            skills=[x._to_model() for x in self.skills] if self.skills is not None else None,
         )
 
     @classmethod
     def _from_model(cls, model) -> AgentRunRequestModel:
         return AgentRunRequestModel(
-            models=AgentModelsModel._from_model(model.models) if model.models else None,
-            orchestration=AgentOrchestrationModel._from_model(model.orchestration) if model.orchestration else None,
-            instructions=AgentInstructionsModel._from_model(model.instructions) if model.instructions else None,
-            model=model.model,
-            response_instruction=model.response_instruction,
-            experimental=model.experimental,
-            messages=[MessageModel._from_model(x) for x in model.messages] if model.messages else None,
-            tools=[ToolModel._from_model(x) for x in model.tools] if model.tools else None,
-            tool_resources=model.tool_resources,
-            tool_choice=ToolChoiceModel._from_model(model.tool_choice) if model.tool_choice else None,
             thread_id=model.thread_id,
             parent_message_id=model.parent_message_id,
+            messages=[MessageModel._from_model(x) for x in model.messages] if model.messages else None,
+            tool_choice=ToolChoiceModel._from_model(model.tool_choice) if model.tool_choice else None,
+            skill_choice=SkillChoiceModel._from_model(model.skill_choice) if model.skill_choice else None,
+            experimental=model.experimental,
             variables=model.variables,
             query_tags=model.query_tags,
             tool_bindings=model.tool_bindings,
             origin_application=model.origin_application,
             internal_metadata=model.internal_metadata,
             client_metadata=model.client_metadata,
+            stream=model.stream,
+            background=model.background,
+            models=AgentModelsModel._from_model(model.models) if model.models else None,
+            orchestration=AgentOrchestrationModel._from_model(model.orchestration) if model.orchestration else None,
+            instructions=AgentInstructionsModel._from_model(model.instructions) if model.instructions else None,
+            model=model.model,
+            response_instruction=model.response_instruction,
+            tools=[ToolModel._from_model(x) for x in model.tools] if model.tools else None,
+            tool_resources=model.tool_resources,
             mcp_servers=[McpServerWrapperModel._from_model(x) for x in model.mcp_servers]
             if model.mcp_servers
             else None,
+            mcp_config=McpConfigModel._from_model(model.mcp_config) if model.mcp_config else None,
+            skills=[SkillWrapperModel._from_model(x) for x in model.skills] if model.skills else None,
         )
 
     def to_dict(self):

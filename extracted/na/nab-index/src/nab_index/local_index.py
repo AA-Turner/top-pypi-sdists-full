@@ -20,8 +20,10 @@ multi-index router can treat local and remote indexes uniformly.
 
 from __future__ import annotations
 
+import errno
 import lzma
 import re
+import stat
 import sys
 import zipfile
 import zlib
@@ -31,9 +33,9 @@ from typing import TYPE_CHECKING
 from urllib.parse import unquote, urljoin, urlparse, urlsplit
 from urllib.request import url2pathname
 
-from packaging.utils import InvalidSdistFilename, parse_sdist_filename
+from packaging.utils import canonicalize_name as _canonical
+from packaging.utils import parse_sdist_filename
 
-from ._naming import canonical as _canonical
 from ._pep503 import hash_fragment, metadata_declaration, read_page
 from .client import (
     SdistFile,
@@ -43,7 +45,7 @@ from .client import (
     _parse_wheel_filename,
     is_readable_filename,
 )
-from .transport import HttpError
+from .errors import IndexAccessError
 
 if TYPE_CHECKING:
     from packaging.utils import NormalizedName
@@ -53,8 +55,10 @@ if TYPE_CHECKING:
 
 __all__ = [
     "LocalIndexClient",
+    "LocalIndexError",
     "MalformedLocalListingError",
     "NonLocalArtifactError",
+    "UnreadableLocalIndexError",
     "UnsupportedWheelError",
     "is_file_url",
     "parse_file_url",
@@ -72,25 +76,34 @@ class UnsupportedWheelError(Exception):
     """
 
 
-class MalformedLocalListingError(HttpError):
-    """A local ``file://`` index's ``index.html`` or metadata sidecar is unreadable.
+class LocalIndexError(IndexAccessError):
+    """A ``file://`` index could not produce a listing or serve an artifact.
 
-    Subclasses :class:`~nab_index.transport.HttpError` so a broken local
-    listing or PEP 658 sidecar fails through the same path as a remote
-    index error rather than surfacing a raw decode error.  Raising, rather
-    than returning an empty listing, keeps a malformed index from reading
-    as an absent package.
+    Raising, rather than returning an empty listing, keeps an index that
+    failed from reading as an absent package.
     """
 
 
-class NonLocalArtifactError(HttpError):
+class UnreadableLocalIndexError(LocalIndexError):
+    """A path under a ``file://`` index could not be read.
+
+    Distinct from :class:`MalformedLocalListingError` because the content was
+    never seen: a wheelhouse the process cannot list, or an ``index.html`` it
+    cannot stat or open, is a permission or mount fault rather than a bad
+    listing.
+    """
+
+
+class MalformedLocalListingError(LocalIndexError):
+    """A ``file://`` index's ``index.html`` or metadata sidecar does not parse."""
+
+
+class NonLocalArtifactError(LocalIndexError):
     """A ``file://`` index advertised an artifact URL a local client cannot serve.
 
     A :pep:`503` repository page may link to absolute ``http(s)`` artifact
     URLs, so the listing is legal, but a filesystem-backed index cannot fetch
-    a remote artifact.  Subclasses :class:`~nab_index.transport.HttpError` so
-    the fetch fails through the same path as a remote index error rather than a
-    raw :class:`ValueError` from :func:`parse_file_url`.
+    a remote artifact.
     """
 
 
@@ -156,15 +169,53 @@ def _resolve_served_path(url: str) -> Path:
 def _read_served_bytes(path: Path, kind: str) -> bytes:
     """Read a served local artifact's bytes, mapping a read failure.
 
-    A missing or unreadable file raises :class:`MalformedLocalListingError`
-    (an :class:`HttpError` subclass) so the fetch fails through the index-error
-    path, matching a remote index's 404 rather than a raw :class:`OSError`.
+    A missing or unreadable file raises :class:`UnreadableLocalIndexError` so
+    the fetch fails through the index-error path, matching a remote index's
+    404 rather than a raw :class:`OSError`.
     """
     try:
         return path.read_bytes()
     except OSError as exc:
         msg = f"cannot read local {kind} {path}: {exc}"
-        raise MalformedLocalListingError(msg) from exc
+        raise UnreadableLocalIndexError(msg) from exc
+
+
+# The errnos pathlib itself treats as "no such file".
+_ABSENT_ERRNOS = frozenset({errno.ENOENT, errno.ENOTDIR, errno.EBADF, errno.ELOOP})
+
+# Windows: drive not ready, invalid name, symlink loop.
+_ABSENT_WINERRORS = frozenset({21, 123, 1921})
+
+
+def _stat_mode(path: Path) -> int | None:
+    """Return ``path``'s ``st_mode``, or ``None`` when nothing is there.
+
+    Only an error meaning the path is absent gives ``None``, so a broken entry
+    skips instead of failing the listing it sits in. Anything else raises: from
+    Python 3.14 ``Path.exists`` and ``Path.is_file`` swallow every
+    :class:`OSError`, so an unreadable path would read as absent.
+    """
+    try:
+        return path.stat().st_mode
+    except OSError as exc:
+        if (
+            exc.errno in _ABSENT_ERRNOS
+            or getattr(exc, "winerror", None) in _ABSENT_WINERRORS
+        ):
+            return None
+        raise
+
+
+def _is_file(path: Path) -> bool:
+    """Return whether ``path`` is an existing regular file."""
+    mode = _stat_mode(path)
+    return mode is not None and stat.S_ISREG(mode)
+
+
+def _is_dir(path: Path) -> bool:
+    """Return whether ``path`` is an existing directory."""
+    mode = _stat_mode(path)
+    return mode is not None and stat.S_ISDIR(mode)
 
 
 _FLAT_EXTS = re.compile(r"\.(whl|tar\.gz)$", re.IGNORECASE)
@@ -180,7 +231,7 @@ def _scan_pep503_directory(
     not read, which tells a page of ``.zip`` sdists from an empty one.
     """
     index_html = package_dir / "index.html"
-    if not index_html.exists():
+    if not _is_file(index_html):
         return [], False
 
     try:
@@ -295,7 +346,7 @@ def _scan_flat_wheelhouse(
     unreadable = False
 
     for entry in sorted(root.iterdir()):
-        if not entry.is_file():
+        if not _is_file(entry):
             continue
         if _FLAT_EXTS.search(entry.name) is None:
             unreadable = unreadable or _is_zip_sdist(entry.name, canonical)
@@ -321,7 +372,8 @@ def _is_zip_sdist(filename: str, canonical: str) -> bool:
         return False
     try:
         name, _ = parse_sdist_filename(filename)
-    except InvalidSdistFilename:
+    except ValueError:
+        # InvalidSdistFilename, or int() refusing a digit run past CPython's limit.
         return False
     return name == canonical
 
@@ -431,8 +483,10 @@ def read_wheel_metadata(wheel_path: Path) -> str | None:
     (taken from its filename); a wheel with several top-level ``.dist-info``
     directories, or one naming a different distribution, raises
     :class:`UnsupportedWheelError` rather than reading another package's
-    metadata.  Returns ``None`` when the file is not a readable zip, its name
-    is not a wheel filename, or it carries no METADATA member.
+    metadata.  Returns ``None`` when the archive cannot be parsed, its name is
+    not a wheel filename, or it carries no METADATA member.  A wheel that
+    cannot be opened raises :class:`UnreadableLocalIndexError` instead, so a
+    permission or mount fault is not read as a wheel that declares nothing.
     """
     parsed = _parse_wheel_filename(wheel_path.name)
     if parsed is None:
@@ -443,9 +497,11 @@ def read_wheel_metadata(wheel_path: Path) -> str | None:
             if member is None:
                 return None
             return zf.read(member).decode("utf-8")
+    except OSError as exc:
+        msg = f"cannot read local wheel {wheel_path}: {exc}"
+        raise UnreadableLocalIndexError(msg) from exc
     except (
         zipfile.BadZipFile,
-        OSError,
         UnicodeDecodeError,
         zlib.error,
         lzma.LZMAError,
@@ -510,8 +566,11 @@ class LocalIndexClient:
     """
 
     def __init__(self, index_url: str) -> None:
-        """Hold the resolved root path for ``index_url``."""
-        self._root = parse_file_url(index_url)
+        """Hold the resolved root path for ``index_url``.
+
+        A ``file:`` URL may be cwd-relative; artefact URLs have to be absolute.
+        """
+        self._root = parse_file_url(index_url).resolve()
         self._unreadable_only: set[str] = set()
 
     async def aclose(self) -> None:
@@ -525,16 +584,26 @@ class LocalIndexClient:
         """No-op exit."""
 
     async def get_files(self, package: str) -> list[WheelFile | SdistFile]:
-        """Return all distribution files known for ``package``."""
+        """Return all distribution files known for ``package``.
+
+        An index directory or listing the process cannot read raises
+        :class:`UnreadableLocalIndexError` so the listing fails through the
+        index-error path rather than raising a raw :class:`OSError` or
+        returning an empty list that reads as "package absent".
+        """
         canonical = _canonical(package)
         package_dir = self._root / canonical
 
-        if (package_dir / "index.html").is_file():
-            files, unreadable = _scan_pep503_directory(package_dir, canonical)
-        elif not self._root.is_dir():
-            files, unreadable = [], False
-        else:
-            files, unreadable = _scan_flat_wheelhouse(self._root, package)
+        try:
+            if _is_file(package_dir / "index.html"):
+                files, unreadable = _scan_pep503_directory(package_dir, canonical)
+            elif not _is_dir(self._root):
+                files, unreadable = [], False
+            else:
+                files, unreadable = _scan_flat_wheelhouse(self._root, package)
+        except OSError as exc:
+            msg = f"cannot read local index {self._root}: {exc}"
+            raise UnreadableLocalIndexError(msg) from exc
 
         if not files and unreadable:
             self._unreadable_only.add(package)
@@ -553,12 +622,11 @@ class LocalIndexClient:
     ) -> str:
         """Return PEP 658 metadata text for a wheel sitting on disk.
 
-        The on-disk sidecar is trusted, so ``metadata_hash`` is accepted
-        only to match the remote client signature and is not verified.  A
-        sidecar that is missing, unreadable, or not valid UTF-8 raises
-        :class:`MalformedLocalListingError` (an :class:`HttpError` subclass)
-        rather than a raw :class:`OSError` or :class:`UnicodeDecodeError`,
-        matching the ``index.html`` reader.
+        The on-disk sidecar is trusted, so ``metadata_hash`` is accepted only
+        to match the remote client signature and is not verified.  A missing
+        or unreadable sidecar raises :class:`UnreadableLocalIndexError` and a
+        non-UTF-8 one :class:`MalformedLocalListingError`, so no raw
+        :class:`OSError` or :class:`UnicodeDecodeError` escapes.
         """
         path = _resolve_served_path(metadata_url)
         data = _read_served_bytes(path, "metadata sidecar")

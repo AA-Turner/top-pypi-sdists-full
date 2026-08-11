@@ -81,6 +81,7 @@ class ServiceInstance(BaseModel):
 
     @field_validator("database_name")
     def database_name_validate_regular_expression(cls, v):
+
         if v is None:
             return v
         if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$""", v):
@@ -89,6 +90,7 @@ class ServiceInstance(BaseModel):
 
     @field_validator("schema_name")
     def schema_name_validate_regular_expression(cls, v):
+
         if v is None:
             return v
         if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$""", v):
@@ -97,6 +99,7 @@ class ServiceInstance(BaseModel):
 
     @field_validator("service_name")
     def service_name_validate_regular_expression(cls, v):
+
         if v is None:
             return v
         if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$""", v):

@@ -30,8 +30,8 @@ _STYLE_BOLD_MAGENTA = "bold magenta"
 
 
 # Shared cast-type constants to avoid string duplication (Sonar S1192).
-_CAST_DICT_STR_ANY = "dict[str, Any]"
-_CAST_LIST_OBJ = "list[object]"
+type _CAST_DICT_STR_ANY = dict[str, Any]
+type _CAST_LIST_OBJ = list[object]
 
 
 @dataclass(frozen=True)
@@ -540,22 +540,18 @@ def _fetch_demo_outcome(server_url: str, *, expected_total: int) -> _DemoOutcome
         resp = httpx.get(f"{server_url}/status", timeout=3.0, headers=auth_headers())
         if resp.status_code == 200:
             payload = resp.json()
-            # /status returns tasks as {"count": N, "items": [...]}; tolerate a
-            # bare list too. Iterating the dict form would yield its string keys
-            # and crash on ``t.get`` (the historical AttributeError, #2075), so
-            # unwrap to the items list and keep only dict rows.
-            raw_tasks = payload.get("tasks", [])
-            if isinstance(raw_tasks, dict):
-                raw_tasks = raw_tasks.get("items", [])
-            if isinstance(raw_tasks, list):
-                tasks_data = [t for t in raw_tasks if isinstance(t, dict)]
+            tasks_data = _status_task_rows(payload)
             total_cost = float(payload.get("total_cost_usd", 0.0) or 0.0)
 
-    # Count done against the seeded set. A failed task spawns a retry task with a
-    # fresh id, so the live list can balloon past the seeded count (banner said
-    # 4, summary said 12). Clamp done to the seeded total and derive "not fixed"
-    # from it so banner, progress and summary never disagree.
-    done = min(sum(1 for t in tasks_data if t.get("status") == "done"), expected_total)
+    # Count done LINEAGES against the seeded set. A failed task spawns a retry
+    # task with a fresh id, so the live list balloons past the seeded count
+    # (banner said 4, summary said 12) and a retried lineage can carry several
+    # done rows - counting rows would let duplicates satisfy the seeded total
+    # while another bug has no successful attempt at all. Clamp to the seeded
+    # total and derive "not fixed" from it so banner, progress and summary
+    # never disagree.
+    done_lineages, _, _ = _lineage_progress(tasks_data)
+    done = min(len(done_lineages), expected_total)
     failed = max(expected_total - done, 0)
     return _DemoOutcome(done=done, failed=failed, total=expected_total, cost_usd=total_cost)
 
@@ -678,8 +674,84 @@ def cook(
         console.print("[yellow]Recipe monitor timed out before a final status snapshot was available.[/yellow]")
 
 
-def _poll_demo_completion(server_url: str, deadline: float) -> None:
-    """Poll demo server for task completion with live progress output."""
+def _status_task_rows(payload: Any) -> list[dict[str, Any]]:
+    """Unwrap the ``/status`` payload's task rows.
+
+    ``/status`` returns ``tasks`` as ``{"count": N, "items": [...]}``;
+    tolerate a bare list too. Iterating the dict form yields its string
+    keys and crashes on ``t.get`` - the historical AttributeError
+    (#2075), fixed in ``_fetch_demo_outcome`` but re-grown in the
+    completion poll, where the enclosing ``suppress()`` ate the crash on
+    every tick and the demo always ran to its full timeout (issue
+    #3433). One shared unwrap, so the next ``/status`` shape change
+    breaks one place, loudly, under test.
+    """
+    if not isinstance(payload, dict):
+        return []
+    raw_tasks = payload.get("tasks", [])
+    if isinstance(raw_tasks, dict):
+        raw_tasks = raw_tasks.get("items", [])
+    if not isinstance(raw_tasks, list):
+        return []
+    return [t for t in raw_tasks if isinstance(t, dict)]
+
+
+def _lineage_id(row: dict[str, Any]) -> str:
+    """Return the retry-lineage root for a ``/status`` task row.
+
+    The server exposes ``lineage_id`` (``metadata.original_task_id`` of a
+    retry, or the task's own id); modern rows always carry it. The
+    fallbacks exist only for older payload shapes, and their order is
+    deliberate: ``title`` BEFORE ``id``. In that regime a retry keeps its
+    title but gets a fresh id, so id-first would re-open the premature
+    green exit this ordering guards against (duplicate done rows
+    satisfying the seeded total while a bug has no successful attempt).
+    Title-first fails safe instead - distinct same-title rows collapse,
+    the count can only be too LOW, and the poll waits out its deadline
+    rather than tearing the run down early.
+    """
+    return str(row.get("lineage_id") or row.get("title") or row.get("id") or "")
+
+
+def _lineage_progress(rows: list[dict[str, Any]]) -> tuple[set[str], set[str], set[str]]:
+    """Return ``(done, failed, all)`` lineage-id sets for ``/status`` rows.
+
+    Counting rows double-counts retried work: a failed task's retry is a
+    NEW row with a fresh id, and duplicate ``done`` rows for one lineage
+    were observed live (a "6/8 bugs fixed" frame on a 4-bug demo). A
+    lineage is done when ANY of its rows is done; it is failed only while
+    none is.
+    """
+    done: set[str] = set()
+    failed: set[str] = set()
+    all_ids: set[str] = set()
+    for index, row in enumerate(rows):
+        # A row with no identity at all counts as its own lineage, so
+        # counting degrades to the raw per-row behaviour instead of
+        # silently dropping work from the tally.
+        lid = _lineage_id(row) or f"row-{index}"
+        all_ids.add(lid)
+        status = row.get("status")
+        if status == "done":
+            done.add(lid)
+        elif status == "failed":
+            failed.add(lid)
+    return done, failed - done, all_ids
+
+
+def _poll_demo_completion(server_url: str, deadline: float, *, expected_total: int = 0) -> None:
+    """Poll demo server for task completion with live progress output.
+
+    ``expected_total`` is the seeded task count - the same denominator
+    ``_fetch_demo_outcome`` clamps against. The live list balloons past it
+    as failed tasks spawn retry tasks with fresh ids, and a failed original
+    stays ``failed`` forever even after its retry succeeds, so neither
+    "all rows done" nor "all rows terminal" can ever hold on a retried
+    run. Distinct DONE LINEAGES reaching the seeded count is the one exit
+    condition that matches what the summary will report - done *rows*
+    would double-count a retried lineage and tear the demo down with a
+    seeded bug still unfixed.
+    """
     from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
     seen_done: set[str] = set()
@@ -696,23 +768,38 @@ def _poll_demo_completion(server_url: str, deadline: float) -> None:
         poll_task = progress.add_task("Agents working\u2026", total=None)
 
         while time.monotonic() < deadline:
-            with suppress(Exception):
+            # Suppress only the fetch (server not up yet, transient HTTP
+            # errors, non-JSON body). Row processing runs OUTSIDE the
+            # suppress: a payload-shape crash here must be loud - eating
+            # it silently is exactly how the early-exit condition below
+            # became unreachable for every demo run (issue #3433).
+            payload: Any = None
+            with suppress(httpx.HTTPError, ValueError):
                 resp = httpx.get(f"{server_url}/status", timeout=3.0, headers=auth_headers())
                 if resp.status_code == 200:
                     payload = resp.json()
-                    tasks_list: list[dict[str, Any]] = payload.get("tasks", [])
-                    done_count, failed_count = _emit_task_events(tasks_list, seen_done, seen_failed, progress)
-                    total_tasks = len(tasks_list)
-                    progress.update(
-                        poll_task,
-                        description=(
-                            f"Agents working\u2026 "
-                            f"[green]{done_count}[/green]/{total_tasks} bugs fixed"
-                            + (f"  [red]{failed_count} failed[/red]" if failed_count else "")
-                        ),
-                    )
-                    if total_tasks > 0 and done_count + failed_count >= total_tasks:
-                        break
+            if payload is not None:
+                tasks_list = _status_task_rows(payload)
+                _emit_task_events(tasks_list, seen_done, seen_failed, progress)
+                done_lineages, failed_lineages, all_lineages = _lineage_progress(tasks_list)
+                target = expected_total if expected_total > 0 else len(all_lineages)
+                progress.update(
+                    poll_task,
+                    description=(
+                        f"Agents working\u2026 "
+                        f"[green]{len(done_lineages)}[/green]/{target} bugs fixed"
+                        + (f"  [red]{len(failed_lineages)} failed[/red]" if failed_lineages else "")
+                    ),
+                )
+                # Leave early only when the seeded count of LINEAGES is
+                # done. A failed row is not terminal (the lifecycle
+                # schedules a retry with a fresh id after retry_delay_s),
+                # so exiting on done+failed tears the demo down while a
+                # retry that would have fixed the bug is still pending.
+                # Runs that never reach the seeded count wait out the
+                # deadline, exactly as before.
+                if target > 0 and len(done_lineages) >= target:
+                    break
             time.sleep(2)
 
 
@@ -761,6 +848,71 @@ def _demo_exit_code(outcome: _DemoOutcome | None, *, bootstrap_error: Exception 
     return 0 if outcome.all_fixed else 1
 
 
+def _run_flask_todo_scenario(
+    *,
+    real: bool,
+    adapter: str | None,
+    timeout: int,
+    keep: bool,
+    dry_run: bool,
+) -> None:
+    """Forward ``bernstein demo --flask-todo`` to the Flask TODO scenario.
+
+    The scenario body used to be reachable as its own top-level command with
+    its own defaults, so forwarding it verbatim silently changes three
+    contracts that belong to ``demo``:
+
+    * ``demo`` spends money only behind ``--real``. The scenario body resolves
+      ``adapter or detect_available_adapter() or "mock"``, so handing it an
+      unresolved ``None`` makes it pick up an installed CLI and spawn paid
+      agents on a bare ``demo --flask-todo``. The adapter is resolved here,
+      under ``demo``'s rule, and passed through already decided.
+    * ``--dry-run`` promises no agents are spawned. The scenario has no
+      preview mode, so the combination is refused rather than executed.
+    * ``demo --timeout`` defaults to 120s while the scenario budgets 300s.
+      An operator who did not name a timeout gets the scenario's own default;
+      one who did gets exactly what they asked for.
+
+    Args:
+        real: True when the operator opted into real agents.
+        adapter: Explicit adapter name, or None to auto-detect under --real.
+        timeout: Timeout as parsed on ``demo``.
+        keep: Preserve the scenario's temp project directory.
+        dry_run: True when the operator asked for a preview.
+
+    Raises:
+        click.UsageError: When ``--dry-run`` is combined with ``--flask-todo``.
+        SystemExit: When ``--real`` is set and no adapter can be resolved.
+    """
+    if dry_run:
+        raise click.UsageError(
+            "--dry-run is not supported with --flask-todo: the Flask TODO scenario has no preview mode. "
+            "Run `bernstein demo --dry-run` for the plan preview, or drop --dry-run to run the scenario."
+        )
+
+    from click.core import ParameterSource
+
+    from bernstein.cli.commands.quickstart_cmd import quickstart_cmd
+
+    if real:
+        resolved = adapter or detect_available_adapter()
+        if resolved is None:
+            from bernstein.cli.errors import no_cli_agent_found
+
+            no_cli_agent_found().print()
+            raise SystemExit(1)
+    else:
+        resolved = "mock"
+
+    ctx = click.get_current_context()
+    forwarded: dict[str, object] = {"keep": keep, "adapter": resolved}
+    # Omitting the key lets ``Context.invoke`` fill the scenario's own default,
+    # so the two defaults can never drift apart here.
+    if ctx.get_parameter_source("timeout") is not ParameterSource.DEFAULT:
+        forwarded["timeout"] = timeout
+    ctx.invoke(quickstart_cmd, **forwarded)
+
+
 @click.command("demo")
 @click.option(
     "--dry-run",
@@ -786,7 +938,27 @@ def _demo_exit_code(outcome: _DemoOutcome | None, *, bootstrap_error: Exception 
     show_default=True,
     help="Maximum seconds to wait for tasks to complete.",
 )
-def demo(dry_run: bool, real: bool, adapter: str | None, timeout: int) -> None:
+@click.option(
+    "--flask-todo",
+    "flask_todo",
+    is_flag=True,
+    default=False,
+    help="Run the Flask TODO API scenario instead (3 tasks on a Flask TODO API).",
+)
+@click.option(
+    "--keep",
+    is_flag=True,
+    default=False,
+    help="Preserve the temp project directory after the run (--flask-todo only; the standard demo always keeps it).",
+)
+def demo(
+    dry_run: bool,
+    real: bool,
+    adapter: str | None,
+    timeout: int,
+    flask_todo: bool = False,
+    keep: bool = False,
+) -> None:
     """Zero-config demo: fix 4 bugs in a Flask app with mock agents.
 
     \b
@@ -799,8 +971,12 @@ def demo(dry_run: bool, real: bool, adapter: str | None, timeout: int) -> None:
       bernstein demo              # mock agents (no API key)
       bernstein demo --real       # real agents (requires API key, ~$0.15)
       bernstein demo --dry-run    # preview the plan without spawning
-      bernstein demo --real --timeout 180
+      bernstein demo --flask-todo # run the Flask TODO API scenario
     """
+    if flask_todo:
+        _run_flask_todo_scenario(real=real, adapter=adapter, timeout=timeout, keep=keep, dry_run=dry_run)
+        return
+
     import tempfile
 
     print_banner()
@@ -865,6 +1041,16 @@ def demo(dry_run: bool, real: bool, adapter: str | None, timeout: int) -> None:
     server_url = f"http://127.0.0.1:{_DEMO_PORT}"
     orchestration_start = time.monotonic()
 
+    # The demo project is a throwaway temp repo whose default branch IS the
+    # intended integration target: without the documented escape hatch every
+    # agent merge is refused with ``target-is-default-branch`` and the summary
+    # can only ever report 0 fixed bugs (issue #3431). Scoped to this run and
+    # restored on exit so an in-process caller does not inherit demo policy.
+    from bernstein.core.agents.spawner_merge import ENV_ALLOW_MERGE_TO_DEFAULT_BRANCH
+
+    prior_allow_merge = os.environ.get(ENV_ALLOW_MERGE_TO_DEFAULT_BRANCH)
+    os.environ[ENV_ALLOW_MERGE_TO_DEFAULT_BRANCH] = "1"
+
     outcome: _DemoOutcome | None = None
     bootstrap_error: Exception | None = None
     try:
@@ -882,7 +1068,7 @@ def demo(dry_run: bool, real: bool, adapter: str | None, timeout: int) -> None:
             cli=detected,
         )
 
-        _poll_demo_completion(server_url, orchestration_start + timeout)
+        _poll_demo_completion(server_url, orchestration_start + timeout, expected_total=len(DEMO_TASKS))
         # Snapshot the outcome while the server is still alive: cleanup below
         # tears it down, so a query after that would read an empty list.
         outcome = _fetch_demo_outcome(server_url, expected_total=len(DEMO_TASKS))
@@ -894,6 +1080,10 @@ def demo(dry_run: bool, real: bool, adapter: str | None, timeout: int) -> None:
         bootstrap_failed(exc).print()
         bootstrap_error = exc
     finally:
+        if prior_allow_merge is None:
+            os.environ.pop(ENV_ALLOW_MERGE_TO_DEFAULT_BRANCH, None)
+        else:
+            os.environ[ENV_ALLOW_MERGE_TO_DEFAULT_BRANCH] = prior_allow_merge
         _stop_demo_processes(project_dir)
 
     if outcome is not None and outcome.all_fixed:

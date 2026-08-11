@@ -1,3 +1,4 @@
+#
 # MIT License
 #
 # Copyright The SCons Foundation
@@ -84,7 +85,7 @@ def emit_java_classes(target, source, env):
         else:
             raise SCons.Errors.UserError("Java source must be File or Dir, not '%s'" % entry.__class__)
 
-    version = env.get('JAVAVERSION', '1.4')
+    version = env.get('JAVAVERSION', '25.0')
     full_tlist = []
     for f in slist:
         tlist = []
@@ -240,9 +241,3 @@ def generate(env) -> None:
 
 def exists(env) -> bool:
     return True
-
-# Local Variables:
-# tab-width:4
-# indent-tabs-mode:nil
-# End:
-# vim: set expandtab tabstop=4 shiftwidth=4:

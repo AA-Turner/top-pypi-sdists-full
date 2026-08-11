@@ -112,6 +112,7 @@ class ProviderType(Enum):
     QWEN = "qwen"
     KIRO = "kiro"
     KILO = "kilo"
+    KIMCHI = "kimchi"
     OLLAMA = "ollama"
     OPENCODE = "opencode"
 
@@ -698,6 +699,15 @@ class Task:
             except (KeyError, TypeError):
                 logger.warning("Invalid completion_signal entry: %r", sig)
 
+        # Rehydration boundary, deliberately lenient (#3110): every operator
+        # input surface (plan schema/loader, backlog frontmatter, CLI flags,
+        # POST /tasks) now refuses a malformed declaration at load via
+        # ``bernstein.core.tasks.artifacts.parse_artifact_spec``, so a bad
+        # block cannot *newly* enter a store. What reaches this path is a
+        # previously persisted record or a server response; raising here would
+        # brick store rehydration over one historic record, so the entry is
+        # logged as an error (loudly - this used to be the silent-downgrade
+        # hole) and the task falls back to the code_diff contract.
         raw_spec = raw.get("artifact_spec")
         if isinstance(raw_spec, ArtifactSpec):
             artifact_spec = raw_spec
@@ -705,7 +715,13 @@ class Task:
             try:
                 artifact_spec = ArtifactSpec.from_dict(raw_spec)
             except (KeyError, TypeError, ValueError):
-                logger.warning("Invalid artifact_spec entry: %r - defaulting to code_diff", raw_spec)
+                logger.error(
+                    "Invalid artifact_spec entry on stored task %r: %r - falling back to code_diff. "
+                    "New declarations are refused at load; this record predates that boundary or was "
+                    "hand-edited.",
+                    raw.get("id"),
+                    raw_spec,
+                )
                 artifact_spec = ArtifactSpec()
         else:
             artifact_spec = ArtifactSpec()
@@ -837,6 +853,9 @@ class JanitorResult:
     guardrail_results: list[GuardrailResult] = field(
         default_factory=list[GuardrailResult]
     )  # Pre-merge guardrail checks
+    # Composite verifier-ladder receipt hash (#2927). Set only when the
+    # janitor ran with a VerifierLadderContext; None when the ladder is off.
+    ladder_receipt_hash: str | None = None
 
 
 @dataclass(frozen=True)
@@ -1176,6 +1195,13 @@ class AgentSession:
     # agent log's mtime, not a live PID or the heartbeat JSON (issue #3058).
     # Reset whenever a stronger signal confirms real activity.
     log_only_heartbeat_ticks: int = 0
+    # Declared context files resolved at dispatch (issue #3375). Each entry
+    # is ``{"path", "order", "sha256", "reason_code"}`` in declared order -
+    # an unresolvable path keeps its position with a reason code instead of
+    # being skipped. Stamped by the spawner so the run journal can record
+    # the attachment set next to the ``agent_spawned`` event. Empty when the
+    # session's tasks declare nothing.
+    context_attachments: list[dict[str, object]] = field(default_factory=list[dict[str, object]])
 
 
 class IsolationMode(StrEnum):

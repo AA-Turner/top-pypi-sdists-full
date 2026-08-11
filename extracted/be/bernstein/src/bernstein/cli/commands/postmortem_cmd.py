@@ -57,11 +57,11 @@ def postmortem_cmd(
 
     \b
     Examples:
-      bernstein postmortem                        # latest run, markdown to stdout
-      bernstein postmortem abc123                 # specific run
-      bernstein postmortem --format html --save   # HTML, also saved to .sdd/reports/
-      bernstein postmortem --format pdf -o r.pdf  # PDF (requires weasyprint or wkhtmltopdf)
-      bernstein postmortem -o report.md           # write markdown to file
+      bernstein report postmortem                        # latest run, markdown to stdout
+      bernstein report postmortem abc123                 # specific run
+      bernstein report postmortem --format html --save   # HTML, also saved to .sdd/reports/
+      bernstein report postmortem --format pdf -o r.pdf  # PDF (requires weasyprint or wkhtmltopdf)
+      bernstein report postmortem -o report.md           # write markdown to file
     """
     from bernstein.core.postmortem import PostMortemGenerator
 

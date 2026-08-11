@@ -7,6 +7,7 @@ from typing import Any, cast
 import httpx
 import pytest
 from openai import APIConnectionError, APIStatusError, AsyncOpenAI, omit
+from openai._models import add_request_id
 from openai.types.chat.chat_completion import ChatCompletion, Choice, ChoiceLogprobs
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message import ChatCompletionMessage
@@ -45,6 +46,7 @@ from agents import (
     OpenAIProvider,
     Runner,
     __version__,
+    function_tool,
     generation_span,
     trace,
 )
@@ -52,6 +54,7 @@ from agents.exceptions import UserError
 from agents.models._retry_runtime import provider_managed_retries_disabled
 from agents.models.chatcmpl_helpers import HEADERS_OVERRIDE, ChatCmplHelpers
 from agents.models.fake_id import FAKE_RESPONSES_ID
+from agents.tool import Tool
 from tests.testing_processor import fetch_ordered_spans
 
 
@@ -73,6 +76,7 @@ def _minimal_chat_completion(content: str = "ok") -> ChatCompletion:
 
 async def _run_chat_completions_model_with_custom_base_url(
     model_settings: ModelSettings | dict[str, Any] | None = None,
+    tools: list[Tool] | None = None,
 ) -> dict[str, Any]:
     class DummyCompletions:
         def __init__(self) -> None:
@@ -104,11 +108,30 @@ async def _run_chat_completions_model_with_custom_base_url(
         model="gpt-4",
         openai_client=DummyClient(completions),  # type: ignore[arg-type]
     )
-    agent = Agent(name="test", model=model, model_settings=model_settings or ModelSettings())
+    agent = Agent(
+        name="test",
+        model=model,
+        model_settings=model_settings or ModelSettings(),
+        tools=tools or [],
+    )
 
     await Runner.run(agent, "hi")
 
     return completions.kwargs
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_falsy_reasoning_is_forwarded() -> None:
+    class FalsyReasoning(Reasoning):
+        def __bool__(self) -> bool:
+            return False
+
+    kwargs = await _run_chat_completions_model_with_custom_base_url(
+        ModelSettings(reasoning=FalsyReasoning(effort="low"))
+    )
+
+    assert kwargs["reasoning_effort"] == "low"
 
 
 @pytest.mark.allow_call_model_methods
@@ -172,6 +195,87 @@ async def test_get_response_with_text_message(monkeypatch) -> None:
     assert getattr(resp.usage.input_tokens_details, "cache_write_tokens", None) == 4
     assert resp.usage.output_tokens_details.reasoning_tokens == 0
     assert resp.response_id is None
+    assert resp.raw_usage is None
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("prompt_tokens_details", "expected_details"),
+    [({}, {}), ({"cached_tokens": 0}, {"cached_tokens": 0})],
+    ids=["omitted-cached-tokens", "explicit-zero-cached-tokens"],
+)
+async def test_get_response_preserves_raw_usage_field_presence(
+    monkeypatch: pytest.MonkeyPatch,
+    prompt_tokens_details: dict[str, int],
+    expected_details: dict[str, int],
+) -> None:
+    chat = _minimal_chat_completion()
+    chat.usage = CompletionUsage.model_validate(
+        {
+            "completion_tokens": 5,
+            "prompt_tokens": 7,
+            "total_tokens": 12,
+            "prompt_tokens_details": prompt_tokens_details,
+        }
+    )
+
+    async def patched_fetch_response(self, *args, **kwargs):
+        return chat
+
+    monkeypatch.setattr(OpenAIChatCompletionsModel, "_fetch_response", patched_fetch_response)
+    model = OpenAIProvider(use_responses=False).get_model("gpt-4")
+
+    response = await model.get_response(
+        system_instructions=None,
+        input="",
+        model_settings=ModelSettings(preserve_raw_usage=True),
+        tools=[],
+        output_schema=None,
+        handoffs=[],
+        tracing=ModelTracing.DISABLED,
+        previous_response_id=None,
+        conversation_id=None,
+        prompt=None,
+    )
+
+    assert response.raw_usage == {
+        "completion_tokens": 5,
+        "prompt_tokens": 7,
+        "total_tokens": 12,
+        "prompt_tokens_details": expected_details,
+    }
+    assert response.usage.input_tokens_details.cached_tokens == 0
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_get_response_raw_usage_is_none_when_provider_omits_usage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    chat = _minimal_chat_completion()
+
+    async def patched_fetch_response(self, *args, **kwargs):
+        return chat
+
+    monkeypatch.setattr(OpenAIChatCompletionsModel, "_fetch_response", patched_fetch_response)
+    model = OpenAIProvider(use_responses=False).get_model("gpt-4")
+
+    response = await model.get_response(
+        system_instructions=None,
+        input="",
+        model_settings=ModelSettings(preserve_raw_usage=True),
+        tools=[],
+        output_schema=None,
+        handoffs=[],
+        tracing=ModelTracing.DISABLED,
+        previous_response_id=None,
+        conversation_id=None,
+        prompt=None,
+    )
+
+    assert response.raw_usage is None
+    assert response.usage.total_tokens == 0
 
 
 async def _get_response_for_choice(
@@ -581,12 +685,20 @@ async def test_get_response_warns_and_sends_placeholder_for_non_text_tool_output
 @pytest.mark.allow_call_model_methods
 @pytest.mark.asyncio
 async def test_get_response_attaches_logprobs(monkeypatch) -> None:
+    class FalsyChoiceLogprobs(ChoiceLogprobs):
+        def __bool__(self) -> bool:
+            return False
+
+    class FalsyCompletionUsage(CompletionUsage):
+        def __bool__(self) -> bool:
+            return False
+
     msg = ChatCompletionMessage(role="assistant", content="Hi!")
     choice = Choice(
         index=0,
         finish_reason="stop",
         message=msg,
-        logprobs=ChoiceLogprobs(
+        logprobs=FalsyChoiceLogprobs(
             content=[
                 ChatCompletionTokenLogprob(
                     token="Hi",
@@ -609,7 +721,11 @@ async def test_get_response_attaches_logprobs(monkeypatch) -> None:
         model="fake",
         object="chat.completion",
         choices=[choice],
-        usage=None,
+        usage=FalsyCompletionUsage(
+            completion_tokens=2,
+            prompt_tokens=3,
+            total_tokens=5,
+        ),
     )
 
     async def patched_fetch_response(self, *args, **kwargs):
@@ -635,6 +751,9 @@ async def test_get_response_attaches_logprobs(monkeypatch) -> None:
     assert isinstance(text_part, ResponseOutputText)
     assert text_part.logprobs is not None
     assert [lp.token for lp in text_part.logprobs] == ["Hi", "!"]
+    assert resp.usage.input_tokens == 3
+    assert resp.usage.output_tokens == 2
+    assert resp.usage.total_tokens == 5
 
 
 @pytest.mark.allow_call_model_methods
@@ -678,8 +797,9 @@ async def test_get_response_with_refusal(monkeypatch) -> None:
     refusal_part = resp.output[0].content[0]
     assert isinstance(refusal_part, ResponseOutputRefusal)
     assert refusal_part.refusal == "No thanks"
-    # With no usage from the completion, usage defaults to zeros.
-    assert resp.usage.requests == 0
+    # With no usage from the completion, token counts default to zeros, but the request itself
+    # still happened and is counted.
+    assert resp.usage.requests == 1
     assert resp.usage.input_tokens == 0
     assert resp.usage.output_tokens == 0
     assert resp.usage.input_tokens_details.cached_tokens == 0
@@ -964,7 +1084,10 @@ async def test_chat_completions_requests_normalize_dictionary_agent_settings(
         },
     }
     kwargs = await _run_chat_completions_model_with_custom_base_url(
-        model_settings=settings if use_dictionary else ModelSettings(**settings)
+        model_settings=settings if use_dictionary else ModelSettings(**settings),
+        # parallel_tool_calls is only forwarded alongside tools, so this parity check
+        # needs a tool for that setting to reach the request.
+        tools=[function_tool(lambda: "ok", name_override="test_tool")],
     )
 
     assert kwargs["reasoning_effort"] == "high"
@@ -1363,3 +1486,107 @@ async def test_user_agent_header_chat_completions(override_ua):
     assert ChatCmplHelpers.get_store_param(client, model_settings) is True, (
         "Should respect explicitly set store=True"
     )
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_get_response_propagates_request_id(monkeypatch) -> None:
+    """The OpenAI request ID must reach `ModelResponse.request_id` on the non-streamed path.
+
+    The OpenAI SDK records the `x-request-id` header on every parsed response object, so
+    Chat Completions runs can expose the same debugging handle as Responses runs.
+    """
+    chat = _minimal_chat_completion()
+    add_request_id(chat, "req_nonstreamed_123")
+
+    async def patched_fetch_response(self, *args, **kwargs):
+        return chat
+
+    monkeypatch.setattr(OpenAIChatCompletionsModel, "_fetch_response", patched_fetch_response)
+    model = OpenAIProvider(use_responses=False).get_model("gpt-4")
+    resp: ModelResponse = await model.get_response(
+        system_instructions=None,
+        input="",
+        model_settings=ModelSettings(),
+        tools=[],
+        output_schema=None,
+        handoffs=[],
+        tracing=ModelTracing.DISABLED,
+        previous_response_id=None,
+        conversation_id=None,
+        prompt=None,
+    )
+
+    assert resp.request_id == "req_nonstreamed_123"
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_get_response_request_id_is_none_when_absent(monkeypatch) -> None:
+    """Clients and test doubles that never set `_request_id` keep returning `None`."""
+    chat = _minimal_chat_completion()
+
+    async def patched_fetch_response(self, *args, **kwargs):
+        return chat
+
+    monkeypatch.setattr(OpenAIChatCompletionsModel, "_fetch_response", patched_fetch_response)
+    model = OpenAIProvider(use_responses=False).get_model("gpt-4")
+    resp: ModelResponse = await model.get_response(
+        system_instructions=None,
+        input="",
+        model_settings=ModelSettings(),
+        tools=[],
+        output_schema=None,
+        handoffs=[],
+        tracing=ModelTracing.DISABLED,
+        previous_response_id=None,
+        conversation_id=None,
+        prompt=None,
+    )
+
+    assert resp.request_id is None
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_request_is_counted_when_provider_omits_usage(monkeypatch) -> None:
+    """A completed call counts as one request even when the provider reports no usage.
+
+    Some OpenAI-compatible providers and gateways return no `usage` block. Counting those as
+    zero requests understates `Usage.requests`, which is documented as the number of requests
+    made to the LLM API, and is inconsistent with the retry path, which already forces the
+    successful attempt to count via `max(usage.requests, 1)`.
+    """
+    msg = ChatCompletionMessage(role="assistant", content="hello")
+    chat = ChatCompletion(
+        id="resp-id",
+        created=0,
+        model="fake",
+        object="chat.completion",
+        choices=[Choice(index=0, finish_reason="stop", message=msg)],
+        usage=None,
+    )
+
+    async def patched_fetch_response(self, *args, **kwargs):
+        return chat
+
+    monkeypatch.setattr(OpenAIChatCompletionsModel, "_fetch_response", patched_fetch_response)
+    model = OpenAIProvider(use_responses=False).get_model("gpt-4")
+    resp: ModelResponse = await model.get_response(
+        system_instructions=None,
+        input="",
+        model_settings=ModelSettings(),
+        tools=[],
+        output_schema=None,
+        handoffs=[],
+        tracing=ModelTracing.DISABLED,
+        previous_response_id=None,
+        conversation_id=None,
+        prompt=None,
+    )
+
+    assert resp.usage.requests == 1
+    # Token counts stay at zero, since the provider genuinely did not report them.
+    assert resp.usage.input_tokens == 0
+    assert resp.usage.output_tokens == 0
+    assert resp.usage.total_tokens == 0

@@ -132,6 +132,51 @@ class _IExperimentTemplateRefProxy(
 typing.cast(typing.Any, IExperimentTemplateRef).__jsii_proxy_class__ = lambda : _IExperimentTemplateRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_fis.ISafetyLeverRef")
+class ISafetyLeverRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a SafetyLever.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="safetyLeverRef")
+    def safety_lever_ref(self) -> "SafetyLeverReference":
+        '''(experimental) A reference to a SafetyLever resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISafetyLeverRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SafetyLever.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_fis.ISafetyLeverRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="safetyLeverRef")
+    def safety_lever_ref(self) -> "SafetyLeverReference":
+        '''(experimental) A reference to a SafetyLever resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SafetyLeverReference", jsii.get(self, "safetyLeverRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISafetyLeverRef).__jsii_proxy_class__ = lambda : _ISafetyLeverRefProxy
+
+
 @jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_fis.ITargetAccountConfigurationRef"
 )
@@ -177,6 +222,55 @@ class _ITargetAccountConfigurationRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ITargetAccountConfigurationRef).__jsii_proxy_class__ = lambda : _ITargetAccountConfigurationRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_fis.SafetyLeverReference",
+    jsii_struct_bases=[],
+    name_mapping={"safety_lever_arn": "safetyLeverArn"},
+)
+class SafetyLeverReference:
+    def __init__(self, *, safety_lever_arn: builtins.str) -> None:
+        '''A reference to a SafetyLever resource.
+
+        :param safety_lever_arn: The Arn of the SafetyLever resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_fis as interfaces_fis
+            
+            safety_lever_reference = interfaces_fis.SafetyLeverReference(
+                safety_lever_arn="safetyLeverArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__abc6d1405aa295cc846d48ef7ab375c26875557b41ca2e297c8c17587aa50110)
+            check_type(argname="argument safety_lever_arn", value=safety_lever_arn, expected_type=type_hints["safety_lever_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "safety_lever_arn": safety_lever_arn,
+        }
+
+    @builtins.property
+    def safety_lever_arn(self) -> builtins.str:
+        '''The Arn of the SafetyLever resource.'''
+        result = self._values.get("safety_lever_arn")
+        assert result is not None, "Required property 'safety_lever_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SafetyLeverReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -250,7 +344,9 @@ class TargetAccountConfigurationReference:
 __all__ = [
     "ExperimentTemplateReference",
     "IExperimentTemplateRef",
+    "ISafetyLeverRef",
     "ITargetAccountConfigurationRef",
+    "SafetyLeverReference",
     "TargetAccountConfigurationReference",
 ]
 
@@ -263,6 +359,13 @@ def _typecheckingstub__482182b8d8fc0401579869c38f6085fb823e0e006b2b6f794c30a68f6
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__abc6d1405aa295cc846d48ef7ab375c26875557b41ca2e297c8c17587aa50110(
+    *,
+    safety_lever_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__05b8063efc01ff6825227e909f83dd27b05413f12fa9122fa3fc71de0f9c2cfd(
     *,
     account_id: builtins.str,
@@ -271,5 +374,5 @@ def _typecheckingstub__05b8063efc01ff6825227e909f83dd27b05413f12fa9122fa3fc71de0
     """Type checking stubs"""
     pass
 
-for cls in [IExperimentTemplateRef, ITargetAccountConfigurationRef]:
+for cls in [IExperimentTemplateRef, ISafetyLeverRef, ITargetAccountConfigurationRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

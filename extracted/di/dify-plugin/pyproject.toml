@@ -1,6 +1,6 @@
 [project]
 name = "dify-plugin"
-version = "0.10.1"
+version = "0.10.2"
 description = "Dify Plugin SDK"
 dependencies = [
     "Flask>=3.1.3",

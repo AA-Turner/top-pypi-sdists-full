@@ -16,7 +16,7 @@ import json
 import pprint
 import re  # noqa: F401
 
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, StrictInt
 
@@ -37,13 +37,17 @@ class SemanticModelUpdateSuggestion(BaseModel):
         Changes to be applied in order
     version : int, optional
         Version of SemanticModelUpdateSuggestion
+    metadata : object, optional
+        Arbitrary metadata associated with this suggestion.
     """
 
     changes: Optional[List[SemanticModelChange]] = None
 
     version: Optional[StrictInt] = None
 
-    __properties = ["changes", "version"]
+    metadata: Optional[Dict[str, Any]] = None
+
+    __properties = ["changes", "version", "metadata"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -104,6 +108,7 @@ class SemanticModelUpdateSuggestion(BaseModel):
                 if obj.get("changes") is not None
                 else None,
                 "version": obj.get("version"),
+                "metadata": obj.get("metadata"),
             }
         )
 
@@ -115,6 +120,7 @@ class SemanticModelUpdateSuggestionModel:
         self,  # optional properties
         changes: Optional[list[SemanticModelChange]] = None,
         version: Optional[int] = None,
+        metadata: Optional[object] = None,
     ):
         """A model object representing the SemanticModelUpdateSuggestion resource.
 
@@ -126,11 +132,14 @@ class SemanticModelUpdateSuggestionModel:
             Changes to be applied in order
         version : int, optional
             Version of SemanticModelUpdateSuggestion
+        metadata : object, optional
+            Arbitrary metadata associated with this suggestion.
         """
         self.changes = changes
         self.version = version
+        self.metadata = metadata
 
-    __properties = ["changes", "version"]
+    __properties = ["changes", "version", "metadata"]
 
     def __repr__(self) -> str:
         return repr(self._to_model())
@@ -139,6 +148,7 @@ class SemanticModelUpdateSuggestionModel:
         return SemanticModelUpdateSuggestion(
             changes=[x._to_model() for x in self.changes] if self.changes is not None else None,
             version=self.version,
+            metadata=self.metadata,
         )
 
     @classmethod
@@ -146,6 +156,7 @@ class SemanticModelUpdateSuggestionModel:
         return SemanticModelUpdateSuggestionModel(
             changes=[SemanticModelChangeModel._from_model(x) for x in model.changes] if model.changes else None,
             version=model.version,
+            metadata=model.metadata,
         )
 
     def to_dict(self):

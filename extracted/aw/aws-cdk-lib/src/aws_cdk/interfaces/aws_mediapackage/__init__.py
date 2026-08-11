@@ -158,6 +158,55 @@ class ChannelReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_mediapackage.HarvestJobReference",
+    jsii_struct_bases=[],
+    name_mapping={"harvest_job_arn": "harvestJobArn"},
+)
+class HarvestJobReference:
+    def __init__(self, *, harvest_job_arn: builtins.str) -> None:
+        '''A reference to a HarvestJob resource.
+
+        :param harvest_job_arn: The Arn of the HarvestJob resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_mediapackage as interfaces_mediapackage
+            
+            harvest_job_reference = interfaces_mediapackage.HarvestJobReference(
+                harvest_job_arn="harvestJobArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cf60099e3982cb3c643d1ac6cd51af5c093fe18c5127f38c3744076199813793)
+            check_type(argname="argument harvest_job_arn", value=harvest_job_arn, expected_type=type_hints["harvest_job_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "harvest_job_arn": harvest_job_arn,
+        }
+
+    @builtins.property
+    def harvest_job_arn(self) -> builtins.str:
+        '''The Arn of the HarvestJob resource.'''
+        result = self._values.get("harvest_job_arn")
+        assert result is not None, "Required property 'harvest_job_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HarvestJobReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediapackage.IAssetRef")
 class IAssetRef(
     _constructs_77d1e7e8.IConstruct,
@@ -246,6 +295,51 @@ class _IChannelRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IChannelRef).__jsii_proxy_class__ = lambda : _IChannelRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediapackage.IHarvestJobRef")
+class IHarvestJobRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a HarvestJob.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="harvestJobRef")
+    def harvest_job_ref(self) -> "HarvestJobReference":
+        '''(experimental) A reference to a HarvestJob resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IHarvestJobRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a HarvestJob.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_mediapackage.IHarvestJobRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="harvestJobRef")
+    def harvest_job_ref(self) -> "HarvestJobReference":
+        '''(experimental) A reference to a HarvestJob resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("HarvestJobReference", jsii.get(self, "harvestJobRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IHarvestJobRef).__jsii_proxy_class__ = lambda : _IHarvestJobRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediapackage.IOriginEndpointRef")
@@ -592,8 +686,10 @@ class PackagingGroupReference:
 __all__ = [
     "AssetReference",
     "ChannelReference",
+    "HarvestJobReference",
     "IAssetRef",
     "IChannelRef",
+    "IHarvestJobRef",
     "IOriginEndpointRef",
     "IPackagingConfigurationRef",
     "IPackagingGroupRef",
@@ -616,6 +712,13 @@ def _typecheckingstub__4efb0079b37a3c8b5a216527c02be37850310ee32dcdaab1eea8bd805
     *,
     channel_arn: builtins.str,
     channel_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf60099e3982cb3c643d1ac6cd51af5c093fe18c5127f38c3744076199813793(
+    *,
+    harvest_job_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -644,5 +747,5 @@ def _typecheckingstub__db65eb06f9e062a8f448e531b07b218e2f86d3fb83c3032a17aad865f
     """Type checking stubs"""
     pass
 
-for cls in [IAssetRef, IChannelRef, IOriginEndpointRef, IPackagingConfigurationRef, IPackagingGroupRef]:
+for cls in [IAssetRef, IChannelRef, IHarvestJobRef, IOriginEndpointRef, IPackagingConfigurationRef, IPackagingGroupRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

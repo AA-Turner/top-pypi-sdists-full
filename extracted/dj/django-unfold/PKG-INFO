@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-unfold
-Version: 0.103.0
+Version: 0.104.0
 Summary: Modern Django Admin
 Project-URL: Homepage, https://unfoldadmin.com
 Project-URL: Documentation, https://unfoldadmin.com/docs/
@@ -13,6 +13,7 @@ Keywords: admin,django,tailwind,theme
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python

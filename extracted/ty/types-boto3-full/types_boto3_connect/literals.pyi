@@ -440,7 +440,7 @@ EvaluationFormItemEnablementSourceTypeType = Literal["QUESTION_REF_ID"]
 EvaluationFormItemEnablementSourceValueTypeType = Literal["OPTION_REF_ID"]
 EvaluationFormItemSourceValuesComparatorType = Literal["ALL_IN", "EXACT", "IN", "NOT_IN"]
 EvaluationFormLanguageCodeType = Literal[
-    "de-DE", "en-US", "es-ES", "fr-FR", "it-IT", "ja-JP", "ko-KR", "pt-BR", "zh-CN"
+    "de-DE", "en-US", "es-ES", "fr-FR", "it-IT", "ja-JP", "ko-KR", "ms-MY", "pt-BR", "zh-CN"
 ]
 EvaluationFormMultiSelectQuestionDisplayModeType = Literal["CHECKBOX", "DROPDOWN"]
 EvaluationFormQuestionAutomationAnswerSourceTypeType = Literal["CONTACT_LENS_DATA", "GEN_AI"]

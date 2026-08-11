@@ -50,6 +50,7 @@ class ImageDetails(BaseModel):
 
     @field_validator("type")
     def type_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("base64"):
@@ -58,6 +59,7 @@ class ImageDetails(BaseModel):
 
     @field_validator("content_type")
     def content_type_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif"):
@@ -68,6 +70,7 @@ class ImageDetails(BaseModel):
 
     @field_validator("detail")
     def detail_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("auto", "low", "high"):

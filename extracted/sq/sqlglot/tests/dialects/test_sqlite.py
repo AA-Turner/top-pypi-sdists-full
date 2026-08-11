@@ -51,6 +51,38 @@ class TestSQLite(Validator):
         self.validate_identity(
             "SELECT JSON_EXTRACT('[10, 20, [30, 40]]', '$[2]', '$[0]', '$[1]')",
         )
+        # Single-path json_extract() returns an SQL value like ->>, except that
+        # object/array results keep the JSON subtype (json_subtype variant);
+        # each of the three spellings round-trips to itself
+        self.validate_identity("SELECT JSON_EXTRACT(a, '$.k') FROM t")
+        self.validate_identity("SELECT a -> '$.k' FROM t")
+        self.validate_identity("SELECT a ->> '$.k' FROM t")
+        self.validate_identity("SELECT JSON_SET('{}', '$.x', JSON_EXTRACT(a, '$.k'))")
+        self.validate_identity("SELECT JSON_EXTRACT(a, '$') FROM t")
+        self.validate_identity("SELECT JSON_EXTRACT(a, b) FROM t")
+        fn = (
+            self.parse_one("SELECT JSON_EXTRACT(a, '$.k') FROM t")
+            .selects[0]
+            .assert_is(exp.JSONExtractScalar)
+        )
+        op = self.parse_one("SELECT a ->> '$.k' FROM t").selects[0].assert_is(exp.JSONExtractScalar)
+        self.assertTrue(fn.args.get("json_subtype"))
+        self.assertNotEqual(fn, op)
+        self.validate_all(
+            "SELECT JSON_EXTRACT(a, '$.k') FROM t",
+            write={
+                "postgres": "SELECT JSON_EXTRACT_PATH_TEXT(a, 'k') FROM t",
+                "mysql": "SELECT a ->> '$.k' FROM t",
+            },
+        )
+        self.validate_all(
+            "SELECT JSON_EXTRACT('[10, 20, [30, 40]]', '$[1]')",
+            write={
+                "sqlite": "SELECT JSON_EXTRACT('[10, 20, [30, 40]]', '$[1]')",
+                "mysql": "SELECT CAST('[10, 20, [30, 40]]' AS JSON) ->> '$[1]'",
+                "duckdb": "SELECT '[10, 20, [30, 40]]' ->> '$[1]'",
+            },
+        )
         self.validate_identity(
             """SELECT item AS "item", some AS "some" FROM data WHERE (item = 'value_1' COLLATE NOCASE) AND (some = 't' COLLATE NOCASE) ORDER BY item ASC LIMIT 1 OFFSET 0"""
         )
@@ -219,6 +251,43 @@ class TestSQLite(Validator):
             "SELECT * FROM t WHERE NULL IS NOT y", "SELECT * FROM t WHERE NOT NULL IS y"
         )
         self.validate_identity("SELECT SQLITE_VERSION()")
+
+    def test_json_arrow_precedence(self):
+        # ||, -> and ->> form a single left-associative precedence tier that binds
+        # tighter than multiplication: https://sqlite.org/lang_expr.html
+        expr = self.parse_one(
+            "SELECT a.data ->> b.key ->> a.final_key FROM source AS a JOIN keys AS b ON TRUE"
+        ).selects[0]
+        expr.assert_is(exp.JSONExtractScalar).this.assert_is(exp.JSONExtractScalar)
+
+        self.validate_identity("SELECT a.data ->> b.key ->> a.final_key FROM t")
+        self.validate_identity("SELECT a -> b ->> c -> d FROM t")
+        self.validate_identity("SELECT a || b ->> c", "SELECT (a || b) ->> c")
+        self.validate_identity("SELECT a ->> b || c FROM t")
+        self.validate_identity("SELECT 2 * 3 || 4", "SELECT 2 * (3 || 4)")
+        self.validate_identity("SELECT 1 + 2 || 3", "SELECT 1 + (2 || 3)")
+        self.validate_identity("SELECT a || b * c FROM t", "SELECT (a || b) * c FROM t")
+        self.validate_identity("SELECT a - b ->> c FROM t", "SELECT a - (b ->> c) FROM t")
+        self.validate_identity("SELECT a ->> b + c FROM t", "SELECT (a ->> b) + c FROM t")
+        self.validate_identity("SELECT -a || b FROM t")
+        self.validate_identity("SELECT a || b COLLATE NOCASE FROM t ORDER BY 1")
+        self.validate_identity(
+            "SELECT a COLLATE NOCASE || b -> c FROM t",
+            "SELECT (a COLLATE NOCASE || b) -> c FROM t",
+        )
+
+        # COLLATE binds tighter than the ||, ->, ->> tier
+        expr = self.parse_one("SELECT a || b COLLATE NOCASE FROM t").selects[0]
+        expr.assert_is(exp.DPipe).expression.assert_is(exp.Collate)
+
+        self.validate_identity(
+            "SELECT a COLLATE NOCASE || b * c FROM t",
+            "SELECT (a COLLATE NOCASE || b) * c FROM t",
+        )
+        self.validate_identity(
+            "SELECT a COLLATE NOCASE -> b + c FROM t",
+            "SELECT (a COLLATE NOCASE -> b) + c FROM t",
+        )
 
     def test_strftime(self):
         self.validate_identity("SELECT STRFTIME('%Y/%m/%d', 'now')")

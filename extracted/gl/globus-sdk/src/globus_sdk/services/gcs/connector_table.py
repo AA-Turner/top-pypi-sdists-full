@@ -31,23 +31,30 @@ class ConnectorTable:
     It supports access by attribute or via a helper method for doing lookups.
     For example, all of the following three usages retrieve the Azure Blob connector:
 
-    .. code-block:: pycon
+    .. testsetup:: connector-table
+
+        from globus_sdk import ConnectorTable
+
+    .. doctest:: connector-table
 
         >>> ConnectorTable.AZURE_BLOB
+        GlobusConnectServerConnector(name='Azure Blob', connector_id='9436da0c-a444-11eb-af93-12704e0d6a4d')
         >>> ConnectorTable.lookup("Azure Blob")
+        GlobusConnectServerConnector(name='Azure Blob', connector_id='9436da0c-a444-11eb-af93-12704e0d6a4d')
         >>> ConnectorTable.lookup("9436da0c-a444-11eb-af93-12704e0d6a4d")
+        GlobusConnectServerConnector(name='Azure Blob', connector_id='9436da0c-a444-11eb-af93-12704e0d6a4d')
 
     Given the results of such a lookup, you can retrieve the canonical name and ID for
     a connector like so:
 
-    .. code-block:: pycon
+    .. doctest:: connector-table
 
         >>> connector = ConnectorTable.AZURE_BLOB
         >>> connector.name
         'Azure Blob'
         >>> connector.connector_id
         '9436da0c-a444-11eb-af93-12704e0d6a4d'
-    """
+    """  # noqa: E501
 
     _connectors: t.ClassVar[tuple[tuple[str, str, str], ...]] = (
         ("ACTIVESCALE", "ActiveScale", "7251f6c8-93c9-11eb-95ba-12704e0d6a4d"),
@@ -129,7 +136,7 @@ class ConnectorTable:
 
         Usage example:
 
-        .. code-block:: pycon
+        .. doctest:: connector-table
 
             >>> MyTable = ConnectorTable.extend(
             ...     connector_name="Star Trek Transporter",

@@ -69,7 +69,7 @@ def viewRenderedGrid(modelXbrl: ModelXbrl, tabWin: Notebook, lang: str | None = 
 
     menu = view.contextMenu()
     optionsMenu = Menu(view.viewFrame, tearoff=0)
-    optionsMenu.add_command(label=_("New fact item options"), underline=0, command=lambda: getNewFactItemOptions(modelXbrl.modelManager.cntlr, view.newFactItemOptions))  # type: ignore[no-untyped-call]
+    optionsMenu.add_command(label=_("New fact item options"), underline=0, command=lambda: getNewFactItemOptions(modelXbrl.modelManager.cntlr, view.newFactItemOptions))
     optionsMenu.add_command(label=_("Open breakdown entry rows"), underline=0, command=view.setOpenBreakdownEntryRows)
     view.ignoreDimValidity.trace_add("write", view.viewReloadDueToMenuAction)
     optionsMenu.add_checkbutton(label=_("Ignore Dimensional Validity"), underline=0, variable=view.ignoreDimValidity, onvalue=True, offvalue=False)
@@ -99,19 +99,19 @@ def viewRenderedGrid(modelXbrl: ModelXbrl, tabWin: Notebook, lang: str | None = 
     view.viewFrame.bind("<Configure>", view.onConfigure, "+") # frame resized, redo column header wrap length ratios
     view.blockMenuEvents = 0
     if "saveTableStructuralModel" in modelXbrl.modelManager.formulaOptions.parameterValues:
-        ViewFileRenderedStructure.viewRenderedStructuralModel(modelXbrl,  # type: ignore[no-untyped-call]
+        ViewFileRenderedStructure.viewRenderedStructuralModel(modelXbrl,
               modelXbrl.modelManager.formulaOptions.parameterValues["saveTableStructuralModel"][1],  # type: ignore[index]
               lang=lang, sourceView=view)
     if "saveTableLayoutModel" in modelXbrl.modelManager.formulaOptions.parameterValues:
-        ViewFileRenderedLayout.viewRenderedLayout(modelXbrl,  # type: ignore[no-untyped-call]
+        ViewFileRenderedLayout.viewRenderedLayout(modelXbrl,
               modelXbrl.modelManager.formulaOptions.parameterValues["saveTableLayoutModel"][1],  # type: ignore[index]
               lang=lang, sourceView=view)
     if "saveHtmlTable" in modelXbrl.modelManager.formulaOptions.parameterValues:
-        ViewFileRenderedGrid.viewRenderedGrid(modelXbrl,  # type: ignore[no-untyped-call]
+        ViewFileRenderedGrid.viewRenderedGrid(modelXbrl,
               modelXbrl.modelManager.formulaOptions.parameterValues["saveHtmlTable"][1],  # type: ignore[index]
               lang=lang, sourceView=view)
     if "saveTable" in modelXbrl.modelManager.formulaOptions.parameterValues:
-        ViewFileRenderedGrid.viewRenderedGrid(modelXbrl,  # type: ignore[no-untyped-call]
+        ViewFileRenderedGrid.viewRenderedGrid(modelXbrl,
               modelXbrl.modelManager.formulaOptions.parameterValues["saveTable"][1],  # type: ignore[index]
               lang=lang, sourceView=view)
     return view
@@ -267,7 +267,7 @@ class ViewRenderedGrid(ViewWinTkTable.ViewTkTable):
             self.dataRows = self.dataRows = 0  # type: ignore[has-type]
             lytMdlZHdrs = self.lytMdlTable.lytMdlAxisHeaders("z")
             if lytMdlZHdrs is not None:
-                '''
+                """
                 for lytMdlZGrp in lytMdlZHdrs.lytMdlGroups:
                     for lytMdlZHdr in lytMdlZGrp.lytMdlHeaders:
                         dataRow = 0
@@ -275,7 +275,7 @@ class ViewRenderedGrid(ViewWinTkTable.ViewTkTable):
                             dataRow += 1
                         if dataRow > self.numZHdrs:
                             self.numZHdrs = dataRow
-                '''
+                """
                 dataRow = len(lytMdlZHdrs.lytMdlGroups)
                 if dataRow > self.numZHdrs:
                     self.numZHdrs = dataRow
@@ -867,7 +867,7 @@ class ViewRenderedGrid(ViewWinTkTable.ViewTkTable):
         if (not self.newFactItemOptions.entityIdentScheme or  # not initialized yet
             not self.newFactItemOptions.entityIdentValue or
             not self.newFactItemOptions.startDateDate or not self.newFactItemOptions.endDateDate):
-            if not getNewFactItemOptions(self.modelXbrl.modelManager.cntlr, self.newFactItemOptions):  # type: ignore[no-untyped-call,union-attr]
+            if not getNewFactItemOptions(self.modelXbrl.modelManager.cntlr, self.newFactItemOptions):  # type: ignore[union-attr]
                 return # new instance not set
 
         self.updateInstanceFromFactPrototypes()

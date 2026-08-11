@@ -656,8 +656,11 @@ STRATEGY_MATRIX: dict[str, AdapterStrategy] = {
     # #2606). The external agent owns its own loop, so Bernstein neither
     # resumes it natively nor reads a structured lifecycle stream: liveness is
     # polled and the per-action record is the signed lineage chain, not stdout
-    # text. Dangerous-mode is the external agent's own concern.
-    "computer_use": AdapterStrategy(event_channel=EventChannel.POLL_PTY),
+    # text. Dangerous-mode is the external agent's own concern. Its unit of
+    # work is that recorded action stream, not a commit on the worktree
+    # branch, so it declares ``artifact`` output (#3110): completion is the
+    # signed lineage receipt and the commit check never fires for it.
+    "computer_use": AdapterStrategy(event_channel=EventChannel.POLL_PTY, output_mode=OutputMode.ARTIFACT),
     "cody": AdapterStrategy(),
     "composio": AdapterStrategy(event_channel=EventChannel.HOOKS),
     "continue": AdapterStrategy(),
@@ -673,22 +676,58 @@ STRATEGY_MATRIX: dict[str, AdapterStrategy] = {
     # so its stdout lifecycle parser is bypassed.
     "goose": AdapterStrategy(event_channel=EventChannel.ACP),
     "gptme": AdapterStrategy(),
-    "hermes": AdapterStrategy(),
+    # Hermes is driven through its one-shot mode, which auto-bypasses approvals
+    # rather than exposing a flag to do so - the CLI is unattended by
+    # construction there, so the axis is always-on, not unsupported. Declaring
+    # it unsupported reads as "cannot be driven unattended", which understates
+    # what an operator is authorising when they select this adapter.
+    "hermes": AdapterStrategy(dangerous_mode=DangerousModeStrategy.ALWAYS_ON),
     "iac": AdapterStrategy(),
     "junie": AdapterStrategy(),
     # Kilo documents native ACP support; it declares the ACP event channel so
     # lifecycle events arrive as schema-validated JSON-RPC frames rather than
     # a bespoke stdout parser.
     "kilo": AdapterStrategy(event_channel=EventChannel.ACP),
+    # Kimchi runs as an ACP agent over JSON-RPC on stdio (--mode acp) and
+    # completes by committing in the worktree (GIT_DIFF). Dangerous mode is
+    # --yolo, passed on every spawn. The CLI has --session <path> resume, but
+    # no spawn path supplies that file, so resume stays declared unsupported
+    # (fresh-session fallback) - same reasoning as ``agy`` above. Declaring it
+    # here would make checkpoint_retry_capability offer a warm retry, and a
+    # warm retry sends only the corrective instruction on the assumption the
+    # prior session is reattached.
+    "kimchi": AdapterStrategy(
+        resume=ResumeStrategy.UNSUPPORTED,
+        dangerous_mode=DangerousModeStrategy.CLI_FLAG,
+        event_channel=EventChannel.ACP,
+        output_mode=OutputMode.GIT_DIFF,
+    ),
     "kiro": AdapterStrategy(),
     "mistral": AdapterStrategy(),
     "mock": AdapterStrategy(),
+    # Muse Code is driven through its headless mode with --disable-approval
+    # on every spawn (approval prompts would hang an unattended worker); the
+    # vendor sandbox stays on. A --session-id resume flag exists upstream but
+    # no spawn path supplies one, so resume stays declared unsupported.
+    # Completion rides the shared GIT_DIFF path every text-signal coding
+    # adapter uses, including its documented fail-open auto-commit behavior
+    # (core/routes/task_crud.py); this row adds no completion logic of its
+    # own, and tightening that shared path is its own change, not an
+    # adapter addition.
+    "muse": AdapterStrategy(dangerous_mode=DangerousModeStrategy.CLI_FLAG),
     "ollama": AdapterStrategy(),
     "open_interpreter": AdapterStrategy(),
     "opencode": AdapterStrategy(),
     "openhands": AdapterStrategy(),
     "pi": AdapterStrategy(),
     "plandex": AdapterStrategy(),
+    # Generic Python-invoked agent runtime adapter (#2959).
+    "python_runtime": AdapterStrategy(
+        resume=ResumeStrategy.UNSUPPORTED,
+        dangerous_mode=DangerousModeStrategy.ALWAYS_ON,
+        event_channel=EventChannel.STREAM_JSON,
+        output_mode=OutputMode.GIT_DIFF,
+    ),
     # Built from a declarative capability profile rather than a
     # hand-written module (see
     # :mod:`bernstein.adapters.capability_profile`). The row stays here

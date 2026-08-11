@@ -29,18 +29,14 @@ import re
 import SCons.Node.FS
 import SCons.Util
 import SCons.Warnings
+# Used as a return value of modify_env_var if the variable is not set.
+from SCons.Util.sctypes import _null
 from . import ScannerBase, FindPathDirs
 
 # list of graphics file extensions for TeX and LaTeX
 TexGraphics   = ['.eps', '.ps']
 #LatexGraphics = ['.pdf', '.png', '.jpg', '.gif', '.tif']
 LatexGraphics = [ '.png', '.jpg', '.gif', '.tif']
-
-
-# Used as a return value of modify_env_var if the variable is not set.
-class _Null:
-    pass
-_null = _Null
 
 # The user specifies the paths in env[variable], similar to other builders.
 # They may be relative and must be converted to absolute, as expected
@@ -169,6 +165,7 @@ class LaTeX(ScannerBase):
                      'addsectionbib': 'BIBINPUTS',
                      'makeindex': 'INDEXSTYLE',
                      'usepackage': 'TEXINPUTS',
+                     'RequirePackage': 'TEXINPUTS',
                      'usetheme': 'TEXINPUTS',
                      'usecolortheme': 'TEXINPUTS',
                      'usefonttheme': 'TEXINPUTS',
@@ -197,7 +194,8 @@ class LaTeX(ScannerBase):
               | addbibresource
               | addglobalbib
               | addsectionbib
-              | usepackage
+              | usepackage(?:\s*\[[^\]]+\])?
+              | RequirePackage(?:\s*\[[^\]]+\])?
               | use(?:|color|font|inner|outer)theme(?:\s*\[[^\]]+\])?
               )
                   \s*{([^}]*)}       # first arg
@@ -280,7 +278,7 @@ class LaTeX(ScannerBase):
             base, ext = os.path.splitext( filename )
             if ext == "":
                 return [filename + '.bib']
-        if include_type == 'usepackage':
+        if include_type in ('usepackage', 'RequirePackage'):
             base, ext = os.path.splitext( filename )
             if ext == "":
                 return [filename + '.sty']
@@ -421,7 +419,7 @@ class LaTeX(ScannerBase):
             if n is None:
                 # Do not bother with 'usepackage' warnings, as they most
                 # likely refer to system-level files
-                if inc_type != 'usepackage' or re.match("use(|color|font|inner|outer)theme", inc_type):
+                if inc_type not in ('usepackage', 'RequirePackage') or re.match("use(|color|font|inner|outer)theme", inc_type):
                     SCons.Warnings.warn(
                         SCons.Warnings.DependencyWarning,
                         "No dependency generated for file: %s "
@@ -436,9 +434,3 @@ class LaTeX(ScannerBase):
         # Don't sort on a tuple where the second element is an object, just
         # use the first element of the tuple which is the "sort_key" value
         return [pair[1] for pair in sorted(nodes, key=lambda n: n[0])]
-
-# Local Variables:
-# tab-width:4
-# indent-tabs-mode:nil
-# End:
-# vim: set expandtab tabstop=4 shiftwidth=4:

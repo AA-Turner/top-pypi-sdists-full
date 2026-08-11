@@ -7,7 +7,52 @@ understand and maintain, focusing on control flow structures that make code
 harder to reason about.
 """
 
-from typing import List, Tuple
+from enum import Enum
+from typing import List, Optional, Tuple
+
+class RuleCategory(Enum):
+    """Category of a refactoring rule."""
+
+    Complexity = "Complexity"
+    """Rules that reduce cognitive complexity."""
+
+    Readability = "Readability"
+    """Rules that improve code readability."""
+
+class Applicability(Enum):
+    """Applicability level for refactoring suggestions."""
+
+    MachineApplicable = "MachineApplicable"
+    """Safe to apply automatically without human review."""
+
+    MaybeIncorrect = "MaybeIncorrect"
+    """May be incorrect in some cases, needs human review."""
+
+    Informational = "Informational"
+    """Informational only, not directly actionable."""
+
+class CodeSuggestion:
+    """A concrete code suggestion with replacement text and applicability."""
+
+    replacement: str
+    """The suggested replacement code."""
+
+    applicability: Applicability
+    """How confident we are in this suggestion."""
+
+    description: str
+    """Description of what this suggestion does."""
+
+    spliceable: bool
+    """Whether the replacement is a faithful source splice that can be measured."""
+
+    def __init__(
+        self,
+        replacement: str,
+        applicability: Applicability,
+        description: str,
+        spliceable: bool,
+    ) -> None: ...
 
 class LineComplexity:
     """
@@ -43,16 +88,70 @@ class LineComplexity:
     def __init__(self, line: int, complexity: int) -> None: ...
 
 class RefactorPlan:
-    """Deterministic refactoring plan for reducing one function's complexity."""
+    """Deterministic refactoring plan for reducing one function's complexity.
+
+    This plan includes clippy-style metadata with rule information,
+    concrete suggestions or help text, and detailed explanations to help
+    developers and AI agents understand and apply the refactoring.
+    """
 
     kind: str
+    """Type of refactoring (e.g., 'flatten_condition', 'extract_helper')."""
+
     title: str
+    """Human-readable title of the refactoring suggestion."""
+
     line_start: int
+    """Starting line number of the code region to refactor."""
+
     line_end: int
+    """Ending line number of the code region to refactor."""
+
+    column_start: int
+    """1-indexed starting column of the offending construct on `line_start`."""
+
     current_complexity: int
+    """Current cognitive complexity of the function."""
+
     estimated_reduction: int
+    """Complexity reduction from applying this refactoring — measured when
+    `reduction_is_measured` is true, formula-estimated otherwise."""
+
     estimated_complexity_after: int
-    steps: List[str]
+    """Complexity after applying this refactoring — measured when
+    `reduction_is_measured` is true, formula-estimated otherwise."""
+
+    reduction_is_measured: bool
+    """True when the reduction was measured by splicing the suggestion into
+    the source and re-scoring it; false for formula estimates (help-only
+    rules and measurement fallbacks)."""
+
+    rule_id: str
+    """Unique identifier for the rule (e.g., 'C001', 'C007')."""
+
+    category: RuleCategory
+    """Category of the refactoring rule."""
+
+    applicability: Applicability
+    """How confident we are in this suggestion."""
+
+    description: str
+    """Detailed description of what the rule checks for."""
+
+    explanation: str
+    """Explanation of why this refactoring helps."""
+
+    references: List[str]
+    """Links to documentation and examples."""
+
+    suggestion: Optional[CodeSuggestion]
+    """Concrete code suggestion for machine-applicable rules."""
+
+    help: Optional[str]
+    """Help text with actionable guidance for informational rules."""
+
+    doc_url: str
+    """URL to the documentation page for this rule."""
 
     def __init__(
         self,
@@ -60,10 +159,20 @@ class RefactorPlan:
         title: str,
         line_start: int,
         line_end: int,
+        column_start: int,
         current_complexity: int,
         estimated_reduction: int,
         estimated_complexity_after: int,
-        steps: List[str],
+        reduction_is_measured: bool,
+        rule_id: str,
+        category: RuleCategory,
+        applicability: Applicability,
+        description: str,
+        explanation: str,
+        references: List[str],
+        suggestion: Optional[CodeSuggestion],
+        help: Optional[str],
+        doc_url: str,
     ) -> None: ...
 
 class FunctionComplexity:
@@ -143,7 +252,10 @@ class FunctionComplexity:
     """
 
     refactor_plans: List[RefactorPlan]
-    """Ranked deterministic refactoring plans for this function."""
+    """Ranked deterministic refactoring plans for this function, capped at 5."""
+
+    additional_refactor_plans: int
+    """Count of further plans that survived dedup but were dropped by the cap."""
 
     def __init__(
         self,
@@ -153,6 +265,7 @@ class FunctionComplexity:
         line_end: int,
         line_complexities: List[LineComplexity],
         refactor_plans: List[RefactorPlan],
+        additional_refactor_plans: int,
     ) -> None: ...
 
 class FileComplexity:
@@ -316,6 +429,45 @@ class IgnoredLocation:
     """The canonical ignore marker (e.g. '# complexipy: ignore' or '# noqa: complexipy')."""
 
     def __init__(self, path: str, line: int, comment: str) -> None: ...
+
+class RemovableIgnore:
+    """
+    Represents an ignore comment that is no longer necessary because the
+    suppressed function's complexity is within the allowed limit.
+
+    This class backs the automatic report of stale ignore comments shown
+    at the end of every analysis run, and the
+    `collect_removable_ignored_locations()` API.
+
+    Example:
+        >>> rem = RemovableIgnore(
+        ...     path="src/legacy.py",
+        ...     line=42,
+        ...     comment="# complexipy: ignore",
+        ...     function="parse_legacy_config",
+        ...     complexity=8
+        ... )
+        >>> print(f"{rem.path}:{rem.line}  {rem.comment} can be removed")
+    """
+
+    path: str
+    """Relative path to the file containing the ignore comment."""
+
+    line: int
+    """Line number (1-indexed) of the function the ignore comment suppresses."""
+
+    comment: str
+    """The canonical ignore marker (e.g. '# complexipy: ignore' or '# noqa: complexipy')."""
+
+    function: str
+    """Name of the function the ignore comment suppresses."""
+
+    complexity: int
+    """The function's cognitive complexity measured without the ignore comment."""
+
+    def __init__(
+        self, path: str, line: int, comment: str, function: str, complexity: int
+    ) -> None: ...
 
 def main(
     paths: List[str],
@@ -529,6 +681,7 @@ def output_json(
     files_complexities: List[FileComplexity],
     show_details: bool,
     max_complexity: int,
+    suggest_refactors: bool = False,
 ) -> None:
     """
     Export complexity analysis results to a JSON file for programmatic consumption.
@@ -555,6 +708,11 @@ def output_json(
         max_complexity: Functions with complexity above this threshold may
                         be flagged or filtered in the output. Use 0 to include
                         all functions regardless of complexity.
+        suggest_refactors: If True, each function entry's `refactor_plans`
+                           is populated with its ranked suggestions. If
+                           False (the default), `refactor_plans` is an
+                           empty list, mirroring `--suggest-refactors` in
+                           the CLI.
 
     Raises:
         PermissionError: If the output path is not writable.
@@ -621,5 +779,46 @@ def collect_all_ignored_locations(
         ... )
         >>> for loc in locations:
         ...     print(f"{loc.path}:{loc.line}  {loc.comment}")
+    """
+    ...
+
+def collect_removable_ignored_locations(
+    paths: List[str],
+    exclude: List[str],
+    max_complexity_allowed: int,
+    invocation_path: str = ".",
+) -> Tuple[List[RemovableIgnore], List[str]]:
+    """
+    Scan all processed Python files for ignore comments that are no longer
+    necessary because the suppressed function's complexity is within the
+    allowed limit.
+
+    This is the backend for the automatic stale-ignore report shown at the
+    end of every analysis run. It discovers the same set of files as the
+    main analysis (respecting --exclude and .gitignore), computes each
+    suppressed function's complexity as if the ignore comment were absent,
+    and keeps only the markers whose function complexity is less than or
+    equal to `max_complexity_allowed`.
+
+    Args:
+        paths: List of file paths, directory paths, or Git repository URLs.
+        exclude: List of file/directory paths or globs to exclude from scanning.
+        max_complexity_allowed: Complexity threshold; markers suppressing
+            functions at or below this value are reported as removable.
+        invocation_path: Working directory for resolving relative paths.
+
+    Returns:
+        A tuple of (removable_ignores, failed_paths) where:
+        - removable_ignores: List of RemovableIgnore objects, sorted by (path, line).
+        - failed_paths: List of paths that could not be processed.
+
+    Example:
+        >>> removable, failed = collect_removable_ignored_locations(
+        ...     paths=["/project/src"],
+        ...     exclude=["tests/"],
+        ...     max_complexity_allowed=15,
+        ... )
+        >>> for rem in removable:
+        ...     print(f"{rem.path}:{rem.line}  function={rem.function} complexity={rem.complexity}")
     """
     ...

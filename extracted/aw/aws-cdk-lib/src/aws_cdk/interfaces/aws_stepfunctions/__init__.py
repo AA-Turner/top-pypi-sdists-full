@@ -132,6 +132,51 @@ class _IActivityRefProxy(
 typing.cast(typing.Any, IActivityRef).__jsii_proxy_class__ = lambda : _IActivityRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_stepfunctions.IMapRunRef")
+class IMapRunRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a MapRun.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="mapRunRef")
+    def map_run_ref(self) -> "MapRunReference":
+        '''(experimental) A reference to a MapRun resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMapRunRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MapRun.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_stepfunctions.IMapRunRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="mapRunRef")
+    def map_run_ref(self) -> "MapRunReference":
+        '''(experimental) A reference to a MapRun resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MapRunReference", jsii.get(self, "mapRunRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMapRunRef).__jsii_proxy_class__ = lambda : _IMapRunRefProxy
+
+
 @jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_stepfunctions.IStateMachineAliasRef"
 )
@@ -269,6 +314,55 @@ class _IStateMachineVersionRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IStateMachineVersionRef).__jsii_proxy_class__ = lambda : _IStateMachineVersionRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_stepfunctions.MapRunReference",
+    jsii_struct_bases=[],
+    name_mapping={"map_run_arn": "mapRunArn"},
+)
+class MapRunReference:
+    def __init__(self, *, map_run_arn: builtins.str) -> None:
+        '''A reference to a MapRun resource.
+
+        :param map_run_arn: The MapRunArn of the MapRun resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_stepfunctions as interfaces_stepfunctions
+            
+            map_run_reference = interfaces_stepfunctions.MapRunReference(
+                map_run_arn="mapRunArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__182a94096d0d6bddfadb7a7e508aa687a215e347e9520749e450dcf8f38def0f)
+            check_type(argname="argument map_run_arn", value=map_run_arn, expected_type=type_hints["map_run_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "map_run_arn": map_run_arn,
+        }
+
+    @builtins.property
+    def map_run_arn(self) -> builtins.str:
+        '''The MapRunArn of the MapRun resource.'''
+        result = self._values.get("map_run_arn")
+        assert result is not None, "Required property 'map_run_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MapRunReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -421,9 +515,11 @@ class StateMachineVersionReference:
 __all__ = [
     "ActivityReference",
     "IActivityRef",
+    "IMapRunRef",
     "IStateMachineAliasRef",
     "IStateMachineRef",
     "IStateMachineVersionRef",
+    "MapRunReference",
     "StateMachineAliasReference",
     "StateMachineReference",
     "StateMachineVersionReference",
@@ -434,6 +530,13 @@ publication.publish()
 def _typecheckingstub__b883848654dc545ce6d6eba57ce8a8774e3bc4971af04c81e4cc73a2f39c176d(
     *,
     activity_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__182a94096d0d6bddfadb7a7e508aa687a215e347e9520749e450dcf8f38def0f(
+    *,
+    map_run_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -459,5 +562,5 @@ def _typecheckingstub__5dca710712489355ac7f99ff3ffb691ef5446206776073003adf3a1cb
     """Type checking stubs"""
     pass
 
-for cls in [IActivityRef, IStateMachineAliasRef, IStateMachineRef, IStateMachineVersionRef]:
+for cls in [IActivityRef, IMapRunRef, IStateMachineAliasRef, IStateMachineRef, IStateMachineVersionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -4,8 +4,9 @@ import typing
 
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
+from ...types.assignable_organization_role_enum import AssignableOrganizationRoleEnum
+from ...types.assignable_user_type_enum import AssignableUserTypeEnum
 from ...types.organization_invite import OrganizationInvite
-from ...types.organization_role_enum import OrganizationRoleEnum
 from .raw_client import AsyncRawInvitesClient, RawInvitesClient
 
 # this is used as the default value for optional parameters
@@ -93,8 +94,9 @@ class InvitesClient:
         self,
         *,
         emails: typing.Sequence[str],
-        role: OrganizationRoleEnum,
         projects: typing.Optional[typing.Sequence[int]] = OMIT,
+        role: typing.Optional[AssignableOrganizationRoleEnum] = OMIT,
+        user_type: typing.Optional[AssignableUserTypeEnum] = OMIT,
         workspaces: typing.Optional[typing.Sequence[int]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> None:
@@ -112,8 +114,11 @@ class InvitesClient:
         emails : typing.Sequence[str]
             Email addresses
 
-        role : OrganizationRoleEnum
-            Organization role
+        projects : typing.Optional[typing.Sequence[int]]
+            Project IDs to grant access to
+
+        role : typing.Optional[AssignableOrganizationRoleEnum]
+            Organization role. Required unless user_type is viewonly.
 
             * `OW` - Owner
             * `AD` - Administrator
@@ -123,8 +128,12 @@ class InvitesClient:
             * `DI` - Deactivated
             * `NO` - Not Activated
 
-        projects : typing.Optional[typing.Sequence[int]]
-            Project IDs to grant access to
+        user_type : typing.Optional[AssignableUserTypeEnum]
+            Seat type for the invited members. View-Only members are free read-only seats scoped to the invited projects/workspaces and cannot be combined with a role.
+
+            * `standard` - Standard
+            * `flex` - Flex
+            * `viewonly` - View Only
 
         workspaces : typing.Optional[typing.Sequence[int]]
             Workspace IDs to grant access to
@@ -145,11 +154,15 @@ class InvitesClient:
         )
         client.organizations.invites.send_email(
             emails=["emails"],
-            role="OW",
         )
         """
         _response = self._raw_client.send_email(
-            emails=emails, role=role, projects=projects, workspaces=workspaces, request_options=request_options
+            emails=emails,
+            projects=projects,
+            role=role,
+            user_type=user_type,
+            workspaces=workspaces,
+            request_options=request_options,
         )
         return _response.data
 
@@ -251,8 +264,9 @@ class AsyncInvitesClient:
         self,
         *,
         emails: typing.Sequence[str],
-        role: OrganizationRoleEnum,
         projects: typing.Optional[typing.Sequence[int]] = OMIT,
+        role: typing.Optional[AssignableOrganizationRoleEnum] = OMIT,
+        user_type: typing.Optional[AssignableUserTypeEnum] = OMIT,
         workspaces: typing.Optional[typing.Sequence[int]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> None:
@@ -270,8 +284,11 @@ class AsyncInvitesClient:
         emails : typing.Sequence[str]
             Email addresses
 
-        role : OrganizationRoleEnum
-            Organization role
+        projects : typing.Optional[typing.Sequence[int]]
+            Project IDs to grant access to
+
+        role : typing.Optional[AssignableOrganizationRoleEnum]
+            Organization role. Required unless user_type is viewonly.
 
             * `OW` - Owner
             * `AD` - Administrator
@@ -281,8 +298,12 @@ class AsyncInvitesClient:
             * `DI` - Deactivated
             * `NO` - Not Activated
 
-        projects : typing.Optional[typing.Sequence[int]]
-            Project IDs to grant access to
+        user_type : typing.Optional[AssignableUserTypeEnum]
+            Seat type for the invited members. View-Only members are free read-only seats scoped to the invited projects/workspaces and cannot be combined with a role.
+
+            * `standard` - Standard
+            * `flex` - Flex
+            * `viewonly` - View Only
 
         workspaces : typing.Optional[typing.Sequence[int]]
             Workspace IDs to grant access to
@@ -308,13 +329,17 @@ class AsyncInvitesClient:
         async def main() -> None:
             await client.organizations.invites.send_email(
                 emails=["emails"],
-                role="OW",
             )
 
 
         asyncio.run(main())
         """
         _response = await self._raw_client.send_email(
-            emails=emails, role=role, projects=projects, workspaces=workspaces, request_options=request_options
+            emails=emails,
+            projects=projects,
+            role=role,
+            user_type=user_type,
+            workspaces=workspaces,
+            request_options=request_options,
         )
         return _response.data

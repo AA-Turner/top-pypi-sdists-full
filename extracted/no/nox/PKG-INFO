@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nox
-Version: 2026.7.11
+Version: 2026.8.10
 Summary: Flexible test automation.
 Project-URL: bug-tracker, https://github.com/wntrblm/nox/issues
 Project-URL: documentation, https://nox.thea.codes
@@ -29,12 +29,15 @@ Classifier: Topic :: Software Development :: Testing
 Requires-Python: >=3.10
 Requires-Dist: argcomplete<4,>=1.9.4
 Requires-Dist: attrs>=24.1
-Requires-Dist: colorlog<7,>=2.6.1
+Requires-Dist: colorlog<7,>=6.6
 Requires-Dist: dependency-groups>=1.1
 Requires-Dist: humanize>=4
 Requires-Dist: packaging>=22
+Requires-Dist: platformdirs>=2
+Requires-Dist: python-discovery>=1
 Requires-Dist: tomli>=1.1; python_version < '3.11'
-Requires-Dist: virtualenv>=20.15
+Requires-Dist: virtualenv>=20.15; python_version < '3.15'
+Requires-Dist: virtualenv>=21; python_version >= '3.15'
 Provides-Extra: pbs
 Requires-Dist: pbs-installer[all]>=2025.1.6; extra == 'pbs'
 Provides-Extra: tox-to-nox

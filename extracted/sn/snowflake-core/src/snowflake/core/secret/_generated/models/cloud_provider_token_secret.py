@@ -63,6 +63,7 @@ class CloudProviderTokenSecret(Secret):
 
     @field_validator("api_authentication")
     def api_authentication_validate_regular_expression(cls, v):
+
         if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$""", v):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v

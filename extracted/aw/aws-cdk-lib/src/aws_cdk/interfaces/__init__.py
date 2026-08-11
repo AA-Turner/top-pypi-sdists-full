@@ -204,6 +204,7 @@ __all__ = [
     "aws_aps",
     "aws_arcregionswitch",
     "aws_arczonalshift",
+    "aws_artifact",
     "aws_athena",
     "aws_auditmanager",
     "aws_autoscaling",
@@ -212,6 +213,7 @@ __all__ = [
     "aws_b2bi",
     "aws_backup",
     "aws_backupgateway",
+    "aws_backupsearch",
     "aws_batch",
     "aws_bcm",
     "aws_bcmdataexports",
@@ -248,6 +250,7 @@ __all__ = [
     "aws_codestarconnections",
     "aws_codestarnotifications",
     "aws_cognito",
+    "aws_cognitosync",
     "aws_comprehend",
     "aws_computeoptimizer",
     "aws_config",
@@ -259,7 +262,6 @@ __all__ = [
     "aws_cur",
     "aws_customerprofiles",
     "aws_databrew",
-    "aws_dataexchange",
     "aws_datapipeline",
     "aws_datasync",
     "aws_datazone",
@@ -371,6 +373,7 @@ __all__ = [
     "aws_neptune",
     "aws_neptunegraph",
     "aws_networkfirewall",
+    "aws_networkflowmonitor",
     "aws_networkmanager",
     "aws_nimblestudio",
     "aws_notifications",
@@ -431,6 +434,7 @@ __all__ = [
     "aws_sagemaker",
     "aws_sam",
     "aws_scheduler",
+    "aws_scn",
     "aws_sdb",
     "aws_secretsmanager",
     "aws_securityagent",
@@ -452,12 +456,17 @@ __all__ = [
     "aws_ssmincidents",
     "aws_ssmquicksetup",
     "aws_sso",
+    "aws_states",
     "aws_stepfunctions",
+    "aws_storagegateway",
     "aws_supportapp",
     "aws_synthetics",
     "aws_systemsmanagersap",
+    "aws_thinclient",
     "aws_timestream",
+    "aws_transcribe",
     "aws_transfer",
+    "aws_usernotifications",
     "aws_uxc",
     "aws_verifiedpermissions",
     "aws_voiceid",
@@ -465,6 +474,7 @@ __all__ = [
     "aws_waf",
     "aws_wafregional",
     "aws_wafv2",
+    "aws_wellarchitected",
     "aws_wisdom",
     "aws_workspaces",
     "aws_workspacesinstances",
@@ -499,6 +509,7 @@ if typing.TYPE_CHECKING:
     from . import aws_aps as aws_aps
     from . import aws_arcregionswitch as aws_arcregionswitch
     from . import aws_arczonalshift as aws_arczonalshift
+    from . import aws_artifact as aws_artifact
     from . import aws_athena as aws_athena
     from . import aws_auditmanager as aws_auditmanager
     from . import aws_autoscaling as aws_autoscaling
@@ -507,6 +518,7 @@ if typing.TYPE_CHECKING:
     from . import aws_b2bi as aws_b2bi
     from . import aws_backup as aws_backup
     from . import aws_backupgateway as aws_backupgateway
+    from . import aws_backupsearch as aws_backupsearch
     from . import aws_batch as aws_batch
     from . import aws_bcm as aws_bcm
     from . import aws_bcmdataexports as aws_bcmdataexports
@@ -543,6 +555,7 @@ if typing.TYPE_CHECKING:
     from . import aws_codestarconnections as aws_codestarconnections
     from . import aws_codestarnotifications as aws_codestarnotifications
     from . import aws_cognito as aws_cognito
+    from . import aws_cognitosync as aws_cognitosync
     from . import aws_comprehend as aws_comprehend
     from . import aws_computeoptimizer as aws_computeoptimizer
     from . import aws_config as aws_config
@@ -554,7 +567,6 @@ if typing.TYPE_CHECKING:
     from . import aws_cur as aws_cur
     from . import aws_customerprofiles as aws_customerprofiles
     from . import aws_databrew as aws_databrew
-    from . import aws_dataexchange as aws_dataexchange
     from . import aws_datapipeline as aws_datapipeline
     from . import aws_datasync as aws_datasync
     from . import aws_datazone as aws_datazone
@@ -666,6 +678,7 @@ if typing.TYPE_CHECKING:
     from . import aws_neptune as aws_neptune
     from . import aws_neptunegraph as aws_neptunegraph
     from . import aws_networkfirewall as aws_networkfirewall
+    from . import aws_networkflowmonitor as aws_networkflowmonitor
     from . import aws_networkmanager as aws_networkmanager
     from . import aws_nimblestudio as aws_nimblestudio
     from . import aws_notifications as aws_notifications
@@ -726,6 +739,7 @@ if typing.TYPE_CHECKING:
     from . import aws_sagemaker as aws_sagemaker
     from . import aws_sam as aws_sam
     from . import aws_scheduler as aws_scheduler
+    from . import aws_scn as aws_scn
     from . import aws_sdb as aws_sdb
     from . import aws_secretsmanager as aws_secretsmanager
     from . import aws_securityagent as aws_securityagent
@@ -747,12 +761,17 @@ if typing.TYPE_CHECKING:
     from . import aws_ssmincidents as aws_ssmincidents
     from . import aws_ssmquicksetup as aws_ssmquicksetup
     from . import aws_sso as aws_sso
+    from . import aws_states as aws_states
     from . import aws_stepfunctions as aws_stepfunctions
+    from . import aws_storagegateway as aws_storagegateway
     from . import aws_supportapp as aws_supportapp
     from . import aws_synthetics as aws_synthetics
     from . import aws_systemsmanagersap as aws_systemsmanagersap
+    from . import aws_thinclient as aws_thinclient
     from . import aws_timestream as aws_timestream
+    from . import aws_transcribe as aws_transcribe
     from . import aws_transfer as aws_transfer
+    from . import aws_usernotifications as aws_usernotifications
     from . import aws_uxc as aws_uxc
     from . import aws_verifiedpermissions as aws_verifiedpermissions
     from . import aws_voiceid as aws_voiceid
@@ -760,6 +779,7 @@ if typing.TYPE_CHECKING:
     from . import aws_waf as aws_waf
     from . import aws_wafregional as aws_wafregional
     from . import aws_wafv2 as aws_wafv2
+    from . import aws_wellarchitected as aws_wellarchitected
     from . import aws_wisdom as aws_wisdom
     from . import aws_workspaces as aws_workspaces
     from . import aws_workspacesinstances as aws_workspacesinstances
@@ -793,6 +813,7 @@ _SUBMODULES = {
     "aws_aps",
     "aws_arcregionswitch",
     "aws_arczonalshift",
+    "aws_artifact",
     "aws_athena",
     "aws_auditmanager",
     "aws_autoscaling",
@@ -801,6 +822,7 @@ _SUBMODULES = {
     "aws_b2bi",
     "aws_backup",
     "aws_backupgateway",
+    "aws_backupsearch",
     "aws_batch",
     "aws_bcm",
     "aws_bcmdataexports",
@@ -837,6 +859,7 @@ _SUBMODULES = {
     "aws_codestarconnections",
     "aws_codestarnotifications",
     "aws_cognito",
+    "aws_cognitosync",
     "aws_comprehend",
     "aws_computeoptimizer",
     "aws_config",
@@ -848,7 +871,6 @@ _SUBMODULES = {
     "aws_cur",
     "aws_customerprofiles",
     "aws_databrew",
-    "aws_dataexchange",
     "aws_datapipeline",
     "aws_datasync",
     "aws_datazone",
@@ -960,6 +982,7 @@ _SUBMODULES = {
     "aws_neptune",
     "aws_neptunegraph",
     "aws_networkfirewall",
+    "aws_networkflowmonitor",
     "aws_networkmanager",
     "aws_nimblestudio",
     "aws_notifications",
@@ -1020,6 +1043,7 @@ _SUBMODULES = {
     "aws_sagemaker",
     "aws_sam",
     "aws_scheduler",
+    "aws_scn",
     "aws_sdb",
     "aws_secretsmanager",
     "aws_securityagent",
@@ -1041,12 +1065,17 @@ _SUBMODULES = {
     "aws_ssmincidents",
     "aws_ssmquicksetup",
     "aws_sso",
+    "aws_states",
     "aws_stepfunctions",
+    "aws_storagegateway",
     "aws_supportapp",
     "aws_synthetics",
     "aws_systemsmanagersap",
+    "aws_thinclient",
     "aws_timestream",
+    "aws_transcribe",
     "aws_transfer",
+    "aws_usernotifications",
     "aws_uxc",
     "aws_verifiedpermissions",
     "aws_voiceid",
@@ -1054,6 +1083,7 @@ _SUBMODULES = {
     "aws_waf",
     "aws_wafregional",
     "aws_wafv2",
+    "aws_wellarchitected",
     "aws_wisdom",
     "aws_workspaces",
     "aws_workspacesinstances",

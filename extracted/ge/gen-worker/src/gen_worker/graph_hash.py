@@ -1,4 +1,15 @@
-"""Canonical GRAPH identity — the cell-key input (pgw#716).
+"""Canonical GRAPH identity (pgw#716).
+
+**What this digest is USED for today (pgw#1031, read this before the ruling
+below):** it is the pgw#917 same-class comparator and the per-entry
+``graph_witness`` — recorded on every cell by ``aot_mint.keying_block`` and
+compared at adopt time by ``aot_identity.verify_graph_witness``. It is **not**
+folded into ``cell_key``: the ``graph`` axis is ``combined_graph_hash`` over
+``class_hash``, which folds the graph INTERFACE and no node digest, so two
+different computations behind one declaration share a key (measured
+2026-08-10). Whether this digest should BECOME the key is pgw#1031's depth
+question and Paul's to rule; the witness is the fail-closed floor that holds
+either way.
 
 Paul's ruling: "I'd rather key on the graph that is changed, not hash on code
 changes... look at some code and be like 'oh this is graph-ABC' and that is the
@@ -21,7 +32,7 @@ the sdxl UNet exported three times differing ONLY in declared dynamic range
 (``VR[64,160]`` / ``VR[64,320]`` / ``VR[96,128]``) produced ONE node-only digest
 (``9dd33abbc7617d98``) for all three. The ranges live in
 ``ExportedProgram.range_constraints`` — a field BESIDE the graph, not in its
-nodes — so a node-only hash collides artifacts that admit DIFFERENT traffic:
+nodes — so a node-only hash collides artifacts whose declared ENVELOPES differ:
 adopt the ``[96,128]`` cell against a ``[64,160]`` key and 1024x1024 requests are
 refused by an artifact whose key promised to serve them. Symbolic ranges are the
 OPPOSITE of the non-semantic noise scrubbed below, and they are equally a defect
@@ -231,7 +242,7 @@ def _range_lines(ranges: Any, syms: _Symbols) -> List[str]:
     """Symbolic-dim RANGE lines — the pgw#704 S8 soundness fix.
 
     Emitted for every symbol the graph actually uses, in canonical symbol
-    order, so three artifacts admitting different traffic cannot collide.
+    order, so three artifacts declaring different envelopes cannot collide.
     """
     if not ranges:
         return []
@@ -240,8 +251,8 @@ def _range_lines(ranges: Any, syms: _Symbols) -> List[str]:
     for symbol, value_range in ranges.items():
         canonical = by_raw.get(str(symbol))
         if canonical is None:
-            # A constrained symbol the graph never mentions cannot change what
-            # the artifact admits; recording it would key on shape-env noise.
+            # A constrained symbol the graph never mentions cannot change the
+            # artifact's envelope; recording it would key on shape-env noise.
             continue
         lines.append(
             f"{SYM_PREFIX}{canonical} range=["

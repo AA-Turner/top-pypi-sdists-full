@@ -8,7 +8,10 @@ before any HTTP transport call.
 Layout under ``root``:
 
     simple-v1/<index>[-<serialization>]/<package>.json    <- PEP 691 JSON body
-    simple-v1/<index>[-<serialization>]/<package>.policy  <- {fetched_at, max_age, etag}
+    simple-v1/<index>[-<serialization>]/<package>.policy  <- {fetched_at, max_age,
+                                                              etag, page_url,
+                                                              body_digest}
+    simple-parsed-v0/<index>[-<serialization>]/<package>.parsed  <- parsed blob
     simple-neg-v0/<index>[-<serialization>]/<package>.neg <- {fetched_at, max_age, etag}
     metadata-v1/<index>/<package>/<url digest>.metadata
     sdist-v1/<index>/<package>/<version>.json  <- {pkg_info, pyproject}
@@ -40,11 +43,13 @@ import os
 import shutil
 import stat
 import time
-from dataclasses import dataclass
+from contextlib import suppress
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 from .atomic import atomic_write
+from .parsed_listing import corruption_reason as _parsed_corruption
 from .serialization import SimpleSerialization
 
 if TYPE_CHECKING:
@@ -65,6 +70,7 @@ __all__ = [
 
 
 CACHE_VERSION_SIMPLE = "v1"
+CACHE_VERSION_SIMPLE_PARSED = "v0"
 CACHE_VERSION_SIMPLE_NEG = "v0"
 CACHE_VERSION_METADATA = "v1"
 CACHE_VERSION_SDIST = "v1"
@@ -92,11 +98,25 @@ class OfflineError(Exception):
 
 @dataclass(frozen=True, slots=True)
 class CachePolicy:
-    """RFC 9111-style freshness policy for one Simple API entry."""
+    """RFC 9111-style freshness policy for one Simple API entry.
+
+    ``fetched_at`` is the start of the freshness window: when nab received the
+    response, less any Age a relaying shared cache reported.
+
+    ``page_url`` is the URL the stored body was retrieved from, the base its
+    relative entries resolve against. It is ``None`` for the negative
+    sentinel, which has no body, and for an entry cached without it.
+
+    ``body_digest`` is the sha256 hex of the raw body this policy governs, and
+    binds a parsed-listing blob to that body. It is ``None`` for an older
+    policy or a bodyless negative entry.
+    """
 
     fetched_at: int
     max_age: int
     etag: str | None
+    page_url: str | None = None
+    body_digest: str | None = None
 
     def is_fresh(self, now: int | None = None) -> bool:
         """Return True if the entry is still within its freshness window."""
@@ -167,7 +187,11 @@ def _make_removable(root: Path) -> None:
 
 
 class OnDiskCache:
-    """File-per-key cache for Simple API and wheel metadata."""
+    """File-per-key cache for Simple API and wheel metadata.
+
+    Stores are best-effort: a write the filesystem refuses is dropped,
+    just as an entry that cannot be read is a miss.
+    """
 
     def __init__(
         self,
@@ -185,15 +209,40 @@ class OnDiskCache:
             else f"{self._index}-{serialization.value}"
         )
         self._simple_dir = root / f"simple-{CACHE_VERSION_SIMPLE}" / simple_index
+        self._parsed_dir = (
+            root / f"simple-parsed-{CACHE_VERSION_SIMPLE_PARSED}" / simple_index
+        )
         self._neg_dir = root / f"simple-neg-{CACHE_VERSION_SIMPLE_NEG}" / simple_index
         self._metadata_dir = root / f"metadata-{CACHE_VERSION_METADATA}" / self._index
         self._sdist_dir = root / f"sdist-{CACHE_VERSION_SDIST}" / self._index
+        self._store_failed = False
+
+    def _store(self, path: Path, data: bytes) -> bool:
+        """Write ``data`` to ``path``, returning False if the write failed.
+
+        Only the first failure warns: a root that refuses one write
+        refuses the rest.
+        """
+        try:
+            _atomic_write(path, data)
+        except OSError as exc:
+            if not self._store_failed:
+                self._store_failed = True
+                logger.warning(
+                    "cannot store cache entries under %s: %s", self._root, exc
+                )
+            return False
+        return True
 
     def _simple_paths(self, package: str) -> tuple[Path, Path]:
         segment = _require_single_segment(package)
         body = self._simple_dir / f"{segment}.json"
         policy = self._simple_dir / f"{segment}.policy"
         return (body, policy)
+
+    def _parsed_path(self, package: str) -> Path:
+        segment = _require_single_segment(package)
+        return self._parsed_dir / f"{segment}.parsed"
 
     def _neg_path(self, package: str) -> Path:
         segment = _require_single_segment(package)
@@ -232,11 +281,26 @@ class OnDiskCache:
             return None
         return (body, policy)
 
-    def put_simple(self, package: str, body: bytes, policy: CachePolicy) -> None:
-        """Write the body and the policy sidecar atomically."""
+    def put_simple(self, package: str, body: bytes, policy: CachePolicy) -> str | None:
+        """Write the body and the policy sidecar; return the body's digest.
+
+        The sidecar goes out only once the body has landed, so a dropped
+        body write cannot stamp an older body with the new one's ETag and
+        freshness window.  The sha256 of ``body`` is stamped into the stored
+        policy, overriding any value the caller passed, and returned as the
+        binding key for the parsed blob the caller writes next.  A write that
+        did not land returns ``None``, so no parsed blob is ever bound to a
+        body the store does not hold.
+        """
         body_path, policy_path = self._simple_paths(package)
-        _atomic_write(body_path, body)
-        _atomic_write(policy_path, _encode_policy(policy))
+        if not self._store(body_path, body):
+            return None
+        digest = hashlib.sha256(body).hexdigest()
+        if not self._store(
+            policy_path, _encode_policy(replace(policy, body_digest=digest))
+        ):
+            return None
+        return digest
 
     def refresh_simple_policy(self, package: str, policy: CachePolicy) -> None:
         """Replace the policy sidecar without touching the body.
@@ -245,7 +309,54 @@ class OnDiskCache:
         valid but the freshness window has slid forward.
         """
         _, policy_path = self._simple_paths(package)
-        _atomic_write(policy_path, _encode_policy(policy))
+        self._store(policy_path, _encode_policy(policy))
+
+    def get_simple_policy(self, package: str) -> CachePolicy | None:
+        """Return the freshness policy for a cached Simple entry, without its body.
+
+        The parsed-cache read path needs only the policy on a hit, so this reads
+        the small sidecar without the body. A corrupt policy logs and misses,
+        matching :meth:`get_simple`.
+        """
+        _, policy_path = self._simple_paths(package)
+        try:
+            policy_bytes = policy_path.read_bytes()
+        except OSError:
+            return None
+        policy = _decode_policy(policy_bytes)
+        if policy is None:
+            logger.warning(
+                "Corrupt cache policy %s: not decodable; treating as a miss",
+                policy_path,
+            )
+        return policy
+
+    def get_simple_parsed(self, package: str) -> bytes | None:
+        """Return the opaque parsed-listing blob for ``package``, or ``None``.
+
+        The blob is bytes to this layer; the record codec lives in
+        ``parsed_listing``. An absent blob is a silent miss.
+        """
+        try:
+            return self._parsed_path(package).read_bytes()
+        except OSError:
+            return None
+
+    def get_simple_parsed_size(self, package: str) -> int | None:
+        """Return the on-disk size of the parsed-listing blob in bytes, or ``None``.
+
+        A single ``stat`` on the same path :meth:`get_simple_parsed` reads, so a
+        caller can size the blob before deciding whether to read and decode it.
+        An absent blob is a silent miss.
+        """
+        try:
+            return self._parsed_path(package).stat().st_size
+        except OSError:
+            return None
+
+    def put_simple_parsed(self, package: str, blob: bytes) -> None:
+        """Write the opaque parsed-listing blob for ``package`` atomically."""
+        _atomic_write(self._parsed_path(package), blob)
 
     def get_metadata(self, package: str, metadata_url: str) -> str | None:
         """Return the cached sidecar text for ``metadata_url``, or ``None``.
@@ -269,7 +380,7 @@ class OnDiskCache:
 
     def put_metadata(self, package: str, metadata_url: str, text: str) -> None:
         """Write the sidecar text served at ``metadata_url``. Immutable."""
-        _atomic_write(self._metadata_path(package, metadata_url), text.encode("utf-8"))
+        self._store(self._metadata_path(package, metadata_url), text.encode("utf-8"))
 
     def get_sdist_files(
         self, package: str, version: str
@@ -303,7 +414,7 @@ class OnDiskCache:
         pyproject_toml: str | None,
     ) -> None:
         """Write the ``(pkg_info, pyproject_toml)`` pair as one record."""
-        _atomic_write(
+        self._store(
             self._sdist_path(package, version),
             json.dumps({"pkg_info": pkg_info, "pyproject": pyproject_toml}).encode(
                 "utf-8"
@@ -327,11 +438,17 @@ class OnDiskCache:
 
     def put_negative(self, package: str, policy: CachePolicy) -> None:
         """Record that ``package`` returned a name-level 404 from this index."""
-        _atomic_write(self._neg_path(package), _encode_policy(policy))
+        self._store(self._neg_path(package), _encode_policy(policy))
 
     def drop_negative(self, package: str) -> None:
-        """Remove any negative entry for ``package``. A miss is not an error."""
-        self._neg_path(package).unlink(missing_ok=True)
+        """Remove any negative entry for ``package``.
+
+        A miss is not an error, and neither is a root that refuses the
+        unlink: there is nothing cached to contradict the fresh listing
+        the caller just fetched.
+        """
+        with suppress(OSError):
+            self._neg_path(package).unlink(missing_ok=True)
 
     def _root_children(self) -> list[Path]:
         try:
@@ -380,8 +497,9 @@ class OnDiskCache:
 
         Parses by suffix, matching each kind's read path: ``.policy`` and
         ``.neg`` decode as a policy, ``.metadata`` as UTF-8, ``.json`` as
-        JSON (an sdist record also carries its two fields). Any other suffix
-        is not a nab entry and is reported clean.
+        JSON (an sdist record also carries its two fields), ``.parsed`` as a
+        parsed-listing blob. Any other suffix is not a nab entry and is
+        reported clean.
         """
         try:
             raw = path.read_bytes()
@@ -390,12 +508,10 @@ class OnDiskCache:
         suffix = path.suffix
         if suffix in (".policy", ".neg"):
             return None if _decode_policy(raw) is not None else "policy not decodable"
+        if suffix == ".parsed":
+            return _read_parsed_reason(raw)
         if suffix == ".metadata":
-            try:
-                raw.decode("utf-8")
-            except UnicodeDecodeError:
-                return "not valid UTF-8"
-            return None
+            return _read_metadata_reason(raw)
         if suffix == ".json":
             return self._read_json_reason(path, raw)
         return None
@@ -442,14 +558,38 @@ class OnDiskCache:
         return removed
 
 
+def _read_metadata_reason(raw: bytes) -> str | None:
+    try:
+        raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return "not valid UTF-8"
+    return None
+
+
+def _read_parsed_reason(raw: bytes) -> str | None:
+    # Structural decodability only; the digest binding retires a stale-but-valid
+    # blob at read time, so verify does not check it. The codec owns the check so
+    # verify and the read path agree on what counts as corrupt.
+    return _parsed_corruption(raw)
+
+
 def _encode_policy(policy: CachePolicy) -> bytes:
-    return json.dumps(
-        {
-            "fetched_at": policy.fetched_at,
-            "max_age": policy.max_age,
-            "etag": policy.etag,
-        }
-    ).encode("utf-8")
+    doc: dict[str, object] = {
+        "fetched_at": policy.fetched_at,
+        "max_age": policy.max_age,
+        "etag": policy.etag,
+        "page_url": policy.page_url,
+    }
+    # Emit only when set so an older policy or a bodyless negative entry keeps
+    # its previous form; absence decodes back to None.
+    if policy.body_digest is not None:
+        doc["body_digest"] = policy.body_digest
+    return json.dumps(doc).encode("utf-8")
+
+
+def _policy_page_url(value: object) -> str | None:
+    """Page URL from a decoded policy, or None when it is unusable as a base."""
+    return value if isinstance(value, str) and value else None
 
 
 def _decode_policy(policy_bytes: bytes) -> CachePolicy | None:
@@ -459,6 +599,8 @@ def _decode_policy(policy_bytes: bytes) -> CachePolicy | None:
             fetched_at=int(doc["fetched_at"]),
             max_age=int(doc["max_age"]),
             etag=doc.get("etag"),
+            page_url=_policy_page_url(doc.get("page_url")),
+            body_digest=doc.get("body_digest"),
         )
     except (ValueError, KeyError, TypeError):
         return None
@@ -471,12 +613,35 @@ class CacheBackend(Protocol):
         """Return ``(body_bytes, policy)`` if cached, else ``None``."""
         ...
 
-    def put_simple(self, package: str, body: bytes, policy: CachePolicy) -> None:
-        """Store a Simple API body and its freshness policy."""
+    def put_simple(self, package: str, body: bytes, policy: CachePolicy) -> str | None:
+        """Store a Simple API body and its freshness policy; return the digest.
+
+        The returned value is the sha256 hex of the body the backend stored,
+        the binding key for the parsed-listing blob the caller writes next, or
+        ``None`` when the backend stored nothing. A caller writes a parsed blob
+        only for a digest it was given, so no derived entry ever claims to
+        describe a body the store does not hold.
+        """
         ...
 
     def refresh_simple_policy(self, package: str, policy: CachePolicy) -> None:
         """Update the policy for an existing entry without rewriting the body."""
+        ...
+
+    def get_simple_policy(self, package: str) -> CachePolicy | None:
+        """Return a Simple entry's freshness policy without its body, or ``None``."""
+        ...
+
+    def get_simple_parsed(self, package: str) -> bytes | None:
+        """Return the opaque parsed-listing blob for ``package``, or ``None``."""
+        ...
+
+    def get_simple_parsed_size(self, package: str) -> int | None:
+        """Return the parsed-listing blob's on-disk size in bytes, or ``None``."""
+        ...
+
+    def put_simple_parsed(self, package: str, blob: bytes) -> None:
+        """Store the opaque parsed-listing blob for ``package``."""
         ...
 
     def get_metadata(self, package: str, metadata_url: str) -> str | None:
@@ -542,10 +707,27 @@ class NullCache:
         """Return ``None`` (always a miss)."""
 
     def put_simple(self, package: str, body: bytes, policy: CachePolicy) -> None:
-        """Discard the entry."""
+        """Discard the entry; return ``None`` since no body was stored.
+
+        A disabled cache holds nothing for a parsed blob to describe, so the
+        caller skips building one rather than encoding records into a store
+        that would drop them.
+        """
 
     def refresh_simple_policy(self, package: str, policy: CachePolicy) -> None:
         """Discard the policy refresh."""
+
+    def get_simple_policy(self, package: str) -> CachePolicy | None:
+        """Return ``None`` (always a miss)."""
+
+    def get_simple_parsed(self, package: str) -> bytes | None:
+        """Return ``None`` (always a miss)."""
+
+    def get_simple_parsed_size(self, package: str) -> int | None:
+        """Return ``None`` (always a miss)."""
+
+    def put_simple_parsed(self, package: str, blob: bytes) -> None:
+        """Discard the entry."""
 
     def get_metadata(self, package: str, metadata_url: str) -> str | None:
         """Return ``None`` (always a miss)."""

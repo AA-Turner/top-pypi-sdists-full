@@ -39,74 +39,6 @@ else:
 
 
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_route53resolver.FirewallConfigReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "firewall_config_arn": "firewallConfigArn",
-        "firewall_config_id": "firewallConfigId",
-    },
-)
-class FirewallConfigReference:
-    def __init__(
-        self,
-        *,
-        firewall_config_arn: builtins.str,
-        firewall_config_id: builtins.str,
-    ) -> None:
-        '''A reference to a FirewallConfig resource.
-
-        :param firewall_config_arn: The ARN of the FirewallConfig resource.
-        :param firewall_config_id: The Id of the FirewallConfig resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk.interfaces import aws_route53resolver as interfaces_route53resolver
-            
-            firewall_config_reference = interfaces_route53resolver.FirewallConfigReference(
-                firewall_config_arn="firewallConfigArn",
-                firewall_config_id="firewallConfigId"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__51f750fb5515c2f2309ce8b0b8fa06cbab2bd1cd4a908169771cc931636e9882)
-            check_type(argname="argument firewall_config_arn", value=firewall_config_arn, expected_type=type_hints["firewall_config_arn"])
-            check_type(argname="argument firewall_config_id", value=firewall_config_id, expected_type=type_hints["firewall_config_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "firewall_config_arn": firewall_config_arn,
-            "firewall_config_id": firewall_config_id,
-        }
-
-    @builtins.property
-    def firewall_config_arn(self) -> builtins.str:
-        '''The ARN of the FirewallConfig resource.'''
-        result = self._values.get("firewall_config_arn")
-        assert result is not None, "Required property 'firewall_config_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def firewall_config_id(self) -> builtins.str:
-        '''The Id of the FirewallConfig resource.'''
-        result = self._values.get("firewall_config_id")
-        assert result is not None, "Required property 'firewall_config_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "FirewallConfigReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_route53resolver.FirewallDomainListReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -308,53 +240,6 @@ class FirewallRuleGroupReference:
         return "FirewallRuleGroupReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.interface(
-    jsii_type="aws-cdk-lib.interfaces.aws_route53resolver.IFirewallConfigRef"
-)
-class IFirewallConfigRef(
-    _constructs_77d1e7e8.IConstruct,
-    _interfaces_8ca7e747.IEnvironmentAware,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a FirewallConfig.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="firewallConfigRef")
-    def firewall_config_ref(self) -> "FirewallConfigReference":
-        '''(experimental) A reference to a FirewallConfig resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IFirewallConfigRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a FirewallConfig.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_route53resolver.IFirewallConfigRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="firewallConfigRef")
-    def firewall_config_ref(self) -> "FirewallConfigReference":
-        '''(experimental) A reference to a FirewallConfig resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("FirewallConfigReference", jsii.get(self, "firewallConfigRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IFirewallConfigRef).__jsii_proxy_class__ = lambda : _IFirewallConfigRefProxy
 
 
 @jsii.interface(
@@ -1361,11 +1246,9 @@ class ResolverRuleReference:
 
 
 __all__ = [
-    "FirewallConfigReference",
     "FirewallDomainListReference",
     "FirewallRuleGroupAssociationReference",
     "FirewallRuleGroupReference",
-    "IFirewallConfigRef",
     "IFirewallDomainListRef",
     "IFirewallRuleGroupAssociationRef",
     "IFirewallRuleGroupRef",
@@ -1388,14 +1271,6 @@ __all__ = [
 ]
 
 publication.publish()
-
-def _typecheckingstub__51f750fb5515c2f2309ce8b0b8fa06cbab2bd1cd4a908169771cc931636e9882(
-    *,
-    firewall_config_arn: builtins.str,
-    firewall_config_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__1bf26bc13d02b48d108b0edfc29fb7bc53aef5731dbe1b57caba69dd98ecbfac(
     *,
@@ -1481,5 +1356,5 @@ def _typecheckingstub__6baf9e71960d6a8381d3bcfa8868ee7ce3bb3b4f7b1146e63b09c3a0a
     """Type checking stubs"""
     pass
 
-for cls in [IFirewallConfigRef, IFirewallDomainListRef, IFirewallRuleGroupAssociationRef, IFirewallRuleGroupRef, IOutpostResolverRef, IResolverConfigRef, IResolverDNSSECConfigRef, IResolverEndpointRef, IResolverQueryLoggingConfigAssociationRef, IResolverQueryLoggingConfigRef, IResolverRuleAssociationRef, IResolverRuleRef]:
+for cls in [IFirewallDomainListRef, IFirewallRuleGroupAssociationRef, IFirewallRuleGroupRef, IOutpostResolverRef, IResolverConfigRef, IResolverDNSSECConfigRef, IResolverEndpointRef, IResolverQueryLoggingConfigAssociationRef, IResolverQueryLoggingConfigRef, IResolverRuleAssociationRef, IResolverRuleRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

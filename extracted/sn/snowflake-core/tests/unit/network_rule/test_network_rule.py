@@ -23,7 +23,7 @@ NETWORK_RULE = NetworkRule(
     name="my_network_rule",
     type="HOST_PORT",
     mode="EGRESS",
-    value_list=["example.com:443", "api.example.com:443"],
+    value_list=["example.com", "example.com:443"],
     comment="Test network rule",
 )
 
@@ -35,7 +35,7 @@ def test_create_network_rule(fake_root, network_rules):
         body={
             "type": "HOST_PORT",
             "mode": "EGRESS",
-            "value_list": ["example.com:443", "api.example.com:443"],
+            "value_list": ["example.com", "example.com:443"],
             "comment": "Test network rule",
             "name": "my_network_rule",
         },

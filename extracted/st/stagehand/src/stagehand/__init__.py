@@ -1,113 +1,154 @@
-# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+"""Stagehand Python SDK."""
 
-import typing as _t
-
-from . import types
-from ._types import NOT_GIVEN, Omit, NoneType, NotGiven, Transport, ProxiesTypes, omit, not_given
-from ._utils import file_from_path
-from ._client import (
-    Client,
-    Stream,
-    Timeout,
-    Stagehand,
-    Transport,
-    AsyncClient,
-    AsyncStream,
-    AsyncStagehand,
-    RequestOptions,
+from ._generated.input_types import (
+    Action as ActionInput,
 )
-from ._models import BaseModel
-from ._version import __title__, __version__
-from ._response import APIResponse as APIResponse, AsyncAPIResponse as AsyncAPIResponse
-from ._constants import DEFAULT_TIMEOUT, DEFAULT_MAX_RETRIES, DEFAULT_CONNECTION_LIMITS
-from ._exceptions import (
-    APIError,
-    ConflictError,
-    NotFoundError,
-    APIStatusError,
-    RateLimitError,
-    StagehandError,
-    APITimeoutError,
-    BadRequestError,
-    APIConnectionError,
-    AuthenticationError,
-    InternalServerError,
-    PermissionDeniedError,
-    UnprocessableEntityError,
-    APIResponseValidationError,
+from ._generated.input_types import (
+    BrowserbaseBrowserSettings,
+    BrowserbaseProxyConfig,
+    CookieParam,
+    ExternalProxyConfig,
+    ModelConfig,
+    PageDragAndDropRoutePoint,
+    PageEventName,
+    PageScreenshotClip,
+    RgbaColor,
+    TelemetryConfig,
+    Variables,
 )
-from ._base_client import DefaultHttpxClient, DefaultAioHttpClient, DefaultAsyncHttpxClient
-from ._utils._logs import setup_logging as _setup_logging
-
-### <CUSTOM CODE HANDWRITTEN BY STAGEHAND TEAM (not codegen)>
-# Re-export the public bound session types from `_custom` so users can type
-# against `stagehand.Session` instead of importing from private modules.
-from ._custom.session import Session, AsyncSession
-
-### </END CUSTOM CODE>
+from ._generated.input_types import (
+    DomainPolicy as DomainPolicyInput,
+)
+from ._generated.input_types import Locator as ProtocolLocator
+from ._generated.models import (
+    Action,
+    ActResult,
+    ActResultData,
+    Animations,
+    BrowserbaseRegion,
+    CacheMetadata,
+    CacheStatus,
+    CacheTokenSavings,
+    Caret,
+    Cookie,
+    DomainPolicy,
+    LLMImageContent,
+    LLMMessageGenerateParams,
+    LLMMessageGenerateResult,
+    LLMRole,
+    LLMStructuredGenerateParams,
+    LLMStructuredGenerateResult,
+    LLMTextContent,
+    LLMUsage,
+    LoadState,
+    MouseButton,
+    NavigationSecurityDetails,
+    NavigationServerAddr,
+    ObserveResult,
+    PageCDPEvent,
+    Scale,
+    StagehandMetrics,
+    StagehandResultMetadata,
+    State,
+    WebMCPAnnotation,
+)
+from ._generated.models import (
+    Type as ScreenshotType,
+)
+from .browser import StagehandBrowser, browserbase, local_browser
+from .browser_clipboard import BrowserClipboard
+from .browser_context import BrowserContext
+from .client_models import (
+    DefaultExtract,
+    ExtractResult,
+)
+from .client_types import (
+    CacheOptions,
+    LLMGenerateCallback,
+    LLMGenerateInput,
+    LLMGenerateOutput,
+    StagehandClientLoggingConfig,
+)
+from .file_upload import FileInput, FilePayload
+from .locator import Locator
+from .page import CDPSubscription, Page, PageEventListener
+from .response import Response
+from .stagehand import Stagehand
+from .webmcp import (
+    WebMCPInvocation,
+    WebMCPInvocationStatus,
+    WebMCPTool,
+    WebMCPToolResponse,
+)
 
 __all__ = [
-    "types",
-    "__version__",
-    "__title__",
-    "NoneType",
-    "Transport",
-    "ProxiesTypes",
-    "NotGiven",
-    "NOT_GIVEN",
-    "not_given",
-    "Omit",
-    "omit",
-    "StagehandError",
-    "APIError",
-    "APIStatusError",
-    "APITimeoutError",
-    "APIConnectionError",
-    "APIResponseValidationError",
-    "BadRequestError",
-    "AuthenticationError",
-    "PermissionDeniedError",
-    "NotFoundError",
-    "ConflictError",
-    "UnprocessableEntityError",
-    "RateLimitError",
-    "InternalServerError",
-    "Timeout",
-    "RequestOptions",
-    "Client",
-    "AsyncClient",
-    "Stream",
-    "AsyncStream",
+    "ActResult",
+    "ActResultData",
+    "Action",
+    "ActionInput",
+    "Animations",
+    "BrowserClipboard",
+    "BrowserContext",
+    "BrowserbaseBrowserSettings",
+    "BrowserbaseProxyConfig",
+    "BrowserbaseRegion",
+    "CacheOptions",
+    "CacheMetadata",
+    "CacheStatus",
+    "CacheTokenSavings",
+    "Caret",
+    "CDPSubscription",
+    "Cookie",
+    "CookieParam",
+    "DomainPolicy",
+    "DomainPolicyInput",
+    "DefaultExtract",
+    "ExternalProxyConfig",
+    "ExtractResult",
+    "FileInput",
+    "FilePayload",
+    "LLMGenerateCallback",
+    "LLMGenerateInput",
+    "LLMGenerateOutput",
+    "LLMImageContent",
+    "LLMMessageGenerateParams",
+    "LLMMessageGenerateResult",
+    "LLMRole",
+    "LLMStructuredGenerateParams",
+    "LLMStructuredGenerateResult",
+    "LLMTextContent",
+    "LLMUsage",
+    "LoadState",
+    "Locator",
+    "ModelConfig",
+    "MouseButton",
+    "NavigationSecurityDetails",
+    "NavigationServerAddr",
+    "ObserveResult",
+    "Page",
+    "PageCDPEvent",
+    "PageDragAndDropRoutePoint",
+    "PageEventListener",
+    "PageEventName",
+    "PageScreenshotClip",
+    "ProtocolLocator",
+    "RgbaColor",
+    "Response",
+    "Scale",
+    "ScreenshotType",
     "Stagehand",
-    "AsyncStagehand",
-    ### <CUSTOM CODE HANDWRITTEN BY STAGEHAND TEAM (not codegen)>
-    "Session",
-    "AsyncSession",
-    ### </END CUSTOM CODE>
-    "file_from_path",
-    "BaseModel",
-    "DEFAULT_TIMEOUT",
-    "DEFAULT_MAX_RETRIES",
-    "DEFAULT_CONNECTION_LIMITS",
-    "DefaultHttpxClient",
-    "DefaultAsyncHttpxClient",
-    "DefaultAioHttpClient",
+    "StagehandBrowser",
+    "StagehandClientLoggingConfig",
+    "StagehandMetrics",
+    "StagehandResultMetadata",
+    "State",
+    "TelemetryConfig",
+    "Variables",
+    "WebMCPAnnotation",
+    "WebMCPInvocation",
+    "WebMCPInvocationStatus",
+    "WebMCPTool",
+    "WebMCPToolResponse",
+    "browserbase",
+    "local_browser",
 ]
-
-if not _t.TYPE_CHECKING:
-    from ._utils._resources_proxy import resources as resources
-
-_setup_logging()
-
-# Update the __module__ attribute for exported symbols so that
-# error messages point to this module instead of the module
-# it was originally defined in, e.g.
-# stagehand._exceptions.NotFoundError -> stagehand.NotFoundError
-__locals = locals()
-for __name in __all__:
-    if not __name.startswith("__"):
-        try:
-            __locals[__name].__module__ = "stagehand"
-        except (TypeError, AttributeError):
-            # Some of our exported symbols are builtins which we can't set attributes for.
-            pass

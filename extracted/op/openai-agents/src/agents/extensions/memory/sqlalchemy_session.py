@@ -26,7 +26,9 @@ from __future__ import annotations
 import asyncio
 import json
 import threading
-from typing import Any, ClassVar
+import weakref
+from collections.abc import Awaitable, Callable
+from typing import Any, ClassVar, TypeVar
 
 from sqlalchemy import (
     TIMESTAMP,
@@ -56,6 +58,9 @@ from ...memory.session_settings import (
     coerce_session_settings,
     resolve_session_limit,
 )
+from ...memory.sqlite_session import _await_mutation
+
+_T = TypeVar("_T")
 
 
 class SQLAlchemySession(SessionABC):
@@ -63,6 +68,10 @@ class SQLAlchemySession(SessionABC):
 
     _table_init_locks: ClassVar[dict[tuple[str, str, str], threading.Lock]] = {}
     _table_init_locks_guard: ClassVar[threading.Lock] = threading.Lock()
+    # Keyed on id(engine.sync_engine) so two distinct engines that happen to compare equal
+    # never share a cache entry.  A weakref.finalize callback removes the entry when the sync
+    # engine is garbage collected, preventing stale id() values from being reused by a future
+    # engine that has not been configured yet.
     _sqlite_configured_engines: ClassVar[set[int]] = set()
     _sqlite_configured_engines_guard: ClassVar[threading.Lock] = threading.Lock()
     _SQLITE_BUSY_TIMEOUT_MS: ClassVar[int] = 5000
@@ -109,28 +118,30 @@ class SQLAlchemySession(SessionABC):
                     cursor.close()
 
             cls._sqlite_configured_engines.add(engine_key)
+            # Drop the entry once the sync engine goes away so a later engine allocated at the
+            # same address is still configured instead of being treated as already configured.
+            weakref.finalize(engine.sync_engine, cls._sqlite_configured_engines.discard, engine_key)
 
     @staticmethod
     def _is_sqlite_lock_error(exc: OperationalError) -> bool:
         return "database is locked" in str(exc).lower()
 
-    async def _run_sqlite_write_with_retry(self, operation: Any) -> None:
+    async def _run_sqlite_write_with_retry(self, operation: Callable[[], Awaitable[_T]]) -> _T:
         """Retry transient SQLite write lock failures with bounded backoff."""
         if self._engine.dialect.name != "sqlite":
-            await operation()
-            return
+            return await operation()
 
         for attempt, delay in enumerate((0.0, *self._SQLITE_LOCK_RETRY_DELAYS)):
             if delay:
                 await asyncio.sleep(delay)
             try:
-                await operation()
-                return
+                return await operation()
             except OperationalError as exc:
                 if not self._is_sqlite_lock_error(exc):
                     raise
                 if attempt == len(self._SQLITE_LOCK_RETRY_DELAYS):
                     raise
+        raise AssertionError("SQLite write retry loop exited unexpectedly")
 
     def __init__(
         self,
@@ -404,21 +415,32 @@ class SQLAlchemySession(SessionABC):
                         .values(updated_at=sql_text("CURRENT_TIMESTAMP"))
                     )
 
-        await self._run_sqlite_write_with_retry(_write_items)
+        await _await_mutation(self._run_sqlite_write_with_retry(_write_items))
 
     async def pop_item(self) -> TResponseInputItem | None:
+        """Remove the most recent item after its transaction settles."""
+        await self._ensure_tables()
+        return await _await_mutation(self._run_sqlite_write_with_retry(self._pop_item))
+
+    async def _pop_item(self) -> TResponseInputItem | None:
         """Remove and return the most recent item from the session.
 
         Returns:
             The most recent item if it exists, None if the session is empty
         """
-        await self._ensure_tables()
-        async with self._session_factory() as sess:
-            async with sess.begin():
-                while True:
-                    # Fallback for all dialects - get ID first, then delete
-                    subq = (
-                        select(self._messages.c.id)
+        while True:
+            retry_claim = False
+            async with self._session_factory() as sess:
+                async with sess.begin():
+                    if (
+                        self._engine.dialect.name == "sqlite"
+                        and not self._engine.dialect.delete_returning
+                    ):
+                        # SQLite ignores SELECT ... FOR UPDATE. Reserve the single
+                        # writer before selecting so the fallback claim remains unique.
+                        await sess.execute(sql_text("BEGIN IMMEDIATE"))
+                    tail = (
+                        select(self._messages.c.id, self._messages.c.message_data)
                         .where(self._messages.c.session_id == self.session_id)
                         .order_by(
                             self._messages.c.created_at.desc(),
@@ -426,27 +448,58 @@ class SQLAlchemySession(SessionABC):
                         )
                         .limit(1)
                     )
-                    res = await sess.execute(subq)
-                    row_id = res.scalar_one_or_none()
-                    if row_id is None:
-                        return None
-                    # Fetch data before deleting
-                    res_data = await sess.execute(
-                        select(self._messages.c.message_data).where(self._messages.c.id == row_id)
-                    )
-                    row = res_data.scalar_one_or_none()
-                    await sess.execute(delete(self._messages).where(self._messages.c.id == row_id))
 
-                    if row is None:
-                        continue
-                    try:
-                        return await self._deserialize_item(row)
-                    except (json.JSONDecodeError, TypeError):
-                        continue
+                    if self._engine.dialect.delete_returning:
+                        # DELETE ... RETURNING is the claim: only the transaction that
+                        # removes the current tail receives its payload. This avoids relying
+                        # on DBAPI rowcount, which some dialects report as unknown.
+                        result = await sess.execute(
+                            delete(self._messages)
+                            .where(
+                                self._messages.c.id
+                                == tail.with_only_columns(self._messages.c.id).scalar_subquery()
+                            )
+                            .returning(self._messages.c.message_data)
+                        )
+                        row = result.scalar_one_or_none()
+                        if row is None:
+                            # A concurrent DELETE can win the same tail between the
+                            # subquery read and this claim. Distinguish that race from
+                            # an empty session before retrying with a fresh transaction.
+                            remaining = await sess.execute(
+                                tail.with_only_columns(self._messages.c.id)
+                            )
+                            if remaining.scalar_one_or_none() is None:
+                                return None
+                            retry_claim = True
+                    else:
+                        # Dialects without DELETE ... RETURNING claim the row with a
+                        # transaction-scoped lock before deleting it. The lock, rather than
+                        # rowcount, establishes ownership of the returned payload.
+                        result = await sess.execute(tail.with_for_update())
+                        claimed = result.one_or_none()
+                        if claimed is None:
+                            return None
+                        row_id, row = claimed
+                        await sess.execute(
+                            delete(self._messages).where(self._messages.c.id == row_id)
+                        )
+
+            if retry_claim:
+                continue
+            assert row is not None
+            try:
+                return await self._deserialize_item(row)
+            except (json.JSONDecodeError, TypeError):
+                continue
 
     async def clear_session(self) -> None:
-        """Clear all items for this session."""
+        """Clear history after its transaction settles."""
         await self._ensure_tables()
+        await _await_mutation(self._clear_session())
+
+    async def _clear_session(self) -> None:
+        """Clear all items for this session."""
         async with self._session_factory() as sess:
             async with sess.begin():
                 await sess.execute(

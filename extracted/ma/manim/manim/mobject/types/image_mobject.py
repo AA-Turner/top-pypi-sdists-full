@@ -68,12 +68,12 @@ class AbstractImageMobject(Mobject):
     def get_pixel_array(self) -> PixelArray:
         raise NotImplementedError()
 
-    def set_color(  # type: ignore[override]
+    def set_color(
         self,
         color: ParsableManimColor = YELLOW_C,
         alpha: Any = None,
         family: bool = True,
-    ) -> AbstractImageMobject:
+    ) -> Self:
         # Likely to be implemented in subclasses, but no obligation
         raise NotImplementedError()
 
@@ -217,7 +217,7 @@ class ImageMobject(AbstractImageMobject):
         """A simple getter method."""
         return self.pixel_array
 
-    def set_color(  # type: ignore[override]
+    def set_color(
         self,
         color: ParsableManimColor = YELLOW_C,
         alpha: Any = None,
@@ -262,7 +262,7 @@ class ImageMobject(AbstractImageMobject):
 
     def interpolate_color(
         self, mobject1: Mobject, mobject2: Mobject, alpha: float
-    ) -> None:
+    ) -> Self:
         """Interpolates the array of pixel color values from one ImageMobject
         into an array of equal size in the target ImageMobject.
 
@@ -299,6 +299,7 @@ class ImageMobject(AbstractImageMobject):
             mobject2.pixel_array,
             alpha,
         ).astype(self.pixel_array_dtype)
+        return self
 
     def get_style(self) -> dict[str, Any]:
         return {
@@ -344,7 +345,7 @@ class ImageMobjectFromCamera(AbstractImageMobject):
 
     def interpolate_color(
         self, mobject1: Mobject, mobject2: Mobject, alpha: float
-    ) -> None:
+    ) -> Self:
         assert isinstance(mobject1, ImageMobjectFromCamera)
         assert isinstance(mobject2, ImageMobjectFromCamera)
         assert mobject1.pixel_array.shape == mobject2.pixel_array.shape, (
@@ -357,3 +358,4 @@ class ImageMobjectFromCamera(AbstractImageMobject):
             mobject2.pixel_array,
             alpha,
         ).astype(self.pixel_array_dtype)
+        return self

@@ -52,6 +52,7 @@ class AzureHook(ApiHook):
 
     @field_validator("api_provider")
     def api_provider_validate_enum(cls, v):
+
         if v not in ("AZURE_API_MANAGEMENT", "AZURE_PRIVATE_API_MANAGEMENT"):
             raise ValueError("must validate the enum values ('AZURE_API_MANAGEMENT','AZURE_PRIVATE_API_MANAGEMENT')")
         return v

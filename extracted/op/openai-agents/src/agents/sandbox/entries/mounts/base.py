@@ -15,6 +15,7 @@ from ...materialization import MaterializedFile
 from ...types import FileMode, Permissions
 from ...workspace_paths import coerce_posix_path, posix_path_as_path, windows_absolute_path
 from ..base import BaseEntry
+from ._redaction import _redact_mount_lifecycle_error
 from .patterns import MountPattern, MountPatternBase, MountPatternConfig
 
 if TYPE_CHECKING:
@@ -57,6 +58,7 @@ class InContainerMountAdapter:
             )
         return config
 
+    @_redact_mount_lifecycle_error
     async def activate(
         self,
         strategy: InContainerMountStrategy,
@@ -70,6 +72,7 @@ class InContainerMountAdapter:
         await strategy.pattern.apply(session, mount_path, config)
         return []
 
+    @_redact_mount_lifecycle_error
     async def deactivate(
         self,
         strategy: InContainerMountStrategy,
@@ -82,6 +85,7 @@ class InContainerMountAdapter:
         config = await self._build_config(strategy, session, include_config_text=False)
         await strategy.pattern.unapply(session, mount_path, config)
 
+    @_redact_mount_lifecycle_error
     async def teardown_for_snapshot(
         self,
         strategy: InContainerMountStrategy,
@@ -91,6 +95,7 @@ class InContainerMountAdapter:
         config = await self._build_config(strategy, session, include_config_text=False)
         await strategy.pattern.unapply(session, path, config)
 
+    @_redact_mount_lifecycle_error
     async def restore_after_snapshot(
         self,
         strategy: InContainerMountStrategy,
@@ -227,6 +232,7 @@ class InContainerMountStrategy(MountStrategyBase):
     def validate_mount(self, mount: Mount) -> None:
         mount.in_container_adapter().validate(self)
 
+    @_redact_mount_lifecycle_error
     async def activate(
         self,
         mount: Mount,
@@ -234,8 +240,22 @@ class InContainerMountStrategy(MountStrategyBase):
         dest: Path,
         base_dir: Path,
     ) -> list[MaterializedFile]:
+        from ..._mount_security import validate_mount_activation_credential_boundary
+
+        validate_mount_activation_credential_boundary(
+            mount,
+            self,
+            manifest=getattr(session.state, "manifest", None),
+            mount_path=(
+                (lambda: mount._resolve_mount_path(session, dest))
+                if getattr(session.state, "manifest", None) is not None
+                else None
+            ),
+            provider_backend_id=session.state.type,
+        )
         return await mount.in_container_adapter().activate(self, session, dest, base_dir)
 
+    @_redact_mount_lifecycle_error
     async def deactivate(
         self,
         mount: Mount,
@@ -245,6 +265,7 @@ class InContainerMountStrategy(MountStrategyBase):
     ) -> None:
         await mount.in_container_adapter().deactivate(self, session, dest, base_dir)
 
+    @_redact_mount_lifecycle_error
     async def teardown_for_snapshot(
         self,
         mount: Mount,
@@ -253,12 +274,22 @@ class InContainerMountStrategy(MountStrategyBase):
     ) -> None:
         await mount.in_container_adapter().teardown_for_snapshot(self, session, path)
 
+    @_redact_mount_lifecycle_error
     async def restore_after_snapshot(
         self,
         mount: Mount,
         session: BaseSandboxSession,
         path: Path,
     ) -> None:
+        from ..._mount_security import validate_mount_activation_credential_boundary
+
+        validate_mount_activation_credential_boundary(
+            mount,
+            self,
+            manifest=getattr(session.state, "manifest", None),
+            mount_path=path,
+            provider_backend_id=session.state.type,
+        )
         await mount.in_container_adapter().restore_after_snapshot(self, session, path)
 
     def build_docker_volume_driver_config(
@@ -277,6 +308,7 @@ class DockerVolumeMountStrategy(MountStrategyBase):
     def validate_mount(self, mount: Mount) -> None:
         mount.docker_volume_adapter().validate(self)
 
+    @_redact_mount_lifecycle_error
     async def activate(
         self,
         mount: Mount,
@@ -292,6 +324,7 @@ class DockerVolumeMountStrategy(MountStrategyBase):
         _ = (mount, session, dest, base_dir)
         return []
 
+    @_redact_mount_lifecycle_error
     async def deactivate(
         self,
         mount: Mount,
@@ -307,6 +340,7 @@ class DockerVolumeMountStrategy(MountStrategyBase):
         _ = (mount, session, dest, base_dir)
         return None
 
+    @_redact_mount_lifecycle_error
     async def teardown_for_snapshot(
         self,
         mount: Mount,
@@ -316,6 +350,7 @@ class DockerVolumeMountStrategy(MountStrategyBase):
         _ = (mount, session, path)
         return None
 
+    @_redact_mount_lifecycle_error
     async def restore_after_snapshot(
         self,
         mount: Mount,
@@ -409,6 +444,7 @@ class Mount(BaseEntry):
 
         return DockerVolumeMountAdapter(self)
 
+    @_redact_mount_lifecycle_error
     async def apply(
         self,
         session: BaseSandboxSession,
@@ -421,8 +457,22 @@ class Mount(BaseEntry):
         intentionally no-ops because the backend attaches them before the session starts.
         """
 
+        from ..._mount_security import validate_mount_activation_credential_boundary
+
+        validate_mount_activation_credential_boundary(
+            self,
+            self.mount_strategy,
+            manifest=getattr(session.state, "manifest", None),
+            mount_path=(
+                (lambda: self._resolve_mount_path(session, dest))
+                if getattr(session.state, "manifest", None) is not None
+                else None
+            ),
+            provider_backend_id=session.state.type,
+        )
         return await self.mount_strategy.activate(self, session, dest, base_dir)
 
+    @_redact_mount_lifecycle_error
     async def unmount(
         self,
         session: BaseSandboxSession,

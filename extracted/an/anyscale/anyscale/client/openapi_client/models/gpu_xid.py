@@ -35,16 +35,18 @@ class GpuXid(object):
     openapi_types = {
         'code': 'int',
         'message': 'str',
+        'critical': 'bool',
         'active': 'bool'
     }
 
     attribute_map = {
         'code': 'code',
         'message': 'message',
+        'critical': 'critical',
         'active': 'active'
     }
 
-    def __init__(self, code=None, message=None, active=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, code=None, message=None, critical=None, active=None, local_vars_configuration=None):  # noqa: E501
         """GpuXid - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -52,12 +54,14 @@ class GpuXid(object):
 
         self._code = None
         self._message = None
+        self._critical = None
         self._active = None
         self.discriminator = None
 
         self.code = code
         if message is not None:
             self.message = message
+        self.critical = critical
         self.active = active
 
     @property
@@ -107,6 +111,31 @@ class GpuXid(object):
         """
 
         self._message = message
+
+    @property
+    def critical(self):
+        """Gets the critical of this GpuXid.  # noqa: E501
+
+        Whether this is a critical XID: a hardware or infrastructure fault serious enough to mark the GPU unhealthy. App-level codes (e.g. 13, 31, 43, 45) are reported with this false and leave the GPU state alone.  # noqa: E501
+
+        :return: The critical of this GpuXid.  # noqa: E501
+        :rtype: bool
+        """
+        return self._critical
+
+    @critical.setter
+    def critical(self, critical):
+        """Sets the critical of this GpuXid.
+
+        Whether this is a critical XID: a hardware or infrastructure fault serious enough to mark the GPU unhealthy. App-level codes (e.g. 13, 31, 43, 45) are reported with this false and leave the GPU state alone.  # noqa: E501
+
+        :param critical: The critical of this GpuXid.  # noqa: E501
+        :type: bool
+        """
+        if self.local_vars_configuration.client_side_validation and critical is None:  # noqa: E501
+            raise ValueError("Invalid value for `critical`, must not be `None`")  # noqa: E501
+
+        self._critical = critical
 
     @property
     def active(self):

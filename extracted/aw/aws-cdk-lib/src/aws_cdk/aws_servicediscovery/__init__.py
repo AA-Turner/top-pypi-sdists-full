@@ -2217,8 +2217,6 @@ class CfnService(
         # The values are placeholders you should change.
         from aws_cdk import aws_servicediscovery as servicediscovery
         
-        # service_attributes: Any
-        
         cfn_service = servicediscovery.CfnService(self, "MyCfnService",
             description="description",
             dns_config=servicediscovery.CfnService.DnsConfigProperty(
@@ -2243,7 +2241,9 @@ class CfnService(
             ),
             name="name",
             namespace_id="namespaceId",
-            service_attributes=service_attributes,
+            service_attributes={
+                "service_attributes_key": "serviceAttributes"
+            },
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -2263,7 +2263,7 @@ class CfnService(
         health_check_custom_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.HealthCheckCustomConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         namespace_id: typing.Optional[builtins.str] = None,
-        service_attributes: typing.Any = None,
+        service_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         type: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -2447,19 +2447,6 @@ class CfnService(
         return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
-    @jsii.member(jsii_name="serviceAttributes")
-    def service_attributes(self) -> typing.Any:
-        '''A complex type that contains information about attributes associated with a specific service.'''
-        return typing.cast(typing.Any, jsii.get(self, "serviceAttributes"))
-
-    @service_attributes.setter
-    def service_attributes(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__beed9ddfb5044557f1d91d44e5b2c14ae013234eaf80e61e0ced35d0ff47f80a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceAttributes", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the service.'''
@@ -2551,6 +2538,24 @@ class CfnService(
             type_hints = cached_type_hints(_typecheckingstub__145cf7d4d3570fc466251439b01ef2a07289bc8087a24ccb542c1442a58bafcd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "namespaceId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceAttributes")
+    def service_attributes(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+        '''A complex type that contains information about attributes associated with a specific service.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "serviceAttributes"))
+
+    @service_attributes.setter
+    def service_attributes(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__beed9ddfb5044557f1d91d44e5b2c14ae013234eaf80e61e0ced35d0ff47f80a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serviceAttributes", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -3064,7 +3069,7 @@ class CfnServiceProps:
         health_check_custom_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.HealthCheckCustomConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         namespace_id: typing.Optional[builtins.str] = None,
-        service_attributes: typing.Any = None,
+        service_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         type: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -3090,8 +3095,6 @@ class CfnServiceProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_servicediscovery as servicediscovery
             
-            # service_attributes: Any
-            
             cfn_service_props = servicediscovery.CfnServiceProps(
                 description="description",
                 dns_config=servicediscovery.CfnService.DnsConfigProperty(
@@ -3116,7 +3119,9 @@ class CfnServiceProps:
                 ),
                 name="name",
                 namespace_id="namespaceId",
-                service_attributes=service_attributes,
+                service_attributes={
+                    "service_attributes_key": "serviceAttributes"
+                },
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -3228,13 +3233,15 @@ class CfnServiceProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def service_attributes(self) -> typing.Any:
+    def service_attributes(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
         '''A complex type that contains information about attributes associated with a specific service.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-servicediscovery-service.html#cfn-servicediscovery-service-serviceattributes
         '''
         result = self._values.get("service_attributes")
-        return typing.cast(typing.Any, result)
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
@@ -7549,7 +7556,7 @@ def _typecheckingstub__fe683ec1ba955070fa4b5c6770ac570af81044f6f1cfff34bc3ffffe7
     health_check_custom_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.HealthCheckCustomConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     namespace_id: typing.Optional[builtins.str] = None,
-    service_attributes: typing.Any = None,
+    service_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     type: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -7596,12 +7603,6 @@ def _typecheckingstub__73b55e9673e357b372381c81fae4ccc7fca0bc85d18a8ec1d45fa5aa8
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__beed9ddfb5044557f1d91d44e5b2c14ae013234eaf80e61e0ced35d0ff47f80a(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__d72714f1b3a582c94f216c9033a2aa3883c999cd7f9154c6a2108e1afeb460b3(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -7634,6 +7635,12 @@ def _typecheckingstub__3a656f8cac1553476b396c1277481952cedf4d4311f43819f29ffb9d0
 
 def _typecheckingstub__145cf7d4d3570fc466251439b01ef2a07289bc8087a24ccb542c1442a58bafcd(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__beed9ddfb5044557f1d91d44e5b2c14ae013234eaf80e61e0ced35d0ff47f80a(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7691,7 +7698,7 @@ def _typecheckingstub__3ec48be70fb5c297bd47df7ae78eae4351af2efb1a2ce3043051542b9
     health_check_custom_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.HealthCheckCustomConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     namespace_id: typing.Optional[builtins.str] = None,
-    service_attributes: typing.Any = None,
+    service_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     type: typing.Optional[builtins.str] = None,
 ) -> None:

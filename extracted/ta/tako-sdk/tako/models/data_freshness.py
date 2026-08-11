@@ -25,11 +25,12 @@ from pydantic_core import to_jsonable_python
 
 class DataFreshness(BaseModel):
     """
-    When the card's data was last observed and last refreshed. Either field may be null when that date isn't available for the card type.
+    When the card's data ends and when Tako last refreshed it. Either field may be null when that date is not available for the card type.
     """ # noqa: E501
-    data_as_of: Optional[StrictStr] = Field(default=None, description="Date of the most recent observation in the card's data, as an ISO date (YYYY-MM-DD). Null for card types without a coverage date.")
+    coverage_end: Optional[StrictStr] = Field(default=None, description="The last data point in the card's data, at the granularity of the underlying series. An annual series reports a year (2026). A monthly or quarterly series reports a month (2026-06). A daily or intraday series reports a full date (2026-06-30). This value can be in the future when the card includes projections. Null for card types without a coverage date. The value uses ISO 8601 reduced precision, so examine the length before you parse it. A date parser reads 2026 as 2026-01-01, which is the start of the period and not the end.")
+    data_as_of: Optional[StrictStr] = Field(default=None, description="Deprecated: use coverage_end. The same point, always as a full ISO date (YYYY-MM-DD). For a series whose points are periods, this date is the period boundary. It is not a day on which Tako observed a value.")
     last_updated: Optional[StrictStr] = Field(default=None, description="Date Tako last refreshed the underlying data, as an ISO date (YYYY-MM-DD).")
-    __properties: ClassVar[List[str]] = ["data_as_of", "last_updated"]
+    __properties: ClassVar[List[str]] = ["coverage_end", "data_as_of", "last_updated"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -70,6 +71,11 @@ class DataFreshness(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if coverage_end (nullable) is None
+        # and model_fields_set contains the field
+        if self.coverage_end is None and "coverage_end" in self.model_fields_set:
+            _dict['coverage_end'] = None
+
         # set to None if data_as_of (nullable) is None
         # and model_fields_set contains the field
         if self.data_as_of is None and "data_as_of" in self.model_fields_set:
@@ -92,6 +98,7 @@ class DataFreshness(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
+            "coverage_end": obj.get("coverage_end"),
             "data_as_of": obj.get("data_as_of"),
             "last_updated": obj.get("last_updated")
         })

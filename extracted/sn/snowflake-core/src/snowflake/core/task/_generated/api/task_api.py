@@ -3730,7 +3730,7 @@ class TaskApi:
     ) -> Union[SuccessResponse, Future[SuccessResponse]]:
         r"""Resume a suspended task.  # noqa: E501
 
-        Resumes a suspended task object. This is equivalento an ALTER TASK ... RESUME.  # noqa: E501
+        Resumes a suspended task object. This is equivalent to an ALTER TASK ... RESUME.  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -3783,7 +3783,7 @@ class TaskApi:
     ):
         r"""Resume a suspended task.  # noqa: E501
 
-        Resumes a suspended task object. This is equivalento an ALTER TASK ... RESUME.  # noqa: E501
+        Resumes a suspended task object. This is equivalent to an ALTER TASK ... RESUME.  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True

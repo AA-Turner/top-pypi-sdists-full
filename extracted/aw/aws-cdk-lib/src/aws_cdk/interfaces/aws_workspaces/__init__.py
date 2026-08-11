@@ -132,6 +132,51 @@ class _IConnectionAliasRefProxy(
 typing.cast(typing.Any, IConnectionAliasRef).__jsii_proxy_class__ = lambda : _IConnectionAliasRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_workspaces.IWorkspaceIpGroupRef")
+class IWorkspaceIpGroupRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a WorkspaceIpGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceIpGroupRef")
+    def workspace_ip_group_ref(self) -> "WorkspaceIpGroupReference":
+        '''(experimental) A reference to a WorkspaceIpGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWorkspaceIpGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a WorkspaceIpGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_workspaces.IWorkspaceIpGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceIpGroupRef")
+    def workspace_ip_group_ref(self) -> "WorkspaceIpGroupReference":
+        '''(experimental) A reference to a WorkspaceIpGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WorkspaceIpGroupReference", jsii.get(self, "workspaceIpGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWorkspaceIpGroupRef).__jsii_proxy_class__ = lambda : _IWorkspaceIpGroupRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_workspaces.IWorkspaceRef")
 class IWorkspaceRef(
     _constructs_77d1e7e8.IConstruct,
@@ -220,6 +265,55 @@ class _IWorkspacesPoolRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IWorkspacesPoolRef).__jsii_proxy_class__ = lambda : _IWorkspacesPoolRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_workspaces.WorkspaceIpGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"workspace_ip_group_arn": "workspaceIpGroupArn"},
+)
+class WorkspaceIpGroupReference:
+    def __init__(self, *, workspace_ip_group_arn: builtins.str) -> None:
+        '''A reference to a WorkspaceIpGroup resource.
+
+        :param workspace_ip_group_arn: The Arn of the WorkspaceIpGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_workspaces as interfaces_workspaces
+            
+            workspace_ip_group_reference = interfaces_workspaces.WorkspaceIpGroupReference(
+                workspace_ip_group_arn="workspaceIpGroupArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c6f44c974dc4c8d0d5c8d54baeb0d7f8266a42cf4180d28501a4914bbce97cb9)
+            check_type(argname="argument workspace_ip_group_arn", value=workspace_ip_group_arn, expected_type=type_hints["workspace_ip_group_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "workspace_ip_group_arn": workspace_ip_group_arn,
+        }
+
+    @builtins.property
+    def workspace_ip_group_arn(self) -> builtins.str:
+        '''The Arn of the WorkspaceIpGroup resource.'''
+        result = self._values.get("workspace_ip_group_arn")
+        assert result is not None, "Required property 'workspace_ip_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WorkspaceIpGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -334,8 +428,10 @@ class WorkspacesPoolReference:
 __all__ = [
     "ConnectionAliasReference",
     "IConnectionAliasRef",
+    "IWorkspaceIpGroupRef",
     "IWorkspaceRef",
     "IWorkspacesPoolRef",
+    "WorkspaceIpGroupReference",
     "WorkspaceReference",
     "WorkspacesPoolReference",
 ]
@@ -345,6 +441,13 @@ publication.publish()
 def _typecheckingstub__e994ed6c2b81487e9ad88c3c7d73b4bf2d26702b4117ef662684dde75bedc571(
     *,
     alias_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6f44c974dc4c8d0d5c8d54baeb0d7f8266a42cf4180d28501a4914bbce97cb9(
+    *,
+    workspace_ip_group_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -364,5 +467,5 @@ def _typecheckingstub__13c3123b4ec0e20a04c6106b766191404e3c10e79c6c19f9ea9797237
     """Type checking stubs"""
     pass
 
-for cls in [IConnectionAliasRef, IWorkspaceRef, IWorkspacesPoolRef]:
+for cls in [IConnectionAliasRef, IWorkspaceIpGroupRef, IWorkspaceRef, IWorkspacesPoolRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

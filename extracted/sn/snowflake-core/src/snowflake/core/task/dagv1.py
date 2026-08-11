@@ -75,6 +75,7 @@ Example 2: Create a task graph that uses Cron, Branch, and function return value
     ...     session.close()
 """
 
+import html as _html
 import json
 import logging
 import warnings
@@ -94,12 +95,12 @@ from snowflake.core._common import CreateMode
 from snowflake.core._internal.telemetry import api_telemetry
 from snowflake.core._internal.utils import deprecated, normalize_name
 from snowflake.core.exceptions import InvalidOperationError, NotFoundError
-from snowflake.core.schema import SchemaResource
-from snowflake.core.task import Cron, StoredProcedureCall, Task
+from snowflake.core.task import Cron, OverlapPolicy, StoredProcedureCall, Task
 from snowflake.core.task._generated import TaskRun
 
 
 if TYPE_CHECKING:
+    from snowflake.core.schema import SchemaResource
     from snowflake.snowpark import Session
 
 
@@ -217,6 +218,7 @@ class DAG:
         comment: Optional[str] = None,
         task_auto_retry_attempts: Optional[int] = None,
         allow_overlapping_execution: Optional[bool] = None,
+        overlap_policy: Optional[OverlapPolicy] = None,
         user_task_timeout_ms: Optional[int] = None,
         suspend_task_after_num_failures: Optional[int] = None,
         config: Optional[dict[str, Any]] = None,
@@ -225,6 +227,7 @@ class DAG:
         imports: Optional[list[Union[str, tuple[str, str]]]] = None,
         packages: Optional[list[Union[str, ModuleType]]] = None,
         use_func_return_value: bool = False,
+        condition: Optional[str] = None,
     ) -> None:
         #: Name of the task graph and the dummy root task.
         self.name = name
@@ -236,8 +239,24 @@ class DAG:
         self.schedule = schedule
         #: Refer to :attr:`snowflake.core.task.Task.error_integration`.
         self.error_integration = error_integration
-        #: Refer to :attr:`snowflake.core.task.Task.allow_overlapping_execution`.
-        self.allow_overlapping_execution = allow_overlapping_execution
+
+        # Switch used to determine whether to use the overlap_policy or allow_overlapping_execution
+        # property when creating the root task. Set within the property setters for these two properties.
+        self._use_overlap_policy = True
+        if overlap_policy is not None:
+            if allow_overlapping_execution is not None and (
+                (equivalent_value := overlap_policy._equivalent_allow_overlapping_execution_value()) is None
+                or equivalent_value != allow_overlapping_execution
+            ):
+                raise ValueError(
+                    "allow_overlapping_execution and overlap_policy are both set and inconsistent. "
+                    f"overlap_policy={overlap_policy} maps to allow_overlapping_execution={equivalent_value} "
+                    f"but allow_overlapping_execution={allow_overlapping_execution} was provided."
+                )
+            self.overlap_policy = overlap_policy
+        else:
+            self.allow_overlapping_execution = allow_overlapping_execution
+
         #: Refer to :attr:`snowflake.core.task.Task.user_task_timeout_ms`.
         self.user_task_timeout_ms = user_task_timeout_ms
         #: Refer to :attr:`snowflake.core.task.Task.suspend_task_after_num_failures`.
@@ -267,6 +286,8 @@ class DAG:
 
         #: Refer to :attr:`snowflake.core.task.Task.task_auto_retry_attempts`.
         self.task_auto_retry_attempts = task_auto_retry_attempts
+        #: refer to :attr:`snowflake.core.task.Task.condition`
+        self.condition = condition
 
         if user_task_managed_initial_warehouse_size is not None:
             warnings.warn(
@@ -277,7 +298,90 @@ class DAG:
                 stacklevel=1,
             )
 
+    @property
+    def allow_overlapping_execution(self) -> bool | None:
+        """Legacy boolean view of whether overlapping runs are allowed for the root task.
+
+        The configured :attr:`overlap_policy` (when present) is the source of truth for
+        this property.
+
+        Returns
+        -------
+        bool or None
+            * ``False`` — overlapping runs are not allowed (``NO_OVERLAP``).
+            * ``True`` — child tasks may overlap across runs (``ALLOW_CHILD_OVERLAP``).
+            * ``None`` — unset, or overlap behavior has no legacy boolean equivalent
+              (for example ``ALLOW_ALL_OVERLAP``), or :attr:`overlap_policy` was never set.
+        """
+        if (value := self.overlap_policy) is None:
+            return None
+        return value._equivalent_allow_overlapping_execution_value()
+
+    @allow_overlapping_execution.setter
+    def allow_overlapping_execution(self, value: bool | None) -> None:
+        """Set overlap behavior using the legacy ``allow_overlapping_execution`` field.
+
+        Parameters
+        ----------
+        value : bool or None
+            * ``False`` — configure the root task not to allow overlapping runs.
+            * ``True`` — configure the root task to allow overlapping runs of child tasks.
+            * ``None`` — clear overlap configuration on this graph.
+
+        Notes
+        -----
+        ``True`` maps only to ``OverlapPolicy.ALLOW_CHILD_OVERLAP``. If the root task was
+        previously configured with ``OverlapPolicy.ALLOW_ALL_OVERLAP``, assigning
+        ``True`` replaces that policy because it has no equivalent legacy boolean value.
+        """
+        self._use_overlap_policy = False
+        self._overlap_policy = OverlapPolicy._from_allow_overlapping_execution(value)
+
+    @property
+    def overlap_policy(self) -> OverlapPolicy | None:
+        """Snowflake overlap policy for the root task of this task graph.
+
+        When you need a non-optional policy, use :attr:`effective_overlap_policy`, which
+        treats an unset :attr:`overlap_policy` as ``OverlapPolicy.NO_OVERLAP`` on this object.
+
+        Returns
+        -------
+        OverlapPolicy or None
+            The configured policy, or ``None`` if unset on this object.
+        """
+        return self._overlap_policy
+
+    @overlap_policy.setter
+    def overlap_policy(self, value: OverlapPolicy | None) -> None:
+        """Set the Snowflake overlap policy for the root task of this task graph.
+
+        Parameters
+        ----------
+        value : OverlapPolicy or None
+            Policy to store on this graph, or ``None`` to clear :attr:`overlap_policy`.
+        """
+        self._use_overlap_policy = True
+        self._overlap_policy = value
+
+    @property
+    def effective_overlap_policy(self) -> OverlapPolicy:
+        """Effective overlap policy for the root task after applying client-side defaults.
+
+        Returns
+        -------
+        OverlapPolicy
+            :attr:`overlap_policy` when set; otherwise ``OverlapPolicy.NO_OVERLAP``.
+        """
+        return self.overlap_policy if self.overlap_policy is not None else OverlapPolicy.NO_OVERLAP
+
     def _to_low_level_task(self) -> Task:
+        if self._use_overlap_policy:
+            overlap_policy_kw = self.overlap_policy
+            allow_overlapping_execution_kw = None
+        else:
+            overlap_policy_kw = None
+            allow_overlapping_execution_kw = self.allow_overlapping_execution
+
         return Task(
             name=f"{self.name}",
             definition="select 'dag dummy root'",
@@ -286,11 +390,13 @@ class DAG:
             error_integration=self.error_integration,
             comment=self.comment,
             task_auto_retry_attempts=self.task_auto_retry_attempts,
-            allow_overlapping_execution=self.allow_overlapping_execution,
+            allow_overlapping_execution=allow_overlapping_execution_kw,
+            overlap_policy=overlap_policy_kw,
             user_task_timeout_ms=self.user_task_timeout_ms,
             suspend_task_after_num_failures=self.suspend_task_after_num_failures,
             session_parameters=self.session_parameters,
             config=self.config,
+            condition=self.condition,
         )
 
     def add_task(self, task: "DAGTask") -> None:
@@ -403,6 +509,8 @@ class DAGTask:
         serverless_task_max_statement_size: Optional[str] = None,
         user_task_timeout_ms: Optional[int] = None,
         error_integration: Optional[str] = None,
+        success_integration: Optional[str] = None,
+        execute_as_user: Optional[str] = None,
         comment: Optional[str] = None,
         is_finalizer: Optional[bool] = None,
         is_serverless: bool = False,
@@ -422,6 +530,10 @@ class DAGTask:
         #: refer to :attr:`snowflake.core.task.Task.serverless_task_max_statement_size`.
         self.serverless_task_max_statement_size = serverless_task_max_statement_size
         self.user_task_timeout_ms = user_task_timeout_ms  #: refer to :attr:`snowflake.core.task.user_task_timeout_ms`
+        #: refer to :attr:`snowflake.core.task.Task.success_integration`.
+        self.success_integration = success_integration
+        #: refer to :attr:`snowflake.core.task.Task.execute_as_user`.
+        self.execute_as_user = execute_as_user
         dag = dag or _get_current_dag()
         if dag is None:
             raise ValueError("Parameter 'dag' must be set when creating a DAGTask outside of a DAG context.")
@@ -624,6 +736,8 @@ class DAGTask:
             comment=self.comment,
             user_task_timeout_ms=self.user_task_timeout_ms,
             session_parameters=self.session_parameters,
+            success_integration=self.success_integration,
+            execute_as_user=self.execute_as_user,
             predecessors=predecessors,
             finalize=self._dag.name if self._is_finalizer else None,
         )
@@ -683,20 +797,23 @@ next_scheduled_time: {self.next_scheduled_time}, graph_version: {self.graph_vers
 """
 
     def _repr_html_(self) -> str:
+        def _e(v: object) -> str:
+            return _html.escape(str(v))
+
         return f"""<table border="1">
 <tr><th>Property</th><th>Value</th></tr>
-<tr><td>run_id</td><td>{self.run_id}</td></tr>
-<tr><td>dag_name</td><td>{self.dag_name}</td></tr>
-<tr><td>database_name</td><td>{self.database_name}</td></tr>
-<tr><td>schema_name</td><td>{self.schema_name}</td></tr>
-<tr><td>state</td><td>{self.state}</td></tr>
-<tr><td>first_error_task_name</td><td>{self.first_error_task_name}</td></tr>
-<tr><td>first_error_code</td><td>{self.first_error_code}</td></tr>
-<tr><td>first_error_message</td><td>{self.first_error_message}</td></tr>
-<tr><td>scheduled_time</td><td>{self.scheduled_time}</td></tr>
-<tr><td>query_start_time</td><td>{self.query_start_time}</td></tr>
-<tr><td>next_scheduled_time</td><td>{self.next_scheduled_time}</td></tr>
-<tr><td>graph_version</td><td>{self.graph_version}</td></tr>
+<tr><td>run_id</td><td>{_e(self.run_id)}</td></tr>
+<tr><td>dag_name</td><td>{_e(self.dag_name)}</td></tr>
+<tr><td>database_name</td><td>{_e(self.database_name)}</td></tr>
+<tr><td>schema_name</td><td>{_e(self.schema_name)}</td></tr>
+<tr><td>state</td><td>{_e(self.state)}</td></tr>
+<tr><td>first_error_task_name</td><td>{_e(self.first_error_task_name)}</td></tr>
+<tr><td>first_error_code</td><td>{_e(self.first_error_code)}</td></tr>
+<tr><td>first_error_message</td><td>{_e(self.first_error_message)}</td></tr>
+<tr><td>scheduled_time</td><td>{_e(self.scheduled_time)}</td></tr>
+<tr><td>query_start_time</td><td>{_e(self.query_start_time)}</td></tr>
+<tr><td>next_scheduled_time</td><td>{_e(self.next_scheduled_time)}</td></tr>
+<tr><td>graph_version</td><td>{_e(self.graph_version)}</td></tr>
 </table>
 """
 
@@ -704,7 +821,7 @@ next_scheduled_time: {self.next_scheduled_time}, graph_version: {self.graph_vers
 class DAGOperation:
     """APIs to manage task graph child task operations."""
 
-    def __init__(self, schema: SchemaResource) -> None:
+    def __init__(self, schema: "SchemaResource") -> None:
         self.schema = schema
         """The schema that the task graph's child tasks will be read from or create into."""
 

@@ -13,23 +13,21 @@
 """Tests for EstimatorOptions class."""
 
 from dataclasses import asdict
+from unittest import skipUnless
 
 from ddt import data, ddt, unpack
 from pydantic import ValidationError
-from qiskit_aer.noise import NoiseModel
+from qiskit.utils.optionals import HAS_AER
+
+if HAS_AER:
+    from qiskit_aer.noise import NoiseModel
 
 from qiskit_ibm_runtime import EstimatorV2 as Estimator
 from qiskit_ibm_runtime.fake_provider import FakeManilaV2
 from qiskit_ibm_runtime.options import EstimatorOptions, MeasureNoiseLearningOptions
 
 from ..ibm_test_case import IBMTestCase
-from ..utils import (
-    dict_keys_equal,
-    dict_paritally_equal,
-    flat_dict_partially_equal,
-    get_mocked_backend,
-    get_primitive_inputs,
-)
+from ..utils import get_mocked_backend, get_primitive_inputs
 
 
 @ddt
@@ -103,7 +101,7 @@ class TestEstimatorOptions(IBMTestCase):
         self, value, num_appearances
     ):
         """Integer shots_per_randomization warns when set via nested EstimatorOptions init."""
-        with self.assert_warning_appears(
+        with self.assertWarnsStrict(
             DeprecationWarning, self._shots_per_randomization_deprecation_msg, num_appearances
         ):
             options = EstimatorOptions(
@@ -123,7 +121,7 @@ class TestEstimatorOptions(IBMTestCase):
         """Integer shots_per_randomization warns on attribute assignment."""
         options = MeasureNoiseLearningOptions()
 
-        with self.assert_warning_appears(
+        with self.assertWarnsStrict(
             DeprecationWarning, self._shots_per_randomization_deprecation_msg, num_appearances
         ):
             options.shots_per_randomization = value
@@ -138,7 +136,7 @@ class TestEstimatorOptions(IBMTestCase):
         """Integer shots_per_randomization warns when assigned on an estimator instance."""
         estimator = Estimator(mode=get_mocked_backend())
 
-        with self.assert_warning_appears(
+        with self.assertWarnsStrict(
             DeprecationWarning, self._shots_per_randomization_deprecation_msg, num_appearances
         ):
             estimator.options.resilience.measure_noise_learning.shots_per_randomization = value
@@ -153,7 +151,7 @@ class TestEstimatorOptions(IBMTestCase):
         self, value, num_appearances
     ):
         """Auto shots_per_randomization does not warn on option init."""
-        with self.assert_warning_appears(
+        with self.assertWarnsStrict(
             DeprecationWarning, self._shots_per_randomization_deprecation_msg, num_appearances
         ):
             options = MeasureNoiseLearningOptions(shots_per_randomization=value)
@@ -164,13 +162,14 @@ class TestEstimatorOptions(IBMTestCase):
         """Auto shots_per_randomization does not warn on attribute assignment."""
         options = MeasureNoiseLearningOptions()
 
-        with self.assert_warning_appears(
+        with self.assertWarnsStrict(
             DeprecationWarning, self._shots_per_randomization_deprecation_msg, 0
         ):
             options.shots_per_randomization = "auto"
 
         self.assertEqual(options.shots_per_randomization, "auto")
 
+    @skipUnless(condition=HAS_AER, reason="qiskit-aer is required to run this test")
     def test_program_inputs(self):
         """Test converting to program inputs from estimator options."""
         noise_model = NoiseModel.from_backend(FakeManilaV2())
@@ -254,13 +253,10 @@ class TestEstimatorOptions(IBMTestCase):
     def test_init_options_with_dictionary(self, opts_dict):
         """Test initializing options with dictionaries."""
         options = asdict(EstimatorOptions(**opts_dict))
-        self.assertTrue(
-            dict_paritally_equal(options, opts_dict),
-            f"options={options}, opts_dict={opts_dict}",
-        )
+        self.assertDictPartiallyEqual(options, opts_dict)
 
         # Make sure the structure didn't change.
-        self.assertTrue(dict_keys_equal(asdict(EstimatorOptions()), options), f"options={options}")
+        self.assertDictKeysEqual(asdict(EstimatorOptions()), options)
 
     @data(
         {"resilience_level": 2},
@@ -279,12 +275,9 @@ class TestEstimatorOptions(IBMTestCase):
         options.update(**new_opts)
 
         # Make sure the values are equal.
-        self.assertTrue(
-            flat_dict_partially_equal(asdict(options), new_opts),
-            f"new_opts={new_opts}, combined={options}",
-        )
+        self.assertDictFlatPartiallyEqual(asdict(options), new_opts)
         # Make sure the structure didn't change.
-        self.assertTrue(dict_keys_equal(asdict(options), asdict(EstimatorOptions())))
+        self.assertDictKeysEqual(asdict(options), asdict(EstimatorOptions()))
 
     @data(
         {"default_shots": 0},

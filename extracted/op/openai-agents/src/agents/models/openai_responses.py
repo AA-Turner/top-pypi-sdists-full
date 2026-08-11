@@ -74,7 +74,13 @@ from ..tool import (
     validate_responses_tool_search_configuration,
 )
 from ..tracing import SpanError, response_span
-from ..usage import Usage, _response_usage_to_usage, model_usage_to_span_usage
+from ..usage import (
+    Usage,
+    _attach_raw_usage_snapshot,
+    _raw_usage_snapshot,
+    _response_usage_to_usage,
+    model_usage_to_span_usage,
+)
 from ..util._error_tracing import record_model_error_on_span
 from ..util._json import _to_dump_compatible
 from ..version import __version__
@@ -521,8 +527,12 @@ class OpenAIResponsesModel(Model):
                         ),
                     )
 
-                usage = _response_usage_to_usage(response.usage) if response.usage else Usage()
-                if response.usage:
+                usage = (
+                    _response_usage_to_usage(response.usage)
+                    if response.usage is not None
+                    else Usage()
+                )
+                if response.usage is not None:
                     span_response.span_data.usage = model_usage_to_span_usage(usage)
 
                 if tracing.include_data():
@@ -550,6 +560,11 @@ class OpenAIResponsesModel(Model):
             usage=usage,
             response_id=response.id,
             request_id=getattr(response, "_request_id", None),
+            raw_usage=(
+                _raw_usage_snapshot(response.usage)
+                if model_settings.preserve_raw_usage is True
+                else None
+            ),
         )
 
     async def stream_response(
@@ -592,6 +607,8 @@ class OpenAIResponsesModel(Model):
                         chunk_type = getattr(chunk, "type", None)
                         if isinstance(chunk, ResponseCompletedEvent):
                             final_response = chunk.response
+                            if model_settings.preserve_raw_usage is True:
+                                _attach_raw_usage_snapshot(chunk.response, chunk.response.usage)
                         elif chunk_type in {
                             "response.failed",
                             "response.incomplete",
@@ -648,10 +665,10 @@ class OpenAIResponsesModel(Model):
                 if terminal_failure_error is not None:
                     raise terminal_failure_error
 
-                if final_response and tracing.include_data():
+                if final_response is not None and tracing.include_data():
                     span_response.span_data.response = final_response
                     span_response.span_data.input = input
-                if final_response and final_response.usage:
+                if final_response is not None and final_response.usage is not None:
                     span_response.span_data.usage = model_usage_to_span_usage(
                         _response_usage_to_usage(final_response.usage)
                     )
@@ -916,17 +933,20 @@ class OpenAIResponsesModel(Model):
         This data transformation does not always guarantee that items from other provider
         interactions are accepted by the OpenAI Responses API.
 
-        Only items with truthy provider_data are processed.
         This function handles the following incompatibilities:
         - provider_data: Removes fields specific to other providers (e.g., Gemini, Claude).
         - Fake IDs: Removes temporary IDs (FAKE_RESPONSES_ID) that should not be sent to OpenAI.
         - Reasoning items: Filters out provider-specific reasoning items entirely.
         """
-        # Early return optimization: if no item has provider_data, return unchanged.
-        has_provider_data = any(
-            isinstance(item, dict) and item.get("provider_data") for item in list_input
+        # Early return optimization: skip the copy when nothing needs cleaning. Placeholder IDs
+        # are emitted without provider_data by several SDK paths, so they have to be checked
+        # independently of it.
+        needs_cleaning = any(
+            isinstance(item, dict)
+            and (item.get("provider_data") or item.get("id") == FAKE_RESPONSES_ID)
+            for item in list_input
         )
-        if not has_provider_data:
+        if not needs_cleaning:
             return list_input
 
         result = []
@@ -1014,11 +1034,13 @@ class OpenAIResponsesWSModel(OpenAIResponsesModel):
         stateful_request = bool(request.previous_response_id or request.conversation_id)
         wrapped_replay_safety = _get_wrapped_websocket_replay_safety(request.error)
         if wrapped_replay_safety == "unsafe":
-            if stateful_request or _did_start_websocket_response(request.error):
+            response_started = _did_start_websocket_response(request.error)
+            if stateful_request or response_started:
                 return ModelRetryAdvice(
                     suggested=False,
                     replay_safety="unsafe",
                     reason=str(request.error),
+                    response_started=response_started,
                 )
             return ModelRetryAdvice(
                 suggested=True,

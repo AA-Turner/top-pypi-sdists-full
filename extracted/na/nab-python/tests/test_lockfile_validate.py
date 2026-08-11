@@ -18,6 +18,8 @@ from nab_python._vendor.packaging.specifiers import SpecifierSet
 from nab_python._vendor.packaging.utils import canonicalize_name
 from nab_python._vendor.packaging.version import Version
 from nab_python.lockfile import LockDisqualification, RootRequirement
+from nab_python.tags import PlatformSpec
+from nab_python.target import ResolveTarget
 
 
 def make_pylock(
@@ -55,6 +57,7 @@ def envelope(
     extras: tuple[str, ...] = (),
     dependency_groups: tuple[str, ...] = (),
     default_groups: tuple[str, ...] = (),
+    base_group: str | None = None,
 ) -> LockDisqualification | None:
     return check_envelope(
         committed,
@@ -62,6 +65,7 @@ def envelope(
         extras=extras,
         dependency_groups=dependency_groups,
         default_groups=default_groups,
+        base_group=base_group,
     )
 
 
@@ -186,6 +190,55 @@ def test_default_groups_reordered_does_not_fire() -> None:
     assert envelope(committed, default_groups=("extra", "main")) is None
 
 
+def test_the_named_base_group_does_not_fire() -> None:
+    """The writer adds it to both arrays and no run selects it."""
+    committed = make_pylock(
+        dependency_groups=("dev", "default"),
+        default_groups=("main", "default"),
+    )
+    assert (
+        envelope(
+            committed,
+            dependency_groups=("dev",),
+            default_groups=("main",),
+            base_group="default",
+        )
+        is None
+    )
+
+
+def test_the_name_is_looked_for_in_dependency_groups() -> None:
+    """``default-groups`` alone is a lock no installer can activate it from."""
+    committed = make_pylock(dependency_groups=("dev",), default_groups=("default",))
+    result = envelope(committed, dependency_groups=("dev",), base_group="default")
+    assert result is not None
+    assert "does not name 'default'" in result.reason
+
+
+def test_a_lock_predating_the_option_fires_on_the_missing_name() -> None:
+    """A lock written before ``base-group`` was set names no group at all."""
+    committed = make_pylock(dependency_groups=None, default_groups=None)
+    result = envelope(committed, default_groups=("test",), base_group="default")
+    assert result is not None
+    assert "does not name 'default'" in result.reason
+
+
+def test_a_lock_naming_a_different_base_group_fires() -> None:
+    """The option was renamed since, so the committed name is stale."""
+    committed = make_pylock(
+        dependency_groups=("dev", "default"),
+        default_groups=("main", "default"),
+    )
+    result = envelope(
+        committed,
+        dependency_groups=("dev",),
+        default_groups=("main",),
+        base_group="default-1",
+    )
+    assert result is not None
+    assert "does not name 'default-1'" in result.reason
+
+
 def test_all_envelope_fields_matching_returns_none() -> None:
     committed = make_pylock(
         requires_python=">=3.9",
@@ -223,6 +276,13 @@ def test_lock_disqualification_is_frozen() -> None:
 
 
 LINUX_ENV = {"sys_platform": "linux"}
+
+# A target standing for the whole 3.11 minor, so its python_full_version is
+# the synthesized 3.11.0 floor.
+MINOR_TARGET = ResolveTarget.for_declared(
+    python_version="3.11", spec=PlatformSpec("linux_x86_64")
+)
+MINOR_ENV = MINOR_TARGET.marker_env
 
 
 def index_pin(name: str, version: str) -> Package:
@@ -308,6 +368,34 @@ def test_direct_marker_true_applies_and_fires() -> None:
     )
     assert result is not None
     assert result.reason.startswith("[project].dependencies requires foo>=2.0")
+
+
+def test_direct_prerelease_pin_inside_specifier_does_not_fire() -> None:
+    """A pre-release pin is not on its own a reason to disqualify the lock."""
+    committed = pylock_of(index_pin("foo", "2.0b1"))
+    assert (
+        check_direct_requirements(committed, [root("foo>=2.0b1")], marker_env=LINUX_ENV)
+        is None
+    )
+
+
+def test_direct_prerelease_pin_under_bare_requirement_does_not_fire() -> None:
+    committed = pylock_of(index_pin("foo", "2.0b1"))
+    assert (
+        check_direct_requirements(committed, [root("foo")], marker_env=LINUX_ENV)
+        is None
+    )
+
+
+def test_direct_prerelease_pin_outside_specifier_fires() -> None:
+    committed = pylock_of(index_pin("foo", "1.0b1"))
+    result = check_direct_requirements(
+        committed, [root("foo>=2.0")], marker_env=LINUX_ENV
+    )
+    assert result is not None
+    assert result.reason == (
+        "[project].dependencies requires foo>=2.0 but the lock pins foo 1.0b1"
+    )
 
 
 def test_direct_versionless_pin_skipped() -> None:
@@ -401,6 +489,49 @@ def test_direct_no_requirements_returns_none() -> None:
     assert check_direct_requirements(pylock_of(), [], marker_env=LINUX_ENV) is None
 
 
+def test_direct_marker_splitting_the_minor_skipped() -> None:
+    """A requirement gated at a micro boundary is undecided at the floor.
+
+    It holds in some of the minor's slices and not others. The skip covers
+    the presence check too, which is coarser than the proof needs: the lower
+    slice alone would settle a name the lock never pins.
+    """
+    committed = pylock_of()
+    assert (
+        check_direct_requirements(
+            committed,
+            [root('bar>=1; python_full_version < "3.11.4"')],
+            marker_env=MINOR_ENV,
+            resolve_target=MINOR_TARGET,
+        )
+        is None
+    )
+
+
+def test_direct_marker_not_splitting_the_minor_still_fires() -> None:
+    """A micro-axis marker that does not split the minor is decided at the floor."""
+    committed = pylock_of()
+    result = check_direct_requirements(
+        committed,
+        [root('bar>=1; python_full_version >= "3.9"')],
+        marker_env=MINOR_ENV,
+        resolve_target=MINOR_TARGET,
+    )
+    assert result is not None
+    assert result.reason.startswith("[project].dependencies requires bar")
+
+
+def test_direct_marker_on_a_micro_boundary_at_a_point_fires() -> None:
+    committed = pylock_of()
+    result = check_direct_requirements(
+        committed,
+        [root('bar>=1; python_full_version < "3.11.4"')],
+        marker_env=MINOR_ENV,
+    )
+    assert result is not None
+    assert result.reason.startswith("[project].dependencies requires bar")
+
+
 def test_constraint_satisfied_returns_none() -> None:
     committed = pylock_of(index_pin("baz", "2.0"))
     assert (
@@ -414,6 +545,22 @@ def test_constraint_violated_fires() -> None:
     result = check_constraints(committed, [Requirement("baz<3")], marker_env=LINUX_ENV)
     assert result is not None
     assert result.reason == ("the constraint baz<3 is violated by the pinned baz 3.1")
+
+
+def test_constraint_satisfied_by_prerelease_pin_does_not_fire() -> None:
+    """A constraint bounds the version without excluding pre-releases."""
+    committed = pylock_of(index_pin("baz", "2.0b1"))
+    assert (
+        check_constraints(committed, [Requirement("baz<3")], marker_env=LINUX_ENV)
+        is None
+    )
+
+
+def test_constraint_violated_by_prerelease_pin_fires() -> None:
+    committed = pylock_of(index_pin("baz", "3.1b1"))
+    result = check_constraints(committed, [Requirement("baz<3")], marker_env=LINUX_ENV)
+    assert result is not None
+    assert result.reason == "the constraint baz<3 is violated by the pinned baz 3.1b1"
 
 
 def test_constraint_marker_false_skipped() -> None:
@@ -454,6 +601,61 @@ def test_constraint_versionless_pin_skipped() -> None:
         check_constraints(committed, [Requirement("baz<3")], marker_env=LINUX_ENV)
         is None
     )
+
+
+def test_constraint_marker_splitting_the_minor_skipped() -> None:
+    """A constraint gated below a micro boundary cannot judge a pin from above it."""
+    committed = pylock_of(marked_pin("baz", "3.1", 'python_full_version >= "3.11.4"'))
+    assert (
+        check_constraints(
+            committed,
+            [Requirement('baz<3; python_full_version < "3.11.4"')],
+            marker_env=MINOR_ENV,
+            resolve_target=MINOR_TARGET,
+        )
+        is None
+    )
+
+
+def test_constraint_marker_the_split_cannot_tile_skipped() -> None:
+    """A micro-axis clause the split cannot tile is undecided here too.
+
+    It holds at the floor, so without the skip the check would fire on it.
+    """
+    committed = pylock_of(index_pin("baz", "3.1"))
+    assert (
+        check_constraints(
+            committed,
+            [Requirement('baz<3; python_full_version not in "3.11.4"')],
+            marker_env=MINOR_ENV,
+            resolve_target=MINOR_TARGET,
+        )
+        is None
+    )
+
+
+def test_constraint_marker_on_a_micro_boundary_at_a_point_fires() -> None:
+    committed = pylock_of(index_pin("baz", "3.1"))
+    result = check_constraints(
+        committed,
+        [Requirement('baz<3; python_full_version < "3.11.4"')],
+        marker_env=MINOR_ENV,
+    )
+    assert result is not None
+    assert result.reason == "the constraint baz<3 is violated by the pinned baz 3.1"
+
+
+def test_constraint_marker_not_splitting_the_minor_still_fires() -> None:
+    """Only a marker the minor's slices answer differently is indeterminate."""
+    committed = pylock_of(index_pin("baz", "3.1"))
+    result = check_constraints(
+        committed,
+        [Requirement('baz<3; python_full_version >= "3.9"')],
+        marker_env=MINOR_ENV,
+        resolve_target=MINOR_TARGET,
+    )
+    assert result is not None
+    assert result.reason == "the constraint baz<3 is violated by the pinned baz 3.1"
 
 
 def test_constraint_duplicate_versioned_pins_skipped() -> None:

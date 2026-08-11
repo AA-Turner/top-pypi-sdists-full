@@ -8,11 +8,11 @@ import urllib.error
 from collections.abc import Mapping
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypeAlias, TypedDict
 from urllib.request import urlretrieve
 
 from tqdm import tqdm
-from typing_extensions import NotRequired, Unpack
+from typing_extensions import Unpack
 
 from .hashing import raise_on_digest_mismatch
 from ..constants import TimeoutHint
@@ -34,7 +34,7 @@ __all__ = [
     "download_from_s3",
 ]
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 #: Represents an available backend for downloading
 DownloadBackend: TypeAlias = Literal["urllib", "requests"]
@@ -342,7 +342,7 @@ def download_from_s3(
     s3_bucket: str,
     s3_key: str,
     path: str | Path,
-    client: None | botocore.client.BaseClient = None,
+    client: botocore.client.BaseClient | None = None,
     client_kwargs: Mapping[str, Any] | None = None,
     download_file_kwargs: Mapping[str, Any] | None = None,
     force: bool = True,

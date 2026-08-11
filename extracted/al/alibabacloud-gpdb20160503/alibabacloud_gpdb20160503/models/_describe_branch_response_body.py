@@ -64,10 +64,11 @@ class DescribeBranchResponseBodyBranch(DaraModel):
         project_id: str = None,
         protected: bool = None,
         service_type: str = None,
+        spb_project_id: str = None,
         status: str = None,
         tags: List[main_models.DescribeBranchResponseBodyBranchTags] = None,
     ):
-        # The branch ID, which uniquely identifies a Supabase branch.
+        # The branch ID that uniquely identifies a Supabase branch.
         self.branch_id = branch_id
         # The branch name.
         self.branch_name = branch_name
@@ -87,19 +88,19 @@ class DescribeBranchResponseBodyBranch(DaraModel):
         self.init_source = init_source
         # Indicates whether the branch is the default branch.
         self.is_default = is_default
-        # The parent branch ID, which specifies the parent branch for a new branch or a query condition.
+        # The parent branch ID, which specifies the parent branch of a new branch or a query condition.
         self.parent_branch_id = parent_branch_id
         # The parent branch name. This value is empty or displayed as - for the primary branch.
         self.parent_branch_name = parent_branch_name
-        # The LSN of the parent branch at the time this branch was created.
+        # The Log Sequence Number (LSN) of the parent branch at the time this branch was created.
         self.parent_lsn = parent_lsn
         # The data synchronization point in time selected from the parent branch when this branch was created, in ISO 8601 UTC format.
         # 
-        # Note:
+        # Description:
         # - For child branches, this value indicates the point in time of the parent branch selected during creation.
         # - If no parent branch exists, the value 1970-01-01T00:00:00.000Z is returned.
         self.parent_timestamp = parent_timestamp
-        # The Supabase project ID associated with the primary branch.
+        # The Supabase project ID that corresponds to the primary branch.
         self.project_id = project_id
         # Indicates whether branch protection is enabled. A value of true indicates that branch protection is enabled. A value of false indicates that branch protection is disabled.
         self.protected = protected
@@ -109,9 +110,10 @@ class DescribeBranchResponseBodyBranch(DaraModel):
         # - Supabase: Supabase service.
         # - Memory: Memory service.
         self.service_type = service_type
+        self.spb_project_id = spb_project_id
         # The branch status.
         self.status = status
-        # The branch tag list.
+        # The list of branch tags.
         self.tags = tags
 
     def validate(self):
@@ -170,6 +172,9 @@ class DescribeBranchResponseBodyBranch(DaraModel):
         if self.service_type is not None:
             result['ServiceType'] = self.service_type
 
+        if self.spb_project_id is not None:
+            result['SpbProjectId'] = self.spb_project_id
+
         if self.status is not None:
             result['Status'] = self.status
 
@@ -226,6 +231,9 @@ class DescribeBranchResponseBodyBranch(DaraModel):
 
         if m.get('ServiceType') is not None:
             self.service_type = m.get('ServiceType')
+
+        if m.get('SpbProjectId') is not None:
+            self.spb_project_id = m.get('SpbProjectId')
 
         if m.get('Status') is not None:
             self.status = m.get('Status')

@@ -13,6 +13,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from .._vendor.packaging.ranges import VersionRange
+from .._vendor.packaging.utils import canonicalize_name
 from .metadata_resolver import refuse_url_dep
 
 if TYPE_CHECKING:
@@ -56,12 +57,13 @@ def choose_extra_version(
             normalized,
             package,
         )
-        candidates = list(version_range.filter(all_versions))
+        admit_range = version_range
     else:
-        candidates = list((version_range & base_range).filter(all_versions))
+        admit_range = version_range & base_range
+    candidates = list(admit_range.filter(all_versions, assume_sorted="descending"))
 
     if provider.wants_lowest(normalized):
-        candidates = list(reversed(candidates))
+        candidates.reverse()
 
     chosen = _pick_in_mode(provider, base, extra, candidates)
     if chosen is not None and (normalized, extra) in provider.root_extras:
@@ -80,7 +82,9 @@ def choose_extra_version(
         and (
             excluded_by_base := [
                 v
-                for v in version_range.filter(all_versions, prereleases=True)
+                for v in version_range.filter(
+                    all_versions, prereleases=True, assume_sorted="descending"
+                )
                 if v not in base_range
             ]
         )
@@ -107,7 +111,7 @@ def _pick_in_mode(
     checks ``Provides-Extra`` for transitive extras.
     """
     # Late import: ``provider`` imports this module at module load.
-    from ..provider import ExtrasMode, MetadataError, _normalize_extra
+    from ..provider import ExtrasMode, MetadataError
 
     _, _, normalized = provider.split_and_normalize(base)
     is_user = (normalized, extra) in provider.root_extras
@@ -123,7 +127,7 @@ def _pick_in_mode(
             return version
         metadata = provider.metadata_cache.get((normalized, version))
         provided = (
-            {_normalize_extra(e) for e in metadata.provides_extra}
+            {canonicalize_name(e) for e in metadata.provides_extra}
             if metadata
             else set()
         )
@@ -147,8 +151,9 @@ def _pick_for_user_extra(
     against an older version that declares it.  The exception is a range
     the search narrowed off every version declaring the extra: reporting
     no version there leaves a clause the search can backjump on.  The
-    check runs against the root requirement's range, so the answer
-    follows the index rather than the metadata fetched so far.
+    check runs against the root requirement's range intersected with the
+    user's constraint, so the answer follows the index rather than the
+    metadata fetched so far.
     """
     # Late import: ``provider`` imports this module at module load.
     from ..provider import ExtrasMode
@@ -158,6 +163,10 @@ def _pick_for_user_extra(
 
     _, _, normalized = provider.split_and_normalize(base)
     root_range = provider.root_requirements.get(normalized, VersionRange.full())
+    constraint = provider.constraints.get(normalized)
+    if constraint is not None:
+        root_range = root_range & constraint
+
     outside = [v for v in root_range.filter(all_versions) if v not in candidates]
     if not outside:
         return chosen
@@ -185,7 +194,7 @@ def version_provides_extra(
     extractable metadata in this tuple.
     """
     # Late import: provider imports this module at module load.
-    from ..provider import MetadataError, _normalize_extra
+    from ..provider import MetadataError
 
     _, _, normalized = provider.split_and_normalize(base)
     try:
@@ -194,7 +203,7 @@ def version_provides_extra(
         return False
 
     metadata = provider.metadata_cache[(normalized, version)]
-    provided = {_normalize_extra(e) for e in metadata.provides_extra}
+    provided = {canonicalize_name(e) for e in metadata.provides_extra}
     return extra in provided
 
 

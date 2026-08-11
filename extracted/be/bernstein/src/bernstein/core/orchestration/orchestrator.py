@@ -45,6 +45,7 @@ from bernstein.core.agent_recycling import (
     send_shutdown_signals,
 )
 from bernstein.core.agent_signals import AgentSignalManager
+from bernstein.core.agents.context_attachments import CONTEXT_FILES_ATTACHED_EVENT
 from bernstein.core.approval import ApprovalGate, ApprovalMode
 from bernstein.core.bandit_router import BanditRouter
 from bernstein.core.batch_api import ProviderBatchManager
@@ -160,6 +161,19 @@ from bernstein.evolution.governance import AdaptiveGovernor
 from bernstein.evolution.risk import RiskScorer
 
 _BERNSTEIN_YAML = "bernstein.yaml"
+
+#: What an operator is told when no adapter resolves. Every flag it names has to
+#: be a flag of the ``bernstein`` command, because that is what the reader typed
+#: and what they will check against ``bernstein --help``. This module's own
+#: ``--adapter`` argparse flag belongs to the orchestrator subprocess and is not
+#: reachable from there; naming it sent readers looking for an option that does
+#: not exist (#3526). ``tests/unit/test_adapter_fatal_message.py`` resolves each
+#: flag here against the registered CLI, so the text cannot drift back.
+NO_ADAPTER_CONFIGURED = (
+    "FATAL: no adapter configured. Bernstein does not default to Claude - "
+    f"pass --cli (e.g. --cli codex), set BERNSTEIN_ADAPTER, or set 'cli' in {_BERNSTEIN_YAML}. "
+    "Run 'bernstein integrations list --installed' to see which adapters resolve here."
+)
 
 # Preserve underscore-prefixed aliases so existing test imports keep working
 _compute_total_spent = compute_total_spent
@@ -492,12 +506,13 @@ class Orchestrator:
         init_telemetry(config.telemetry.otlp_endpoint if hasattr(config, "telemetry") else None)
 
         # Self-evolution feedback loop
+        self._evolution: EvolutionCoordinator | None
         if config.evolution_enabled:
             self._evolution = evolution or EvolutionCoordinator(
                 state_dir=workdir / ".sdd",
             )
         else:
-            self._evolution: EvolutionCoordinator | None = None
+            self._evolution = None
 
         # Adaptive governance: adjusts metric weights each evolution cycle.
         # Always initialize the governor - it's lightweight and evolve mode
@@ -720,6 +735,7 @@ class Orchestrator:
         # held for interactive review, or pushed as a GitHub PR.
         # merge_strategy="pr" activates PR mode by default; "direct" forces auto.
         # An explicit approval override ("review" or "pr") takes precedence.
+        self._approval_gate: ApprovalGate | None
         if config.approval == "workflow":
             self._approval_gate = ApprovalGate(
                 mode=ApprovalMode.AUTO,  # base mode, overridden per-task in task_completion.py
@@ -736,7 +752,7 @@ class Orchestrator:
                 # merge_strategy="pr" (default) -> PR mode
                 _effective_approval = "pr"
             _approval_mode = ApprovalMode(_effective_approval)
-            self._approval_gate: ApprovalGate | None = (
+            self._approval_gate = (
                 ApprovalGate(
                     mode=_approval_mode,
                     workdir=workdir,
@@ -889,7 +905,7 @@ class Orchestrator:
         )
         if self._audit_mode:
             from bernstein.core.audit import AuditLog
-            from bernstein.core.lifecycle import set_audit_log
+            from bernstein.core.tasks.lifecycle import set_audit_log
 
             audit_dir = workdir / ".sdd" / "audit"
             self._audit_log = AuditLog(audit_dir)
@@ -2823,8 +2839,35 @@ class Orchestrator:
             )
         except Exception as exc:
             logger.warning("Failed to seal journal head into lineage spine: %s", sanitize_log(str(exc)))
+            logger.warning("Run receipt not written for run %s: journal-head seal failed", self._run_id)
         else:
             self._seal_intent_capsules(hmac_key)
+            self._write_run_receipt()
+
+    def _write_run_receipt(self) -> None:
+        """Write the signed run receipt at finalization (issue #2924).
+
+        Binds the sealed journal head and the run's lineage-spine head into
+        one offline-verifiable ``run-receipt.json`` next to the journal.
+        Called only from the seal hook's success branch: when sealing the
+        journal head into the spine fails, no receipt is written at all
+        (fail-closed) rather than signing a spine whose journal binding is
+        incomplete. Degrades to a documented no-op when no receipt signing
+        key is configured (``BERNSTEIN_RUN_RECEIPT_SIGNING_KEY_PATH`` /
+        ``BERNSTEIN_RUN_RECEIPT_SIGNING_ENV_VAR``) -- the audit-receipt
+        posture: never emit an unsigned "receipt". Failures are logged,
+        never raised: the receipt is a verification aid and must not fail a
+        run that already completed.
+        """
+        try:
+            from bernstein.core.replay.run_receipt import write_run_receipt_if_configured
+
+            receipt_path = write_run_receipt_if_configured(self._run_id, self._workdir / ".sdd")
+        except Exception as exc:
+            logger.warning("Failed to write run receipt: %s", sanitize_log(str(exc)))
+        else:
+            if receipt_path is not None:
+                logger.info("Run receipt written: %s", receipt_path)
 
     def _seal_intent_capsules(self, hmac_key: bytes) -> None:
         """Commit the finished journal's end for every capsule bound to this run (#2649).
@@ -3522,7 +3565,7 @@ class Orchestrator:
         """Dispatch an anomaly signal: log, stop spawning, or kill agent."""
         import contextlib
 
-        from bernstein.core import heartbeat as heartbeat_protocol
+        from bernstein.core.agents import heartbeat as heartbeat_protocol
         from bernstein.core.cost_anomaly import AnomalySignal
 
         assert isinstance(signal, AnomalySignal)
@@ -3813,11 +3856,11 @@ class Orchestrator:
         # _reap_session_heartbeat_loop / Defect-10) so the loop does not
         # outlive the agent it was monitoring.
         with contextlib.suppress(Exception):
-            from bernstein.core import heartbeat as heartbeat_protocol
+            from bernstein.core.agents import heartbeat as heartbeat_protocol
 
             heartbeat_protocol._reap_session_heartbeat_loop(self, session, reason="cost_cap_kill")
 
-        from bernstein.core.lifecycle import transition_agent
+        from bernstein.core.tasks.lifecycle import transition_agent
 
         transition_agent(session, "dead", actor="orchestrator", reason="max_cost_per_agent exceeded")
         self._release_file_ownership(session.id)
@@ -3922,7 +3965,7 @@ class Orchestrator:
             elapsed,
             len(pending_kill),
         )
-        from bernstein.core import heartbeat as heartbeat_protocol
+        from bernstein.core.agents import heartbeat as heartbeat_protocol
 
         for session in pending_kill:
             self._budget_stop_killed_agents.add(session.id)
@@ -4537,7 +4580,7 @@ class Orchestrator:
 
         claimed_dir.mkdir(parents=True, exist_ok=True)
 
-        from bernstein.core.backlog_parser import parse_backlog_text
+        from bernstein.core.backlog_parser import BacklogParseError, parse_backlog_text
 
         # Phase 1: Parse all candidates, filter dupes, sort by priority
         candidates: list[tuple[Path, ParsedBacklogTask]] = []
@@ -4546,7 +4589,15 @@ class Orchestrator:
                 continue
 
             content = backlog_file.read_text(encoding="utf-8")
-            parsed_task = parse_backlog_text(backlog_file.name, content)
+            try:
+                parsed_task = parse_backlog_text(backlog_file.name, content)
+            except BacklogParseError as exc:
+                # Fail-closed per file (#3110): a malformed declaration is
+                # refused with the offending field named and never becomes a
+                # code_diff task; the scan continues with the other files.
+                logger.error("ingest_backlog: refused %s - %s", backlog_file.name, exc)
+                self._claim_backlog_file(backlog_file, open_dir, claimed_dir)
+                continue
             if parsed_task is None:
                 logger.warning("ingest_backlog: could not parse %s - skipping", backlog_file.name)
                 self._claim_backlog_file(backlog_file, open_dir, claimed_dir)
@@ -5146,6 +5197,18 @@ class Orchestrator:
                 task_ids=session.task_ids,
                 agent_source=session.agent_source,
             )
+            # Issue #3375: pin the declared context files the spawner resolved
+            # for this session at their content addresses. Recorded only when
+            # the tasks declared something, so undeclared runs journal exactly
+            # what they did before. Entries keep declared order; unresolvable
+            # paths hold their position with a reason code.
+            if session.context_attachments:
+                self._recorder.record(
+                    CONTEXT_FILES_ATTACHED_EVENT,
+                    agent_id=session.id,
+                    task_ids=session.task_ids,
+                    entries=list(session.context_attachments),
+                )
             for tid in session.task_ids:
                 self._recorder.record(
                     "task_claimed",
@@ -5858,10 +5921,12 @@ if __name__ == "__main__":
             )
 
         if not adapter_name:
-            logger.error(
-                "FATAL: no adapter configured. Bernstein does not default to Claude - "
-                "pass --adapter, set BERNSTEIN_ADAPTER, or configure 'cli' in bernstein.yaml."
-            )
+            # Name --cli, not --adapter. --adapter is this module's own argparse
+            # flag; the operator reaching this message typed `bernstein`, whose
+            # equivalent option is --cli. Naming a flag `bernstein --help` does
+            # not list sends the reader looking for something that is not there
+            # (#3526).
+            logger.error("%s", NO_ADAPTER_CONFIGURED)
             sys.exit(1)
 
         # Run-level model: ``--model`` flag (threaded from ``bernstein run
@@ -6360,6 +6425,10 @@ if __name__ == "__main__":
             judge_model=seed.judge_model if seed else None,
             judge_provider=seed.judge_provider if seed else None,
             cost_policy=getattr(seed, "cost_policy", None) if seed else None,
+            # Without this the top-level ``evolution_enabled`` key in
+            # bernstein.yaml never reached the runtime object and the
+            # self-evolution loop ran regardless of the seed (#config-drift).
+            evolution_enabled=getattr(seed, "evolution_enabled", True) if seed else True,
         )
 
         if args.cells > 1:

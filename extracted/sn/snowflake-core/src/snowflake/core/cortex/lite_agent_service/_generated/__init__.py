@@ -29,11 +29,16 @@ from snowflake.core.cortex.lite_agent_service._generated.models.agent_orchestrat
     AgentOrchestrationBudget,
 )
 from snowflake.core.cortex.lite_agent_service._generated.models.agent_run_request import AgentRunRequest
+from snowflake.core.cortex.lite_agent_service._generated.models.common_agent_request import CommonAgentRequest
 from snowflake.core.cortex.lite_agent_service._generated.models.error_response import ErrorResponse
+from snowflake.core.cortex.lite_agent_service._generated.models.mcp_config import McpConfig
 from snowflake.core.cortex.lite_agent_service._generated.models.mcp_server_spec import McpServerSpec
 from snowflake.core.cortex.lite_agent_service._generated.models.mcp_server_wrapper import McpServerWrapper
 from snowflake.core.cortex.lite_agent_service._generated.models.message import Message
 from snowflake.core.cortex.lite_agent_service._generated.models.sample_question import SampleQuestion
+from snowflake.core.cortex.lite_agent_service._generated.models.skill_choice import SkillChoice
+from snowflake.core.cortex.lite_agent_service._generated.models.skill_source import SkillSource
+from snowflake.core.cortex.lite_agent_service._generated.models.skill_wrapper import SkillWrapper
 from snowflake.core.cortex.lite_agent_service._generated.models.tool import Tool
 from snowflake.core.cortex.lite_agent_service._generated.models.tool_choice import ToolChoice
 from snowflake.core.cortex.lite_agent_service._generated.models.tool_tool_spec import ToolToolSpec

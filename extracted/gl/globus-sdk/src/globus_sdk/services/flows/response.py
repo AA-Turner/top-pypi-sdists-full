@@ -23,6 +23,34 @@ class IterableFlowsResponse(response.IterableResponse):
     default_iter_key = "flows"
 
 
+class IterableWebInputsResponse(response.IterableResponse):
+    """
+    An iterable response containing a "web_input_summaries" array of web input
+    summaries.
+
+    This response type is returned by :meth:`FlowsClient.list_web_inputs` and
+    provides iteration over individual web input summary objects from a single page
+    of results.
+
+    When iterated over, yields individual web input summary dictionaries, where each
+    summary typically contains:
+
+    - ``id``: UUID of the web input
+    - ``status``: Current status of the web input (``"open"`` or ``"closed"``)
+    - ``user_roles``: The roles (``"viewer"``, ``"respondent"``) the caller has on
+      the web input
+    - ``input_type``: The type of the web input (e.g. ``"selection"``)
+    - ``title``: Display title of the web input
+    - ``flow``: The associated flow's ``id`` and ``title``
+    - ``run``: The associated run's ``id`` and ``label``
+    - ``created_timestamp``: Timestamp of web input creation
+    - ``edited_timestamp``: Timestamp of last edit
+    - ``closed_timestamp``: Timestamp the web input was closed, if applicable
+    """
+
+    default_iter_key = "web_input_summaries"
+
+
 class IterableRunsResponse(response.IterableResponse):
     """
     An iterable response containing a "runs" array of flow run records.

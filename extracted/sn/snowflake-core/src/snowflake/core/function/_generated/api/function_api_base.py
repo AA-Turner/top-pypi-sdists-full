@@ -1,7 +1,7 @@
 """
 Snowflake Function API.
 
-The Snowflake Function API is a REST API that allows caller to create, execute and drop functions in a Snowflake database.  # noqa: E501
+The Snowflake Function API is a REST API that allows caller to create, execute and drop service functions in a Snowflake database.  # noqa: E501
 
 The version of the OpenAPI document: 0.0.1
 Contact: support@snowflake.com
@@ -44,7 +44,7 @@ class FunctionCollectionBase(SchemaObjectCollectionParent["FunctionResource"]):
 
     @api_telemetry
     def create(self, function: Function, mode: Optional[Union[CreateMode, str]] = None) -> "FunctionResource":  # noqa: F821
-        """Create a Function.
+        """Create a service function.
 
         Parameters
         __________
@@ -94,7 +94,7 @@ class FunctionCollectionBase(SchemaObjectCollectionParent["FunctionResource"]):
 
     @api_telemetry
     def iter(self, *, like: Optional[str] = None) -> Iterator[Function]:
-        """List Functions.
+        """List service functions.
 
         Parameters
         __________
@@ -143,7 +143,7 @@ class FunctionResourceBase(SchemaObjectReferenceMixin["FunctionCollection"]):
         self,
         function_argument: Optional[List[FunctionArgument]] = None,
     ) -> object:
-        """Execute a Function.
+        """Execute a service function.
 
         Parameters
         __________
@@ -182,7 +182,7 @@ class FunctionResourceBase(SchemaObjectReferenceMixin["FunctionCollection"]):
     def fetch(
         self,
     ) -> Function:
-        """Fetch a Function.
+        """Fetch a service function.
 
         Parameters
         __________
@@ -218,9 +218,9 @@ class FunctionResourceBase(SchemaObjectReferenceMixin["FunctionCollection"]):
         self,
         with_lineage: Optional[bool] = None,
     ) -> dict[TagResource, TagValue]:
-        """Get the tag assignments for a function.
+        """Get the tag assignments for a service function.
 
-        Returns all tags assigned to a function. This operation requires an active warehouse.
+        Returns all tags assigned to a service function. This operation requires an active warehouse.
 
         Parameters
         __________
@@ -278,7 +278,7 @@ class FunctionResourceBase(SchemaObjectReferenceMixin["FunctionCollection"]):
         tags: dict[TagResource, TagValue],
         if_exists: Optional[bool] = None,
     ) -> None:
-        """Set tags on a function.
+        """Set tags on a service function.
 
         Parameters
         __________
@@ -338,7 +338,7 @@ class FunctionResourceBase(SchemaObjectReferenceMixin["FunctionCollection"]):
         tag_resources: set[TagResource],
         if_exists: Optional[bool] = None,
     ) -> None:
-        """Unset tags from a function.
+        """Unset tags from a service function.
 
         Parameters
         __________
@@ -392,7 +392,7 @@ class FunctionResourceBase(SchemaObjectReferenceMixin["FunctionCollection"]):
         self,
         if_exists: Optional[bool] = None,
     ) -> None:
-        """Delete a function.
+        """Delete a service function.
 
         Parameters
         __________

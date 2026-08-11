@@ -382,26 +382,48 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self._internal_api_client.list_workspaces_api_v2_experimental_workspaces_get = (
             self._fake_list_workspaces
         )
+        # Records the kwargs of the last list_workspaces call so tests can assert
+        # which name param the SDK routed `--name` to.
+        self._last_list_workspaces_kwargs: Dict[str, Any] = {}
 
     def _fake_list_workspaces(  # noqa: PLR0913, PLR0917
         self,
         project_id=None,
         cloud_id=None,
         name=None,
+        name_contains=None,
         creator_id=None,
         state_filter=None,
         tag_filter=None,
-        count=50,  # noqa: ARG002
-        paging_token=None,  # noqa: ARG002
-        sort_field=None,  # noqa: ARG002
-        sort_order=None,  # noqa: ARG002
+        count=50,
+        paging_token=None,
+        sort_field=None,
+        sort_order=None,
     ):
         """Mock implementation of list_workspaces API for testing."""
+        self._last_list_workspaces_kwargs = {
+            "project_id": project_id,
+            "cloud_id": cloud_id,
+            "name": name,
+            "name_contains": name_contains,
+            "creator_id": creator_id,
+            "state_filter": state_filter,
+            "tag_filter": tag_filter,
+            "count": count,
+            "paging_token": paging_token,
+            "sort_field": sort_field,
+            "sort_order": sort_order,
+        }
         results = list(self._workspaces.values())
 
-        # Filter by name (substring match)
+        # `name` is exact; `name_contains` is a case-insensitive substring, mirroring
+        # the backend's `==` vs ILIKE and the generated client's two distinct params.
         if name:
-            results = [w for w in results if name in w.name]
+            results = [w for w in results if w.name == name]
+        if name_contains:
+            results = [
+                w for w in results if name_contains.lower() in (w.name or "").lower()
+            ]
 
         # Filter by project
         if project_id:

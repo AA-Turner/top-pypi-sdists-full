@@ -41,22 +41,13 @@ else:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_personalize.DataDeletionJobReference",
     jsii_struct_bases=[],
-    name_mapping={
-        "data_deletion_job_arn": "dataDeletionJobArn",
-        "data_deletion_job_id": "dataDeletionJobId",
-    },
+    name_mapping={"data_deletion_job_arn": "dataDeletionJobArn"},
 )
 class DataDeletionJobReference:
-    def __init__(
-        self,
-        *,
-        data_deletion_job_arn: builtins.str,
-        data_deletion_job_id: builtins.str,
-    ) -> None:
+    def __init__(self, *, data_deletion_job_arn: builtins.str) -> None:
         '''A reference to a DataDeletionJob resource.
 
-        :param data_deletion_job_arn: The ARN of the DataDeletionJob resource.
-        :param data_deletion_job_id: The Id of the DataDeletionJob resource.
+        :param data_deletion_job_arn: The DataDeletionJobArn of the DataDeletionJob resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -67,31 +58,21 @@ class DataDeletionJobReference:
             from aws_cdk.interfaces import aws_personalize as interfaces_personalize
             
             data_deletion_job_reference = interfaces_personalize.DataDeletionJobReference(
-                data_deletion_job_arn="dataDeletionJobArn",
-                data_deletion_job_id="dataDeletionJobId"
+                data_deletion_job_arn="dataDeletionJobArn"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fa829c6a843351b29acf0c59d247f7c3c8d02d2095dfa4c4737a2b4112de7d94)
             check_type(argname="argument data_deletion_job_arn", value=data_deletion_job_arn, expected_type=type_hints["data_deletion_job_arn"])
-            check_type(argname="argument data_deletion_job_id", value=data_deletion_job_id, expected_type=type_hints["data_deletion_job_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "data_deletion_job_arn": data_deletion_job_arn,
-            "data_deletion_job_id": data_deletion_job_id,
         }
 
     @builtins.property
     def data_deletion_job_arn(self) -> builtins.str:
-        '''The ARN of the DataDeletionJob resource.'''
+        '''The DataDeletionJobArn of the DataDeletionJob resource.'''
         result = self._values.get("data_deletion_job_arn")
         assert result is not None, "Required property 'data_deletion_job_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def data_deletion_job_id(self) -> builtins.str:
-        '''The Id of the DataDeletionJob resource.'''
-        result = self._values.get("data_deletion_job_id")
-        assert result is not None, "Required property 'data_deletion_job_id' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -339,6 +320,51 @@ class _IDatasetRefProxy(
 typing.cast(typing.Any, IDatasetRef).__jsii_proxy_class__ = lambda : _IDatasetRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_personalize.IRecipeRef")
+class IRecipeRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Recipe.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="recipeRef")
+    def recipe_ref(self) -> "RecipeReference":
+        '''(experimental) A reference to a Recipe resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRecipeRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Recipe.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_personalize.IRecipeRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="recipeRef")
+    def recipe_ref(self) -> "RecipeReference":
+        '''(experimental) A reference to a Recipe resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RecipeReference", jsii.get(self, "recipeRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRecipeRef).__jsii_proxy_class__ = lambda : _IRecipeRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_personalize.ISchemaRef")
 class ISchemaRef(
     _constructs_77d1e7e8.IConstruct,
@@ -427,6 +453,55 @@ class _ISolutionRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ISolutionRef).__jsii_proxy_class__ = lambda : _ISolutionRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_personalize.RecipeReference",
+    jsii_struct_bases=[],
+    name_mapping={"recipe_arn": "recipeArn"},
+)
+class RecipeReference:
+    def __init__(self, *, recipe_arn: builtins.str) -> None:
+        '''A reference to a Recipe resource.
+
+        :param recipe_arn: The RecipeArn of the Recipe resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_personalize as interfaces_personalize
+            
+            recipe_reference = interfaces_personalize.RecipeReference(
+                recipe_arn="recipeArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__88b30575e077bfe0328362e985703eb62521bcfb9c71aa407ead9f5813ce8d40)
+            check_type(argname="argument recipe_arn", value=recipe_arn, expected_type=type_hints["recipe_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "recipe_arn": recipe_arn,
+        }
+
+    @builtins.property
+    def recipe_arn(self) -> builtins.str:
+        '''The RecipeArn of the Recipe resource.'''
+        result = self._values.get("recipe_arn")
+        assert result is not None, "Required property 'recipe_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RecipeReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -534,8 +609,10 @@ __all__ = [
     "IDataDeletionJobRef",
     "IDatasetGroupRef",
     "IDatasetRef",
+    "IRecipeRef",
     "ISchemaRef",
     "ISolutionRef",
+    "RecipeReference",
     "SchemaReference",
     "SolutionReference",
 ]
@@ -545,7 +622,6 @@ publication.publish()
 def _typecheckingstub__fa829c6a843351b29acf0c59d247f7c3c8d02d2095dfa4c4737a2b4112de7d94(
     *,
     data_deletion_job_arn: builtins.str,
-    data_deletion_job_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -564,6 +640,13 @@ def _typecheckingstub__8259ee192b97f65bb1bfb7dd2c09770b403cad7400c4318eae4c7d5c8
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__88b30575e077bfe0328362e985703eb62521bcfb9c71aa407ead9f5813ce8d40(
+    *,
+    recipe_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a6cd5ef72a7892e6fc2e89c44ce2a2108abd8cb5fa5db53e6d641fbf75e6fd0e(
     *,
     schema_arn: builtins.str,
@@ -578,5 +661,5 @@ def _typecheckingstub__4eb7000ac778c9296a1bcf604536bc2f9b85654eafa6d8acf1a30e8d4
     """Type checking stubs"""
     pass
 
-for cls in [IDataDeletionJobRef, IDatasetGroupRef, IDatasetRef, ISchemaRef, ISolutionRef]:
+for cls in [IDataDeletionJobRef, IDatasetGroupRef, IDatasetRef, IRecipeRef, ISchemaRef, ISolutionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

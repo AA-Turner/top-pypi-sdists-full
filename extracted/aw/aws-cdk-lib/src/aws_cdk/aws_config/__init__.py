@@ -3337,7 +3337,7 @@ class CfnConfigurationRecorderProps:
         )
 
 
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_config_b2dc85e1.IConformancePackRef)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_config_b2dc85e1.IConformancePackRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnConformancePack(
     _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
@@ -3353,6 +3353,7 @@ class CfnConformancePack(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_config as config
@@ -3369,6 +3370,10 @@ class CfnConformancePack(
             )],
             delivery_s3_bucket="deliveryS3Bucket",
             delivery_s3_key_prefix="deliveryS3KeyPrefix",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
             template_body="templateBody",
             template_s3_uri="templateS3Uri",
             template_ssm_document_details=template_ssm_document_details
@@ -3384,6 +3389,7 @@ class CfnConformancePack(
         conformance_pack_input_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConformancePack.ConformancePackInputParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         delivery_s3_bucket: typing.Optional[typing.Union[builtins.str, "_aws_s3_03fe213b.IBucketRef"]] = None,
         delivery_s3_key_prefix: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         template_body: typing.Optional[builtins.str] = None,
         template_s3_uri: typing.Optional[builtins.str] = None,
         template_ssm_document_details: typing.Any = None,
@@ -3396,6 +3402,7 @@ class CfnConformancePack(
         :param conformance_pack_input_parameters: A list of ConformancePackInputParameter objects.
         :param delivery_s3_bucket: The name of the Amazon S3 bucket where AWS Config stores conformance pack templates.
         :param delivery_s3_key_prefix: The prefix for the Amazon S3 bucket.
+        :param tags: The tags for the conformance pack.
         :param template_body: A string containing full conformance pack template body. Structure containing the template body with a minimum length of 1 byte and a maximum length of 51,200 bytes. .. epigraph:: You can only use a YAML template with two resource types: config rule ( ``AWS::Config::ConfigRule`` ) and a remediation action ( ``AWS::Config::RemediationConfiguration`` ).
         :param template_s3_uri: Location of file containing the template body (s3://bucketname/prefix). The uri must point to the conformance pack template (max size: 300 KB) that is located in an Amazon S3 bucket. .. epigraph:: You must have access to read Amazon S3 bucket.
         :param template_ssm_document_details: An object that contains the name or Amazon Resource Name (ARN) of the AWS Systems Manager document (SSM document) and the version of the SSM document that is used to create a conformance pack.
@@ -3409,12 +3416,27 @@ class CfnConformancePack(
             conformance_pack_input_parameters=conformance_pack_input_parameters,
             delivery_s3_bucket=delivery_s3_bucket,
             delivery_s3_key_prefix=delivery_s3_key_prefix,
+            tags=tags,
             template_body=template_body,
             template_s3_uri=template_s3_uri,
             template_ssm_document_details=template_ssm_document_details,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForConformancePack")
+    @builtins.classmethod
+    def arn_for_conformance_pack(
+        cls,
+        resource: "_aws_config_b2dc85e1.IConformancePackRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a0148a33d3052eb27e0c30408b4f3a0bcec738cfc5fd1b3d639aa02196fb1222)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConformancePack", [resource]))
 
     @jsii.member(jsii_name="isCfnConformancePack")
     @builtins.classmethod
@@ -3457,6 +3479,21 @@ class CfnConformancePack(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrConformancePackArn")
+    def attr_conformance_pack_arn(self) -> builtins.str:
+        '''Amazon Resource Name (ARN) of the conformance pack.
+
+        :cloudformationAttribute: ConformancePackArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrConformancePackArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3543,6 +3580,22 @@ class CfnConformancePack(
             type_hints = cached_type_hints(_typecheckingstub__efa81031141bc30ac68f2881e9910f55d05494d80263ec0832f9c3b4cfa72355)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "deliveryS3KeyPrefix", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags for the conformance pack.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__02a8aa042e48725a38e8f1abc2f7884120603e878d4de78006c6530bb4428d14)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="templateBody")
@@ -3739,6 +3792,7 @@ class CfnConformancePack(
         "conformance_pack_input_parameters": "conformancePackInputParameters",
         "delivery_s3_bucket": "deliveryS3Bucket",
         "delivery_s3_key_prefix": "deliveryS3KeyPrefix",
+        "tags": "tags",
         "template_body": "templateBody",
         "template_s3_uri": "templateS3Uri",
         "template_ssm_document_details": "templateSsmDocumentDetails",
@@ -3752,6 +3806,7 @@ class CfnConformancePackProps:
         conformance_pack_input_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConformancePack.ConformancePackInputParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         delivery_s3_bucket: typing.Optional[typing.Union[builtins.str, "_aws_s3_03fe213b.IBucketRef"]] = None,
         delivery_s3_key_prefix: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         template_body: typing.Optional[builtins.str] = None,
         template_s3_uri: typing.Optional[builtins.str] = None,
         template_ssm_document_details: typing.Any = None,
@@ -3762,6 +3817,7 @@ class CfnConformancePackProps:
         :param conformance_pack_input_parameters: A list of ConformancePackInputParameter objects.
         :param delivery_s3_bucket: The name of the Amazon S3 bucket where AWS Config stores conformance pack templates.
         :param delivery_s3_key_prefix: The prefix for the Amazon S3 bucket.
+        :param tags: The tags for the conformance pack.
         :param template_body: A string containing full conformance pack template body. Structure containing the template body with a minimum length of 1 byte and a maximum length of 51,200 bytes. .. epigraph:: You can only use a YAML template with two resource types: config rule ( ``AWS::Config::ConfigRule`` ) and a remediation action ( ``AWS::Config::RemediationConfiguration`` ).
         :param template_s3_uri: Location of file containing the template body (s3://bucketname/prefix). The uri must point to the conformance pack template (max size: 300 KB) that is located in an Amazon S3 bucket. .. epigraph:: You must have access to read Amazon S3 bucket.
         :param template_ssm_document_details: An object that contains the name or Amazon Resource Name (ARN) of the AWS Systems Manager document (SSM document) and the version of the SSM document that is used to create a conformance pack.
@@ -3771,6 +3827,7 @@ class CfnConformancePackProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_config as config
@@ -3787,6 +3844,10 @@ class CfnConformancePackProps:
                 )],
                 delivery_s3_bucket="deliveryS3Bucket",
                 delivery_s3_key_prefix="deliveryS3KeyPrefix",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
                 template_body="templateBody",
                 template_s3_uri="templateS3Uri",
                 template_ssm_document_details=template_ssm_document_details
@@ -3798,6 +3859,7 @@ class CfnConformancePackProps:
             check_type(argname="argument conformance_pack_input_parameters", value=conformance_pack_input_parameters, expected_type=type_hints["conformance_pack_input_parameters"])
             check_type(argname="argument delivery_s3_bucket", value=delivery_s3_bucket, expected_type=type_hints["delivery_s3_bucket"])
             check_type(argname="argument delivery_s3_key_prefix", value=delivery_s3_key_prefix, expected_type=type_hints["delivery_s3_key_prefix"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument template_body", value=template_body, expected_type=type_hints["template_body"])
             check_type(argname="argument template_s3_uri", value=template_s3_uri, expected_type=type_hints["template_s3_uri"])
             check_type(argname="argument template_ssm_document_details", value=template_ssm_document_details, expected_type=type_hints["template_ssm_document_details"])
@@ -3810,6 +3872,8 @@ class CfnConformancePackProps:
             self._values["delivery_s3_bucket"] = delivery_s3_bucket
         if delivery_s3_key_prefix is not None:
             self._values["delivery_s3_key_prefix"] = delivery_s3_key_prefix
+        if tags is not None:
+            self._values["tags"] = tags
         if template_body is not None:
             self._values["template_body"] = template_body
         if template_s3_uri is not None:
@@ -3857,6 +3921,15 @@ class CfnConformancePackProps:
         '''
         result = self._values.get("delivery_s3_key_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags for the conformance pack.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-config-conformancepack.html#cfn-config-conformancepack-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def template_body(self) -> typing.Optional[builtins.str]:
@@ -5904,7 +5977,7 @@ class CfnOrganizationConfigRuleProps:
         )
 
 
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_config_b2dc85e1.IOrganizationConformancePackRef)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_config_b2dc85e1.IOrganizationConformancePackRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnOrganizationConformancePack(
     _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
@@ -5920,6 +5993,7 @@ class CfnOrganizationConformancePack(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_config as config
@@ -5935,6 +6009,10 @@ class CfnOrganizationConformancePack(
             delivery_s3_bucket="deliveryS3Bucket",
             delivery_s3_key_prefix="deliveryS3KeyPrefix",
             excluded_accounts=["excludedAccounts"],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
             template_body="templateBody",
             template_s3_uri="templateS3Uri"
         )
@@ -5950,6 +6028,7 @@ class CfnOrganizationConformancePack(
         delivery_s3_bucket: typing.Optional[builtins.str] = None,
         delivery_s3_key_prefix: typing.Optional[builtins.str] = None,
         excluded_accounts: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         template_body: typing.Optional[builtins.str] = None,
         template_s3_uri: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -5962,6 +6041,7 @@ class CfnOrganizationConformancePack(
         :param delivery_s3_bucket: The name of the Amazon S3 bucket where AWS Config stores conformance pack templates. .. epigraph:: This field is optional.
         :param delivery_s3_key_prefix: Any folder structure you want to add to an Amazon S3 bucket. .. epigraph:: This field is optional.
         :param excluded_accounts: A comma-separated list of accounts excluded from organization conformance pack.
+        :param tags: The tags for the organization conformance pack.
         :param template_body: A string containing full conformance pack template body. Structure containing the template body with a minimum length of 1 byte and a maximum length of 51,200 bytes.
         :param template_s3_uri: Location of file containing the template body. The uri must point to the conformance pack template (max size: 300 KB).
         '''
@@ -5975,11 +6055,26 @@ class CfnOrganizationConformancePack(
             delivery_s3_bucket=delivery_s3_bucket,
             delivery_s3_key_prefix=delivery_s3_key_prefix,
             excluded_accounts=excluded_accounts,
+            tags=tags,
             template_body=template_body,
             template_s3_uri=template_s3_uri,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForOrganizationConformancePack")
+    @builtins.classmethod
+    def arn_for_organization_conformance_pack(
+        cls,
+        resource: "_aws_config_b2dc85e1.IOrganizationConformancePackRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a1f9c2cfcf89c4a991955ba3ab5e73726ed9b29dbee29dc90e27f02680999ad9)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForOrganizationConformancePack", [resource]))
 
     @jsii.member(jsii_name="isCfnOrganizationConformancePack")
     @builtins.classmethod
@@ -6022,6 +6117,21 @@ class CfnOrganizationConformancePack(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOrganizationConformancePackArn")
+    def attr_organization_conformance_pack_arn(self) -> builtins.str:
+        '''Amazon Resource Name (ARN) of the organization conformance pack.
+
+        :cloudformationAttribute: OrganizationConformancePackArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOrganizationConformancePackArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -6113,6 +6223,22 @@ class CfnOrganizationConformancePack(
             type_hints = cached_type_hints(_typecheckingstub__febab378993c1407f9ee864835af34497e5cfa444855d849d7a49b108cdac530)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "excludedAccounts", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags for the organization conformance pack.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5392cc09524ccb548789da58731b839852a9a539b00f1af8aa9ac9f716e5e187)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="templateBody")
@@ -6226,6 +6352,7 @@ class CfnOrganizationConformancePack(
         "delivery_s3_bucket": "deliveryS3Bucket",
         "delivery_s3_key_prefix": "deliveryS3KeyPrefix",
         "excluded_accounts": "excludedAccounts",
+        "tags": "tags",
         "template_body": "templateBody",
         "template_s3_uri": "templateS3Uri",
     },
@@ -6239,6 +6366,7 @@ class CfnOrganizationConformancePackProps:
         delivery_s3_bucket: typing.Optional[builtins.str] = None,
         delivery_s3_key_prefix: typing.Optional[builtins.str] = None,
         excluded_accounts: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         template_body: typing.Optional[builtins.str] = None,
         template_s3_uri: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -6249,6 +6377,7 @@ class CfnOrganizationConformancePackProps:
         :param delivery_s3_bucket: The name of the Amazon S3 bucket where AWS Config stores conformance pack templates. .. epigraph:: This field is optional.
         :param delivery_s3_key_prefix: Any folder structure you want to add to an Amazon S3 bucket. .. epigraph:: This field is optional.
         :param excluded_accounts: A comma-separated list of accounts excluded from organization conformance pack.
+        :param tags: The tags for the organization conformance pack.
         :param template_body: A string containing full conformance pack template body. Structure containing the template body with a minimum length of 1 byte and a maximum length of 51,200 bytes.
         :param template_s3_uri: Location of file containing the template body. The uri must point to the conformance pack template (max size: 300 KB).
 
@@ -6257,6 +6386,7 @@ class CfnOrganizationConformancePackProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_config as config
@@ -6272,6 +6402,10 @@ class CfnOrganizationConformancePackProps:
                 delivery_s3_bucket="deliveryS3Bucket",
                 delivery_s3_key_prefix="deliveryS3KeyPrefix",
                 excluded_accounts=["excludedAccounts"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
                 template_body="templateBody",
                 template_s3_uri="templateS3Uri"
             )
@@ -6283,6 +6417,7 @@ class CfnOrganizationConformancePackProps:
             check_type(argname="argument delivery_s3_bucket", value=delivery_s3_bucket, expected_type=type_hints["delivery_s3_bucket"])
             check_type(argname="argument delivery_s3_key_prefix", value=delivery_s3_key_prefix, expected_type=type_hints["delivery_s3_key_prefix"])
             check_type(argname="argument excluded_accounts", value=excluded_accounts, expected_type=type_hints["excluded_accounts"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument template_body", value=template_body, expected_type=type_hints["template_body"])
             check_type(argname="argument template_s3_uri", value=template_s3_uri, expected_type=type_hints["template_s3_uri"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6296,6 +6431,8 @@ class CfnOrganizationConformancePackProps:
             self._values["delivery_s3_key_prefix"] = delivery_s3_key_prefix
         if excluded_accounts is not None:
             self._values["excluded_accounts"] = excluded_accounts
+        if tags is not None:
+            self._values["tags"] = tags
         if template_body is not None:
             self._values["template_body"] = template_body
         if template_s3_uri is not None:
@@ -6356,6 +6493,15 @@ class CfnOrganizationConformancePackProps:
         '''
         result = self._values.get("excluded_accounts")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags for the organization conformance pack.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-config-organizationconformancepack.html#cfn-config-organizationconformancepack-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     @builtins.property
     def template_body(self) -> typing.Optional[builtins.str]:
@@ -15780,9 +15926,16 @@ def _typecheckingstub__3e2b5c522b5074ba2ef97dd80a498043778309ce04aa178507276f160
     conformance_pack_input_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConformancePack.ConformancePackInputParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     delivery_s3_bucket: typing.Optional[typing.Union[builtins.str, _aws_s3_03fe213b.IBucketRef]] = None,
     delivery_s3_key_prefix: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     template_body: typing.Optional[builtins.str] = None,
     template_s3_uri: typing.Optional[builtins.str] = None,
     template_ssm_document_details: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a0148a33d3052eb27e0c30408b4f3a0bcec738cfc5fd1b3d639aa02196fb1222(
+    resource: _aws_config_b2dc85e1.IConformancePackRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15835,6 +15988,12 @@ def _typecheckingstub__efa81031141bc30ac68f2881e9910f55d05494d80263ec0832f9c3b4c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__02a8aa042e48725a38e8f1abc2f7884120603e878d4de78006c6530bb4428d14(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6e35eeba4feaded039ed05fa15d28eda7714d806f9cc117a1a4e2a9b4ee39433(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -15869,6 +16028,7 @@ def _typecheckingstub__eb7114b56400f450b835ab5d3aed18b5a4e6466e2dad2710b6844c6e7
     conformance_pack_input_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConformancePack.ConformancePackInputParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     delivery_s3_bucket: typing.Optional[typing.Union[builtins.str, _aws_s3_03fe213b.IBucketRef]] = None,
     delivery_s3_key_prefix: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     template_body: typing.Optional[builtins.str] = None,
     template_s3_uri: typing.Optional[builtins.str] = None,
     template_ssm_document_details: typing.Any = None,
@@ -16173,8 +16333,15 @@ def _typecheckingstub__e30e375d1e6ca8bc1f56bcae0c6e77507133aca25c3deeb11629cc28c
     delivery_s3_bucket: typing.Optional[builtins.str] = None,
     delivery_s3_key_prefix: typing.Optional[builtins.str] = None,
     excluded_accounts: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     template_body: typing.Optional[builtins.str] = None,
     template_s3_uri: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1f9c2cfcf89c4a991955ba3ab5e73726ed9b29dbee29dc90e27f02680999ad9(
+    resource: _aws_config_b2dc85e1.IOrganizationConformancePackRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16227,6 +16394,12 @@ def _typecheckingstub__febab378993c1407f9ee864835af34497e5cfa444855d849d7a49b108
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5392cc09524ccb548789da58731b839852a9a539b00f1af8aa9ac9f716e5e187(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d860cd3b0fe658d27c522bab37bf76c633dcd9da0ecbb8f7f0f2f92015a535a6(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -16254,6 +16427,7 @@ def _typecheckingstub__5d72ae72e83823c856a2d710ca24a4c227a6d6b865d8fef8ea1641212
     delivery_s3_bucket: typing.Optional[builtins.str] = None,
     delivery_s3_key_prefix: typing.Optional[builtins.str] = None,
     excluded_accounts: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     template_body: typing.Optional[builtins.str] = None,
     template_s3_uri: typing.Optional[builtins.str] = None,
 ) -> None:

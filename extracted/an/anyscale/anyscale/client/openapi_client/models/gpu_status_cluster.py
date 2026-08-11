@@ -34,25 +34,35 @@ class GpuStatusCluster(object):
     """
     openapi_types = {
         'cluster_id': 'str',
+        'cluster_name': 'str',
+        'region': 'str',
         'nodes': 'list[GpuStatusNode]'
     }
 
     attribute_map = {
         'cluster_id': 'cluster_id',
+        'cluster_name': 'cluster_name',
+        'region': 'region',
         'nodes': 'nodes'
     }
 
-    def __init__(self, cluster_id=None, nodes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cluster_id=None, cluster_name=None, region=None, nodes=None, local_vars_configuration=None):  # noqa: E501
         """GpuStatusCluster - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._cluster_id = None
+        self._cluster_name = None
+        self._region = None
         self._nodes = None
         self.discriminator = None
 
         self.cluster_id = cluster_id
+        if cluster_name is not None:
+            self.cluster_name = cluster_name
+        if region is not None:
+            self.region = region
         self.nodes = nodes
 
     @property
@@ -79,6 +89,52 @@ class GpuStatusCluster(object):
             raise ValueError("Invalid value for `cluster_id`, must not be `None`")  # noqa: E501
 
         self._cluster_id = cluster_id
+
+    @property
+    def cluster_name(self):
+        """Gets the cluster_name of this GpuStatusCluster.  # noqa: E501
+
+        The name of the cluster. Null when the cluster no longer exists in the database -- a snapshot can still carry GPUs of a cluster deleted within the Prometheus lookback window.  # noqa: E501
+
+        :return: The cluster_name of this GpuStatusCluster.  # noqa: E501
+        :rtype: str
+        """
+        return self._cluster_name
+
+    @cluster_name.setter
+    def cluster_name(self, cluster_name):
+        """Sets the cluster_name of this GpuStatusCluster.
+
+        The name of the cluster. Null when the cluster no longer exists in the database -- a snapshot can still carry GPUs of a cluster deleted within the Prometheus lookback window.  # noqa: E501
+
+        :param cluster_name: The cluster_name of this GpuStatusCluster.  # noqa: E501
+        :type: str
+        """
+
+        self._cluster_name = cluster_name
+
+    @property
+    def region(self):
+        """Gets the region of this GpuStatusCluster.  # noqa: E501
+
+        The region the cluster's cloud runs in. Null under the same condition as `cluster_name`. Since the snapshot is scoped to one cloud this is the same for every cluster in a response today; it is resolved per cluster rather than assumed.  # noqa: E501
+
+        :return: The region of this GpuStatusCluster.  # noqa: E501
+        :rtype: str
+        """
+        return self._region
+
+    @region.setter
+    def region(self, region):
+        """Sets the region of this GpuStatusCluster.
+
+        The region the cluster's cloud runs in. Null under the same condition as `cluster_name`. Since the snapshot is scoped to one cloud this is the same for every cluster in a response today; it is resolved per cluster rather than assumed.  # noqa: E501
+
+        :param region: The region of this GpuStatusCluster.  # noqa: E501
+        :type: str
+        """
+
+        self._region = region
 
     @property
     def nodes(self):

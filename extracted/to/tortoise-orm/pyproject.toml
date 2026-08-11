@@ -56,7 +56,7 @@ classifiers = [
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: Microsoft :: Windows",
 ]
-version = "1.1.7"
+version = "1.1.8"
 
 [project.license]
 text = "Apache-2.0"
@@ -81,7 +81,7 @@ aiomysql = [
     "aiomysql",
 ]
 asyncmy = [
-    "asyncmy (>=0.2.11,<1.0.0)",
+    "asyncmy (>=0.2.12,<1.0.0)",
 ]
 psycopg = [
     "psycopg[pool,binary] (>=3.0.12,<4.0.0)",
@@ -281,3 +281,6 @@ exclude_dirs = [
     "examples/postgres_full_text_search.py",
     "examples/postgres.py",
 ]
+
+[tool.codespell]
+ignore-words-list = "notin,NotIn,brin,BRIN,astroid"

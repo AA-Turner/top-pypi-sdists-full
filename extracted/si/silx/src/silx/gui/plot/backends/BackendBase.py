@@ -28,8 +28,6 @@ It documents the Plot backend API.
 This API is a simplified version of PyMca PlotBackend API.
 """
 
-from __future__ import annotations
-
 __authors__ = ["V.A. Sole", "T. Vincent"]
 __license__ = "MIT"
 __date__ = "21/12/2018"
@@ -38,6 +36,7 @@ from collections.abc import Callable
 import weakref
 from silx.gui.colors import RGBAColorType
 
+from ..items.types import AxisScaleType
 from ... import qt
 
 # Names for setCursor
@@ -59,9 +58,9 @@ class BackendBase:
         """
         self.__xLimits = 1.0, 100.0
         self.__yLimits = {"left": (1.0, 100.0), "right": (1.0, 100.0)}
-        self.__xAxisInverted = True
+        self.__xAxisInverted = False
         self.__yAxisInverted = False
-        self.__keepDataAspectRatio = False
+        self._keepDataAspectRatio = False
         self.__xAxisTimeSeries = False
         self._xAxisTimeZone = None
         # Store a weakref to get access to the plot state.
@@ -488,18 +487,10 @@ class BackendBase:
         """
         self.__xAxisTimeSeries = bool(isTimeSeries)
 
-    def setXAxisLogarithmic(self, flag):
-        """Set the X axis scale between linear and log.
-
-        :param bool flag: If True, the bottom axis will use a log scale
-        """
+    def setXAxisScale(self, scale: AxisScaleType):
         pass
 
-    def setYAxisLogarithmic(self, flag):
-        """Set the Y axis scale between linear and log.
-
-        :param bool flag: If True, the left axis will use a log scale
-        """
+    def setYAxisScale(self, scale: AxisScaleType):
         pass
 
     def setXAxisInverted(self, flag: bool):
@@ -530,7 +521,7 @@ class BackendBase:
 
     def isKeepDataAspectRatio(self):
         """Returns whether the plot is keeping data aspect ratio or not."""
-        return self.__keepDataAspectRatio
+        return self._keepDataAspectRatio
 
     def setKeepDataAspectRatio(self, flag):
         """Set whether to keep data aspect ratio or not.
@@ -538,7 +529,7 @@ class BackendBase:
         :param flag:  True to respect data aspect ratio
         :type flag: Boolean, default True
         """
-        self.__keepDataAspectRatio = bool(flag)
+        self._keepDataAspectRatio = bool(flag)
 
     def setGraphGrid(self, which):
         """Set grid.

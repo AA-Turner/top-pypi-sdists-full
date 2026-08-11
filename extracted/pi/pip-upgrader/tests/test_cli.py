@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+from datetime import datetime, timedelta, timezone
 from io import StringIO
 from subprocess import PIPE
 from subprocess import Popen as popen
@@ -21,10 +22,14 @@ DEFAULT_OPTIONS = {
     '--skip-greater-equal': False,
     '--use-default-index': False,
     '--timeout': None,
+    '--min-age-days': None,
     '--minor': False,
     '--patch': False,
     '--non-interactive': False,
     '--skip': [],
+    '--respect-constraints': False,
+    '--no-respect-constraints': False,
+    '--cve-only': False,
     '-p': [],
     '<requirements_file>': [],
 }
@@ -232,7 +237,18 @@ class TestCommand(TestCase):
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
     def test_command_non_interactive_with_skip(self, options_mock, checkbox_mock):
         """--non-interactive with --skip should upgrade all packages except the skipped ones."""
-        with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
+        from packaging import version
+
+        def fake_run(cmd, **kwargs):
+            result = MagicMock()
+            result.returncode = 0
+            return result
+
+        with (
+            patch('pip_upgrader.constraint_validator._get_pip_version', return_value=version.parse('24.0')),
+            patch('pip_upgrader.constraint_validator.subprocess.run', side_effect=fake_run),
+            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
+        ):
             cli.main()
             output = stdout_mock.getvalue()
 
@@ -1543,3 +1559,881 @@ class TestYankedVersions(TestCase):
 
         # 1.0.0 should be suggested because not ALL files are yanked
         self.assertIn('upgrade available: 0.88.0 ==> 1.0.0', output)
+
+
+class TestConstraintValidator(TestCase):
+    """Unit tests for the --respect-constraints validation (issue #83)."""
+
+    def _make_report(self, tmp_dir, packages):
+        """Write a pip --report style JSON file describing resolved packages."""
+        report = {
+            'version': '1',
+            'install': [{'metadata': {'name': name, 'version': ver}} for name, ver in packages.items()],
+        }
+        report_path = os.path.join(tmp_dir, 'report.json')
+        with open(report_path, 'w') as fh:
+            import json
+
+            json.dump(report, fh)
+        return report_path
+
+    def test_skips_when_pip_too_old(self):
+        """Validation should be skipped and packages returned unchanged on old pip."""
+        from pip_upgrader.constraint_validator import ConstraintValidator
+
+        packages = [{'name': 'django', 'latest_version': '6.1'}]
+        with (
+            patch('pip_upgrader.constraint_validator._get_pip_version') as pip_ver_mock,
+            patch('pip_upgrader.constraint_validator.subprocess.run') as run_mock,
+            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
+        ):
+            from packaging import version
+
+            pip_ver_mock.return_value = version.parse('21.0')
+            result = ConstraintValidator(packages).validate_and_adjust()
+            output = stdout_mock.getvalue()
+
+        self.assertFalse(run_mock.called)
+        self.assertEqual(result[0]['latest_version'], '6.1')
+        self.assertIn('too old', output)
+
+    def test_passes_when_compatible(self):
+        """When pip returns 0, packages are returned unchanged."""
+        from packaging import version
+
+        from pip_upgrader.constraint_validator import ConstraintValidator
+
+        packages = [{'name': 'django', 'latest_version': '6.0.5'}]
+
+        def fake_run(cmd, **kwargs):
+            result = MagicMock()
+            result.returncode = 0
+            return result
+
+        with (
+            patch('pip_upgrader.constraint_validator._get_pip_version', return_value=version.parse('24.0')),
+            patch('pip_upgrader.constraint_validator.subprocess.run', side_effect=fake_run),
+            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
+        ):
+            result = ConstraintValidator(packages).validate_and_adjust()
+            output = stdout_mock.getvalue()
+
+        self.assertEqual(result[0]['latest_version'], '6.0.5')
+        self.assertIn('Constraint check passed', output)
+
+    def test_clamps_to_resolved_version_on_conflict(self):
+        """On conflict, the offending package is clamped to pip's resolved version."""
+        from packaging import version
+
+        from pip_upgrader.constraint_validator import ConstraintValidator
+
+        packages = [
+            {'name': 'django', 'latest_version': '6.1'},
+            {'name': 'django-celery-beat', 'latest_version': '2.8.1'},
+        ]
+
+        def fake_run(cmd, **kwargs):
+            # cmd holds '--report <path>'; write a resolved report where pip
+            # picked the compatible Django (6.0.5) instead of the latest (6.1).
+            report_path = cmd[cmd.index('--report') + 1]
+            with open(report_path, 'w') as fh:
+                import json
+
+                json.dump(
+                    {
+                        'install': [
+                            {'metadata': {'name': 'django', 'version': '6.0.5'}},
+                            {'metadata': {'name': 'django-celery-beat', 'version': '2.8.1'}},
+                        ]
+                    },
+                    fh,
+                )
+            result = MagicMock()
+            result.returncode = 1
+            result.stdout = b'ResolutionImpossible'
+            return result
+
+        with (
+            patch('pip_upgrader.constraint_validator._get_pip_version', return_value=version.parse('24.0')),
+            patch('pip_upgrader.constraint_validator.subprocess.run', side_effect=fake_run),
+            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
+        ):
+            result = ConstraintValidator(packages).validate_and_adjust()
+            output = stdout_mock.getvalue()
+
+        by_name = {p['name']: p for p in result}
+        self.assertEqual(by_name['django']['latest_version'], '6.0.5')
+        # unaffected package keeps its version
+        self.assertEqual(by_name['django-celery-beat']['latest_version'], '2.8.1')
+        self.assertIn('Constraint conflict: django', output)
+
+    def test_hard_conflict_unidentifiable_reverts_all(self):
+        """Hard conflict where pip output doesn't mention our packages: revert all as safe fallback."""
+        from packaging import version
+
+        from pip_upgrader.constraint_validator import ConstraintValidator
+
+        packages = [{'name': 'django', 'current_version': version.parse('6.0.8'), 'latest_version': '6.1'}]
+
+        def fake_run(cmd, **kwargs):
+            result = MagicMock()
+            result.returncode = 1
+            # Output doesn't mention 'django' → can't identify conflicting package
+            result.stdout = b'ResolutionImpossible: something went wrong with an unknown package'
+            return result
+
+        with (
+            patch('pip_upgrader.constraint_validator._get_pip_version', return_value=version.parse('24.0')),
+            patch('pip_upgrader.constraint_validator.subprocess.run', side_effect=fake_run),
+            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
+        ):
+            result = ConstraintValidator(packages).validate_and_adjust()
+            output = stdout_mock.getvalue()
+
+        self.assertEqual(result[0]['latest_version'], version.parse('6.0.8'))
+        self.assertIn('no compatible set', output)
+
+    def test_hard_conflict_surgical_revert_leaves_unrelated_upgrades(self):
+        """Hard conflict names only one package: revert it, leave the other upgrade intact."""
+        from packaging import version
+
+        from pip_upgrader.constraint_validator import ConstraintValidator
+
+        packages = [
+            {'name': 'django', 'current_version': version.parse('6.0.8'), 'latest_version': '6.1'},
+            {'name': 'redis', 'current_version': version.parse('8.0.0'), 'latest_version': '8.1.0'},
+        ]
+        call_count = [0]
+
+        def fake_run(cmd, **kwargs):
+            call_count[0] += 1
+            result = MagicMock()
+            if call_count[0] == 1:
+                # First call: pip's real conflict format — names only django via
+                # "The user requested" so redis (which appears in "Collecting redis"
+                # lines) must NOT be wrongly blamed.
+                result.returncode = 1
+                result.stdout = (
+                    b'Collecting django==6.1\n'
+                    b'Collecting redis==8.1.0\n'
+                    b'ERROR: Cannot install django==6.1 because these package versions '
+                    b'have conflicting dependencies.\n\n'
+                    b'The conflict is caused by:\n'
+                    b'    The user requested django==6.1\n'
+                    b'    django-celery-beat 2.9.0 depends on Django<6.1\n\n'
+                    b'ERROR: ResolutionImpossible\n'
+                )
+            else:
+                # Second call (redis alone + context): passes
+                result.returncode = 0
+                result.stdout = b''
+            return result
+
+        with (
+            patch('pip_upgrader.constraint_validator._get_pip_version', return_value=version.parse('24.0')),
+            patch('pip_upgrader.constraint_validator.subprocess.run', side_effect=fake_run),
+            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
+        ):
+            result = ConstraintValidator(packages).validate_and_adjust()
+            output = stdout_mock.getvalue()
+
+        by_name = {p['name']: p for p in result}
+        # django was conflicting — reverted to current
+        self.assertEqual(by_name['django']['latest_version'], version.parse('6.0.8'))
+        # redis was unrelated — should still be upgraded
+        self.assertEqual(by_name['redis']['latest_version'], '8.1.0')
+        self.assertIn('django', output)
+        self.assertEqual(call_count[0], 2)
+
+    def test_user_requested_parsing_prevents_over_revert(self):
+        """'Collecting X' lines must not cause unrelated packages to be wrongly reverted.
+
+        pip lists every package it downloads (including innocent ones) in 'Collecting X'
+        lines before the error block. A broad name search would match them all and revert
+        every pending upgrade. The fix: parse 'The user requested X==Y' lines to identify
+        only the packages pip is explicitly blaming.
+        """
+        from packaging import version
+
+        from pip_upgrader.constraint_validator import ConstraintValidator
+
+        packages = [
+            {'name': 'urllib3', 'current_version': version.parse('1.26.0'), 'latest_version': '2.0.0'},
+            {'name': 'redis', 'current_version': version.parse('4.0.0'), 'latest_version': '5.0.0'},
+        ]
+        call_count = [0]
+
+        def fake_run(cmd, **kwargs):
+            call_count[0] += 1
+            result = MagicMock()
+            if call_count[0] == 1:
+                # Real pip output: both packages appear in "Collecting" but only urllib3
+                # is in the "The user requested" conflict block.
+                result.returncode = 1
+                result.stdout = (
+                    b'Collecting urllib3==2.0.0\n'
+                    b'Collecting redis==5.0.0\n'
+                    b'ERROR: Cannot install urllib3==2.0.0 because of conflicting dependencies.\n\n'
+                    b'The conflict is caused by:\n'
+                    b'    The user requested urllib3==2.0.0\n'
+                    b'    requests 2.20.0 depends on urllib3<1.25\n\n'
+                    b'ERROR: ResolutionImpossible\n'
+                )
+            else:
+                result.returncode = 0
+                result.stdout = b''
+            return result
+
+        with (
+            patch('pip_upgrader.constraint_validator._get_pip_version', return_value=version.parse('24.0')),
+            patch('pip_upgrader.constraint_validator.subprocess.run', side_effect=fake_run),
+            patch('sys.stdout', new_callable=StringIO),
+        ):
+            result = ConstraintValidator(packages).validate_and_adjust()
+
+        by_name = {p['name']: p for p in result}
+        # urllib3 caused the conflict — reverted
+        self.assertEqual(by_name['urllib3']['latest_version'], version.parse('1.26.0'))
+        # redis appeared in "Collecting" but was NOT named in the conflict — must be upgraded
+        self.assertEqual(by_name['redis']['latest_version'], '5.0.0')
+        self.assertEqual(call_count[0], 2)
+
+    def test_non_upgraded_package_context_included_in_temp_file(self):
+        """Temp requirements file must include non-upgraded pins so cross-package caps are caught."""
+        import tempfile
+
+        from packaging import version
+
+        from pip_upgrader.constraint_validator import ConstraintValidator
+
+        # Only django is being upgraded; django-celery-beat is pinned but not in selected_packages.
+        # The bug: if we only check upgraded packages, the Django<6.1 cap from celery-beat is missed.
+        packages = [{'name': 'django', 'latest_version': '6.1'}]
+        written_lines = []
+
+        def fake_run(cmd, **kwargs):
+            # Capture the temp requirements file contents so we can assert on them.
+            req_path = cmd[cmd.index('-r') + 1]
+            with open(req_path) as fh:
+                written_lines.extend(fh.readlines())
+            result = MagicMock()
+            result.returncode = 0
+            return result
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as tmp_reqs:
+            tmp_reqs.write('django==6.0.8\n')
+            tmp_reqs.write('django-celery-beat==2.9.0\n')
+            tmp_reqs_path = tmp_reqs.name
+
+        with (
+            patch('pip_upgrader.constraint_validator._get_pip_version', return_value=version.parse('24.0')),
+            patch('pip_upgrader.constraint_validator.subprocess.run', side_effect=fake_run),
+            patch('sys.stdout', new_callable=StringIO),
+        ):
+            ConstraintValidator(packages, [tmp_reqs_path]).validate_and_adjust()
+
+        # django should appear at the proposed new version (6.1), not old (6.0.8)
+        self.assertTrue(any('django==6.1' in line for line in written_lines))
+        # django-celery-beat (non-upgraded) must be included so its constraint is visible
+        self.assertTrue(any('django-celery-beat' in line for line in written_lines))
+        # old django version must NOT appear (replaced by the new one)
+        self.assertFalse(any('django==6.0.8' in line for line in written_lines))
+
+    def test_relative_r_includes_are_inlined_in_temp_file(self):
+        """Relative -r includes must be inlined so the temp file works from any directory."""
+        import tempfile
+
+        from packaging import version
+
+        from pip_upgrader.constraint_validator import ConstraintValidator
+
+        with tempfile.TemporaryDirectory() as tmp:
+            base_path = os.path.join(tmp, 'base.txt')
+            local_path = os.path.join(tmp, 'local.txt')
+            with open(base_path, 'w') as fh:
+                fh.write('celery==5.2.0\n')
+                fh.write('redis==4.0.0\n')
+            with open(local_path, 'w') as fh:
+                fh.write('-r base.txt\n')
+                fh.write('django==4.2.0\n')
+
+            packages = [{'name': 'django', 'latest_version': '5.0.0'}]
+            written_lines = []
+
+            def fake_run(cmd, **kwargs):
+                req_path = cmd[cmd.index('-r') + 1]
+                with open(req_path) as fh:
+                    written_lines.extend(fh.readlines())
+                result = MagicMock()
+                result.returncode = 0
+                return result
+
+            with (
+                patch('pip_upgrader.constraint_validator._get_pip_version', return_value=version.parse('24.0')),
+                patch('pip_upgrader.constraint_validator.subprocess.run', side_effect=fake_run),
+                patch('sys.stdout', new_callable=StringIO),
+            ):
+                ConstraintValidator(packages, [local_path]).validate_and_adjust()
+
+        # django at proposed version
+        self.assertTrue(any('django==5.0.0' in line for line in written_lines))
+        # base.txt contents inlined (no -r reference in temp file)
+        self.assertTrue(any('celery' in line for line in written_lines))
+        self.assertTrue(any('redis' in line for line in written_lines))
+        # no -r include lines left in temp file
+        self.assertFalse(any(line.strip().startswith('-r ') for line in written_lines))
+
+
+@patch('pip_upgrader.packages_interactive_selector.questionary.checkbox', side_effect=mock_checkbox_select_all)
+class TestRespectConstraintsIntegration(TestCase):
+    """Integration tests wiring --respect-constraints through cli.main() (issue #83)."""
+
+    PACKAGE_NAMES = ['Django', 'celery', 'django-rest-auth', 'ipython']
+
+    def _add_responses_mocks(self):
+        for package in self.PACKAGE_NAMES:
+            canonical = canonicalize_name(package)
+            with open('tests/fixtures/{}.json'.format(package)) as fh:
+                body = fh.read()
+            responses.add(
+                responses.GET,
+                "https://pypi.python.org/pypi/{}/json".format(canonical),
+                body=body,
+                content_type="application/json",
+            )
+
+    def setUp(self):
+        self._add_responses_mocks()
+
+    @responses.activate
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{'--dry-run': True, '--non-interactive': True, '<requirements_file>': ['requirements.txt']}
+        ),
+    )
+    @patch.dict('os.environ', {}, clear=False)
+    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
+    def test_non_interactive_runs_validation_by_default(self, options_mock, checkbox_mock):
+        """--non-interactive should trigger constraint validation without an explicit flag."""
+        from packaging import version
+
+        def fake_run(cmd, **kwargs):
+            result = MagicMock()
+            result.returncode = 0
+            return result
+
+        with (
+            patch('pip_upgrader.constraint_validator._get_pip_version', return_value=version.parse('24.0')),
+            patch('pip_upgrader.constraint_validator.subprocess.run', side_effect=fake_run) as run_mock,
+            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
+        ):
+            cli.main()
+            output = stdout_mock.getvalue()
+
+        self.assertTrue(run_mock.called)
+        self.assertIn('Constraint check passed', output)
+        self.assertIn('Dry run complete', output)
+
+    @responses.activate
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{
+                '--dry-run': True,
+                '--non-interactive': True,
+                '--no-respect-constraints': True,
+                '<requirements_file>': ['requirements.txt'],
+            }
+        ),
+    )
+    @patch.dict('os.environ', {}, clear=False)
+    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
+    def test_no_respect_constraints_disables_validation(self, options_mock, checkbox_mock):
+        """--no-respect-constraints should skip validation even in --non-interactive mode."""
+        with (
+            patch('pip_upgrader.constraint_validator.subprocess.run') as run_mock,
+            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
+        ):
+            cli.main()
+            output = stdout_mock.getvalue()
+
+        self.assertFalse(run_mock.called)
+        self.assertIn('Dry run complete', output)
+
+    @responses.activate
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{
+                '--dry-run': True,
+                '-p': ['all'],
+                '--respect-constraints': True,
+                '<requirements_file>': ['requirements.txt'],
+            }
+        ),
+    )
+    @patch.dict('os.environ', {}, clear=False)
+    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
+    def test_respect_constraints_clamps_conflicting_upgrade(self, options_mock, checkbox_mock):
+        """--respect-constraints should lower a package's target to pip's resolved version."""
+        from packaging import version
+
+        def fake_run(cmd, **kwargs):
+            # Force Django down to 1.10.1 (a lower, "compatible" version).
+            report_path = cmd[cmd.index('--report') + 1]
+            with open(report_path, 'w') as fh:
+                import json
+
+                json.dump({'install': [{'metadata': {'name': 'Django', 'version': '1.10.1'}}]}, fh)
+            result = MagicMock()
+            result.returncode = 1
+            result.stdout = b'ResolutionImpossible'
+            return result
+
+        with (
+            patch('pip_upgrader.constraint_validator._get_pip_version', return_value=version.parse('24.0')),
+            patch('pip_upgrader.constraint_validator.subprocess.run', side_effect=fake_run),
+            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
+        ):
+            cli.main()
+            output = stdout_mock.getvalue()
+
+        self.assertIn('Constraint conflict: Django', output)
+        # Django was clamped to the resolved 1.10.1, so that appears in the dry-run result
+        dry_run_line = [line for line in output.split('\n') if 'Dry run complete' in line][0]
+        self.assertIn('Django', dry_run_line)
+
+
+class TestMinAgeDays(TestCase):
+    """Tests for the --min-age-days cooldown period for newly published versions."""
+
+    @staticmethod
+    def _build_response(releases):
+        """Build a fake requests.Response wrapping a minimal PyPI JSON payload."""
+        import json
+
+        data = {'info': {'version': max(releases.keys())}, 'releases': releases}
+        response = MagicMock()
+        response.ok = True
+        response.json.return_value = json.loads(json.dumps(data))
+        return response
+
+    @staticmethod
+    def _days_ago(days):
+        return (datetime.now(timezone.utc) - timedelta(days=days)).strftime('%Y-%m-%dT%H:%M:%S')
+
+    def _parse(self, releases, current, min_age_days=None):
+        from packaging import version
+
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        detector = PackagesStatusDetector([], make_options(**{'--min-age-days': min_age_days}))
+        return detector._parse_pypi_json_package_info('somepkg', version.parse(current), self._build_response(releases))
+
+    def test_recent_version_is_skipped(self):
+        """A candidate published inside the cooldown window is not offered."""
+        releases = {
+            '1.0.0': [{'upload_time': self._days_ago(100)}],
+            '2.0.0': [{'upload_time': self._days_ago(2)}],  # too new
+        }
+        status, reason = self._parse(releases, '1.0.0', min_age_days=7)
+        self.assertEqual(reason, 'success')
+        # Stays on 1.0.0 because 2.0.0 is only 2 days old
+        self.assertEqual(str(status['latest_version']), '1.0.0')
+        self.assertFalse(status['upgrade_available'])
+
+    def test_old_enough_version_is_offered(self):
+        """A candidate older than the cooldown window is offered normally."""
+        releases = {
+            '1.0.0': [{'upload_time': self._days_ago(100)}],
+            '2.0.0': [{'upload_time': self._days_ago(30)}],
+        }
+        status, reason = self._parse(releases, '1.0.0', min_age_days=7)
+        self.assertEqual(reason, 'success')
+        self.assertEqual(str(status['latest_version']), '2.0.0')
+        self.assertTrue(status['upgrade_available'])
+
+    def test_disabled_by_default(self):
+        """Without --min-age-days, even a brand-new version is offered."""
+        releases = {
+            '1.0.0': [{'upload_time': self._days_ago(100)}],
+            '2.0.0': [{'upload_time': self._days_ago(0)}],
+        }
+        status, reason = self._parse(releases, '1.0.0')
+        self.assertEqual(reason, 'success')
+        self.assertEqual(str(status['latest_version']), '2.0.0')
+
+    def test_falls_back_to_intermediate_version(self):
+        """When the newest is too recent, the next-oldest eligible version wins."""
+        releases = {
+            '1.0.0': [{'upload_time': self._days_ago(100)}],
+            '2.0.0': [{'upload_time': self._days_ago(30)}],
+            '3.0.0': [{'upload_time': self._days_ago(1)}],  # too new
+        }
+        status, reason = self._parse(releases, '1.0.0', min_age_days=7)
+        self.assertEqual(reason, 'success')
+        self.assertEqual(str(status['latest_version']), '2.0.0')
+
+    def test_uses_latest_file_upload_time(self):
+        """The cutoff uses the newest distribution file of a release."""
+        releases = {
+            '1.0.0': [{'upload_time': self._days_ago(100)}],
+            '2.0.0': [
+                {'upload_time': self._days_ago(30)},  # sdist old
+                {'upload_time': self._days_ago(1)},  # a wheel added recently
+            ],
+        }
+        status, reason = self._parse(releases, '1.0.0', min_age_days=7)
+        # newest file is 1 day old -> whole version considered too new
+        self.assertEqual(str(status['latest_version']), '1.0.0')
+
+    def test_missing_upload_time_fails_open(self):
+        """Versions without upload time metadata are kept (fail open)."""
+        releases = {
+            '1.0.0': [{'upload_time': self._days_ago(100)}],
+            '2.0.0': [{}],  # no upload_time
+        }
+        status, reason = self._parse(releases, '1.0.0', min_age_days=7)
+        self.assertEqual(str(status['latest_version']), '2.0.0')
+
+    def test_iso_8601_field_supported(self):
+        """upload_time_iso_8601 with trailing Z is parsed correctly."""
+        recent = (datetime.now(timezone.utc) - timedelta(days=2)).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+        releases = {
+            '1.0.0': [{'upload_time': self._days_ago(100)}],
+            '2.0.0': [{'upload_time_iso_8601': recent}],
+        }
+        status, reason = self._parse(releases, '1.0.0', min_age_days=7)
+        self.assertEqual(str(status['latest_version']), '1.0.0')
+
+
+class TestCVEAuditor(TestCase):
+    """Unit tests for the CVEAuditor (--cve-only) helper (issue #65)."""
+
+    def _audit_output(self, dependencies):
+        """Build a pip-audit -f json style payload as raw bytes."""
+        import json
+
+        return json.dumps({'dependencies': dependencies}).encode('utf-8')
+
+    def _run(self, dependencies):
+        from pip_upgrader.cve_auditor import CVEAuditor
+
+        def fake_run(cmd, **kwargs):
+            result = MagicMock()
+            result.stdout = self._audit_output(dependencies)
+            result.stderr = b''
+            result.returncode = 0
+            return result
+
+        with (
+            patch('pip_upgrader.cve_auditor._find_pip_audit', return_value='/usr/bin/pip-audit'),
+            patch('pip_upgrader.cve_auditor.subprocess.run', side_effect=fake_run),
+            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
+        ):
+            result = CVEAuditor(['requirements.txt']).get_min_fix_versions()
+        return result, stdout_mock.getvalue()
+
+    def test_single_vuln_min_fix(self):
+        """A package with one vuln maps to the smallest fix version."""
+        deps = [{'name': 'flask', 'version': '0.5', 'vulns': [{'id': 'X', 'fix_versions': ['1.0', '1.1']}]}]
+        result, _ = self._run(deps)
+        self.assertEqual(result, {'flask': '1.0'})
+
+    def test_multiple_vulns_takes_max_of_mins(self):
+        """The safe version is the max across each vuln's minimum fix."""
+        deps = [
+            {
+                'name': 'flask',
+                'version': '0.5',
+                'vulns': [
+                    {'id': 'A', 'fix_versions': ['1.0']},
+                    {'id': 'B', 'fix_versions': ['0.12.3']},
+                    {'id': 'C', 'fix_versions': ['2.2.5', '2.3.2']},
+                ],
+            }
+        ]
+        result, _ = self._run(deps)
+        # min per vuln: 1.0, 0.12.3, 2.2.5 -> max is 2.2.5
+        self.assertEqual(result, {'flask': '2.2.5'})
+
+    def test_package_without_fix_is_skipped(self):
+        """A vulnerable package with no fix version is skipped with a warning."""
+        deps = [{'name': 'somepkg', 'version': '1.0', 'vulns': [{'id': 'X', 'fix_versions': []}]}]
+        result, output = self._run(deps)
+        self.assertEqual(result, {})
+        self.assertIn('no fix version available', output)
+
+    def test_package_without_vulns_ignored(self):
+        """A package with no vulnerabilities is not reported."""
+        deps = [{'name': 'clean', 'version': '2.0', 'vulns': []}]
+        result, _ = self._run(deps)
+        self.assertEqual(result, {})
+
+    def test_name_is_canonicalized(self):
+        """Result keys use canonical (lowercased, normalized) names."""
+        deps = [{'name': 'Django', 'version': '1.10', 'vulns': [{'id': 'X', 'fix_versions': ['1.10.5']}]}]
+        result, _ = self._run(deps)
+        self.assertEqual(result, {'django': '1.10.5'})
+
+    def test_missing_pip_audit_returns_empty(self):
+        """When pip-audit is not installed, an empty dict is returned gracefully."""
+        from pip_upgrader.cve_auditor import CVEAuditor
+
+        with (
+            patch('pip_upgrader.cve_auditor._find_pip_audit', return_value=None),
+            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
+        ):
+            result = CVEAuditor(['requirements.txt']).get_min_fix_versions()
+            output = stdout_mock.getvalue()
+
+        self.assertEqual(result, {})
+        self.assertIn('pip-audit not found', output)
+
+
+@patch('pip_upgrader.packages_interactive_selector.questionary.checkbox', side_effect=mock_checkbox_select_all)
+class TestCVEOnlyIntegration(TestCase):
+    """Integration tests wiring --cve-only through cli.main() (issue #65)."""
+
+    PACKAGE_NAMES = ['Django', 'celery', 'django-rest-auth', 'ipython']
+
+    def _add_responses_mocks(self):
+        for package in self.PACKAGE_NAMES:
+            canonical = canonicalize_name(package)
+            with open('tests/fixtures/{}.json'.format(package)) as fh:
+                body = fh.read()
+            responses.add(
+                responses.GET,
+                "https://pypi.python.org/pypi/{}/json".format(canonical),
+                body=body,
+                content_type="application/json",
+            )
+
+    def setUp(self):
+        self._add_responses_mocks()
+
+    def _fake_pip_audit(self, dependencies):
+        """Return a subprocess.run replacement emitting a pip-audit JSON report."""
+        import json
+
+        def fake_run(cmd, **kwargs):
+            result = MagicMock()
+            result.stdout = json.dumps({'dependencies': dependencies}).encode('utf-8')
+            result.stderr = b''
+            result.returncode = 0
+            return result
+
+        return fake_run
+
+    @responses.activate
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{
+                '--dry-run': True,
+                '--non-interactive': True,
+                '--no-respect-constraints': True,
+                '--cve-only': True,
+                '<requirements_file>': ['requirements.txt'],
+            }
+        ),
+    )
+    @patch.dict('os.environ', {}, clear=False)
+    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
+    def test_cve_only_upgrades_only_affected_packages(self, options_mock, checkbox_mock):
+        """Only CVE-flagged packages are upgraded; others are dropped."""
+        # Only Django is flagged, fixed at 1.10.5 (below the 1.11 latest).
+        deps = [{'name': 'Django', 'version': '1.10', 'vulns': [{'id': 'X', 'fix_versions': ['1.10.5']}]}]
+
+        with (
+            patch('pip_upgrader.cve_auditor._find_pip_audit', return_value='/usr/bin/pip-audit'),
+            patch('pip_upgrader.cve_auditor.subprocess.run', side_effect=self._fake_pip_audit(deps)),
+            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
+        ):
+            cli.main()
+            output = stdout_mock.getvalue()
+
+        dry_run_line = [line for line in output.split('\n') if 'Dry run complete' in line][0]
+        self.assertIn('Django', dry_run_line)
+        # django-rest-auth and celery are not CVE-flagged, so excluded
+        self.assertNotIn('django-rest-auth', dry_run_line)
+        self.assertNotIn('celery', dry_run_line)
+        # Clamped to the fix version, not the 1.11 latest
+        self.assertIn('CVE fix -> upgrading to 1.10.5', output)
+
+    @responses.activate
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{
+                '--dry-run': True,
+                '--non-interactive': True,
+                '--no-respect-constraints': True,
+                '--cve-only': True,
+                '<requirements_file>': ['requirements.txt'],
+            }
+        ),
+    )
+    @patch.dict('os.environ', {}, clear=False)
+    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
+    def test_cve_only_skips_package_without_fix(self, options_mock, checkbox_mock):
+        """A CVE-flagged package with no fix version is skipped, nothing upgraded."""
+        deps = [{'name': 'Django', 'version': '1.10', 'vulns': [{'id': 'X', 'fix_versions': []}]}]
+
+        with (
+            patch('pip_upgrader.cve_auditor._find_pip_audit', return_value='/usr/bin/pip-audit'),
+            patch('pip_upgrader.cve_auditor.subprocess.run', side_effect=self._fake_pip_audit(deps)),
+            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
+        ):
+            cli.main()
+            output = stdout_mock.getvalue()
+
+        self.assertIn('no fix version available', output)
+        self.assertIn('No CVE-affected packages to upgrade.', output)
+
+    @responses.activate
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{
+                '--dry-run': True,
+                '--non-interactive': True,
+                '--no-respect-constraints': True,
+                '--cve-only': True,
+                '<requirements_file>': ['requirements.txt'],
+            }
+        ),
+    )
+    @patch.dict('os.environ', {}, clear=False)
+    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
+    def test_cve_only_dry_run_does_not_write(self, options_mock, checkbox_mock):
+        """--cve-only with --dry-run must not modify the requirements file."""
+        tmpdir = tempfile.mkdtemp()
+        tmp_req = os.path.join(tmpdir, 'requirements.txt')
+        shutil.copy('requirements.txt', tmp_req)
+        with open(tmp_req) as f:
+            before = f.read()
+
+        options_mock.return_value = make_options(
+            **{
+                '--dry-run': True,
+                '--non-interactive': True,
+                '--no-respect-constraints': True,
+                '--cve-only': True,
+                '<requirements_file>': [tmp_req],
+            }
+        )
+        deps = [{'name': 'Django', 'version': '1.10', 'vulns': [{'id': 'X', 'fix_versions': ['1.10.5']}]}]
+
+        with (
+            patch('pip_upgrader.cve_auditor._find_pip_audit', return_value='/usr/bin/pip-audit'),
+            patch('pip_upgrader.cve_auditor.subprocess.run', side_effect=self._fake_pip_audit(deps)),
+            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
+        ):
+            cli.main()
+            output = stdout_mock.getvalue()
+
+        with open(tmp_req) as f:
+            after = f.read()
+        self.assertEqual(before, after)
+        self.assertIn('Dry run complete', output)
+        shutil.rmtree(tmpdir)
+
+    @responses.activate
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{
+                '--dry-run': False,
+                '--non-interactive': True,
+                '--no-respect-constraints': True,
+                '--cve-only': True,
+                '<requirements_file>': ['requirements.txt'],
+            }
+        ),
+    )
+    @patch.dict('os.environ', {}, clear=False)
+    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
+    def test_cve_only_non_interactive_writes_min_fix(self, options_mock, checkbox_mock):
+        """--cve-only --non-interactive writes the min fix version to the file."""
+        tmpdir = tempfile.mkdtemp()
+        tmp_req = os.path.join(tmpdir, 'requirements.txt')
+        shutil.copy('requirements.txt', tmp_req)
+
+        options_mock.return_value = make_options(
+            **{
+                '--dry-run': False,
+                '--non-interactive': True,
+                '--no-respect-constraints': True,
+                '--cve-only': True,
+                '<requirements_file>': [tmp_req],
+            }
+        )
+        deps = [{'name': 'Django', 'version': '1.10', 'vulns': [{'id': 'X', 'fix_versions': ['1.10.5']}]}]
+
+        with (
+            patch('pip_upgrader.cve_auditor._find_pip_audit', return_value='/usr/bin/pip-audit'),
+            patch('pip_upgrader.cve_auditor.subprocess.run', side_effect=self._fake_pip_audit(deps)),
+            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
+        ):
+            cli.main()
+            output = stdout_mock.getvalue()
+
+        with open(tmp_req) as f:
+            content = f.read()
+        self.assertFalse(checkbox_mock.called)
+        self.assertIn('Django==1.10.5', content)
+        self.assertIn('Updated versions', output)
+        shutil.rmtree(tmpdir)
+
+    @responses.activate
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{
+                '--dry-run': True,
+                '-p': ['all'],
+                '--respect-constraints': True,
+                '--cve-only': True,
+                '<requirements_file>': ['requirements.txt'],
+            }
+        ),
+    )
+    @patch.dict('os.environ', {}, clear=False)
+    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
+    def test_cve_only_with_respect_constraints(self, options_mock, checkbox_mock):
+        """--cve-only composes with --respect-constraints (validation runs on the clamped set)."""
+        from packaging import version as pkg_version
+
+        deps = [{'name': 'Django', 'version': '1.10', 'vulns': [{'id': 'X', 'fix_versions': ['1.10.5']}]}]
+
+        import json as _json
+
+        # cve_auditor and constraint_validator share the same subprocess module,
+        # so a single side_effect must service both call sites, routed by argv.
+        def fake_run(cmd, **kwargs):
+            result = MagicMock()
+            if 'pip-audit' in cmd[0]:
+                result.stdout = _json.dumps({'dependencies': deps}).encode('utf-8')
+                result.stderr = b''
+                result.returncode = 0
+            else:
+                result.returncode = 0
+            return result
+
+        with (
+            patch('pip_upgrader.cve_auditor._find_pip_audit', return_value='/usr/bin/pip-audit'),
+            patch('pip_upgrader.constraint_validator._get_pip_version', return_value=pkg_version.parse('24.0')),
+            patch('pip_upgrader.constraint_validator.subprocess.run', side_effect=fake_run) as run_mock,
+            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
+        ):
+            cli.main()
+            output = stdout_mock.getvalue()
+
+        # Constraint validation ran, and only Django (the CVE package) was upgraded.
+        self.assertTrue(run_mock.called)
+        self.assertIn('Constraint check passed', output)
+        dry_run_line = [line for line in output.split('\n') if 'Dry run complete' in line][0]
+        self.assertIn('Django', dry_run_line)
+        self.assertNotIn('celery', dry_run_line)

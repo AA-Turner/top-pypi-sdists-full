@@ -76,6 +76,364 @@ else:
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_glue_f45a97f3.IBlueprintRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnBlueprint(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_glue.CfnBlueprint",
+):
+    '''Resource Type definition for AWS::Glue::Blueprint.
+
+    Registers a blueprint with AWS Glue.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-blueprint.html
+    :cloudformationResource: AWS::Glue::Blueprint
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_glue as glue
+        
+        cfn_blueprint = glue.CfnBlueprint(self, "MyCfnBlueprint",
+            blueprint_location="blueprintLocation",
+            name="name",
+        
+            # the properties below are optional
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        blueprint_location: builtins.str,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Glue::Blueprint``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param blueprint_location: Specifies a path in Amazon S3 where the blueprint is published.
+        :param name: The name of the blueprint.
+        :param description: A description of the blueprint.
+        :param tags: The tags to be applied to this blueprint.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d3e37f9b6de626bfea985875895fa8d4fc655dbed214197fa92a61347d8e88cb)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnBlueprintProps(
+            blueprint_location=blueprint_location,
+            name=name,
+            description=description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForBlueprint")
+    @builtins.classmethod
+    def arn_for_blueprint(
+        cls,
+        resource: "_aws_glue_f45a97f3.IBlueprintRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f067fb652fefd2fdc3a303a3d987278d0a2e9c5f4b2360afd07ddffa82ba1d47)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForBlueprint", [resource]))
+
+    @jsii.member(jsii_name="isCfnBlueprint")
+    @builtins.classmethod
+    def is_cfn_blueprint(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnBlueprint.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1f568676ee8cbf34bd9cb07305f16bfdaf07e0c991cafd654a5145cc28a6dfd0)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBlueprint", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9fa3bd506dc996ddef84e357649ce8f147a2fb81bfeacde6c77fd8073385d298)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__697024cce4f0aeb41c1676aced4713a02121ab69b13427609594060bd6c9de61)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the blueprint.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedOn")
+    def attr_created_on(self) -> builtins.str:
+        '''The date and time the blueprint was registered.
+
+        :cloudformationAttribute: CreatedOn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedOn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedOn")
+    def attr_last_modified_on(self) -> builtins.str:
+        '''The date and time the blueprint was last modified.
+
+        :cloudformationAttribute: LastModifiedOn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedOn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrParameterSpec")
+    def attr_parameter_spec(self) -> builtins.str:
+        '''A JSON string that indicates the list of parameter specifications for the blueprint.
+
+        :cloudformationAttribute: ParameterSpec
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrParameterSpec"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the blueprint registration.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="blueprintRef")
+    def blueprint_ref(self) -> "_aws_glue_f45a97f3.BlueprintReference":
+        '''A reference to a Blueprint resource.'''
+        return typing.cast("_aws_glue_f45a97f3.BlueprintReference", jsii.get(self, "blueprintRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="blueprintLocation")
+    def blueprint_location(self) -> builtins.str:
+        '''Specifies a path in Amazon S3 where the blueprint is published.'''
+        return typing.cast(builtins.str, jsii.get(self, "blueprintLocation"))
+
+    @blueprint_location.setter
+    def blueprint_location(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fb331b52e765c46a39d7c2a2b2b9e0ad3e83c78834941bb3735b16570226f6e6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "blueprintLocation", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the blueprint.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a33ba9bfff72ddda4d2e9db2b695a641aef897525ef8df6431594d89cd12a2fe)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the blueprint.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ced3f023636d06f538440f71ea37843a234bf3d6e05e77e20718f6eee7d47ac9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags to be applied to this blueprint.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b455e74a1d3700dc3f29ef3e227143629c25012fcb52582503015ed2b4316aed)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_glue.CfnBlueprintProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "blueprint_location": "blueprintLocation",
+        "name": "name",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnBlueprintProps:
+    def __init__(
+        self,
+        *,
+        blueprint_location: builtins.str,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBlueprint``.
+
+        :param blueprint_location: Specifies a path in Amazon S3 where the blueprint is published.
+        :param name: The name of the blueprint.
+        :param description: A description of the blueprint.
+        :param tags: The tags to be applied to this blueprint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-blueprint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_glue as glue
+            
+            cfn_blueprint_props = glue.CfnBlueprintProps(
+                blueprint_location="blueprintLocation",
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6b14444fa7e0693b3698fc1671f542bfecb57d21e7de7bf4e34966d863ce4c42)
+            check_type(argname="argument blueprint_location", value=blueprint_location, expected_type=type_hints["blueprint_location"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "blueprint_location": blueprint_location,
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def blueprint_location(self) -> builtins.str:
+        '''Specifies a path in Amazon S3 where the blueprint is published.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-blueprint.html#cfn-glue-blueprint-blueprintlocation
+        '''
+        result = self._values.get("blueprint_location")
+        assert result is not None, "Required property 'blueprint_location' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the blueprint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-blueprint.html#cfn-glue-blueprint-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the blueprint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-blueprint.html#cfn-glue-blueprint-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags to be applied to this blueprint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-blueprint.html#cfn-glue-blueprint-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBlueprintProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_glue_f45a97f3.ICatalogRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnCatalog(
     _aws_cdk_0cae9daa.CfnResource,
@@ -6142,26 +6500,17 @@ class CfnDataCatalogEncryptionSettings(
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-datacatalogencryptionsettings.html
     :cloudformationResource: AWS::Glue::DataCatalogEncryptionSettings
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: infused
 
     Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_glue as glue
+        from aws_cdk.aws_glue import CfnDataCatalogEncryptionSettings
         
-        cfn_data_catalog_encryption_settings = glue.CfnDataCatalogEncryptionSettings(self, "MyCfnDataCatalogEncryptionSettings",
-            catalog_id="catalogId",
-            data_catalog_encryption_settings=glue.CfnDataCatalogEncryptionSettings.DataCatalogEncryptionSettingsProperty(
-                connection_password_encryption=glue.CfnDataCatalogEncryptionSettings.ConnectionPasswordEncryptionProperty(
-                    kms_key_id="kmsKeyId",
-                    return_connection_password_encrypted=False
-                ),
-                encryption_at_rest=glue.CfnDataCatalogEncryptionSettings.EncryptionAtRestProperty(
-                    catalog_encryption_mode="catalogEncryptionMode",
-                    catalog_encryption_service_role="catalogEncryptionServiceRole",
-                    sse_aws_kms_key_id="sseAwsKmsKeyId"
-                )
+        
+        CfnDataCatalogEncryptionSettings(self, "Encryption",
+            catalog_id="my-catalog-id",
+            data_catalog_encryption_settings=CfnDataCatalogEncryptionSettings.DataCatalogEncryptionSettingsProperty(
+                encryption_at_rest=CfnDataCatalogEncryptionSettings.EncryptionAtRestProperty(catalog_encryption_mode="SSE-KMS")
             )
         )
     '''
@@ -6565,26 +6914,17 @@ class CfnDataCatalogEncryptionSettingsProps:
         :param data_catalog_encryption_settings: Contains configuration information for maintaining Data Catalog security.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-datacatalogencryptionsettings.html
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_glue as glue
+            from aws_cdk.aws_glue import CfnDataCatalogEncryptionSettings
             
-            cfn_data_catalog_encryption_settings_props = glue.CfnDataCatalogEncryptionSettingsProps(
-                catalog_id="catalogId",
-                data_catalog_encryption_settings=glue.CfnDataCatalogEncryptionSettings.DataCatalogEncryptionSettingsProperty(
-                    connection_password_encryption=glue.CfnDataCatalogEncryptionSettings.ConnectionPasswordEncryptionProperty(
-                        kms_key_id="kmsKeyId",
-                        return_connection_password_encrypted=False
-                    ),
-                    encryption_at_rest=glue.CfnDataCatalogEncryptionSettings.EncryptionAtRestProperty(
-                        catalog_encryption_mode="catalogEncryptionMode",
-                        catalog_encryption_service_role="catalogEncryptionServiceRole",
-                        sse_aws_kms_key_id="sseAwsKmsKeyId"
-                    )
+            
+            CfnDataCatalogEncryptionSettings(self, "Encryption",
+                catalog_id="my-catalog-id",
+                data_catalog_encryption_settings=CfnDataCatalogEncryptionSettings.DataCatalogEncryptionSettingsProperty(
+                    encryption_at_rest=CfnDataCatalogEncryptionSettings.EncryptionAtRestProperty(catalog_encryption_mode="SSE-KMS")
                 )
             )
         '''
@@ -21749,6 +22089,493 @@ class CfnUsageProfileProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_glue_f45a97f3.IUserDefinedFunctionRef)
+class CfnUserDefinedFunction(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_glue.CfnUserDefinedFunction",
+):
+    '''Represents a user-defined function (UDF) definition in the AWS Glue Data Catalog.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-userdefinedfunction.html
+    :cloudformationResource: AWS::Glue::UserDefinedFunction
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_glue as glue
+        
+        cfn_user_defined_function = glue.CfnUserDefinedFunction(self, "MyCfnUserDefinedFunction",
+            database_name="databaseName",
+            function_name="functionName",
+        
+            # the properties below are optional
+            class_name="className",
+            function_type="functionType",
+            owner_name="ownerName",
+            owner_type="ownerType",
+            resource_uris=[glue.CfnUserDefinedFunction.ResourceUriProperty(
+                resource_type="resourceType",
+                uri="uri"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        database_name: builtins.str,
+        function_name: builtins.str,
+        class_name: typing.Optional[builtins.str] = None,
+        function_type: typing.Optional[builtins.str] = None,
+        owner_name: typing.Optional[builtins.str] = None,
+        owner_type: typing.Optional[builtins.str] = None,
+        resource_uris: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserDefinedFunction.ResourceUriProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Glue::UserDefinedFunction``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param database_name: The name of the catalog database in which the function is located.
+        :param function_name: The name of the function.
+        :param class_name: The Java class that contains the function code.
+        :param function_type: The type of the function.
+        :param owner_name: The owner of the function.
+        :param owner_type: The owner type.
+        :param resource_uris: The resource URIs for the function.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e8e8c0196d1d94e274ce69424ecb5792ba9737d7a805131e7c40b1a437a8c3ba)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnUserDefinedFunctionProps(
+            database_name=database_name,
+            function_name=function_name,
+            class_name=class_name,
+            function_type=function_type,
+            owner_name=owner_name,
+            owner_type=owner_type,
+            resource_uris=resource_uris,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForUserDefinedFunction")
+    @builtins.classmethod
+    def arn_for_user_defined_function(
+        cls,
+        resource: "_aws_glue_f45a97f3.IUserDefinedFunctionRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0baa0a6b12adf930a5b0f7b55e8a866687ed26eec24f8a7590d32e7f9aff5eed)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForUserDefinedFunction", [resource]))
+
+    @jsii.member(jsii_name="isCfnUserDefinedFunction")
+    @builtins.classmethod
+    def is_cfn_user_defined_function(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnUserDefinedFunction.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f93a1eb6b673830127cc77e1393b170564aab7ae231954ca53b0b21fe7612d48)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUserDefinedFunction", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b6802178419bd04464c3cc5a5f1e21f531204b17571821f37d46210e6acc309c)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__37204007e0eeca6d8b0d86887d7fc65f48824e6dfe5810c0a6de4a87a9e13a25)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the user-defined function.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="userDefinedFunctionRef")
+    def user_defined_function_ref(
+        self,
+    ) -> "_aws_glue_f45a97f3.UserDefinedFunctionReference":
+        '''A reference to a UserDefinedFunction resource.'''
+        return typing.cast("_aws_glue_f45a97f3.UserDefinedFunctionReference", jsii.get(self, "userDefinedFunctionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="databaseName")
+    def database_name(self) -> builtins.str:
+        '''The name of the catalog database in which the function is located.'''
+        return typing.cast(builtins.str, jsii.get(self, "databaseName"))
+
+    @database_name.setter
+    def database_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__57911f8ae396b49bada6feba9690f42f3dddf8c16a8a6728fe96b0148dcc3c4c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "databaseName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="functionName")
+    def function_name(self) -> builtins.str:
+        '''The name of the function.'''
+        return typing.cast(builtins.str, jsii.get(self, "functionName"))
+
+    @function_name.setter
+    def function_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__65bb5fb1a5db053c96401f96a01dfcf39cc09f4431a82def5d9b994c941f54ea)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "functionName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="className")
+    def class_name(self) -> typing.Optional[builtins.str]:
+        '''The Java class that contains the function code.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "className"))
+
+    @class_name.setter
+    def class_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__aa24bf51d2fb3c691ec744a13f6c1b12831f243fb50ea20d47f4bbf1d91cc410)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "className", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="functionType")
+    def function_type(self) -> typing.Optional[builtins.str]:
+        '''The type of the function.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "functionType"))
+
+    @function_type.setter
+    def function_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c2f94d57cb09d1eb4815fe8bc789d69376d9f31fe997aa0679175448cc97cc51)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "functionType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ownerName")
+    def owner_name(self) -> typing.Optional[builtins.str]:
+        '''The owner of the function.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ownerName"))
+
+    @owner_name.setter
+    def owner_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7a11a3ab1450604554f96913c2a3de9fe47fd7aaa748690e00cda817a55bce2f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ownerName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ownerType")
+    def owner_type(self) -> typing.Optional[builtins.str]:
+        '''The owner type.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ownerType"))
+
+    @owner_type.setter
+    def owner_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__14af89138d0fc887ba7d9dd01e849abc2e5ca55fdac8f082e5d15bac00aa3594)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ownerType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceUris")
+    def resource_uris(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserDefinedFunction.ResourceUriProperty"]]]]:
+        '''The resource URIs for the function.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserDefinedFunction.ResourceUriProperty"]]]], jsii.get(self, "resourceUris"))
+
+    @resource_uris.setter
+    def resource_uris(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserDefinedFunction.ResourceUriProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cdd433596d19e343b7610c045c8bee59d35450e2e6ead0ce12cc26080f9abeab)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceUris", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_glue.CfnUserDefinedFunction.ResourceUriProperty",
+        jsii_struct_bases=[],
+        name_mapping={"resource_type": "resourceType", "uri": "uri"},
+    )
+    class ResourceUriProperty:
+        def __init__(
+            self,
+            *,
+            resource_type: typing.Optional[builtins.str] = None,
+            uri: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The URIs for function resources.
+
+            :param resource_type: The type of the resource.
+            :param uri: The URI for accessing the resource.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-userdefinedfunction-resourceuri.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_glue as glue
+                
+                resource_uri_property = glue.CfnUserDefinedFunction.ResourceUriProperty(
+                    resource_type="resourceType",
+                    uri="uri"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5f472feae7ced5243178a3c59a99e0b63b4c509b6e9723dee5bbd91ea44d860b)
+                check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
+                check_type(argname="argument uri", value=uri, expected_type=type_hints["uri"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if resource_type is not None:
+                self._values["resource_type"] = resource_type
+            if uri is not None:
+                self._values["uri"] = uri
+
+        @builtins.property
+        def resource_type(self) -> typing.Optional[builtins.str]:
+            '''The type of the resource.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-userdefinedfunction-resourceuri.html#cfn-glue-userdefinedfunction-resourceuri-resourcetype
+            '''
+            result = self._values.get("resource_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def uri(self) -> typing.Optional[builtins.str]:
+            '''The URI for accessing the resource.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-userdefinedfunction-resourceuri.html#cfn-glue-userdefinedfunction-resourceuri-uri
+            '''
+            result = self._values.get("uri")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ResourceUriProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_glue.CfnUserDefinedFunctionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "database_name": "databaseName",
+        "function_name": "functionName",
+        "class_name": "className",
+        "function_type": "functionType",
+        "owner_name": "ownerName",
+        "owner_type": "ownerType",
+        "resource_uris": "resourceUris",
+    },
+)
+class CfnUserDefinedFunctionProps:
+    def __init__(
+        self,
+        *,
+        database_name: builtins.str,
+        function_name: builtins.str,
+        class_name: typing.Optional[builtins.str] = None,
+        function_type: typing.Optional[builtins.str] = None,
+        owner_name: typing.Optional[builtins.str] = None,
+        owner_type: typing.Optional[builtins.str] = None,
+        resource_uris: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserDefinedFunction.ResourceUriProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnUserDefinedFunction``.
+
+        :param database_name: The name of the catalog database in which the function is located.
+        :param function_name: The name of the function.
+        :param class_name: The Java class that contains the function code.
+        :param function_type: The type of the function.
+        :param owner_name: The owner of the function.
+        :param owner_type: The owner type.
+        :param resource_uris: The resource URIs for the function.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-userdefinedfunction.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_glue as glue
+            
+            cfn_user_defined_function_props = glue.CfnUserDefinedFunctionProps(
+                database_name="databaseName",
+                function_name="functionName",
+            
+                # the properties below are optional
+                class_name="className",
+                function_type="functionType",
+                owner_name="ownerName",
+                owner_type="ownerType",
+                resource_uris=[glue.CfnUserDefinedFunction.ResourceUriProperty(
+                    resource_type="resourceType",
+                    uri="uri"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5eb0d302ba4f0db2c208b32144558285549261a4c2339ed0dbea8bf1b8b3a40c)
+            check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
+            check_type(argname="argument function_name", value=function_name, expected_type=type_hints["function_name"])
+            check_type(argname="argument class_name", value=class_name, expected_type=type_hints["class_name"])
+            check_type(argname="argument function_type", value=function_type, expected_type=type_hints["function_type"])
+            check_type(argname="argument owner_name", value=owner_name, expected_type=type_hints["owner_name"])
+            check_type(argname="argument owner_type", value=owner_type, expected_type=type_hints["owner_type"])
+            check_type(argname="argument resource_uris", value=resource_uris, expected_type=type_hints["resource_uris"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "database_name": database_name,
+            "function_name": function_name,
+        }
+        if class_name is not None:
+            self._values["class_name"] = class_name
+        if function_type is not None:
+            self._values["function_type"] = function_type
+        if owner_name is not None:
+            self._values["owner_name"] = owner_name
+        if owner_type is not None:
+            self._values["owner_type"] = owner_type
+        if resource_uris is not None:
+            self._values["resource_uris"] = resource_uris
+
+    @builtins.property
+    def database_name(self) -> builtins.str:
+        '''The name of the catalog database in which the function is located.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-userdefinedfunction.html#cfn-glue-userdefinedfunction-databasename
+        '''
+        result = self._values.get("database_name")
+        assert result is not None, "Required property 'database_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def function_name(self) -> builtins.str:
+        '''The name of the function.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-userdefinedfunction.html#cfn-glue-userdefinedfunction-functionname
+        '''
+        result = self._values.get("function_name")
+        assert result is not None, "Required property 'function_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def class_name(self) -> typing.Optional[builtins.str]:
+        '''The Java class that contains the function code.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-userdefinedfunction.html#cfn-glue-userdefinedfunction-classname
+        '''
+        result = self._values.get("class_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def function_type(self) -> typing.Optional[builtins.str]:
+        '''The type of the function.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-userdefinedfunction.html#cfn-glue-userdefinedfunction-functiontype
+        '''
+        result = self._values.get("function_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def owner_name(self) -> typing.Optional[builtins.str]:
+        '''The owner of the function.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-userdefinedfunction.html#cfn-glue-userdefinedfunction-ownername
+        '''
+        result = self._values.get("owner_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def owner_type(self) -> typing.Optional[builtins.str]:
+        '''The owner type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-userdefinedfunction.html#cfn-glue-userdefinedfunction-ownertype
+        '''
+        result = self._values.get("owner_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def resource_uris(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserDefinedFunction.ResourceUriProperty"]]]]:
+        '''The resource URIs for the function.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-userdefinedfunction.html#cfn-glue-userdefinedfunction-resourceuris
+        '''
+        result = self._values.get("resource_uris")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserDefinedFunction.ResourceUriProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnUserDefinedFunctionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_glue_f45a97f3.IWorkflowRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnWorkflow(
     _aws_cdk_0cae9daa.CfnResource,
@@ -22117,6 +22944,8 @@ class CfnWorkflowProps:
 
 
 __all__ = [
+    "CfnBlueprint",
+    "CfnBlueprintProps",
     "CfnCatalog",
     "CfnCatalogProps",
     "CfnClassifier",
@@ -22165,11 +22994,83 @@ __all__ = [
     "CfnTriggerProps",
     "CfnUsageProfile",
     "CfnUsageProfileProps",
+    "CfnUserDefinedFunction",
+    "CfnUserDefinedFunctionProps",
     "CfnWorkflow",
     "CfnWorkflowProps",
 ]
 
 publication.publish()
+
+def _typecheckingstub__d3e37f9b6de626bfea985875895fa8d4fc655dbed214197fa92a61347d8e88cb(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    blueprint_location: builtins.str,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f067fb652fefd2fdc3a303a3d987278d0a2e9c5f4b2360afd07ddffa82ba1d47(
+    resource: _aws_glue_f45a97f3.IBlueprintRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1f568676ee8cbf34bd9cb07305f16bfdaf07e0c991cafd654a5145cc28a6dfd0(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9fa3bd506dc996ddef84e357649ce8f147a2fb81bfeacde6c77fd8073385d298(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__697024cce4f0aeb41c1676aced4713a02121ab69b13427609594060bd6c9de61(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb331b52e765c46a39d7c2a2b2b9e0ad3e83c78834941bb3735b16570226f6e6(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a33ba9bfff72ddda4d2e9db2b695a641aef897525ef8df6431594d89cd12a2fe(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ced3f023636d06f538440f71ea37843a234bf3d6e05e77e20718f6eee7d47ac9(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b455e74a1d3700dc3f29ef3e227143629c25012fcb52582503015ed2b4316aed(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b14444fa7e0693b3698fc1671f542bfecb57d21e7de7bf4e34966d863ce4c42(
+    *,
+    blueprint_location: builtins.str,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__0a07ee451a608fb42438c018b7cb6e276511be6d53068500e35383ffc0e0b653(
     scope: _constructs_77d1e7e8.Construct,
@@ -25258,6 +26159,108 @@ def _typecheckingstub__be3c5b9721453aa0bc8630055cb2a1fa015c3fde4feb4c18424a9ed6f
     configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUsageProfile.ProfileConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e8e8c0196d1d94e274ce69424ecb5792ba9737d7a805131e7c40b1a437a8c3ba(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    database_name: builtins.str,
+    function_name: builtins.str,
+    class_name: typing.Optional[builtins.str] = None,
+    function_type: typing.Optional[builtins.str] = None,
+    owner_name: typing.Optional[builtins.str] = None,
+    owner_type: typing.Optional[builtins.str] = None,
+    resource_uris: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserDefinedFunction.ResourceUriProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0baa0a6b12adf930a5b0f7b55e8a866687ed26eec24f8a7590d32e7f9aff5eed(
+    resource: _aws_glue_f45a97f3.IUserDefinedFunctionRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f93a1eb6b673830127cc77e1393b170564aab7ae231954ca53b0b21fe7612d48(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b6802178419bd04464c3cc5a5f1e21f531204b17571821f37d46210e6acc309c(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__37204007e0eeca6d8b0d86887d7fc65f48824e6dfe5810c0a6de4a87a9e13a25(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__57911f8ae396b49bada6feba9690f42f3dddf8c16a8a6728fe96b0148dcc3c4c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65bb5fb1a5db053c96401f96a01dfcf39cc09f4431a82def5d9b994c941f54ea(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa24bf51d2fb3c691ec744a13f6c1b12831f243fb50ea20d47f4bbf1d91cc410(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c2f94d57cb09d1eb4815fe8bc789d69376d9f31fe997aa0679175448cc97cc51(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7a11a3ab1450604554f96913c2a3de9fe47fd7aaa748690e00cda817a55bce2f(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__14af89138d0fc887ba7d9dd01e849abc2e5ca55fdac8f082e5d15bac00aa3594(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cdd433596d19e343b7610c045c8bee59d35450e2e6ead0ce12cc26080f9abeab(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnUserDefinedFunction.ResourceUriProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5f472feae7ced5243178a3c59a99e0b63b4c509b6e9723dee5bbd91ea44d860b(
+    *,
+    resource_type: typing.Optional[builtins.str] = None,
+    uri: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5eb0d302ba4f0db2c208b32144558285549261a4c2339ed0dbea8bf1b8b3a40c(
+    *,
+    database_name: builtins.str,
+    function_name: builtins.str,
+    class_name: typing.Optional[builtins.str] = None,
+    function_type: typing.Optional[builtins.str] = None,
+    owner_name: typing.Optional[builtins.str] = None,
+    owner_type: typing.Optional[builtins.str] = None,
+    resource_uris: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserDefinedFunction.ResourceUriProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

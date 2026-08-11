@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vllm
-Version: 0.26.0
+Version: 0.27.0
 Summary: A high-throughput and memory-efficient inference and serving engine for LLMs
 Author: vLLM Team
 License-Expression: Apache-2.0
@@ -53,7 +53,7 @@ Requires-Dist: partial-json-parser
 Requires-Dist: jsonschema>=4.23.0
 Requires-Dist: pyzmq>=25.0.0
 Requires-Dist: msgspec
-Requires-Dist: mistral_common[image]>=1.11.5
+Requires-Dist: mistral_common[image]>=1.11.6
 Requires-Dist: opencv-python-headless>=4.13.0
 Requires-Dist: pyyaml
 Requires-Dist: six>=1.16.0; python_version > "3.11"
@@ -78,19 +78,19 @@ Requires-Dist: opentelemetry-api>=1.27.0
 Requires-Dist: opentelemetry-exporter-otlp>=1.27.0
 Requires-Dist: opentelemetry-semantic-conventions-ai>=0.4.1
 Requires-Dist: numba==0.65.0
-Requires-Dist: torch==2.11.0
+Requires-Dist: torch==2.13.0
 Requires-Dist: torchaudio==2.11.0
-Requires-Dist: torchvision==0.26.0
+Requires-Dist: torchvision==0.28.0
 Requires-Dist: torchcodec>=0.14
 Requires-Dist: PyNvVideoCodec==2.0.4
-Requires-Dist: flashinfer-python==0.6.14
-Requires-Dist: apache-tvm-ffi==0.1.10
-Requires-Dist: tilelang==0.1.9
+Requires-Dist: flashinfer-python==0.6.16.post3
+Requires-Dist: apache-tvm-ffi==0.1.11
+Requires-Dist: tilelang==0.1.12
 Requires-Dist: nvidia-cudnn-frontend>=1.19.1
 Requires-Dist: nvtx==0.2.15
 Requires-Dist: fastsafetensors>=0.3.2
 Requires-Dist: nvidia-cutlass-dsl[cu13]==4.6.0
-Requires-Dist: quack-kernels>=0.4.0
+Requires-Dist: quack-kernels==0.6.1
 Requires-Dist: tokenspeed-mla==0.1.8; platform_system == "Linux"
 Requires-Dist: humming-kernels[cu13]==0.1.10
 Provides-Extra: zen
@@ -121,7 +121,7 @@ Provides-Extra: deepstream
 Requires-Dist: nvidia-deepstream-videodecode-cu13>=9.0.2; extra == "deepstream"
 Provides-Extra: flashinfer
 Provides-Extra: helion
-Requires-Dist: helion==1.1.0; extra == "helion"
+Requires-Dist: helion==1.4.0; extra == "helion"
 Provides-Extra: grpc
 Requires-Dist: smg-grpc-servicer[vllm]>=0.5.2; extra == "grpc"
 Provides-Extra: otel
@@ -185,7 +185,7 @@ vLLM is flexible and easy to use with:
 - Tool calling and reasoning parsers
 - OpenAI-compatible API server, plus Anthropic Messages API and gRPC support
 - Efficient multi-LoRA support for dense and MoE layers
-- Support for NVIDIA GPUs, AMD GPUs, and x86/ARM/PowerPC CPUs. Additionally, diverse hardware plugins such as Google TPUs, Intel Gaudi, IBM Spyre, Huawei Ascend, Rebellions NPU, Apple Silicon, MetaX GPU, and more.
+- Support for NVIDIA GPUs, AMD GPUs, Intel GPUs, and x86/ARM/PowerPC CPUs. Additionally, diverse hardware plugins such as Google TPUs, Intel Gaudi, IBM Spyre, Huawei Ascend, Rebellions NPU, Apple Silicon, MetaX GPU, and more.
 
 vLLM seamlessly supports 200+ model architectures on Hugging Face, including:
 

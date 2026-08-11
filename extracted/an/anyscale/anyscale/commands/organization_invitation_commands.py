@@ -77,8 +77,12 @@ def create(emails: str,) -> None:
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[
+        OutputFormat.TEXT,
+        OutputFormat.JSON,
+        OutputFormat.YAML,
+        OutputFormat.TABLE,
+    ],
     examples=[
         CommandExample(
             description="List pending organization invitations.",
@@ -106,7 +110,6 @@ def create(emails: str,) -> None:
     type=click.Choice([f.value for f in OutputFormat]),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 def list(output_format: str) -> None:  # noqa: A001

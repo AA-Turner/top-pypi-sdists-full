@@ -14,6 +14,7 @@ from rich.console import Console, Group
 from rich.panel import Panel
 from rich.table import Table
 
+from anyscale.api_utils.exceptions.job_errors import NoJobRunError
 from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.models import LogFilter
 from anyscale.client.openapi_client.models.node_type import NodeType
@@ -332,10 +333,32 @@ def anyscale_logs_job(  # noqa: PLR0913
     parallelism: int,
 ) -> None:
     logs_controller = LogsController()
-    (
-        cluster_id,
-        job_run_id,
-    ) = logs_controller.get_cluster_id_and_last_job_run_id_for_prodjob(prodjob_id=id)
+    cluster_id: Optional[str] = None
+    is_kuberay_job = False
+    try:
+        (
+            cluster_id,
+            job_run_id,
+        ) = logs_controller.get_cluster_id_and_last_job_run_id_for_prodjob(
+            prodjob_id=id
+        )
+    except NoJobRunError:
+        # An imported KubeRay workload has no job-run row, so there is no run id or
+        # cluster id to resolve. Its logs are addressed by the production job id
+        # instead. Re-raise for a genuinely un-run Anyscale job.
+        if not logs_controller.get_kuberay_cr_id_for_prodjob(prodjob_id=id):
+            raise
+        is_kuberay_job = True
+        job_run_id = id
+
+    if is_kuberay_job and any([glob, node_ip, instance_id, worker_only, head_only]):
+        # The cluster-log path needs a cluster id, which KubeRay has none of; these
+        # filters would silently apply to nothing.
+        raise click.ClickException(
+            "A glob, --node-ip, --instance-id, --worker-only and --head-only are not "
+            "supported for KubeRay jobs. Re-run without them to fetch the driver logs."
+        )
+
     use_job_logs = job_run_id and not any(
         [glob, node_ip, instance_id, worker_only, head_only]
     )
@@ -356,12 +379,14 @@ def anyscale_logs_job(  # noqa: PLR0913
                 parallelism=parallelism,
                 unpack=unpack,
                 resource_id=id,
+                is_kuberay_job=is_kuberay_job,
             )
         else:
             log_group = logs_controller.get_job_log_group(
                 job_run_id=job_run_id,
                 page_size=DEFAULT_PAGE_SIZE,
                 timeout=timedelta(seconds=DEFAULT_TIMEOUT),
+                is_kuberay_job=is_kuberay_job,
             )
             if len(log_group.get_chunks()) == 0:
                 Console().print("No results found.")
@@ -375,6 +400,10 @@ def anyscale_logs_job(  # noqa: PLR0913
             click.echo()
         return
 
+    # Unreachable for KubeRay: without cluster-scoped filters `use_job_logs` is true and
+    # returns above, and with them we raised. Asserted so the invariant fails loudly
+    # rather than passing None into the cluster-log path.
+    assert cluster_id is not None
     execute_anyscale_logs_cluster(
         logs_controller=logs_controller,
         cluster_id=cluster_id,

@@ -156,7 +156,7 @@ class StreamedAudioResult:
                                 audio_np = self._transform_audio_buffer(
                                     [combined], self.tts_settings.dtype
                                 )
-                                if self.tts_settings.transform_data:
+                                if self.tts_settings.transform_data is not None:
                                     audio_np = self.tts_settings.transform_data(audio_np)
                                 await local_queue.put(
                                     VoiceStreamEventAudio(data=audio_np)
@@ -172,7 +172,7 @@ class StreamedAudioResult:
                     if len(combined) % 2 != 0:
                         combined += b"\x00"
                     audio_np = self._transform_audio_buffer([combined], self.tts_settings.dtype)
-                    if self.tts_settings.transform_data:
+                    if self.tts_settings.transform_data is not None:
                         audio_np = self.tts_settings.transform_data(audio_np)
                     await local_queue.put(VoiceStreamEventAudio(data=audio_np))  # Use local queue
 
@@ -245,7 +245,7 @@ class StreamedAudioResult:
         await asyncio.gather(*self._tasks)
 
     def _finish_turn(self):
-        if self._tracing_span:
+        if self._tracing_span is not None:
             if self._voice_pipeline_config.trace_include_sensitive_data:
                 self._tracing_span.span_data.input = self._turn_text_buffer
             else:
@@ -259,6 +259,11 @@ class StreamedAudioResult:
     async def _done(self):
         self._completed_session = True
         self._dispatcher_event.set()
+        # A session that produced no audio never started the dispatcher, so nothing would put
+        # the terminal event on the queue and `stream()` would wait on it forever. Start the
+        # dispatcher here so it observes the completed session and emits `session_ended`.
+        if self._dispatcher_task is None:
+            self._dispatcher_task = asyncio.create_task(self._dispatch_audio())
         await self._wait_for_completion()
 
     async def _dispatch_audio(self):
@@ -316,19 +321,22 @@ class StreamedAudioResult:
     def _check_errors(self):
         for task in self._tasks:
             if task.done() and not task.cancelled():
-                if task.exception():
-                    self._stored_exception = task.exception()
+                error = task.exception()
+                if error is not None:
+                    self._stored_exception = error
                     break
 
     async def stream(self) -> AsyncIterator[VoiceStreamEvent]:
         """Stream the events and audio data as they're generated."""
         saw_session_end = False
+        saw_terminal_event = False
         primary_exception: BaseException | None = None
         try:
             while True:
                 event = await self._queue.get()
                 if isinstance(event, VoiceStreamEventError):
                     self._stored_exception = event.error
+                    saw_terminal_event = True
                     log_model_and_tool_action_error(
                         logger, "Error processing voice output", event.error
                     )
@@ -340,12 +348,13 @@ class StreamedAudioResult:
                 )
                 if is_session_end:
                     saw_session_end = True
+                    saw_terminal_event = True
                 yield event
                 if is_session_end:
                     break
 
             self._check_errors()
-            if self._stored_exception:
+            if self._stored_exception is not None:
                 raise self._stored_exception
         except BaseException as exc:
             primary_exception = exc
@@ -357,7 +366,11 @@ class StreamedAudioResult:
             # Let the producer finish gracefully after terminal event delivery so any active
             # trace context can emit `trace_end` before cleanup. Await completed tasks too so a
             # terminal producer failure cannot be hidden by the preceding lifecycle event.
-            if saw_session_end and self.text_generation_task is not None:
+            #
+            # An error is a terminal event too. The producer reports it and then still has to
+            # close the transcription session, so cancelling here instead of waiting would tear
+            # that session down mid-close.
+            if saw_terminal_event and self.text_generation_task is not None:
                 try:
                     await asyncio.shield(self.text_generation_task)
                 except BaseException as exc:
@@ -388,10 +401,14 @@ class StreamedAudioResult:
             elif cleanup_exception is not None:
                 exception_to_raise = cleanup_exception
 
+            # `exc is not primary_exception` because the producer re-raises the same error it
+            # queued, so on the error path it arrives here as both. That is the outcome being
+            # preserved, not a second failure hidden behind it.
             finalization_exception_was_suppressed = any(
                 exc is not None
                 and not isinstance(exc, asyncio.CancelledError)
                 and exc is not exception_to_raise
+                and exc is not primary_exception
                 for exc in (producer_exception, cleanup_exception)
             )
             if finalization_exception_was_suppressed:
@@ -407,5 +424,5 @@ class StreamedAudioResult:
                 raise exception_to_raise
 
         self._check_errors()
-        if self._stored_exception:
+        if self._stored_exception is not None:
             raise self._stored_exception

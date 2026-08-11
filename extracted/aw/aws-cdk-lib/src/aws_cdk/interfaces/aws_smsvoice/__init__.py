@@ -333,6 +333,51 @@ class _IProtectConfigurationRefProxy(
 typing.cast(typing.Any, IProtectConfigurationRef).__jsii_proxy_class__ = lambda : _IProtectConfigurationRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_smsvoice.IRegistrationRef")
+class IRegistrationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Registration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="registrationRef")
+    def registration_ref(self) -> "RegistrationReference":
+        '''(experimental) A reference to a Registration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRegistrationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Registration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_smsvoice.IRegistrationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="registrationRef")
+    def registration_ref(self) -> "RegistrationReference":
+        '''(experimental) A reference to a Registration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RegistrationReference", jsii.get(self, "registrationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRegistrationRef).__jsii_proxy_class__ = lambda : _IRegistrationRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_smsvoice.IResourcePolicyRef")
 class IResourcePolicyRef(
     _constructs_77d1e7e8.IConstruct,
@@ -688,6 +733,55 @@ class ProtectConfigurationReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_smsvoice.RegistrationReference",
+    jsii_struct_bases=[],
+    name_mapping={"registration_arn": "registrationArn"},
+)
+class RegistrationReference:
+    def __init__(self, *, registration_arn: builtins.str) -> None:
+        '''A reference to a Registration resource.
+
+        :param registration_arn: The RegistrationArn of the Registration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_smsvoice as interfaces_smsvoice
+            
+            registration_reference = interfaces_smsvoice.RegistrationReference(
+                registration_arn="registrationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__84b4597d7f74520c0d8bacd6314c62e1208992066bbb5e3631c3c302c0f9eb8c)
+            check_type(argname="argument registration_arn", value=registration_arn, expected_type=type_hints["registration_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "registration_arn": registration_arn,
+        }
+
+    @builtins.property
+    def registration_arn(self) -> builtins.str:
+        '''The RegistrationArn of the Registration resource.'''
+        result = self._values.get("registration_arn")
+        assert result is not None, "Required property 'registration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RegistrationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_smsvoice.ResourcePolicyReference",
     jsii_struct_bases=[],
     name_mapping={"resource_arn": "resourceArn"},
@@ -824,12 +918,14 @@ __all__ = [
     "IPhoneNumberRef",
     "IPoolRef",
     "IProtectConfigurationRef",
+    "IRegistrationRef",
     "IResourcePolicyRef",
     "ISenderIdRef",
     "OptOutListReference",
     "PhoneNumberReference",
     "PoolReference",
     "ProtectConfigurationReference",
+    "RegistrationReference",
     "ResourcePolicyReference",
     "SenderIdReference",
 ]
@@ -876,6 +972,13 @@ def _typecheckingstub__d7a573c31ffa2a3dbcab67f8fc27bcefd307f49af5d533c3d96ed3f9e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__84b4597d7f74520c0d8bacd6314c62e1208992066bbb5e3631c3c302c0f9eb8c(
+    *,
+    registration_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b4e3f8cc42e17b187443815800b2d641d17f0860df1f5ec19e3aeb16b4072509(
     *,
     resource_arn: builtins.str,
@@ -892,5 +995,5 @@ def _typecheckingstub__0ba8d95c82cd8ae22b8aa29f3c0b6b9b02e4d8ffd2e2cf690bd27ab2e
     """Type checking stubs"""
     pass
 
-for cls in [IConfigurationSetRef, IOptOutListRef, IPhoneNumberRef, IPoolRef, IProtectConfigurationRef, IResourcePolicyRef, ISenderIdRef]:
+for cls in [IConfigurationSetRef, IOptOutListRef, IPhoneNumberRef, IPoolRef, IProtectConfigurationRef, IRegistrationRef, IResourcePolicyRef, ISenderIdRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -203,20 +203,20 @@ class CortexLiteAgentApi:
         return klass.from_dict(data)
 
     @overload
-    def agent_run(self, agent_run_request: AgentRunRequest, async_req: Literal[False] = False, **kwargs) -> str: ...
+    def agent_run(self, agent_run_request: AgentRunRequest, async_req: Literal[False] = False, **kwargs) -> object: ...
 
     @overload
     def agent_run(
         self, agent_run_request: AgentRunRequest, async_req: Literal[True] = True, **kwargs
-    ) -> Future[str]: ...
+    ) -> Future[object]: ...
 
     @overload
     def agent_run(
         self, agent_run_request: AgentRunRequest, async_req: bool = False, **kwargs
-    ) -> Union[str, Future[str]]: ...
+    ) -> Union[object, Future[object]]: ...
 
     @validate_call
-    def agent_run(self, agent_run_request: AgentRunRequest, **kwargs) -> Union[str, Future[str]]:
+    def agent_run(self, agent_run_request: AgentRunRequest, **kwargs) -> Union[object, Future[object]]:
         r"""Send a Cortex Agent Run Request.  # noqa: E501
 
         Send a Cortex Agent Run Request to get results.  # noqa: E501
@@ -241,7 +241,7 @@ class CortexLiteAgentApi:
         :return: Returns the result object.
                  If the method is called asynchronously,
                  returns a Future object representing the execution of the method.
-        :rtype: Union[str, Future[str]]
+        :rtype: Union[object, Future[object]]
         """
         kwargs["_return_http_data_only"] = True
         return self.agent_run_with_http_info(agent_run_request, **kwargs)
@@ -280,7 +280,7 @@ class CortexLiteAgentApi:
         :return: Returns the result object.
                  If the method is called asynchronously,
                  returns a Future object representing the execution of the method.
-        :rtype: tuple(Union[str, Future[str]], status_code(int), headers(HTTPHeaderDict))
+        :rtype: tuple(Union[object, Future[object]], status_code(int), headers(HTTPHeaderDict))
         """
         _params = locals()
 
@@ -326,7 +326,7 @@ class CortexLiteAgentApi:
             _body_params = _params["agent_run_request"]
 
         # set the HTTP header `Accept`
-        _header_params["Accept"] = self.api_client.select_header_accept(["text/event-stream", "application/json"])
+        _header_params["Accept"] = self.api_client.select_header_accept(["application/json", "text/event-stream"])
 
         # set the HTTP header `Content-Type`
         _content_types_list = _params.get(
@@ -339,7 +339,7 @@ class CortexLiteAgentApi:
         _auth_settings = ["ExternalOAuth", "KeyPair", "ProgrammaticAccessToken", "SnowflakeOAuth"]
 
         _response_types_map = {
-            "200": "str",
+            "200": "object",
             "400": "ErrorResponse",
             "401": "ErrorResponse",
             "403": "ErrorResponse",

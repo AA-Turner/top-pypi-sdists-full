@@ -67,6 +67,379 @@ else:
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_identitystore_22a099c6.IAllGroupMembershipsRef)
+class CfnAllGroupMemberships(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_identitystore.CfnAllGroupMemberships",
+):
+    '''Retrieves membership metadata and attributes for a group membership in an identity store.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-identitystore-allgroupmemberships.html
+    :cloudformationResource: AWS::IdentityStore::AllGroupMemberships
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_identitystore as identitystore
+        
+        cfn_all_group_memberships = identitystore.CfnAllGroupMemberships(self, "MyCfnAllGroupMemberships",
+            group_id="groupId",
+            identity_store_id="identityStoreId",
+            member_id=identitystore.CfnAllGroupMemberships.MemberIdProperty(
+                user_id="userId"
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        group_id: typing.Optional[builtins.str] = None,
+        identity_store_id: typing.Optional[builtins.str] = None,
+        member_id: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAllGroupMemberships.MemberIdProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::IdentityStore::AllGroupMemberships``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param group_id: The identifier for a group in the identity store.
+        :param identity_store_id: The globally unique identifier for the identity store.
+        :param member_id: An object containing the identifier of a group member.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__726fbf37f0bbccb7100b4ac116388440833ff8a7717519444c9c4deb0cd1a990)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAllGroupMembershipsProps(
+            group_id=group_id, identity_store_id=identity_store_id, member_id=member_id
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForAllGroupMemberships")
+    @builtins.classmethod
+    def arn_for_all_group_memberships(
+        cls,
+        resource: "_aws_identitystore_22a099c6.IAllGroupMembershipsRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__610ce132deff2a8112195141339fe497d66f782bf05c16580f4889d6a4fd5568)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAllGroupMemberships", [resource]))
+
+    @jsii.member(jsii_name="isCfnAllGroupMemberships")
+    @builtins.classmethod
+    def is_cfn_all_group_memberships(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAllGroupMemberships.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__586732dee037c740a7229d32bf691880ba827a7f1aff5a168be2d1af42f0abb7)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAllGroupMemberships", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__598118fdbae99d41621dbde57f44f0f1cbad3514e7abf06f0107b2e72cb8704e)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6e7cae6dc888afa97f3256d438af8db88d15eb200f77217f55189e41621051c6)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="allGroupMembershipsRef")
+    def all_group_memberships_ref(
+        self,
+    ) -> "_aws_identitystore_22a099c6.AllGroupMembershipsReference":
+        '''A reference to a AllGroupMemberships resource.'''
+        return typing.cast("_aws_identitystore_22a099c6.AllGroupMembershipsReference", jsii.get(self, "allGroupMembershipsRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the group membership.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The date and time the group membership was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedBy")
+    def attr_created_by(self) -> builtins.str:
+        '''The identifier of the user or system that created the group membership.
+
+        :cloudformationAttribute: CreatedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMembershipId")
+    def attr_membership_id(self) -> builtins.str:
+        '''The identifier for a GroupMembership in an identity store.
+
+        :cloudformationAttribute: MembershipId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrMembershipId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The date and time the group membership was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedBy")
+    def attr_updated_by(self) -> builtins.str:
+        '''The identifier of the user or system that last updated the group membership.
+
+        :cloudformationAttribute: UpdatedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="groupId")
+    def group_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier for a group in the identity store.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "groupId"))
+
+    @group_id.setter
+    def group_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1b48f1c2d444de2e073be6f95e0017a5ddc9386affa4db4609d5b3966886c725)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "groupId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="identityStoreId")
+    def identity_store_id(self) -> typing.Optional[builtins.str]:
+        '''The globally unique identifier for the identity store.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "identityStoreId"))
+
+    @identity_store_id.setter
+    def identity_store_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f45e2605c774b954759e01bcde51d66bc01c5e889f06766ff88cb4491d21fa93)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "identityStoreId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="memberId")
+    def member_id(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAllGroupMemberships.MemberIdProperty"]]:
+        '''An object containing the identifier of a group member.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAllGroupMemberships.MemberIdProperty"]], jsii.get(self, "memberId"))
+
+    @member_id.setter
+    def member_id(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAllGroupMemberships.MemberIdProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__57b8066dfeaad0e983a2ea751771d288814700fcbe769010e6ec2f29d45399aa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "memberId", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_identitystore.CfnAllGroupMemberships.MemberIdProperty",
+        jsii_struct_bases=[],
+        name_mapping={"user_id": "userId"},
+    )
+    class MemberIdProperty:
+        def __init__(self, *, user_id: builtins.str) -> None:
+            '''An object containing the identifier of a group member.
+
+            :param user_id: The identifier for a user in the identity store.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-identitystore-allgroupmemberships-memberid.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_identitystore as identitystore
+                
+                member_id_property = identitystore.CfnAllGroupMemberships.MemberIdProperty(
+                    user_id="userId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2b255b4c2b0d6f46f54625d2a67f4380154147a7986fd772390b6e5232ce5b8e)
+                check_type(argname="argument user_id", value=user_id, expected_type=type_hints["user_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "user_id": user_id,
+            }
+
+        @builtins.property
+        def user_id(self) -> builtins.str:
+            '''The identifier for a user in the identity store.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-identitystore-allgroupmemberships-memberid.html#cfn-identitystore-allgroupmemberships-memberid-userid
+            '''
+            result = self._values.get("user_id")
+            assert result is not None, "Required property 'user_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MemberIdProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_identitystore.CfnAllGroupMembershipsProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "group_id": "groupId",
+        "identity_store_id": "identityStoreId",
+        "member_id": "memberId",
+    },
+)
+class CfnAllGroupMembershipsProps:
+    def __init__(
+        self,
+        *,
+        group_id: typing.Optional[builtins.str] = None,
+        identity_store_id: typing.Optional[builtins.str] = None,
+        member_id: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAllGroupMemberships.MemberIdProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAllGroupMemberships``.
+
+        :param group_id: The identifier for a group in the identity store.
+        :param identity_store_id: The globally unique identifier for the identity store.
+        :param member_id: An object containing the identifier of a group member.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-identitystore-allgroupmemberships.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_identitystore as identitystore
+            
+            cfn_all_group_memberships_props = identitystore.CfnAllGroupMembershipsProps(
+                group_id="groupId",
+                identity_store_id="identityStoreId",
+                member_id=identitystore.CfnAllGroupMemberships.MemberIdProperty(
+                    user_id="userId"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dfdb8340ca8bdf07e0c621229c66d30ad01568d482f094d9044a3b9f4a93efae)
+            check_type(argname="argument group_id", value=group_id, expected_type=type_hints["group_id"])
+            check_type(argname="argument identity_store_id", value=identity_store_id, expected_type=type_hints["identity_store_id"])
+            check_type(argname="argument member_id", value=member_id, expected_type=type_hints["member_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if group_id is not None:
+            self._values["group_id"] = group_id
+        if identity_store_id is not None:
+            self._values["identity_store_id"] = identity_store_id
+        if member_id is not None:
+            self._values["member_id"] = member_id
+
+    @builtins.property
+    def group_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier for a group in the identity store.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-identitystore-allgroupmemberships.html#cfn-identitystore-allgroupmemberships-groupid
+        '''
+        result = self._values.get("group_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def identity_store_id(self) -> typing.Optional[builtins.str]:
+        '''The globally unique identifier for the identity store.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-identitystore-allgroupmemberships.html#cfn-identitystore-allgroupmemberships-identitystoreid
+        '''
+        result = self._values.get("identity_store_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def member_id(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAllGroupMemberships.MemberIdProperty"]]:
+        '''An object containing the identifier of a group member.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-identitystore-allgroupmemberships.html#cfn-identitystore-allgroupmemberships-memberid
+        '''
+        result = self._values.get("member_id")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAllGroupMemberships.MemberIdProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAllGroupMembershipsProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_identitystore_22a099c6.IGroupRef)
 class CfnGroup(
     _aws_cdk_0cae9daa.CfnResource,
@@ -677,6 +1050,8 @@ class CfnGroupProps:
 
 
 __all__ = [
+    "CfnAllGroupMemberships",
+    "CfnAllGroupMembershipsProps",
     "CfnGroup",
     "CfnGroupMembership",
     "CfnGroupMembershipProps",
@@ -684,6 +1059,75 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__726fbf37f0bbccb7100b4ac116388440833ff8a7717519444c9c4deb0cd1a990(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    group_id: typing.Optional[builtins.str] = None,
+    identity_store_id: typing.Optional[builtins.str] = None,
+    member_id: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAllGroupMemberships.MemberIdProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__610ce132deff2a8112195141339fe497d66f782bf05c16580f4889d6a4fd5568(
+    resource: _aws_identitystore_22a099c6.IAllGroupMembershipsRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__586732dee037c740a7229d32bf691880ba827a7f1aff5a168be2d1af42f0abb7(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__598118fdbae99d41621dbde57f44f0f1cbad3514e7abf06f0107b2e72cb8704e(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6e7cae6dc888afa97f3256d438af8db88d15eb200f77217f55189e41621051c6(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1b48f1c2d444de2e073be6f95e0017a5ddc9386affa4db4609d5b3966886c725(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f45e2605c774b954759e01bcde51d66bc01c5e889f06766ff88cb4491d21fa93(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__57b8066dfeaad0e983a2ea751771d288814700fcbe769010e6ec2f29d45399aa(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAllGroupMemberships.MemberIdProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b255b4c2b0d6f46f54625d2a67f4380154147a7986fd772390b6e5232ce5b8e(
+    *,
+    user_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dfdb8340ca8bdf07e0c621229c66d30ad01568d482f094d9044a3b9f4a93efae(
+    *,
+    group_id: typing.Optional[builtins.str] = None,
+    identity_store_id: typing.Optional[builtins.str] = None,
+    member_id: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAllGroupMemberships.MemberIdProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__37e27ff46dfa4082cad1981cc4ade1e2a9ce445cf9aad4a8eb75e162b9b429f1(
     scope: _constructs_77d1e7e8.Construct,

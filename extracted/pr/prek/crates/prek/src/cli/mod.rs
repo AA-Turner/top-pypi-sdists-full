@@ -17,6 +17,7 @@ mod cache_clean;
 mod cache_gc;
 mod cache_size;
 mod completion;
+mod exec;
 mod hook_impl;
 mod identify;
 mod install;
@@ -36,6 +37,7 @@ pub(crate) use cache_clean::cache_clean;
 pub(crate) use cache_gc::cache_gc;
 pub(crate) use cache_size::cache_size;
 use completion::selector_completer;
+pub(crate) use exec::exec;
 pub(crate) use hook_impl::hook_impl;
 pub(crate) use identify::identify;
 pub(crate) use install::{init_template_dir, install, prepare_hooks, uninstall};
@@ -259,6 +261,8 @@ pub(crate) enum Command {
     PrepareHooks(PrepareHooksArgs),
     /// Run configured hooks.
     Run(Box<RunArgs>),
+    /// Run a command in the environment prepared for a configured hook.
+    Exec(ExecArgs),
     /// List configured hooks.
     List(ListArgs),
     /// Uninstall prek Git hook shims.
@@ -293,6 +297,30 @@ pub(crate) enum Command {
     /// Manage the prek installation.
     #[command(name = "self")]
     Self_(SelfNamespace),
+}
+
+#[derive(Debug, Args)]
+pub(crate) struct ExecArgs {
+    /// Hook whose execution environment should be used.
+    ///
+    /// Supports `hook-id` and `project-path:hook-id` selectors and must resolve
+    /// to exactly one configured hook.
+    #[arg(
+        value_name = "HOOK",
+        value_hint = ValueHint::Other,
+        add = ArgValueCompleter::new(selector_completer)
+    )]
+    pub(crate) selector: String,
+
+    /// Command and arguments to execute.
+    #[arg(
+        value_name = "COMMAND",
+        required = true,
+        num_args = 1..,
+        last = true,
+        value_hint = ValueHint::CommandWithArguments
+    )]
+    pub(crate) command: Vec<OsString>,
 }
 
 #[derive(Debug, Args)]
@@ -655,13 +683,19 @@ pub(crate) struct RunArgs {
 
     /// Run hooks belonging to the specified group.
     ///
-    /// Can be specified multiple times.
+    /// Can be specified multiple times; a hook may match any specified group.
+    /// When combined with `--require-group`, both filters must match.
     #[arg(long = "group", value_name = "GROUP")]
     pub(crate) groups: Vec<String>,
 
     /// Run hooks belonging to every specified group.
     ///
-    /// Can be specified multiple times. Composes with `--group` and `--no-group`.
+    /// Can be specified multiple times; a hook must match every specified group.
+    /// When combined with `--group`, it must also match at least one `--group`.
+    /// `--no-group` excludes matching hooks regardless of argument order.
+    ///
+    /// For example, `--require-group fast --group format --group lint-only`
+    /// selects hooks in `fast` and either `format` or `lint-only`.
     #[arg(long = "require-group", value_name = "GROUP")]
     pub(crate) required_groups: Vec<String>,
 
@@ -1050,10 +1084,30 @@ pub(crate) enum CacheCommand {
     Size(SizeArgs),
 }
 
+#[derive(Debug, Default, Clone, Copy, clap::ValueEnum)]
+pub(crate) enum CacheSizeOutputFormat {
+    /// Display a human-readable size in terminals and raw bytes otherwise.
+    #[default]
+    Auto,
+    /// Display the cache size in a human-readable format.
+    Human,
+    /// Display the cache size in raw bytes.
+    Machine,
+}
+
 #[derive(Args, Debug)]
 pub struct SizeArgs {
-    /// Display the cache size in human-readable format (e.g., `1.2 GiB` instead of raw bytes).
-    #[arg(long = "human", short = 'H', alias = "human-readable")]
+    /// Select the output format.
+    #[arg(long, value_enum, default_value_t = CacheSizeOutputFormat::default())]
+    pub(crate) output_format: CacheSizeOutputFormat,
+
+    /// Display the cache size in human-readable format (e.g., `1.2GiB` instead of raw bytes).
+    #[arg(
+        long = "human",
+        short = 'H',
+        alias = "human-readable",
+        conflicts_with = "output_format"
+    )]
     pub(crate) human: bool,
 }
 

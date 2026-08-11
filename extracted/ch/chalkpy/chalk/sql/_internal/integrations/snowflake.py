@@ -295,9 +295,16 @@ class SnowflakeSourceImpl(BaseSQLSource):
         private_key_b64_str = private_key_b64
         if isinstance(private_key_b64_str, bytes):
             private_key_b64_str = private_key_b64_str.decode("utf-8")
-        self.private_key_b64: Optional[str] = private_key_b64_str or load_integration_variable(
+        private_key_b64_str = private_key_b64_str or load_integration_variable(
             integration_name=name, name=_SNOWFLAKE_PRIVATE_KEY_B64_NAME, override=integration_variable_override
         )
+        if private_key_b64_str is not None:
+            private_key_b64_str = private_key_b64_str.strip()
+        # A present-but-blank value means "no key-pair auth", not "authenticate with the empty
+        # key". load_integration_variable returns "" rather than None when the override map or
+        # the environment holds an empty string, and "" is not None, so without this the empty
+        # string reaches load_pem_private_key below and fails the whole data source at import.
+        self.private_key_b64: Optional[str] = private_key_b64_str or None
         self.unload_stage = unload_stage or load_integration_variable(
             integration_name=name, name=_SNOWFLAKE_UNLOAD_STAGE_NAME, override=integration_variable_override
         )
@@ -321,12 +328,25 @@ class SnowflakeSourceImpl(BaseSQLSource):
             "application_name": "chalkai_featurepipelines",
             "application": "chalkai_featurepipelines",
         }
-        if self.private_key_b64 is not None:
-            raw_bytes = base64.b64decode(self.private_key_b64)
+        if self.private_key_b64:
             # From https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-connect#label-python-key-pair-authn-rotation
-            private_key_bytes = serialization.load_pem_private_key(
-                raw_bytes, password=None, backend=default_backend()
-            ).private_bytes(
+            try:
+                raw_bytes = base64.b64decode(self.private_key_b64)
+                private_key = serialization.load_pem_private_key(raw_bytes, password=None, backend=default_backend())
+            except Exception as e:
+                prefix = f"{name}_" if name else ""
+                variable_name = f"{prefix}{_SNOWFLAKE_PRIVATE_KEY_B64_NAME}"
+                # This runs at import time, so a bad key takes down the whole source with a
+                # message from `cryptography` that names neither the variable nor the encoding
+                # it expected. Say both.
+                raise ValueError(
+                    f"The Snowflake private key in '{variable_name}' could not be read. It must be the base64 "
+                    + "encoding of an unencrypted PEM private key -- the whole file, including the "
+                    + "'-----BEGIN PRIVATE KEY-----' and '-----END PRIVATE KEY-----' lines. Passing the PEM "
+                    + "text itself, a key that is already base64 (double-encoding it), or the body of a .p8 "
+                    + "file without its header and footer lines will all fail here."
+                ) from e
+            private_key_bytes = private_key.private_bytes(
                 encoding=serialization.Encoding.DER,
                 format=serialization.PrivateFormat.PKCS8,
                 encryption_algorithm=serialization.NoEncryption(),

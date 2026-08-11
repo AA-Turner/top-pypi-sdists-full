@@ -10,6 +10,7 @@ LRU cache so repeated dep strings parse once.
 from __future__ import annotations
 
 import email.parser
+from contextlib import suppress
 from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any
@@ -18,7 +19,7 @@ import tomli
 
 from ._vendor.packaging.requirements import Requirement
 from ._vendor.packaging.specifiers import InvalidSpecifier, SpecifierSet
-from ._vendor.packaging.version import Version
+from ._vendor.packaging.version import InvalidVersion, Version
 
 if TYPE_CHECKING:
     from ._vendor.packaging.markers import Marker
@@ -30,6 +31,7 @@ __all__ = [
     "load_static_project",
     "metadata_deps_are_static",
     "parse_metadata",
+    "validate_specifier_versions",
 ]
 
 
@@ -61,6 +63,24 @@ def load_static_project(text: str) -> dict[str, Any] | None:
         if _DYNAMIC_FIELD_BLOCKERS & dynamic_set:
             return None
     return project
+
+
+def validate_specifier_versions(specifier_set: SpecifierSet) -> None:
+    """Convert every clause's version, raising when one will not parse.
+
+    A :class:`SpecifierSet` keeps its clause versions as strings and
+    converts them only when something compares against it, so a digit run
+    past CPython's int-from-string limit is accepted here and raises a
+    bare ``ValueError`` from the comparison much later.  An arbitrary
+    equality (``===``) literal need not be a PEP 440 version, so only a
+    failure other than :class:`InvalidVersion` rejects one.
+    """
+    for clause in specifier_set:
+        if clause.operator == "===":
+            with suppress(InvalidVersion):
+                Version(clause.version)
+        else:
+            Version(clause.version.removesuffix(".*"))
 
 
 # PEP 643 dependency-affecting METADATA fields, lowercased.

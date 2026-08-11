@@ -7,8 +7,10 @@ from typing import (
     Dict,
     List,  # It's important to use this to make it compatible with python 3.8, don't remove it
     Literal,
+    MutableMapping,
     Optional,
     Tuple,
+    Union,
     cast,
     overload,
 )
@@ -22,6 +24,7 @@ from complexipy.types import (
     Sort,
     TOMLBase,
     TOMLConfig,
+    TOMLDiffSection,
     TOMLType,
     TOMLTypes,
 )
@@ -55,9 +58,18 @@ def load_values_from_toml_key(
     | Sort
     | ColorTypes
     | OutputFormat
-    | TOMLType,
+    | TOMLType
+    | TOMLDiffSection,
 ) -> (
-    int | bool | str | List[str] | ColorTypes | OutputFormat | Sort | TOMLType
+    int
+    | bool
+    | str
+    | List[str]
+    | ColorTypes
+    | OutputFormat
+    | Sort
+    | TOMLType
+    | TOMLDiffSection
 ): ...
 
 
@@ -70,7 +82,8 @@ def load_values_from_toml_key(
     | Sort
     | ColorTypes
     | OutputFormat
-    | TOMLType,
+    | TOMLType
+    | TOMLDiffSection,
 ):
     """Normalize TOML values to expected runtime types.
 
@@ -93,8 +106,19 @@ def load_values_from_toml_key(
         if isinstance(value, str):
             return [value]
         return value
+    elif key == "diff" and isinstance(value, MutableMapping):
+        return _normalize_diff_section(value)
 
     return value
+
+
+def _normalize_diff_section(value: MutableMapping) -> TOMLDiffSection:
+    section = cast(TOMLDiffSection, value)
+    normalized: Dict[str, Union[str, bool]] = {}
+    for nested_key, nested_value in section.items():
+        if isinstance(nested_value, (str, bool)):
+            normalized[nested_key] = nested_value
+    return cast(TOMLDiffSection, normalized)
 
 
 def get_dict_from_pyproject(
@@ -187,10 +211,6 @@ BOOLEAN_FIELDS: List[Tuple[str, str, bool]] = [
     ("check_script", "check-script", False),
     ("no_ignore", "no-ignore", False),
     ("report_ignored", "report-ignored", False),
-    ("output_csv", "output-csv", False),
-    ("output_json", "output-json", False),
-    ("output_gitlab", "output-gitlab", False),
-    ("output_sarif", "output-sarif", False),
 ]
 
 
@@ -220,14 +240,6 @@ def get_arguments_value(
         )
 
     failed = cli_args.get("failed")
-    if (
-        failed is None
-        and toml_config is not None
-        and "failed" not in toml_config
-    ):
-        legacy_details = toml_config.get("details")
-        if legacy_details is not None:
-            failed = str(legacy_details).lower() == "low"
     result["failed"] = cast(
         bool, get_argument_value(toml_config, "failed", failed, False)
     )

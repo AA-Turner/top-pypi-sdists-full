@@ -5,7 +5,7 @@ authors = [
 ]
 description = 'Snowflake Python API'
 readme = 'README.md'
-requires-python = '>=3.10,<3.14'
+requires-python = '>=3.10,<3.15'
 license = {text = 'Apache-2.0'}
 keywords = [
     'Snowflake',
@@ -36,13 +36,13 @@ classifiers = [
 ]
 # The version for the `snowflake` namespace package must be defined
 # statically, since there's no actual code to a namespace package.
-version = '1.12.1'
+version = '1.13.0'
 
 # Our custom metadata hook won't run without the dynamic field.
 dynamic = ['']
 
 dependencies = [
-    'snowflake.core == 1.12.1',
+    'snowflake.core == 1.13.0',
     'snowflake._legacy',
 ]
 

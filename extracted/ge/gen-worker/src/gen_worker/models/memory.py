@@ -23,8 +23,9 @@ from __future__ import annotations
 import gc
 import logging
 import os
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, TypeVar
+from typing import Any, Dict, Iterable, List, Optional
 
 import msgspec
 
@@ -77,6 +78,19 @@ _CPU_OFFLOAD_MODES = ("model_offload", "group_offload", "sequential")
 # mid-inference OOM records the next rung, quarantines the live object, and
 # applies that rung only during a clean reload.
 OFFLOAD_LADDER: tuple[str, ...] = _CPU_OFFLOAD_MODES
+
+
+def keeps_weights_in_host_ram(mode: Optional[str]) -> bool:
+    """True when this placement rung leaves the model's weights RESIDENT IN
+    HOST RAM (pgw#1063).
+
+    Every CPU-offload rung does: that is what offloading IS — the weights
+    live on the host and stream to the card per forward. So an offloaded
+    pipeline's host-RAM requirement is its WHOLE TREE, and any accounting
+    that charges it less (pgw#1026's per-component staging discount, which
+    is admissible only because each component LEAVES the host for the card)
+    is admitting a load the host cannot hold."""
+    return str(mode or "") in _CPU_OFFLOAD_MODES
 
 
 def next_offload_rung(mode: Optional[str]) -> Optional[str]:
@@ -156,17 +170,55 @@ def degraded_log_line(
 # ---------------------------------------------------------------------------
 
 
-def get_available_vram_gb(device_index: int = 0) -> float:
-    """Currently-free VRAM on the selected CUDA device. 0.0 if no CUDA."""
+#: Why a free-VRAM reading is zero. pgw#940: `except Exception: return 0.0`
+#: made "this host has no CUDA" and "the probe raised on a host that does"
+#: the same value, and every caller that had to DECIDE something read the
+#: shared zero as the permissive case.
+VRAM_NO_CUDA = "no_cuda"
+VRAM_UNREADABLE = "unreadable"
+
+
+@dataclass(frozen=True)
+class VramReading:
+    """Free VRAM, and — when there is none to report — why."""
+
+    gb: float
+    #: "" when `gb` is a real measurement, else VRAM_NO_CUDA / VRAM_UNREADABLE.
+    reason: str = ""
+
+    @property
+    def measured(self) -> bool:
+        return not self.reason
+
+
+def available_vram(device_index: int = 0) -> VramReading:
+    """Currently-free VRAM on the selected CUDA device, with its zero-cause.
+
+    The one probe every free-VRAM question in this module is answered from.
+    A caller that only wants the number keeps calling
+    :func:`get_available_vram_gb`; a caller that must DECIDE with it reads
+    ``reason`` and says out loud what it does when the card is unreadable.
+    """
     try:
         import torch
 
         if not torch.cuda.is_available():
-            return 0.0
+            return VramReading(0.0, VRAM_NO_CUDA)
         free, _total = torch.cuda.mem_get_info(device_index)
-        return float(free) / float(1024**3)
-    except Exception:
-        return 0.0
+    except Exception as exc:
+        _LOG.warning("free-VRAM probe failed: %s: %s", type(exc).__name__, exc)
+        return VramReading(0.0, VRAM_UNREADABLE)
+    return VramReading(float(free) / float(1024**3))
+
+
+def get_available_vram_gb(device_index: int = 0) -> float:
+    """Currently-free VRAM on the selected CUDA device. 0.0 if no CUDA.
+
+    Reporting shape: it deliberately collapses "no card" and "unreadable"
+    into one number, which is right for a log line and wrong for a decision.
+    Anything that PLACES a model reads :func:`available_vram` instead.
+    """
+    return available_vram(device_index).gb
 
 
 def get_total_vram_gb(device_index: int = 0) -> float:
@@ -191,6 +243,37 @@ def get_available_ram_gb() -> float:
 def get_total_ram_gb() -> float:
     """Effective total host RAM: min(meminfo total, cgroup limit)."""
     return probe_host_ram().total_gb
+
+
+# pgw#973 (§4.24): ONE owner for the host-RAM floor. `residency` and `staging`
+# each declared `_RAM_FLOOR_GB = 8.0` / `_RAM_FLOOR_FRACTION = 0.2` AND
+# re-derived the same min/max expression, with staging's comment promising it
+# was "kept numerically identical" — a promise nothing enforced. They cannot
+# import each other (`residency -> pinned_swap -> staging` already exists, so
+# the reverse edge closes a cycle); both already import this module.
+#
+# The threat (gw#407): a warm/pinned host tier that eats the host's working set
+# pushes it into reclaim-thrash, and a thrashing host stalls the whole process
+# INCLUDING the gRPC keepalive acks — the hub then disconnects the worker,
+# which is the livelock. Nothing else prevents it: the tiers allocate against
+# free RAM, and free RAM is exactly what a page cache makes look available.
+_RAM_FLOOR_GB = 8.0
+#: Small hosts (dev boxes) would be gated out entirely by a flat 8 GiB, so the
+#: floor is adaptive below 40 GiB total.
+_RAM_FLOOR_FRACTION = 0.2
+
+
+def effective_ram_floor_gb(total_gb: Optional[float] = None) -> float:
+    """Host RAM this process must leave alone, in GiB.
+
+    ``total_gb`` is the caller's already-resolved host total; omit it to read
+    one here. Callers pass their own so a per-group RAM share (procsplit) or a
+    test's substitution is honoured by the ONE policy rather than by a copy.
+    """
+    total = get_total_ram_gb() if total_gb is None else float(total_gb)
+    if total <= 0:
+        return _RAM_FLOOR_GB
+    return min(_RAM_FLOOR_GB, max(1.0, total * _RAM_FLOOR_FRACTION))
 
 
 # ---------------------------------------------------------------------------
@@ -763,9 +846,41 @@ def select_auto_mode(
     ``peak_vram_gb`` is the endpoint's DECLARED per-request peak
     (``Resources.peak_vram_per_request_gb``, #339); when provided the fit
     requirement becomes ``max(model_gb, peak_vram_gb)``.
+
+    pgw#1025: every comparison against LIVE FREE VRAM uses the requirement
+    NET of what this pipeline already holds on the card. ``avail`` has
+    already been reduced by the gw#479 shared components resident on CUDA,
+    so comparing it against the pipeline's TOTAL weight bytes counts those
+    bytes twice — measured at ~7.85 GB for z-image and ~15.5 GB for
+    qwen-image, enough to push a second shared lane off the resident rung
+    entirely (and, under th#1107's ``strict_vram``, into a hard refusal).
+    The per-SKU refinement below keeps the GROSS requirement on purpose.
     """
     avail = available_vram_gb if available_vram_gb is not None else get_available_vram_gb()
+    # "How much is free" and "why is it zero" are two questions, and the
+    # second is only worth asking when the first answers zero — which also
+    # keeps a caller-supplied or stubbed figure authoritative all the way
+    # through, exactly as before.
+    zero_cause = "" if avail > 0.0 else available_vram().reason
     if avail <= 0.0:
+        # pgw#940. `return "off"` for BOTH zero-causes: "off" means fully
+        # resident, no offload at all — the single most memory-hungry rung on
+        # the ladder — so a GPU host whose probe raised loaded a pipeline that
+        # needed `group_offload` fully resident and OOMed during load. The two
+        # causes are different facts and get different answers.
+        #
+        # No CUDA: "off" is still correct and is not a placement claim at all
+        # — there is no card to offload FROM, and the CPU path ignores the
+        # rung. Unreadable: the deepest rung this ladder has, matching the
+        # unknown-model-size branch below, which has always descended to
+        # `group_offload` rather than up to `off`. A rung of performance is
+        # the price; an OOM on paid tenant work is what it buys off.
+        if zero_cause == VRAM_UNREADABLE:
+            _LOG.warning(
+                "free VRAM unreadable; selecting %s rather than the resident "
+                "rung — an unmeasured card does not license full residency "
+                "(pgw#940)", "group_offload")
+            return "group_offload"
         return "off"
 
     model_gb = model_size_gb if model_size_gb is not None else estimate_pipeline_size_gb(pipeline)
@@ -773,6 +888,9 @@ def select_auto_mode(
     if peak_vram_gb is not None and peak_vram_gb > 0.0:
         requirement = max(model_gb, float(peak_vram_gb))
     margin = _DEFAULT_SAFETY_MARGIN_GB
+    # What is already ON the card: free VRAM has paid for it, so the
+    # incremental cost of placing this pipeline is the rest.
+    fit_requirement = max(0.0, requirement - estimate_cuda_resident_gb(pipeline))
 
     if requirement > 0.0:
         usable = max(0.0, avail - margin)
@@ -781,7 +899,7 @@ def select_auto_mode(
         # absolute low-free-VRAM rule group-offloaded pipelines the emergency
         # rung had just shrunk to fit, making the rung pointless on exactly
         # the cards it exists for.
-        if requirement <= usable:
+        if fit_requirement <= usable:
             # pgw#750: BOTH branches are RESIDENT — this refinement only
             # toggles VAE slicing, which changes the traced decode graph
             # class and hence the compiled object set a mint proves. Key it
@@ -792,7 +910,10 @@ def select_auto_mode(
             # FIT decisions above/below stay free-VRAM-based (safety); a
             # card that later runs tight degrades reactively down
             # OFFLOAD_LADDER instead of choosing a nondeterministic mint
-            # posture up front.
+            # posture up front. pgw#1025 does NOT touch this comparison: it
+            # is the GROSS requirement against a per-SKU constant, and
+            # netting out live residency here would restore exactly the
+            # nondeterminism pgw#750 removed.
             total = total_vram_gb if total_vram_gb is not None \
                 else get_total_vram_gb()
             if total > 0.0:
@@ -801,7 +922,9 @@ def select_auto_mode(
                 if (sku_usable - requirement) >= _DEFAULT_OFF_HEADROOM_GB:
                     return "off"
                 return "vae_only"
-            if (usable - requirement) >= _DEFAULT_OFF_HEADROOM_GB:
+            # No total-capacity probe: the only input left is live free VRAM,
+            # so this one takes the NET requirement like the fit test above.
+            if (usable - fit_requirement) >= _DEFAULT_OFF_HEADROOM_GB:
                 return "off"
             return "vae_only"
         # Doesn't fit: very low free VRAM needs the aggressive rung.
@@ -1352,38 +1475,6 @@ def _default_disk_offload_path() -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 
-_DEFAULT_ESCALATION: tuple[str, ...] = (
-    "vae_only", "model_offload", "group_offload", "sequential",
-)
-
-T = TypeVar("T")
-
-
-def _escalate_pipeline_mode(
-    pipeline: Any,
-    *,
-    logger: logging.Logger,
-    escalation: tuple[str, ...],
-) -> bool:
-    """Move a pipeline one step further up the offload ladder. False if maxed."""
-    cur = getattr(pipeline, _COZY_MODE_ATTR, None)
-    idx = escalation.index(cur) if cur in escalation else -1
-    next_idx = idx + 1
-    if next_idx >= len(escalation):
-        return False
-    next_mode = escalation[next_idx]
-    try:
-        delattr(pipeline, _COZY_MODE_ATTR)
-    except Exception:
-        try:
-            setattr(pipeline, _COZY_MODE_ATTR, None)
-        except Exception:
-            pass
-    logger.warning("low_vram: escalating %s -> %s on OOM", cur, next_mode)
-    apply_low_vram_config(pipeline, mode=next_mode, logger=logger)
-    return True
-
-
 def rearm_offload(pipeline: Any, mode: Mode = "model_offload") -> bool:
     """Serve-time offload fallback (gw#551): arm an offload rung on a
     pipeline that was already configured once (clears the idempotency stamp).
@@ -1449,6 +1540,7 @@ __all__ = [
     "place_pipeline",
     "next_offload_rung",
     "deeper_offload_mode",
+    "keeps_weights_in_host_ram",
     "is_cuda_oom",
     "degraded_log_line",
     "OFFLOAD_LADDER",
@@ -1462,6 +1554,7 @@ __all__ = [
     "GPU_VRAM_OVERHEAD_GB",
     "effective_vram_requirement_gb",
     "get_available_ram_gb",
+    "effective_ram_floor_gb",
     "get_total_ram_gb",
     "aflush_memory",
     "flush_memory",

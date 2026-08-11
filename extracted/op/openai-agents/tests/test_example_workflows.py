@@ -279,6 +279,30 @@ def test_financial_report_input_includes_cutoff_and_evidence() -> None:
     }
 
 
+def test_financial_verification_input_lists_exact_allowed_source_urls() -> None:
+    manager = object.__new__(FinancialResearchManager)
+    manager.research_cutoff = "2026-07-11"
+    source_url = "https://example.com/report?utm_source=openai"
+    evidence = FinancialSearchEvidence(
+        query="company annual report",
+        reason="Ground annual metrics",
+        summary="Revenue increased.",
+        sources=[FinancialSource(title="Annual report", url=source_url)],
+        retrieved_at="2026-07-11",
+    )
+    report = FinancialReportData(
+        short_summary="Summary",
+        markdown_report=f"Revenue increased ([source]({source_url})).",
+        follow_up_questions=[],
+    )
+
+    payload = json.loads(manager._verification_input("Analyze the company", report, [evidence]))
+
+    assert payload["allowed_source_urls"] == [source_url]
+    assert payload["report"] == report.model_dump(mode="json")
+    assert payload["evidence"] == [evidence.model_dump(mode="json")]
+
+
 def test_sandbox_basic_direct_run_imports_external_docker_sdk(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -1075,7 +1099,11 @@ async def test_agents_as_tools_conditional_enabling_matches_preference() -> None
         orchestrator_model = FakeModel()
         # Build tool calls only for expected tools to avoid missing-tool errors.
         tool_calls = [
-            get_function_tool_call(tool_name, json.dumps({"input": "Hi"}))
+            get_function_tool_call(
+                tool_name,
+                json.dumps({"input": "Hi"}),
+                call_id=f"call_{tool_name}",
+            )
             for tool_name in sorted(expected_tools)
         ]
         orchestrator_model.add_multiple_turn_outputs([tool_calls, [get_text_message("Done")]])
@@ -1139,8 +1167,20 @@ async def test_agents_as_tools_orchestrator_runs_multiple_translations() -> None
     orchestrator_model = FakeModel()
     orchestrator_model.add_multiple_turn_outputs(
         [
-            [get_function_tool_call("translate_to_spanish", json.dumps({"input": "Hi"}))],
-            [get_function_tool_call("translate_to_french", json.dumps({"input": "Hi"}))],
+            [
+                get_function_tool_call(
+                    "translate_to_spanish",
+                    json.dumps({"input": "Hi"}),
+                    call_id="translate_spanish",
+                )
+            ],
+            [
+                get_function_tool_call(
+                    "translate_to_french",
+                    json.dumps({"input": "Hi"}),
+                    call_id="translate_french",
+                )
+            ],
             [get_text_message("Summary complete")],
         ]
     )

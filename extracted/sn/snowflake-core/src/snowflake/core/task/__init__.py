@@ -17,7 +17,7 @@ Refer to :class:`snowflake.core.Root` to create the ``root``.
 """
 
 from ._generated.models.task_run import TaskRun
-from ._task import Cron, StoredProcedureCall, Task, TaskCollection, TaskResource
+from ._task import Cron, OverlapPolicy, StoredProcedureCall, Task, TaskCollection, TaskResource
 
 
 __all__ = [
@@ -27,4 +27,5 @@ __all__ = [
     "TaskCollection",
     "TaskResource",
     "TaskRun",
+    "OverlapPolicy",
 ]

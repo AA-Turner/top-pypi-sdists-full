@@ -15,14 +15,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: "pip"
       - name: Install
-        run: pip install --upgrade black build flake8
-      - run: black --check .
-      - run: flake8
+        run: pip install --upgrade ruff build
+      - run: ruff format --check .
+      - run: ruff check .
       - name: Build wheel
         run: |
           python -m build --wheel
@@ -42,27 +42,30 @@ jobs:
             python-version: "3.12"
             QT_API: PySide6
             with_opencl: true
+            with_gl_test: true
 
           - os: macos-latest
             python-version: "3.14"
             QT_API: PyQt6
             with_opencl: false
+            with_gl_test: false
 
           - os: windows-latest
             python-version: "3.10"
             QT_API: PyQt5
             with_opencl: false
+            with_gl_test: true
 
     steps:
-      - uses: actions/checkout@v5        
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
       - uses: ./.github/actions/setup-system
       - name: Install build dependencies
         run: |
-          pip install --upgrade --pre build wheel 
+          pip install --upgrade --pre build wheel
 
       - name: Build wheel
         env:
@@ -83,5 +86,6 @@ jobs:
         env:
           QT_API: ${{ matrix.QT_API }}
           SILX_OPENCL: ${{ matrix.with_opencl && 'True' || 'False' }}
+          WITH_GL_TEST: ${{ matrix.with_gl_test && 'True' || 'False' }}
         run: |
           python -c "import silx.test, sys; sys.exit(silx.test.run_tests(verbosity=3, args=['--qt-binding=${{ matrix.QT_API }}']))"

@@ -35,6 +35,7 @@ from typing import (
     Generator,
     List,
     Optional,
+    Tuple,
     Type,
     TypeVar,
     Union,
@@ -80,12 +81,18 @@ from xpander_sdk.modules.tasks.utils.files import (
     fetch_urls,
     fetch_file,
     fetch_image,
-    extract_document_text,
+    attachment_workers,
+    extract_documents_text,
     plan_attachments,
     truncate_inline_text,
+    _MAX_INLINE_TEXT_CHARS,
     _MAX_INLINE_TOTAL_CHARS,
 )
-from xpander_sdk.modules.tasks.utils.media import prepare_image, prepare_pdf
+from xpander_sdk.modules.tasks.utils.media import (
+    NO_INJECTION_NOTE,
+    prepare_image,
+    prepare_pdf,
+)
 from xpander_sdk.modules.tasks.utils.model_capabilities import (
     DEFAULT_CAPABILITIES,
     ModelCapabilities,
@@ -110,6 +117,28 @@ TaskUpdateEventData = Union[
     MCPOAuthGetTokenResponse,
     DeepPlanning,
 ]
+
+
+def _prepare_pdfs(
+    items: List[Any], caps: Any, allow_text: bool, text_budget: Optional[int] = None
+) -> List[Tuple[Any, Any]]:
+    """Route each PDF concurrently, preserving order; the second element is the outcome or the exception."""
+
+    def route(item: Any) -> Any:
+        try:
+            return prepare_pdf(
+                item.url, caps, item.size, allow_text=allow_text, text_budget=text_budget
+            )
+        except Exception as e:
+            return e
+
+    if len(items) <= 1:
+        return [(item, route(item)) for item in items]
+    from concurrent.futures import ThreadPoolExecutor
+
+    workers = attachment_workers(len(items), getattr(caps, "max_fetch_bytes", 0))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        return list(zip(items, pool.map(route, items)))
 
 
 class MessageIdentity(XPanderSharedModel):
@@ -573,22 +602,37 @@ class Task(XPanderSharedModel):
                 else:
                     images.append(image)
 
+            pdf_items = []
             for item in plan.by_category("pdf"):
                 if item.action == "url_only":
                     continue
                 if item.action == "text_extract" and self.disable_attachment_injection:
+                    # Its only route was text, which this task discards; say so rather than
+                    # spending a download on bytes that cannot be delivered.
+                    item.action = "url_only"
+                    plan.notes.append(f"{item.url}: {NO_INJECTION_NOTE}")
                     continue
-                try:
-                    action, payload, note = prepare_pdf(item.url, caps, item.size)
-                except Exception as e:
-                    logger.warning(f"dropping unfetchable pdf {item.url}: {e}")
+                pdf_items.append(item)
+
+            # The inlined texts share one aggregate budget downstream, so a PDF is only worth
+            # routing to text when its share of that budget can carry it.
+            share = _MAX_INLINE_TOTAL_CHARS // max(1, len(pdf_items))
+            for item, outcome in _prepare_pdfs(
+                pdf_items,
+                caps,
+                allow_text=not self.disable_attachment_injection,
+                text_budget=min(_MAX_INLINE_TEXT_CHARS, share),
+            ):
+                if isinstance(outcome, Exception):
+                    logger.warning(f"dropping unfetchable pdf {item.url}: {outcome}")
                     item.action = "skip"
-                    item.reason = str(e)
+                    item.reason = str(outcome)
                     continue
+                action, payload, note = outcome
                 item.action = "inline" if action == "file" else action
                 if action == "file":
                     files.append(payload)
-                elif action == "text" and not self.disable_attachment_injection:
+                elif action == "text":
                     pdf_texts.append({"url": item.url, "content": payload})
                 if note:
                     plan.notes.append(f"{item.url}: {note}")
@@ -704,8 +748,7 @@ class Task(XPanderSharedModel):
 
         # Office docs aren't model-readable as raw bytes, so extract their text inline.
         if categorized_files.documents and not self.disable_attachment_injection:
-            for url in categorized_files.documents:
-                text = extract_document_text(url=url)
+            for url, text in extract_documents_text(categorized_files.documents):
                 if text:
                     raw_results.append({"url": url, "content": text})
 

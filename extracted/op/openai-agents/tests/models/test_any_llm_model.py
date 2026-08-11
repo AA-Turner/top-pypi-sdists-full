@@ -17,7 +17,12 @@ from openai.types.chat import (
 from openai.types.chat.chat_completion import Choice
 from openai.types.chat.chat_completion_chunk import Choice as ChunkChoice, ChoiceDelta
 from openai.types.completion_usage import CompletionUsage, PromptTokensDetails
-from openai.types.responses import Response, ResponseCompletedEvent, ResponseOutputMessage
+from openai.types.responses import (
+    Response,
+    ResponseCompletedEvent,
+    ResponseOutputMessage,
+    ResponseOutputRefusal,
+)
 from openai.types.responses.response_created_event import ResponseCreatedEvent
 from openai.types.responses.response_error_event import ResponseErrorEvent
 from openai.types.responses.response_failed_event import ResponseFailedEvent
@@ -278,6 +283,33 @@ async def test_user_agent_header_any_llm_chat(override_ua: str | None, monkeypat
 
 @pytest.mark.allow_call_model_methods
 @pytest.mark.asyncio
+async def test_any_llm_chat_preserves_falsy_reasoning(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FalsyReasoning(Reasoning):
+        def __bool__(self) -> bool:
+            return False
+
+    provider = FakeAnyLLMProvider(supports_responses=False, chat_response=_chat_completion("Hello"))
+    module, _create_calls = _import_any_llm_module(monkeypatch, provider)
+    model = module.AnyLLMModel(model="openrouter/openai/gpt-5.4-mini")
+
+    await model.get_response(
+        system_instructions=None,
+        input="hi",
+        model_settings=ModelSettings(reasoning=FalsyReasoning(effort="low")),
+        tools=[],
+        output_schema=None,
+        handoffs=[],
+        tracing=ModelTracing.DISABLED,
+        previous_response_id=None,
+        conversation_id=None,
+        prompt=None,
+    )
+
+    assert provider.chat_calls[0]["reasoning_effort"] == "low"
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
 @pytest.mark.parametrize("provider_name", ["gemini", "vertexai"])
 @pytest.mark.parametrize("options_type", ["unset", "dictionary", "model"])
 async def test_any_llm_google_chat_headers_use_http_options(
@@ -416,7 +448,7 @@ async def test_any_llm_chat_path_is_used_when_responses_are_unsupported(monkeypa
     response = await model.get_response(
         system_instructions="You are terse.",
         input="hi",
-        model_settings=ModelSettings(),
+        model_settings=ModelSettings(preserve_raw_usage=True),
         tools=[],
         output_schema=None,
         handoffs=[],
@@ -440,6 +472,87 @@ async def test_any_llm_chat_path_is_used_when_responses_are_unsupported(monkeypa
     assert response.output[0].content[0].text == "Hello"
     assert response.usage.input_tokens_details.cached_tokens == 2
     assert getattr(response.usage.input_tokens_details, "cache_write_tokens", None) == 4
+    assert response.raw_usage is not None
+    assert response.raw_usage["prompt_tokens_details"] == {
+        "cached_tokens": 2,
+        "cache_write_tokens": 4,
+    }
+
+
+def _content_filtered_chat_completion(content: str) -> ChatCompletion:
+    completion = _chat_completion(content)
+    completion.choices[0].finish_reason = "content_filter"
+    return completion
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_any_llm_chat_path_surfaces_content_filter_refusal(monkeypatch) -> None:
+    """A filtered turn must become a refusal instead of an empty output."""
+    provider = FakeAnyLLMProvider(
+        supports_responses=False,
+        chat_response=_content_filtered_chat_completion(""),
+    )
+    module, _create_calls = _import_any_llm_module(monkeypatch, provider)
+
+    model = module.AnyLLMModel(model="openrouter/openai/gpt-5.4-mini")
+    response = await model.get_response(
+        system_instructions=None,
+        input="hi",
+        model_settings=ModelSettings(),
+        tools=[],
+        output_schema=None,
+        handoffs=[],
+        tracing=ModelTracing.DISABLED,
+        previous_response_id=None,
+        conversation_id=None,
+        prompt=None,
+    )
+
+    refusals = [
+        content
+        for item in response.output
+        if isinstance(item, ResponseOutputMessage)
+        for content in item.content
+        if isinstance(content, ResponseOutputRefusal)
+    ]
+    assert refusals, f"expected a refusal item, got: {response.output}"
+    assert refusals[0].refusal
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_any_llm_chat_path_content_filter_keeps_real_content(monkeypatch) -> None:
+    """A filtered turn that still carries text keeps the text and gains no refusal."""
+    provider = FakeAnyLLMProvider(
+        supports_responses=False,
+        chat_response=_content_filtered_chat_completion("here is the answer"),
+    )
+    module, _create_calls = _import_any_llm_module(monkeypatch, provider)
+
+    model = module.AnyLLMModel(model="openrouter/openai/gpt-5.4-mini")
+    response = await model.get_response(
+        system_instructions=None,
+        input="hi",
+        model_settings=ModelSettings(),
+        tools=[],
+        output_schema=None,
+        handoffs=[],
+        tracing=ModelTracing.DISABLED,
+        previous_response_id=None,
+        conversation_id=None,
+        prompt=None,
+    )
+
+    refusals = [
+        content
+        for item in response.output
+        if isinstance(item, ResponseOutputMessage)
+        for content in item.content
+        if isinstance(content, ResponseOutputRefusal)
+    ]
+    assert not refusals
+    assert response.output[0].content[0].text == "here is the answer"
 
 
 @pytest.mark.allow_call_model_methods
@@ -574,7 +687,7 @@ async def test_any_llm_responses_path_defaults_missing_cache_write_tokens(
     normalized = await model.get_response(
         system_instructions=None,
         input="hi",
-        model_settings=ModelSettings(),
+        model_settings=ModelSettings(preserve_raw_usage=True),
         tools=[],
         output_schema=None,
         handoffs=[],
@@ -587,6 +700,8 @@ async def test_any_llm_responses_path_defaults_missing_cache_write_tokens(
     assert normalized.output[0].content[0].text == "Hello"
     assert normalized.usage.input_tokens_details.cache_write_tokens == 0
     assert "cache_write_tokens" not in response_payload["usage"]["input_tokens_details"]
+    assert normalized.raw_usage is not None
+    assert "cache_write_tokens" not in normalized.raw_usage["input_tokens_details"]
 
 
 @pytest.mark.allow_call_model_methods
@@ -1098,6 +1213,65 @@ async def test_any_llm_responses_path_omits_reasoning_when_unset() -> None:
     assert provider.private_responses_calls[0]["params"].reasoning is None
 
 
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+async def test_any_llm_responses_path_forwards_prompt_cache_retention(stream: bool) -> None:
+    """`ModelSettings.prompt_cache_retention` must reach the any-llm Responses request."""
+    pytest.importorskip(
+        "any_llm",
+        reason="`any-llm-sdk` is only available when the optional dependency is installed.",
+    )
+
+    provider = _RecordingResponsesProvider(_response("Hello"))
+    model = _model_bound_to_provider(provider)
+
+    await cast(Any, model)._fetch_responses_response(
+        system_instructions=None,
+        input="hi",
+        model_settings=ModelSettings(prompt_cache_retention="24h"),
+        tools=[],
+        output_schema=None,
+        handoffs=[],
+        previous_response_id=None,
+        conversation_id=None,
+        stream=stream,
+        prompt=None,
+    )
+
+    assert len(provider.private_responses_calls) == 1
+    assert provider.private_responses_calls[0]["params"].prompt_cache_retention == "24h"
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_any_llm_responses_path_omits_prompt_cache_retention_when_unset() -> None:
+    """An unset retention stays unset instead of pinning a default on the request."""
+    pytest.importorskip(
+        "any_llm",
+        reason="`any-llm-sdk` is only available when the optional dependency is installed.",
+    )
+
+    provider = _RecordingResponsesProvider(_response("Hello"))
+    model = _model_bound_to_provider(provider)
+
+    await cast(Any, model)._fetch_responses_response(
+        system_instructions=None,
+        input="hi",
+        model_settings=ModelSettings(),
+        tools=[],
+        output_schema=None,
+        handoffs=[],
+        previous_response_id=None,
+        conversation_id=None,
+        stream=False,
+        prompt=None,
+    )
+
+    assert len(provider.private_responses_calls) == 1
+    assert provider.private_responses_calls[0]["params"].prompt_cache_retention is None
+
+
 def test_any_llm_provider_passes_api_override() -> None:
     pytest.importorskip(
         "any_llm",
@@ -1111,6 +1285,19 @@ def test_any_llm_provider_passes_api_override() -> None:
 
     assert isinstance(model, AnyLLMModel)
     assert model.api == "chat_completions"
+
+
+def test_any_llm_provider_reads_default_model_at_call_time(monkeypatch: Any) -> None:
+    pytest.importorskip(
+        "any_llm",
+        reason="`any-llm-sdk` is only available when the optional dependency is installed.",
+    )
+    from agents.extensions.models.any_llm_provider import AnyLLMProvider
+
+    monkeypatch.setenv("OPENAI_DEFAULT_MODEL", "gpt-4.1")
+    provider = AnyLLMProvider()
+
+    assert cast(Any, provider.get_model(None)).model == "openai/gpt-4.1"
 
 
 def test_any_llm_reasoning_objects_prefer_content_attributes_over_iterable_pairs() -> None:
@@ -1759,3 +1946,85 @@ async def test_any_llm_responses_stream_lets_in_flight_close_finish_after_cancel
     finally:
         release.set()
         task.cancel()
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_any_llm_responses_stream_counts_request_when_usage_is_absent(monkeypatch) -> None:
+    """The AnyLLM Responses stream must count its request like the non-streaming path.
+
+    `get_response` already reports one request when the provider omits usage. The streaming
+    path went through the run loop's usage-less fallback and reported zero, so the same call
+    was counted differently depending only on whether it was streamed.
+    """
+    completed = _response("Hello")
+    completed.usage = None
+
+    async def response_stream() -> AsyncIterator[ResponseCompletedEvent]:
+        yield ResponseCompletedEvent(
+            type="response.completed", response=completed, sequence_number=1
+        )
+
+    provider = FakeAnyLLMProvider(supports_responses=True, responses_response=response_stream())
+    module, _ = _import_any_llm_module(monkeypatch, provider)
+
+    events = [
+        event
+        async for event in module.AnyLLMModel(model="openai/gpt-5.4-mini").stream_response(
+            system_instructions=None,
+            input="hi",
+            model_settings=ModelSettings(),
+            tools=[],
+            output_schema=None,
+            handoffs=[],
+            tracing=ModelTracing.DISABLED,
+            previous_response_id=None,
+            conversation_id=None,
+            prompt=None,
+        )
+    ]
+
+    from agents.usage import _requests_for_response_without_usage
+
+    terminal = events[-1]
+    assert isinstance(terminal, ResponseCompletedEvent)
+    # No usage payload is synthesized, so token counts are not reported as real zeros.
+    assert terminal.response.usage is None
+    assert _requests_for_response_without_usage(terminal.response) == 1
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_any_llm_responses_stream_with_usage_is_not_marked(monkeypatch) -> None:
+    """A response that did report usage must not also be counted by the usage-less path."""
+
+    async def response_stream() -> AsyncIterator[ResponseCompletedEvent]:
+        yield ResponseCompletedEvent(
+            type="response.completed", response=_response("Hello"), sequence_number=1
+        )
+
+    provider = FakeAnyLLMProvider(supports_responses=True, responses_response=response_stream())
+    module, _ = _import_any_llm_module(monkeypatch, provider)
+
+    events = [
+        event
+        async for event in module.AnyLLMModel(model="openai/gpt-5.4-mini").stream_response(
+            system_instructions=None,
+            input="hi",
+            model_settings=ModelSettings(),
+            tools=[],
+            output_schema=None,
+            handoffs=[],
+            tracing=ModelTracing.DISABLED,
+            previous_response_id=None,
+            conversation_id=None,
+            prompt=None,
+        )
+    ]
+
+    from agents.usage import _requests_for_response_without_usage
+
+    terminal = events[-1]
+    assert isinstance(terminal, ResponseCompletedEvent)
+    assert terminal.response.usage is not None
+    assert _requests_for_response_without_usage(terminal.response) == 0

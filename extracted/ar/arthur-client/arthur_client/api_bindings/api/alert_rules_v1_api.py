@@ -16,13 +16,15 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
+from datetime import datetime
 from pydantic import Field, StrictFloat, StrictInt, StrictStr
-from typing import Optional, Union
+from typing import List, Optional, Union
 from typing_extensions import Annotated
 from arthur_client.api_bindings.models.alert_bound import AlertBound
 from arthur_client.api_bindings.models.alert_rule import AlertRule
 from arthur_client.api_bindings.models.alert_rule_sql_validation_resp import AlertRuleSQLValidationResp
 from arthur_client.api_bindings.models.alert_rule_sort import AlertRuleSort
+from arthur_client.api_bindings.models.alert_rule_timeline_list import AlertRuleTimelineList
 from arthur_client.api_bindings.models.patch_alert_rule import PatchAlertRule
 from arthur_client.api_bindings.models.post_alert_rule import PostAlertRule
 from arthur_client.api_bindings.models.resource_list_alert_rule import ResourceListAlertRule
@@ -1503,6 +1505,434 @@ class AlertRulesV1Api:
         return self.api_client.param_serialize(
             method='GET',
             resource_path='/api/v1/models/{model_id}/alert_rules',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def get_model_alert_rules_timeline(
+        self,
+        model_id: StrictStr,
+        start_time: Annotated[Optional[datetime], Field(description="Start of the timeline range (inclusive). Defaults to 7 days before end_time if not specified.")] = None,
+        end_time: Annotated[Optional[datetime], Field(description="End of the timeline range (exclusive). Must be after start_time. Defaults to now if not specified.")] = None,
+        resolution: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="Maximum number of streak segments per alert rule. Streak boundary precision is at worst (end_time - start_time) / resolution and never coarser than the rule's own evaluation interval.")] = None,
+        alert_rule_ids: Annotated[Optional[List[Optional[StrictStr]]], Field(description="Optional alert rule IDs to filter by.")] = None,
+        sort: Annotated[Optional[AlertRuleSort], Field(description="The field to sort by.")] = None,
+        order: Annotated[Optional[SortOrder], Field(description="The order to sort by.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> AlertRuleTimelineList:
+        """Get Model Alert Rules Timeline
+
+        Returns per-alert-rule health streaks computed from alert rule evaluation logs over a time range, with a default of the last 7 days. Time not covered by any evaluation is returned as 'not_evaluated'. Requires model_list_alerts permission.
+
+        :param model_id: (required)
+        :type model_id: str
+        :param start_time: Start of the timeline range (inclusive). Defaults to 7 days before end_time if not specified.
+        :type start_time: datetime
+        :param end_time: End of the timeline range (exclusive). Must be after start_time. Defaults to now if not specified.
+        :type end_time: datetime
+        :param resolution: Maximum number of streak segments per alert rule. Streak boundary precision is at worst (end_time - start_time) / resolution and never coarser than the rule's own evaluation interval.
+        :type resolution: int
+        :param alert_rule_ids: Optional alert rule IDs to filter by.
+        :type alert_rule_ids: List[Optional[str]]
+        :param sort: The field to sort by.
+        :type sort: AlertRuleSort
+        :param order: The order to sort by.
+        :type order: SortOrder
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_model_alert_rules_timeline_serialize(
+            model_id=model_id,
+            start_time=start_time,
+            end_time=end_time,
+            resolution=resolution,
+            alert_rule_ids=alert_rule_ids,
+            sort=sort,
+            order=order,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AlertRuleTimelineList",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '400': "BadRequestError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_model_alert_rules_timeline_with_http_info(
+        self,
+        model_id: StrictStr,
+        start_time: Annotated[Optional[datetime], Field(description="Start of the timeline range (inclusive). Defaults to 7 days before end_time if not specified.")] = None,
+        end_time: Annotated[Optional[datetime], Field(description="End of the timeline range (exclusive). Must be after start_time. Defaults to now if not specified.")] = None,
+        resolution: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="Maximum number of streak segments per alert rule. Streak boundary precision is at worst (end_time - start_time) / resolution and never coarser than the rule's own evaluation interval.")] = None,
+        alert_rule_ids: Annotated[Optional[List[Optional[StrictStr]]], Field(description="Optional alert rule IDs to filter by.")] = None,
+        sort: Annotated[Optional[AlertRuleSort], Field(description="The field to sort by.")] = None,
+        order: Annotated[Optional[SortOrder], Field(description="The order to sort by.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[AlertRuleTimelineList]:
+        """Get Model Alert Rules Timeline
+
+        Returns per-alert-rule health streaks computed from alert rule evaluation logs over a time range, with a default of the last 7 days. Time not covered by any evaluation is returned as 'not_evaluated'. Requires model_list_alerts permission.
+
+        :param model_id: (required)
+        :type model_id: str
+        :param start_time: Start of the timeline range (inclusive). Defaults to 7 days before end_time if not specified.
+        :type start_time: datetime
+        :param end_time: End of the timeline range (exclusive). Must be after start_time. Defaults to now if not specified.
+        :type end_time: datetime
+        :param resolution: Maximum number of streak segments per alert rule. Streak boundary precision is at worst (end_time - start_time) / resolution and never coarser than the rule's own evaluation interval.
+        :type resolution: int
+        :param alert_rule_ids: Optional alert rule IDs to filter by.
+        :type alert_rule_ids: List[Optional[str]]
+        :param sort: The field to sort by.
+        :type sort: AlertRuleSort
+        :param order: The order to sort by.
+        :type order: SortOrder
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_model_alert_rules_timeline_serialize(
+            model_id=model_id,
+            start_time=start_time,
+            end_time=end_time,
+            resolution=resolution,
+            alert_rule_ids=alert_rule_ids,
+            sort=sort,
+            order=order,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AlertRuleTimelineList",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '400': "BadRequestError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_model_alert_rules_timeline_without_preload_content(
+        self,
+        model_id: StrictStr,
+        start_time: Annotated[Optional[datetime], Field(description="Start of the timeline range (inclusive). Defaults to 7 days before end_time if not specified.")] = None,
+        end_time: Annotated[Optional[datetime], Field(description="End of the timeline range (exclusive). Must be after start_time. Defaults to now if not specified.")] = None,
+        resolution: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="Maximum number of streak segments per alert rule. Streak boundary precision is at worst (end_time - start_time) / resolution and never coarser than the rule's own evaluation interval.")] = None,
+        alert_rule_ids: Annotated[Optional[List[Optional[StrictStr]]], Field(description="Optional alert rule IDs to filter by.")] = None,
+        sort: Annotated[Optional[AlertRuleSort], Field(description="The field to sort by.")] = None,
+        order: Annotated[Optional[SortOrder], Field(description="The order to sort by.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get Model Alert Rules Timeline
+
+        Returns per-alert-rule health streaks computed from alert rule evaluation logs over a time range, with a default of the last 7 days. Time not covered by any evaluation is returned as 'not_evaluated'. Requires model_list_alerts permission.
+
+        :param model_id: (required)
+        :type model_id: str
+        :param start_time: Start of the timeline range (inclusive). Defaults to 7 days before end_time if not specified.
+        :type start_time: datetime
+        :param end_time: End of the timeline range (exclusive). Must be after start_time. Defaults to now if not specified.
+        :type end_time: datetime
+        :param resolution: Maximum number of streak segments per alert rule. Streak boundary precision is at worst (end_time - start_time) / resolution and never coarser than the rule's own evaluation interval.
+        :type resolution: int
+        :param alert_rule_ids: Optional alert rule IDs to filter by.
+        :type alert_rule_ids: List[Optional[str]]
+        :param sort: The field to sort by.
+        :type sort: AlertRuleSort
+        :param order: The order to sort by.
+        :type order: SortOrder
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_model_alert_rules_timeline_serialize(
+            model_id=model_id,
+            start_time=start_time,
+            end_time=end_time,
+            resolution=resolution,
+            alert_rule_ids=alert_rule_ids,
+            sort=sort,
+            order=order,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AlertRuleTimelineList",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '400': "BadRequestError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_model_alert_rules_timeline_serialize(
+        self,
+        model_id,
+        start_time,
+        end_time,
+        resolution,
+        alert_rule_ids,
+        sort,
+        order,
+        page,
+        page_size,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+            'alert_rule_ids': 'multi',
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if model_id is not None:
+            _path_params['model_id'] = model_id
+        # process the query parameters
+        if start_time is not None:
+            if isinstance(start_time, datetime):
+                _query_params.append(
+                    (
+                        'start_time',
+                        start_time.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('start_time', start_time))
+            
+        if end_time is not None:
+            if isinstance(end_time, datetime):
+                _query_params.append(
+                    (
+                        'end_time',
+                        end_time.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('end_time', end_time))
+            
+        if resolution is not None:
+            
+            _query_params.append(('resolution', resolution))
+            
+        if alert_rule_ids is not None:
+            
+            _query_params.append(('alert_rule_ids', alert_rule_ids))
+            
+        if sort is not None:
+            
+            _query_params.append(('sort', sort.value))
+            
+        if order is not None:
+            
+            _query_params.append(('order', order.value))
+            
+        if page is not None:
+            
+            _query_params.append(('page', page))
+            
+        if page_size is not None:
+            
+            _query_params.append(('page_size', page_size))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v1/models/{model_id}/alert_rules/timeline',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,

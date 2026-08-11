@@ -9,42 +9,53 @@ import requests as rq
 from fivetran_connector_sdk.logger import Logging
 from fivetran_connector_sdk.constants import EXAMPLES_GITHUB_REPO, GITHUB_BRANCH, \
     AGENT_PLUGINS, SUPPORTED_AGENT_DISPLAY_NAMES, TOOLS_GITHUB_REPO_URL, TEMPLATE_CONNECTOR_PATH, \
-    CONNECTORS_GITHUB_REPO, CONNECTORS_TEMPLATE_PREFIX, ROOT_FILENAME
-from fivetran_connector_sdk.helpers import print_library_log
+    CONNECTORS_GITHUB_REPO, CONNECTORS_TEMPLATE_PREFIX, VIRTUAL_ENV_CONFIG, EXCLUDED_DIRS
+from fivetran_connector_sdk.helpers import print_library_log, PromptMode, resolve_confirmation
 
 
-def init(project_dir: str, template: str, non_interactive: bool):
-    connector_path = os.path.join(project_dir, ROOT_FILENAME)
-    if non_interactive:
-        print_library_log("overriding existing files; --non-interactive is set")
-        run_project_setup = True
-    elif os.path.isfile(connector_path):
-        print_library_log(
-            f"skipping connector project creation; {ROOT_FILENAME} already exists at {project_dir}",
-            log_icon=Logging.LogIcon.STEP,
-        )
-        print_library_log(
-            "to force setup of connector files, pass the --non-interactive flag",
-            log_icon=Logging.LogIcon.STEP,
-        )
-        run_project_setup = False
-    else:
-        run_project_setup = True
+def init(project_dir: str, template: str, prompt_mode: PromptMode):
+    existing_project = is_existing_project(project_dir)
+    run_project_setup = True
+    if existing_project:
+        run_project_setup = resolve_confirmation("Overwrite existing project? (y/N): ", False, prompt_mode)
     try:
         if run_project_setup:
-            setup_connector(project_dir, template, non_interactive)
+            setup_connector(project_dir, template)
             print_library_log("project initialized", log_icon=Logging.LogIcon.SUCCESS)
             print_library_log("Time to make a great connector; Happy coding")
-        setup_ai_agent()
+        else:
+            print_library_log("skipping project setup; existing files were not overwritten",
+                              log_icon=Logging.LogIcon.STEP)
+        if prompt_mode == PromptMode.INTERACTIVE:
+            setup_ai_agent()
+        else:
+            print_library_log(f"skipping AI agent setup; {prompt_mode.value} is set", log_icon=Logging.LogIcon.STEP)
         sys.exit(0)
     except Exception as e:
         print_library_log(f"failed to initialize project error: {e}", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
         sys.exit(1)
 
 
-def setup_connector(project_dir: str, template: str, non_interactive: bool):
+def is_existing_project(project_dir: str) -> bool:
+    if not os.path.isdir(project_dir):
+        return False
+
+    with os.scandir(project_dir) as entries:
+        for entry in entries:
+            if entry.name.startswith("."):
+                continue
+            if entry.is_dir() and (
+                    entry.name in EXCLUDED_DIRS
+                    or os.path.isfile(os.path.join(entry.path, VIRTUAL_ENV_CONFIG))):
+                continue
+            return True
+
+    return False
+
+
+def setup_connector(project_dir: str, template: str):
     os.makedirs(project_dir, exist_ok=True)
-    download_git_directory(template, project_dir, non_interactive)
+    download_git_directory(template, project_dir)
     print_library_log(f"new project created at: {project_dir}", log_icon=Logging.LogIcon.SUCCESS)
 
 
@@ -243,7 +254,7 @@ def _raise_no_match(prefix_matches: set, requested_path: str):
     raise ValueError(f"no connector found matching '{requested_path}'")
 
 
-def download_git_directory(path_prefix: str, project_dir: str, non_interactive: bool):
+def download_git_directory(path_prefix: str, project_dir: str):
     repo, actual_path = _resolve_repo_and_path(path_prefix)
     requested_path = path_prefix.rstrip("/")
     actual_path = actual_path.rstrip("/")
@@ -265,7 +276,7 @@ def download_git_directory(path_prefix: str, project_dir: str, non_interactive: 
         validate_example_directory(files_to_download, requested_path)
 
         print_library_log(f"downloading {len(files_to_download)} files from GitHub", log_icon=Logging.LogIcon.STEP)
-        download_file_from_github(files_to_download, project_dir, non_interactive, repo)
+        download_file_from_github(files_to_download, project_dir, repo)
 
     except ValueError as e:
         print_library_log(str(e), Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
@@ -275,7 +286,7 @@ def download_git_directory(path_prefix: str, project_dir: str, non_interactive: 
         print_library_log(f"files are available for manual download from: https://github.com/{repo}/tree/{GITHUB_BRANCH}/{actual_path}")
 
 
-def download_file_from_github(files_to_download: list, project_dir: str, non_interactive: bool, repo: str = EXAMPLES_GITHUB_REPO):
+def download_file_from_github(files_to_download: list, project_dir: str, repo: str = EXAMPLES_GITHUB_REPO):
     for file_info in files_to_download:
         # Construct raw download URL
         raw_url = f"https://raw.githubusercontent.com/{repo}/{GITHUB_BRANCH}/{file_info['github_path']}"
@@ -292,15 +303,6 @@ def download_file_from_github(files_to_download: list, project_dir: str, non_int
         try:
             file_response = rq.get(raw_url, timeout=10)
             file_response.raise_for_status()
-
-            if os.path.exists(target_path):
-                if not non_interactive:
-                    override_file = input(f"File {file_info['local_path']} already exists. Overwrite? (y/N): ")
-                else:
-                    override_file = "y"
-                if override_file.lower() != "y":
-                    print_library_log(f"skipped {file_info['local_path']}", level=Logging.Level.INFO, log_icon=Logging.LogIcon.SUCCESS)
-                    continue
 
             with open(target_path, 'wb') as f:
                 f.write(file_response.content)

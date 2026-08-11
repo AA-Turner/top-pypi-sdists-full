@@ -79,6 +79,8 @@ class DynamicTable(BaseModel):
         The type of role that owns the object — **Read-only:** *any user-provided value will be ignored.*
     budget : str, optional
         Name of the budget if the object is monitored by a budget — **Read-only:** *any user-provided value will be ignored.*
+    scheduler : str, optional
+        ENABLE (default) means the dynamic table is managed by the internal scheduler and participates in pipeline refresh; DISABLE excludes it from automatic background refresh scheduling and isolates it from pipelines — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: StrictStr
@@ -125,6 +127,8 @@ class DynamicTable(BaseModel):
 
     budget: Optional[StrictStr] = None
 
+    scheduler: Optional[StrictStr] = None
+
     __properties = [
         "name",
         "kind",
@@ -148,10 +152,12 @@ class DynamicTable(BaseModel):
         "owner",
         "owner_role_type",
         "budget",
+        "scheduler",
     ]
 
     @field_validator("kind")
     def kind_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("PERMANENT", "TRANSIENT"):
@@ -160,6 +166,7 @@ class DynamicTable(BaseModel):
 
     @field_validator("refresh_mode")
     def refresh_mode_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("AUTO", "FULL", "INCREMENTAL"):
@@ -168,6 +175,7 @@ class DynamicTable(BaseModel):
 
     @field_validator("initialize")
     def initialize_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("ON_CREATE", "ON_SCHEDULE"):
@@ -176,6 +184,7 @@ class DynamicTable(BaseModel):
 
     @field_validator("scheduling_state")
     def scheduling_state_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("RUNNING", "SUSPENDED"):
@@ -220,6 +229,7 @@ class DynamicTable(BaseModel):
                     "owner",
                     "owner_role_type",
                     "budget",
+                    "scheduler",
                 }
             )
 
@@ -278,6 +288,7 @@ class DynamicTable(BaseModel):
                 "owner": obj.get("owner"),
                 "owner_role_type": obj.get("owner_role_type"),
                 "budget": obj.get("budget"),
+                "scheduler": obj.get("scheduler"),
             }
         )
 
@@ -310,6 +321,7 @@ class DynamicTableModel:
         owner: Optional[str] = None,
         owner_role_type: Optional[str] = None,
         budget: Optional[str] = None,
+        scheduler: Optional[str] = None,
     ):
         """A model object representing the DynamicTable resource.
 
@@ -361,6 +373,8 @@ class DynamicTableModel:
             The type of role that owns the object.
         budget : str, optional
             Name of the budget if the object is monitored by a budget
+        scheduler : str, optional
+            ENABLE (default) means the dynamic table is managed by the internal scheduler and participates in pipeline refresh; DISABLE excludes it from automatic background refresh scheduling and isolates it from pipelines.
         """
         self.name = name
         self.kind = kind
@@ -384,6 +398,7 @@ class DynamicTableModel:
         self.owner = owner
         self.owner_role_type = owner_role_type
         self.budget = budget
+        self.scheduler = scheduler
 
     __properties = [
         "name",
@@ -408,6 +423,7 @@ class DynamicTableModel:
         "owner",
         "owner_role_type",
         "budget",
+        "scheduler",
     ]
 
     def __repr__(self) -> str:
@@ -437,6 +453,7 @@ class DynamicTableModel:
             owner=self.owner,
             owner_role_type=self.owner_role_type,
             budget=self.budget,
+            scheduler=self.scheduler,
         )
 
     @classmethod
@@ -464,6 +481,7 @@ class DynamicTableModel:
             owner=model.owner,
             owner_role_type=model.owner_role_type,
             budget=model.budget,
+            scheduler=model.scheduler,
         )
 
     def to_dict(self):

@@ -255,6 +255,9 @@ nav:
           - Agent sessions: integrations/agent-session.md
           - agents-md sync: agents-md.md
           - Skills catalog: operations/skills-catalog.md
+          - Skill lint: operations/skill-lint.md
+          - Skill selection rules: operations/skill-selection-rules.md
+          - Skill selection rules design: sdd/skill-selection-rules.md
           - Layered skill merge: skills/layered-merge.md
           - Agent prompt template: examples/agent-prompt-template.md
       - Memory & context:
@@ -424,6 +427,7 @@ nav:
           - Criterion profiles: operations/criterion-profiles.md
           - Golden benchmark harness: eval/golden-harness.md
           - Reproducible bench bundles: eval/bench.md
+          - pass^k reliability floor: eval/reliability.md
       - Security & identity:
           - Security & identity stack: operations/security-and-identity.md
           - Security operations: operations/security.md
@@ -516,6 +520,7 @@ nav:
       - Release notes:
           - Changelog: CHANGELOG.md
           - Unreleased: release-notes/unreleased.md
+          - v3.14.159: release-notes/v3.14.159.md
           - v3.13.0: release-notes/v3.13.0.md
           - v3.12.0: release-notes/v3.12.0.md
           - v3.11.0: release-notes/v3.11.0.md
@@ -642,6 +647,8 @@ nav:
       - Adapter contracts: contributing/adapter-contracts.md
       - Writing adapters: adapters/ADAPTER_GUIDE.md
       - Flake handling: contributing/flake-handling.md
+      - Demo recording: contributing/demo-recording.md
+      - Render freshness: contributing/render-freshness.md
       - CI apps: maintainers/ci-apps.md
       - Extended static analysis: ci/extended-static-analysis.md
       - Release process: operations/release.md

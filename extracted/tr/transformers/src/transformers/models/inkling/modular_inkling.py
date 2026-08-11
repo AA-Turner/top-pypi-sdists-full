@@ -26,7 +26,7 @@ from ...activations import ACT2FN
 from ...cache_utils import Cache, DynamicCache
 from ...configuration_utils import PreTrainedConfig
 from ...generation import GenerationMixin
-from ...integrations import use_kernel_func_from_hub, use_kernelized_func
+from ...integrations import use_kernelized_func
 from ...integrations.accelerate import force_accelerate_hooks
 from ...masking_utils import create_causal_mask, create_recurrent_attention_mask, create_sliding_window_causal_mask
 from ...modeling_layers import GradientCheckpointingLayer
@@ -51,7 +51,7 @@ from ..gemma3.modeling_gemma3 import (
 from ..higgs_audio_v2.modeling_higgs_audio_v2 import HiggsAudioV2Embeddings
 from ..llama.modeling_llama import LlamaRMSNorm, repeat_kv
 from ..mixtral.modeling_mixtral import MixtralExperts
-from ..qwen3_next.modeling_qwen3_next import apply_mask_to_padding_states
+from ..qwen3_next.modeling_qwen3_next import apply_mask_to_padding_states, causal_conv1d_fn, causal_conv1d_update
 
 
 logger = logging.get_logger(__name__)
@@ -533,49 +533,6 @@ class InklingMoE(nn.Module):
         return hidden_states
 
 
-@use_kernel_func_from_hub("causal_conv1d_update")
-def causal_conv1d_update(
-    hidden_states: torch.Tensor,
-    conv_state: torch.Tensor,
-    weight: nn.Parameter,
-    bias: nn.Parameter | None = None,
-    activation: str | None = None,
-):
-    _, hidden_size, seq_len = hidden_states.shape
-    state_len = conv_state.shape[-1]
-
-    hidden_states_new = torch.cat([conv_state, hidden_states], dim=-1).to(weight.dtype)
-    conv_state.copy_(hidden_states_new[:, :, -state_len:])
-    out = F.conv1d(hidden_states_new, weight.unsqueeze(1), bias, padding=0, groups=hidden_size)
-    out = out[:, :, -seq_len:]
-    if activation is not None:
-        out = ACT2FN[activation](out)
-    return out.to(hidden_states.dtype)
-
-
-@use_kernel_func_from_hub("causal_conv1d_fn")
-def causal_conv1d_fn(
-    hidden_states: torch.Tensor,
-    weight: nn.Parameter,
-    bias: nn.Parameter | None = None,
-    activation: str | None = None,
-    **kwargs,
-):
-    _, hidden_size, seq_len = hidden_states.shape
-    padding = weight.shape[-1] - 1
-
-    out = F.conv1d(
-        hidden_states.to(weight.dtype),
-        weight=weight.unsqueeze(1),
-        bias=bias,
-        padding=padding,
-        groups=hidden_size,
-    )[:, :, :seq_len]
-    if activation is not None:
-        out = ACT2FN[activation](out)
-    return out.to(hidden_states.dtype)
-
-
 @use_kernelized_func([causal_conv1d_update, causal_conv1d_fn])
 class InklingShortConvolution(nn.Module):
     def __init__(self, hidden_size: int, conv_kernel_size: int, layer_idx: int, conv_idx: int):
@@ -631,7 +588,7 @@ class InklingShortConvolution(nn.Module):
             )
 
             # Drop the additional previous states
-            if use_precomputed_states:
+            if past_key_values is not None:
                 hidden_states = hidden_states[:, :, -seq_len:]
 
         hidden_states = hidden_states.transpose(1, 2)
@@ -822,6 +779,7 @@ class InklingForCausalLM(Gemma3ForCausalLM):
     # `embed` and `unembed` are separate tensors in the checkpoints, never tied
     _tied_weights_keys = {}
     _tp_plan = {"lm_head": "rowwise_split_input"}
+    _fsdp_plan = {"lm_head": "keep_full_weight"}
 
     @can_return_tuple
     @auto_docstring
@@ -837,6 +795,23 @@ class InklingForCausalLM(Gemma3ForCausalLM):
         logits_to_keep: int | torch.Tensor = 0,
         **kwargs: Unpack[TransformersKwargs],
     ) -> InklingCausalLMOutputWithPast:
+        r"""
+        Example:
+
+        ```python
+        >>> from transformers import AutoTokenizer, InklingForCausalLM
+
+        >>> model = InklingForCausalLM.from_pretrained("thinkingmachines/Inkling-NVFP4")
+        >>> tokenizer = AutoTokenizer.from_pretrained("thinkingmachines/Inkling-NVFP4")
+
+        >>> prompt = "What is your favorite condiment?"
+        >>> inputs = tokenizer(prompt, return_tensors="pt")
+
+        >>> # Generate
+        >>> generate_ids = model.generate(**inputs, max_new_tokens=30)
+        >>> tokenizer.batch_decode(generate_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+        "What is your favorite condiment?"
+        ```"""
         outputs = self.model(
             input_ids=input_ids,
             attention_mask=attention_mask,
@@ -877,7 +852,7 @@ class InklingAudioModel(InklingPreTrainedModel):
         self.embed_audio_tokens = InklingAudioModelEmbeddings(config)
         self.norm = InklingRMSNorm(config.text_hidden_size, eps=1e-6)
 
-    def forward(self, audio_input_ids: torch.Tensor) -> torch.Tensor:
+    def forward(self, audio_input_ids: torch.Tensor, **kwargs) -> torch.Tensor:
         hidden_states = self.embed_audio_tokens(audio_input_ids)
         hidden_states = self.norm(hidden_states)
         return BaseModelOutputWithPooling(
@@ -1019,8 +994,8 @@ class InklingVisionModel(InklingPreTrainedModel):
                 (end_scale[0] // start_scale[0]) * (end_scale[1] // start_scale[1]) * (end_scale[2] // start_scale[2])
             )
             output_dim = config.text_hidden_size if i == config.num_hidden_layers - 1 else end_scale[3]
-            hw_fold = end_scale[1] // start_scale[1]
-            t_fold = end_scale[0] // start_scale[0]
+            hw_fold = int(end_scale[1] // start_scale[1])
+            t_fold = int(end_scale[0] // start_scale[0])
             self.encoder_layers.append(
                 InklingVisionEncoderLayer(
                     input_dim=start_scale[3] * shuffle_mult,
@@ -1041,7 +1016,7 @@ class InklingVisionModel(InklingPreTrainedModel):
             hidden_states = layer(hidden_states=hidden_states)
 
         hidden_states = self.final_norm(hidden_states)
-        hidden_states = hidden_states.reshape(num_patches, -1)
+        hidden_states = hidden_states.reshape(num_patches, 1, -1)
         return BaseModelOutputWithPooling(
             last_hidden_state=hidden_states,
             pooler_output=hidden_states,
@@ -1154,8 +1129,8 @@ class InklingModel(InklingPreTrainedModel):
         >>> from io import BytesIO
         >>> from transformers import AutoProcessor, InklingForConditionalGeneration
 
-        >>> model = InklingForConditionalGeneration.from_pretrained("google/inkling2-3b-mix-224")
-        >>> processor = AutoProcessor.from_pretrained("google/inkling2-3b-mix-224")
+        >>> model = InklingForConditionalGeneration.from_pretrained("thinkingmachines/Inkling-NVFP4")
+        >>> processor = AutoProcessor.from_pretrained("thinkingmachines/Inkling-NVFP4")
 
         >>> prompt = "Where is the cat standing?"
         >>> url = "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/pipeline-cat-chonk.jpeg"
@@ -1288,8 +1263,8 @@ class InklingForConditionalGeneration(InklingPreTrainedModel, GenerationMixin):
         >>> from io import BytesIO
         >>> from transformers import AutoProcessor, InklingForConditionalGeneration
 
-        >>> model = InklingForConditionalGeneration.from_pretrained("google/gemma-3-4b-it")
-        >>> processor = AutoProcessor.from_pretrained("google/gemma-3-4b-it")
+        >>> model = InklingForConditionalGeneration.from_pretrained("thinkingmachines/Inkling-NVFP4")
+        >>> processor = AutoProcessor.from_pretrained("thinkingmachines/Inkling-NVFP4")
 
         >>> messages = [
         ...     {
@@ -1365,7 +1340,7 @@ class InklingForConditionalGeneration(InklingPreTrainedModel, GenerationMixin):
         audio_input_ids=None,
         audio_input_ids_mask=None,
         use_cache=True,
-        logits_to_keep=None,
+        logits_to_keep=0,
         labels=None,
         is_first_iteration=False,
         **kwargs,

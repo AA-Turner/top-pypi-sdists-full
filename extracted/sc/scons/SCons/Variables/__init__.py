@@ -21,7 +21,12 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-"""Adds user-friendly customizable variables to an SCons build."""
+"""
+Adds user-friendly customizable variables to an SCons build.
+
+"Build Variables" represent a way to supply values for SCons
+construction variables from the command-line, or from saved settings files.
+"""
 
 from __future__ import annotations
 
@@ -34,7 +39,6 @@ from typing import Any, Callable, Sequence
 
 import SCons.Errors
 import SCons.Util
-import SCons.Warnings
 
 # Note: imports are for the benefit of SCons.Main (and tests); since they
 #   are not used here, the "as Foo" form is for checkers.
@@ -57,8 +61,27 @@ __all__ = [
 
 @dataclass(order=True)
 class Variable:
-    """A Build Variable."""
-    __slots__ = ('key', 'aliases', 'help', 'default', 'validator', 'converter', 'do_subst')
+    """A Build Variable.
+
+    Attributes:
+       key: the name of the variable
+       aliases: other names recognized for the variable
+       help:– help text
+       default: optional default value
+       validator: optional validator function
+       converter: optional converter function
+       do_subst: substitute before calling converter/valiator (default True)
+    """
+
+    __slots__ = (
+        'key',
+        'aliases',
+        'help',
+        'default',
+        'validator',
+        'converter',
+        'do_subst',
+    )
     key: str
     aliases: list[str]
     help: str
@@ -248,18 +271,20 @@ class Variables:
 
         # next set the values specified in any saved-variables script(s)
         for filename in self.files:
-            # TODO: issue #816 use Node to access saved-variables file?
-            if os.path.exists(filename):
+            # Resolve the saved-variables file through the File() node so it
+            # is found in the source directory (or a repository) as well as
+            # the build directory, e.g. when using a variant dir (issue #816).
+            node = env.File(filename)
+            contents = node.get_text_contents()
+            if contents:
                 # issue #4645: don't exec directly into values,
                 #   so we can iterate through for unknown variables.
                 temp_values = {}
-                dirname = os.path.split(os.path.abspath(filename))[0]
+                dirname = os.path.split(node.get_abspath())[0]
                 if dirname:
                     sys.path.insert(0, dirname)
                 try:
                     temp_values['__name__'] = filename
-                    with open(filename) as f:
-                        contents = f.read()
                     exec(contents, {}, temp_values)
                 finally:
                     if dirname:
@@ -460,9 +485,3 @@ class Variables:
         if aliases:
             return self.aliasfmt % (key, help, default, actual, aliases)
         return self.fmt % (key, help, default, actual)
-
-# Local Variables:
-# tab-width:4
-# indent-tabs-mode:nil
-# End:
-# vim: set expandtab tabstop=4 shiftwidth=4:

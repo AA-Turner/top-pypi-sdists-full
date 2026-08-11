@@ -2,7 +2,7 @@
 name = "pystac-ext-table"
 description = "Table extension for PySTAC"
 readme = "README.md"
-version = "1.2.0"
+version = "1.2.1"
 authors = []
 maintainers = []
 keywords = ["pystac", "imagery", "raster", "catalog", "STAC", "table"]
@@ -20,6 +20,9 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = ["pystac-core"]
+
+[project.entry-points."pystac.extensions"]
+table = "pystac.extensions.table:TABLE_EXTENSION_HOOKS"
 
 [project.urls]
 Documentation = "https://pystac.readthedocs.io"

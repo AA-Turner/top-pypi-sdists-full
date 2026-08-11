@@ -2575,6 +2575,7 @@ class OutputDestinationSettingsTypeDef(TypedDict):
     StreamName: NotRequired[str]
     Url: NotRequired[str]
     Username: NotRequired[str]
+    VirtualSourceAddress: NotRequired[str]
 
 
 class SrtOutputDestinationSettingsTypeDef(TypedDict):

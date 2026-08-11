@@ -26,7 +26,7 @@ from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListDictionariesPaginator, ListFeedsPaginator
+from .paginator import ListDictionariesPaginator, ListFeedsPaginator, SearchFixturesPaginator
 from .type_defs import (
     AssociateFeedRequestTypeDef,
     AssociateFeedResponseTypeDef,
@@ -53,6 +53,8 @@ from .type_defs import (
     ListFeedsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    SearchFixturesRequestTypeDef,
+    SearchFixturesResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateDictionaryRequestTypeDef,
@@ -75,9 +77,11 @@ class Exceptions(BaseClientExceptions):
     AccessDeniedException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
     ConflictException: type[BotocoreClientError]
+    GatewayTimedOutException: type[BotocoreClientError]
     InternalServerErrorException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
     ServiceQuotaExceededException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
     TooManyRequestException: type[BotocoreClientError]
     ValidationException: type[BotocoreClientError]
 
@@ -229,6 +233,17 @@ class ElementalInferenceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#list_tags_for_resource)
         """
 
+    def search_fixtures(
+        self, **kwargs: Unpack[SearchFixturesRequestTypeDef]
+    ) -> SearchFixturesResponseTypeDef:
+        """
+        Searches for the fixtures (sports events, such as a specific basketball game)
+        that are available for a sport in a date window.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/search_fixtures.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#search_fixtures)
+        """
+
     def tag_resource(
         self, **kwargs: Unpack[TagResourceRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -283,6 +298,17 @@ class ElementalInferenceClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_feeds"]
     ) -> ListFeedsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_fixtures"]
+    ) -> SearchFixturesPaginator:
         """
         Create a paginator for an operation.
 

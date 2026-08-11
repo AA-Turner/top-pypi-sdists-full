@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: ouroboros-ai
-Version: 0.51.1
-Summary: Specification-first workflow engine for AI coding agents -- works across Claude Code, Codex CLI, OpenCode, Hermes, Gemini, Kiro, Copilot, Pi, Zcode, Goose, GJC, Antigravity, and Grok.
+Version: 0.51.2
+Summary: Pins the acceptance spec before the run and withholds each criterion's verify command and expected output from the worker. Works with Claude Code, Codex CLI, OpenCode and 10 more runtimes.
 Project-URL: Homepage, https://ouroboros.page/
 Project-URL: Repository, https://github.com/Q00/ouroboros
 Project-URL: Bug Tracker, https://github.com/Q00/ouroboros/issues
@@ -34,18 +34,18 @@ Requires-Dist: sqlalchemy[asyncio]<3.0.0,>=2.0.0
 Requires-Dist: structlog<27.0.0,>=24.0.0
 Requires-Dist: typer<0.28.0,>=0.12.0
 Provides-Extra: all
-Requires-Dist: anthropic==0.117.0; extra == 'all'
-Requires-Dist: claude-agent-sdk==0.2.123; extra == 'all'
+Requires-Dist: anthropic==0.120.2; extra == 'all'
+Requires-Dist: claude-agent-sdk==0.2.128; extra == 'all'
 Requires-Dist: litellm==1.91.0; (python_version < '3.14') and extra == 'all'
 Requires-Dist: textual-serve==1.1.3; extra == 'all'
 Requires-Dist: textual==8.2.8; extra == 'all'
 Provides-Extra: claude
-Requires-Dist: anthropic==0.117.0; extra == 'claude'
-Requires-Dist: claude-agent-sdk==0.2.123; extra == 'claude'
+Requires-Dist: anthropic==0.120.2; extra == 'claude'
+Requires-Dist: claude-agent-sdk==0.2.128; extra == 'claude'
 Provides-Extra: claude-cli
 Provides-Extra: claude-sdk
-Requires-Dist: anthropic==0.117.0; extra == 'claude-sdk'
-Requires-Dist: claude-agent-sdk==0.2.123; extra == 'claude-sdk'
+Requires-Dist: anthropic==0.120.2; extra == 'claude-sdk'
+Requires-Dist: claude-agent-sdk==0.2.128; extra == 'claude-sdk'
 Provides-Extra: copilot
 Provides-Extra: dashboard
 Provides-Extra: litellm
@@ -81,6 +81,7 @@ Description-Content-Type: text/markdown
 </p>
 
 <p align="center">
+  <a href="https://github.com/Q00/ouroboros"><img src="https://img.shields.io/github/stars/Q00/ouroboros?color=yellow&logo=github&label=stars" alt="GitHub stars"></a>
   <a href="https://pypi.org/project/ouroboros-ai/"><img src="https://img.shields.io/pypi/v/ouroboros-ai?color=blue" alt="PyPI"></a>
   <a href="https://github.com/Q00/ouroboros/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/Q00/ouroboros/test.yml?branch=main" alt="Tests"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
@@ -266,7 +267,9 @@ See the [GitHub Copilot CLI runtime guide](./docs/runtime-guides/copilot.md) for
 <details>
 <summary><strong>Other install methods</strong></summary>
 
-**Claude Code plugin only** (no Python package to install; the host needs `uvx` and `python3` >= 3.11, 3.12 recommended — see #2001):
+**Claude Code plugin only** (no Python package or global Python to install; the
+host needs uv, which provides both `uvx` for the MCP server and the skills'
+Python >= 3.12 fallback):
 ```bash
 claude plugin marketplace add Q00/ouroboros && claude plugin install ouroboros@ouroboros
 ```
@@ -293,7 +296,7 @@ Core and non-LiteLLM installs support Python 3.12-3.14. LiteLLM-bearing installs
 Claude is the host. Never install `[mcp,claude]`, `[mcp,claude-sdk]`, or
 `[all,mcp]` in one interpreter. See the [package compatibility and migration matrix](./docs/platform-support.md#mcp-2-and-claude-package-profiles).
 
-`pip install 'ouroboros-ai[mcp]'` is valid for embedding the MCP client/server library in an already isolated Python environment, but host registration requires `uvx` or `pipx`. Use `pipx install 'ouroboros-ai[mcp]'` or `uv tool install 'ouroboros-ai[mcp]'` before `ouroboros setup --runtime <kiro|copilot|hermes>`; setup exits without changing runtime configuration when neither isolated launcher is available.
+`pip install 'ouroboros-ai[mcp]'` is valid for embedding the MCP client/server library in an already isolated Python environment, but host registration requires `uvx --isolated --python '>=3.12'` or `pipx`. Use `pipx install 'ouroboros-ai[mcp]'` or `uv tool install 'ouroboros-ai[mcp]'` before `ouroboros setup --runtime <kiro|copilot|hermes>`; setup exits without changing runtime configuration when neither isolated launcher is available.
 
 Legacy compatibility: `ouroboros-ai[dashboard]` is still accepted as a compatibility alias/no-op; it does not install dashboard runtime payload. `ouroboros-ai[all]` includes that no-op alias only for compatibility.
 
@@ -313,6 +316,13 @@ Removes all configuration, MCP registration, and data. See [UNINSTALL.md](./UNIN
 </details>
 
 > **Python >= 3.12 required.** LiteLLM-bearing profiles support Python 3.12-3.13. See [Platform Support](./docs/platform-support.md#python-profile-matrix) and [pyproject.toml](./pyproject.toml).
+>
+> **Installing as an MCP server: use 0.51.1 or later.** Earlier versions can fail at startup with `Failed to reconnect to plugin:ouroboros:ouroboros: -32000` when an existing environment shadows the `[mcp]` profile ([#2012](https://github.com/Q00/ouroboros/issues/2012)). This matters if you install through a downstream package rather than PyPI, since those can lag.
+
+<p align="center">
+  <sub>Most people find out they were unclear about three files into the review.<br/>
+  If that feels familiar, star <a href="https://github.com/Q00/ouroboros"><strong>Q00/ouroboros on GitHub</strong></a> so the next person it could save can find it.</sub>
+</p>
 
 ---
 

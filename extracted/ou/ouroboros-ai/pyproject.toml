@@ -1,7 +1,7 @@
 [project]
 name = "ouroboros-ai"
 dynamic = ["version"]
-description = "Specification-first workflow engine for AI coding agents -- works across Claude Code, Codex CLI, OpenCode, Hermes, Gemini, Kiro, Copilot, Pi, Zcode, Goose, GJC, Antigravity, and Grok."
+description = "Pins the acceptance spec before the run and withholds each criterion's verify command and expected output from the worker. Works with Claude Code, Codex CLI, OpenCode and 10 more runtimes."
 readme = "README.md"
 authors = [
     { name = "Q00", email = "jqyu.lee@gmail.com" }
@@ -70,11 +70,11 @@ Sponsor = "https://github.com/sponsors/Q00"
 # Claude's default runtime preserves the Agent SDK and its MCP 1.x graph. The
 # MCP 2 server runs in a separate process/profile; these extras must never be
 # selected in one interpreter.
-claude = ["claude-agent-sdk==0.2.123", "anthropic==0.117.0"]
+claude = ["claude-agent-sdk==0.2.128", "anthropic==0.120.2"]
 claude-cli = []
 # Explicit alias for automation and migrations that want to spell out the SDK
 # transport rather than rely on the historical `[claude]` name.
-claude-sdk = ["claude-agent-sdk==0.2.123", "anthropic==0.117.0"]
+claude-sdk = ["claude-agent-sdk==0.2.128", "anthropic==0.120.2"]
 copilot = []
 litellm = ["litellm==1.91.0; python_version < '3.14'"]
 dashboard = []

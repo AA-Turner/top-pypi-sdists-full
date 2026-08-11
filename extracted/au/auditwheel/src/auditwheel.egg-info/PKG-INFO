@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: auditwheel
-Version: 6.7.0
+Version: 6.8.0
 Summary: Cross-distribution Linux wheels
 Author-email: "Robert T. McGibbon" <rmcgibbo@gmail.com>
 License: MIT

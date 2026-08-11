@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from io import StringIO
 from json import dumps as json_dumps
 import pathlib
@@ -22,6 +22,7 @@ from anyscale.commands.list_util import (
     display_list,
     MAX_PAGE_SIZE,
     NON_INTERACTIVE_DEFAULT_MAX_ITEMS,
+    resolve_interactive,
     validate_page_size,
 )
 from anyscale.commands.output_format import (
@@ -29,6 +30,7 @@ from anyscale.commands.output_format import (
     OUTPUT_FLAG_LONG,
     OutputFormat,
     print_output,
+    warn_deprecated_flag,
 )
 from anyscale.commands.util import (
     AnyscaleCommand,
@@ -486,37 +488,46 @@ def deploy(  # noqa: PLR0912, PLR0913 C901
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="Get the status of a service by name.",
             command="anyscale service status -n my-service",
             output_raw=(
-                "$ anyscale service status -n my-service\n"
                 "name: my-service\n"
-                "id: service2_uz6l8yhy2as5wrer3shzj6kh67\n"
+                "id: service2_abc123\n"
                 "state: RUNNING\n"
                 "query_url: https://my-service-abc123.serve.anyscale.com/\n"
+                "creator: someone@myorg.com\n"
                 "primary_version:\n"
                 "  id: 601bd56c4b\n"
+                "  name: 601bd56c4b\n"
                 "  state: RUNNING\n"
                 "  weight: 100\n"
+                "  created_at: 2026-05-20 12:34:56+00:00\n"
             ),
-            output_instance=lambda: ServiceStatus(
-                name="my-service",
-                id="service2_uz6l8yhy2as5wrer3shzj6kh67",
-                state=ServiceState.RUNNING,
-                query_url="https://my-service-abc123.serve.anyscale.com/",
-                primary_version=ServiceVersionStatus(
-                    id="601bd56c4b",
-                    name="601bd56c4b",
-                    state="RUNNING",
-                    weight=100,
-                    created_at=datetime(2026, 5, 20, 12, 34, 56),
-                    config={"applications": [{"import_path": "main:app"}]},
-                ),
-            ),
+            output_instance={
+                "name": "my-service",
+                "id": "service2_abc123",
+                "state": "RUNNING",
+                "query_url": "https://my-service-abc123.serve.anyscale.com/",
+                "creator": "someone@myorg.com",
+                "primary_version": {
+                    "id": "601bd56c4b",
+                    "name": "601bd56c4b",
+                    "state": "RUNNING",
+                    "weight": 100,
+                    "created_at": datetime(
+                        2026, 5, 20, 12, 34, 56, tzinfo=timezone.utc
+                    ),
+                },
+            },
         ),
     ],
     output_schema=ServiceStatus,
@@ -560,10 +571,11 @@ def deploy(  # noqa: PLR0912, PLR0913 C901
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 @click.option(
@@ -589,6 +601,8 @@ def status(
     json: bool,
     verbose: bool,
 ):
+    if json:
+        warn_deprecated_flag("--json", "-o json")
     if name is not None and config_file is not None:
         raise click.ClickException(
             "Only one of '--name' and '--config-file' can be provided."
@@ -617,12 +631,12 @@ def status(
                 version.pop("config", None)
 
     console = Console()
-    if json:
-        json_str = json_dumps(status_dict, indent=2, cls=AnyscaleJSONEncoder)
-        console.print_json(json=json_str)
-    elif output_format != OutputFormat.TEXT.value:
+    if output_format != OutputFormat.TEXT.value:
         # The structured contract is the same config-stripped dict as --json.
         print_output(status_dict, output_format)
+    elif json:
+        json_str = json_dumps(status_dict, indent=2, cls=AnyscaleJSONEncoder)
+        console.print_json(json=json_str)
     else:
         stream = StringIO()
         yaml.dump(status_dict, stream, sort_keys=False)
@@ -870,8 +884,13 @@ def _format_service_output_data(svc: ServiceStatus) -> Dict[str, str]:
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to [TEXT, JSON] when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="List running services sorted by creation time.",
@@ -880,7 +899,7 @@ def _format_service_output_data(svc: ServiceStatus) -> Dict[str, str]:
             output_instance=[
                 {
                     "name": "my-service",
-                    "id": "service2_uz6l8yhy2as5wrer3shzj6kh67",
+                    "id": "service2_abc123",
                     "state": "RUNNING",
                     "query_url": "https://my-service-abc123.serve.anyscale.com/",
                     "primary_version": {
@@ -989,7 +1008,6 @@ def _format_service_output_data(svc: ServiceStatus) -> Dict[str, str]:
     type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 @click.option(
@@ -1018,7 +1036,11 @@ def list(  # noqa: PLR0913, A001
     verbose: bool,
 ):
     """List services based on the provided filters."""
+    if json_output:
+        warn_deprecated_flag("--json", "-o json")
     json_output = json_output or output_format == OutputFormat.JSON.value
+
+    interactive = resolve_interactive(interactive, json_output)
 
     if max_items is not None and interactive:
         raise click.UsageError("--max-items only allowed with --no-interactive")
@@ -1216,8 +1238,18 @@ def remove_tags(
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[
+        OutputFormat.TEXT,
+        OutputFormat.JSON,
+        OutputFormat.YAML,
+        OutputFormat.TABLE,
+    ],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="List the tags of a service by name.",
@@ -1248,7 +1280,6 @@ def remove_tags(
     type=click.Choice([f.value for f in OutputFormat]),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 @click.option("--json", "json_output", is_flag=True, default=False, help="JSON output.")
@@ -1260,15 +1291,17 @@ def list_tags(
     output_format: str,
     json_output: bool,
 ) -> None:
+    if json_output:
+        warn_deprecated_flag("--json", "-o json")
     if not service_id and not name:
         raise click.ClickException("Provide either --service-id/--id or --name.")
     tag_map = anyscale.service.list_tags(
         id=service_id, name=name, cloud=cloud, project=project
     )
-    if json_output:
-        Console().print_json(json=json_dumps(tag_map, indent=2))
-    elif output_format != OutputFormat.TEXT.value:
+    if output_format != OutputFormat.TEXT.value:
         print_output(tag_map, output_format)
+    elif json_output:
+        Console().print_json(json=json_dumps(tag_map, indent=2))
     else:
         stderr = Console(stderr=True)
         if not tag_map:

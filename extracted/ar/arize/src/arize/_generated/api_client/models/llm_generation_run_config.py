@@ -40,6 +40,7 @@ class LlmGenerationRunConfig(BaseModel):
     provider_parameters: Optional[Dict[str, Any]] = Field(default=None, description="Provider-specific parameters. Defaults to `{}` (no overrides) if omitted.")
     tool_config: Optional[ToolConfig] = None
     prompt_version_id: Optional[StrictStr] = Field(default=None, description="Prompt version identifier (base64). Links to a Prompt Hub version for traceability.")
+    additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = ["experiment_type", "ai_integration_id", "model_name", "messages", "input_variable_format", "invocation_parameters", "provider_parameters", "tool_config", "prompt_version_id"]
 
     @field_validator('experiment_type')
@@ -79,8 +80,10 @@ class LlmGenerationRunConfig(BaseModel):
         * `None` is only added to the output dict for nullable fields that
           were set at model initialization. Other fields with value `None`
           are ignored.
+        * Fields in `self.additional_properties` are added to the output dict.
         """
         excluded_fields: Set[str] = set([
+            "additional_properties",
         ])
 
         _dict = self.model_dump(
@@ -101,6 +104,11 @@ class LlmGenerationRunConfig(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of tool_config
         if self.tool_config:
             _dict['tool_config'] = self.tool_config.to_dict()
+        # puts key-value pairs in additional_properties in the top level
+        if self.additional_properties is not None:
+            for _key, _value in self.additional_properties.items():
+                _dict[_key] = _value
+
         # set to None if prompt_version_id (nullable) is None
         # and model_fields_set contains the field
         if self.prompt_version_id is None and "prompt_version_id" in self.model_fields_set:
@@ -117,11 +125,6 @@ class LlmGenerationRunConfig(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        # raise errors for additional fields in the input
-        for _key in obj.keys():
-            if _key not in cls.__properties:
-                raise ValueError("Error due to additional fields (not defined in LlmGenerationRunConfig) in the input: " + _key)
-
         _obj = cls.model_validate({
             "experiment_type": obj.get("experiment_type"),
             "ai_integration_id": obj.get("ai_integration_id"),
@@ -133,6 +136,11 @@ class LlmGenerationRunConfig(BaseModel):
             "tool_config": ToolConfig.from_dict(obj["tool_config"]) if obj.get("tool_config") is not None else None,
             "prompt_version_id": obj.get("prompt_version_id")
         })
+        # store additional fields in additional_properties
+        for _key in obj.keys():
+            if _key not in cls.__properties:
+                _obj.additional_properties[_key] = obj.get(_key)
+
         return _obj
 
 

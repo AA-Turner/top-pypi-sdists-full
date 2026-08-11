@@ -653,7 +653,8 @@ class TestClickhouse(Validator):
         self.validate_identity("DELETE FROM tbl ON CLUSTER '{cluster}' WHERE date = '2019-01-01'")
 
         # ClickHouse changes a column's type with ALTER COLUMN ... TYPE, not the
-        # ANSI ALTER COLUMN ... SET DATA TYPE
+        # ANSI ALTER COLUMN ... SET DATA TYPE. MODIFY COLUMN is accepted on read and
+        # canonicalized to ALTER COLUMN ... TYPE on write.
         self.validate_all(
             "ALTER TABLE t ALTER COLUMN c TYPE Nullable(Int64)",
             read={
@@ -661,6 +662,29 @@ class TestClickhouse(Validator):
                 "postgres": "ALTER TABLE t ALTER COLUMN c TYPE BIGINT",
             },
         )
+        modify = self.validate_identity(
+            "ALTER TABLE t MODIFY COLUMN c Int64",
+            "ALTER TABLE t ALTER COLUMN c TYPE Int64",
+        ).assert_is(exp.Alter)
+        self.assertIsInstance(modify.args["actions"][0], exp.AlterColumn)
+        self.validate_identity(
+            "ALTER TABLE t MODIFY COLUMN IF EXISTS c Int64",
+            "ALTER TABLE t ALTER COLUMN IF EXISTS c TYPE Int64",
+        )
+        self.validate_identity("ALTER TABLE t ALTER COLUMN IF EXISTS c TYPE Int64")
+        self.validate_identity(
+            "ALTER TABLE t MODIFY COLUMN c REMOVE DEFAULT",
+            check_command_warning=True,
+        )
+
+        # Non-column MODIFY forms must not be routed to the ALTER COLUMN parser
+        modify_order = parse_one("ALTER TABLE t MODIFY ORDER BY (a, b)", read="clickhouse")
+        self.assertIsInstance(modify_order.args["actions"][0], exp.AlterModifySqlSecurity)
+        self.validate_identity(
+            "ALTER TABLE t MODIFY TTL d + INTERVAL 1 DAY",
+            "ALTER TABLE t MODIFY TTL d + INTERVAL '1' DAY",
+        )
+        self.validate_identity("ALTER TABLE t MODIFY COMMENT 'hi'")
 
         self.assertIsInstance(
             parse_one("Tuple(select Int64)", into=exp.DataType, read="clickhouse"), exp.DataType

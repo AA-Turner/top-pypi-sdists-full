@@ -38,7 +38,9 @@ class CloudConfig(object):
         'vpc_peering_target_project_id': 'str',
         'vpc_peering_target_vpc_id': 'str',
         'acr_config': 'AzureACRConfig',
-        'session_domain_label': 'str'
+        'session_domain_label': 'str',
+        'per_cloud_domain': 'bool',
+        'per_cloud_domain_label': 'str'
     }
 
     attribute_map = {
@@ -47,10 +49,12 @@ class CloudConfig(object):
         'vpc_peering_target_project_id': 'vpc_peering_target_project_id',
         'vpc_peering_target_vpc_id': 'vpc_peering_target_vpc_id',
         'acr_config': 'acr_config',
-        'session_domain_label': 'session_domain_label'
+        'session_domain_label': 'session_domain_label',
+        'per_cloud_domain': 'per_cloud_domain',
+        'per_cloud_domain_label': 'per_cloud_domain_label'
     }
 
-    def __init__(self, max_stopped_instances=0, vpc_peering_ip_range=None, vpc_peering_target_project_id=None, vpc_peering_target_vpc_id=None, acr_config=None, session_domain_label=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, max_stopped_instances=0, vpc_peering_ip_range=None, vpc_peering_target_project_id=None, vpc_peering_target_vpc_id=None, acr_config=None, session_domain_label=None, per_cloud_domain=False, per_cloud_domain_label=None, local_vars_configuration=None):  # noqa: E501
         """CloudConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -62,6 +66,8 @@ class CloudConfig(object):
         self._vpc_peering_target_vpc_id = None
         self._acr_config = None
         self._session_domain_label = None
+        self._per_cloud_domain = None
+        self._per_cloud_domain_label = None
         self.discriminator = None
 
         if max_stopped_instances is not None:
@@ -76,6 +82,10 @@ class CloudConfig(object):
             self.acr_config = acr_config
         if session_domain_label is not None:
             self.session_domain_label = session_domain_label
+        if per_cloud_domain is not None:
+            self.per_cloud_domain = per_cloud_domain
+        if per_cloud_domain_label is not None:
+            self.per_cloud_domain_label = per_cloud_domain_label
 
     @property
     def max_stopped_instances(self):
@@ -196,7 +206,7 @@ class CloudConfig(object):
     def session_domain_label(self):
         """Gets the session_domain_label of this CloudConfig.  # noqa: E501
 
-        Opt-in (default None): DNS label for a per-cloud session/interactive workload domain. When set, session URLs become 'session-<id>.<label>.n.<DYNAMIC_HTTPS_DOMAIN>' instead of the flat shared 'session-<id>.i.<DYNAMIC_HTTPS_DOMAIN>'. Used by private (PrivateLink) data planes so a consumer VPC can DNS-route one cloud over PrivateLink without hijacking a customer's other clouds; a data-plane front proxy rewrites the host back to the flat form before the gateway. Existing clouds leave this unset and are unchanged.  # noqa: E501
+        Opt-in DNS label for a per-cloud session domain (default None). When set, session URLs use 'session-<id>.<label>.n.<domain>' in place of the shared 'session-<id>.i.<domain>', so a private (PrivateLink) data plane can route this cloud's sessions without capturing the other clouds in the organization. Must be a lowercase DNS label: 1-63 characters of [a-z0-9-], not starting or ending with '-'.  # noqa: E501
 
         :return: The session_domain_label of this CloudConfig.  # noqa: E501
         :rtype: str
@@ -207,13 +217,71 @@ class CloudConfig(object):
     def session_domain_label(self, session_domain_label):
         """Sets the session_domain_label of this CloudConfig.
 
-        Opt-in (default None): DNS label for a per-cloud session/interactive workload domain. When set, session URLs become 'session-<id>.<label>.n.<DYNAMIC_HTTPS_DOMAIN>' instead of the flat shared 'session-<id>.i.<DYNAMIC_HTTPS_DOMAIN>'. Used by private (PrivateLink) data planes so a consumer VPC can DNS-route one cloud over PrivateLink without hijacking a customer's other clouds; a data-plane front proxy rewrites the host back to the flat form before the gateway. Existing clouds leave this unset and are unchanged.  # noqa: E501
+        Opt-in DNS label for a per-cloud session domain (default None). When set, session URLs use 'session-<id>.<label>.n.<domain>' in place of the shared 'session-<id>.i.<domain>', so a private (PrivateLink) data plane can route this cloud's sessions without capturing the other clouds in the organization. Must be a lowercase DNS label: 1-63 characters of [a-z0-9-], not starting or ending with '-'.  # noqa: E501
 
         :param session_domain_label: The session_domain_label of this CloudConfig.  # noqa: E501
         :type: str
         """
+        if (self.local_vars_configuration.client_side_validation and
+                session_domain_label is not None and len(session_domain_label) > 63):
+            raise ValueError("Invalid value for `session_domain_label`, length must be less than or equal to `63`")  # noqa: E501
+        if (self.local_vars_configuration.client_side_validation and
+                session_domain_label is not None and not re.search(r'^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$', session_domain_label)):  # noqa: E501
+            raise ValueError(r"Invalid value for `session_domain_label`, must be a follow pattern or equal to `/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/`")  # noqa: E501
 
         self._session_domain_label = session_domain_label
+
+    @property
+    def per_cloud_domain(self):
+        """Gets the per_cloud_domain of this CloudConfig.  # noqa: E501
+
+        Opt in to the cloud-scoped DNS namespace. When true, newly generated interactive and Anyscale Service hostnames are children of '*.<cloud-dns-id>.n.<DYNAMIC_HTTPS_DOMAIN>'. The cloud DNS ID is derived from the Cloud ID. Existing Clouds default to false and retain legacy session '.i.' and Service '.s.' hostnames. Only supported on Kubernetes clouds (requires a single shared ingress address). Not supported with multi-resource clouds: the wildcard resolves to a single cluster's ingress, so Services on secondary cloud resources would not be reachable through it.  # noqa: E501
+
+        :return: The per_cloud_domain of this CloudConfig.  # noqa: E501
+        :rtype: bool
+        """
+        return self._per_cloud_domain
+
+    @per_cloud_domain.setter
+    def per_cloud_domain(self, per_cloud_domain):
+        """Sets the per_cloud_domain of this CloudConfig.
+
+        Opt in to the cloud-scoped DNS namespace. When true, newly generated interactive and Anyscale Service hostnames are children of '*.<cloud-dns-id>.n.<DYNAMIC_HTTPS_DOMAIN>'. The cloud DNS ID is derived from the Cloud ID. Existing Clouds default to false and retain legacy session '.i.' and Service '.s.' hostnames. Only supported on Kubernetes clouds (requires a single shared ingress address). Not supported with multi-resource clouds: the wildcard resolves to a single cluster's ingress, so Services on secondary cloud resources would not be reachable through it.  # noqa: E501
+
+        :param per_cloud_domain: The per_cloud_domain of this CloudConfig.  # noqa: E501
+        :type: bool
+        """
+
+        self._per_cloud_domain = per_cloud_domain
+
+    @property
+    def per_cloud_domain_label(self):
+        """Gets the per_cloud_domain_label of this CloudConfig.  # noqa: E501
+
+        Override the derived cloud DNS ID with a fixed label, so the cloud-scoped namespace becomes '*.<label>.n.<DYNAMIC_HTTPS_DOMAIN>'. Requires per_cloud_domain and is immutable after Cloud creation. Must be a lowercase DNS label: 1-63 characters of [a-z0-9-], not starting or ending with '-'. Also constrained so the ACM wildcard '*.<label>.n.<DYNAMIC_HTTPS_DOMAIN>' stays within 64 characters (shorter than the DNS-label maximum when the TLD is long; e.g. 39 for anyscaleuserdata.com).  # noqa: E501
+
+        :return: The per_cloud_domain_label of this CloudConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._per_cloud_domain_label
+
+    @per_cloud_domain_label.setter
+    def per_cloud_domain_label(self, per_cloud_domain_label):
+        """Sets the per_cloud_domain_label of this CloudConfig.
+
+        Override the derived cloud DNS ID with a fixed label, so the cloud-scoped namespace becomes '*.<label>.n.<DYNAMIC_HTTPS_DOMAIN>'. Requires per_cloud_domain and is immutable after Cloud creation. Must be a lowercase DNS label: 1-63 characters of [a-z0-9-], not starting or ending with '-'. Also constrained so the ACM wildcard '*.<label>.n.<DYNAMIC_HTTPS_DOMAIN>' stays within 64 characters (shorter than the DNS-label maximum when the TLD is long; e.g. 39 for anyscaleuserdata.com).  # noqa: E501
+
+        :param per_cloud_domain_label: The per_cloud_domain_label of this CloudConfig.  # noqa: E501
+        :type: str
+        """
+        if (self.local_vars_configuration.client_side_validation and
+                per_cloud_domain_label is not None and len(per_cloud_domain_label) > 63):
+            raise ValueError("Invalid value for `per_cloud_domain_label`, length must be less than or equal to `63`")  # noqa: E501
+        if (self.local_vars_configuration.client_side_validation and
+                per_cloud_domain_label is not None and not re.search(r'^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$', per_cloud_domain_label)):  # noqa: E501
+            raise ValueError(r"Invalid value for `per_cloud_domain_label`, must be a follow pattern or equal to `/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/`")  # noqa: E501
+
+        self._per_cloud_domain_label = per_cloud_domain_label
 
     def to_dict(self):
         """Returns the model properties as a dict"""

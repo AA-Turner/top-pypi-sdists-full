@@ -5667,6 +5667,17 @@ class CfnUserPool(
             )],
             sms_authentication_message="smsAuthenticationMessage",
             sms_configuration=cognito.CfnUserPool.SmsConfigurationProperty(
+                eums_sms=cognito.CfnUserPool.EumsSmsConfigurationProperty(
+                    caller_arn="callerArn",
+        
+                    # the properties below are optional
+                    configuration_set_name="configurationSetName",
+                    external_id="externalId",
+                    in_entity_id="inEntityId",
+                    in_template_id="inTemplateId",
+                    origination_identity="originationIdentity",
+                    region="region"
+                ),
                 external_id="externalId",
                 sns_caller_arn="snsCallerArn",
                 sns_region="snsRegion"
@@ -7090,6 +7101,154 @@ class CfnUserPool(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cognito.CfnUserPool.EumsSmsConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "caller_arn": "callerArn",
+            "configuration_set_name": "configurationSetName",
+            "external_id": "externalId",
+            "in_entity_id": "inEntityId",
+            "in_template_id": "inTemplateId",
+            "origination_identity": "originationIdentity",
+            "region": "region",
+        },
+    )
+    class EumsSmsConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            caller_arn: builtins.str,
+            configuration_set_name: typing.Optional[builtins.str] = None,
+            external_id: typing.Optional[builtins.str] = None,
+            in_entity_id: typing.Optional[builtins.str] = None,
+            in_template_id: typing.Optional[builtins.str] = None,
+            origination_identity: typing.Optional[builtins.str] = None,
+            region: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param caller_arn: 
+            :param configuration_set_name: 
+            :param external_id: 
+            :param in_entity_id: 
+            :param in_template_id: 
+            :param origination_identity: 
+            :param region: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-eumssmsconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cognito as cognito
+                
+                eums_sms_configuration_property = cognito.CfnUserPool.EumsSmsConfigurationProperty(
+                    caller_arn="callerArn",
+                
+                    # the properties below are optional
+                    configuration_set_name="configurationSetName",
+                    external_id="externalId",
+                    in_entity_id="inEntityId",
+                    in_template_id="inTemplateId",
+                    origination_identity="originationIdentity",
+                    region="region"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__747be0594a3096b15a0e6398cef9e4da26a119578eb302170d501d7715cba59e)
+                check_type(argname="argument caller_arn", value=caller_arn, expected_type=type_hints["caller_arn"])
+                check_type(argname="argument configuration_set_name", value=configuration_set_name, expected_type=type_hints["configuration_set_name"])
+                check_type(argname="argument external_id", value=external_id, expected_type=type_hints["external_id"])
+                check_type(argname="argument in_entity_id", value=in_entity_id, expected_type=type_hints["in_entity_id"])
+                check_type(argname="argument in_template_id", value=in_template_id, expected_type=type_hints["in_template_id"])
+                check_type(argname="argument origination_identity", value=origination_identity, expected_type=type_hints["origination_identity"])
+                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "caller_arn": caller_arn,
+            }
+            if configuration_set_name is not None:
+                self._values["configuration_set_name"] = configuration_set_name
+            if external_id is not None:
+                self._values["external_id"] = external_id
+            if in_entity_id is not None:
+                self._values["in_entity_id"] = in_entity_id
+            if in_template_id is not None:
+                self._values["in_template_id"] = in_template_id
+            if origination_identity is not None:
+                self._values["origination_identity"] = origination_identity
+            if region is not None:
+                self._values["region"] = region
+
+        @builtins.property
+        def caller_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-eumssmsconfiguration.html#cfn-cognito-userpool-eumssmsconfiguration-callerarn
+            '''
+            result = self._values.get("caller_arn")
+            assert result is not None, "Required property 'caller_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def configuration_set_name(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-eumssmsconfiguration.html#cfn-cognito-userpool-eumssmsconfiguration-configurationsetname
+            '''
+            result = self._values.get("configuration_set_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def external_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-eumssmsconfiguration.html#cfn-cognito-userpool-eumssmsconfiguration-externalid
+            '''
+            result = self._values.get("external_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def in_entity_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-eumssmsconfiguration.html#cfn-cognito-userpool-eumssmsconfiguration-inentityid
+            '''
+            result = self._values.get("in_entity_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def in_template_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-eumssmsconfiguration.html#cfn-cognito-userpool-eumssmsconfiguration-intemplateid
+            '''
+            result = self._values.get("in_template_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def origination_identity(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-eumssmsconfiguration.html#cfn-cognito-userpool-eumssmsconfiguration-originationidentity
+            '''
+            result = self._values.get("origination_identity")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def region(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-eumssmsconfiguration.html#cfn-cognito-userpool-eumssmsconfiguration-region
+            '''
+            result = self._values.get("region")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EumsSmsConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cognito.CfnUserPool.InboundFederationProperty",
         jsii_struct_bases=[],
         name_mapping={"lambda_arn": "lambdaArn", "lambda_version": "lambdaVersion"},
@@ -8414,6 +8573,7 @@ class CfnUserPool(
         jsii_type="aws-cdk-lib.aws_cognito.CfnUserPool.SmsConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "eums_sms": "eumsSms",
             "external_id": "externalId",
             "sns_caller_arn": "snsCallerArn",
             "sns_region": "snsRegion",
@@ -8423,6 +8583,7 @@ class CfnUserPool(
         def __init__(
             self,
             *,
+            eums_sms: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPool.EumsSmsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             external_id: typing.Optional[builtins.str] = None,
             sns_caller_arn: typing.Optional[builtins.str] = None,
             sns_region: typing.Optional[builtins.str] = None,
@@ -8431,6 +8592,7 @@ class CfnUserPool(
 
             To send SMS messages with Amazon SNS in the AWS Region that you want, the Amazon Cognito user pool uses an AWS Identity and Access Management (IAM) role in your AWS account .
 
+            :param eums_sms: 
             :param external_id: The external ID provides additional security for your IAM role. You can use an ``ExternalId`` with the IAM role that you use with Amazon SNS to send SMS messages for your user pool. If you provide an ``ExternalId`` , your Amazon Cognito user pool includes it in the request to assume your IAM role. You can configure the role trust policy to require that Amazon Cognito, and any principal, provide the ``ExternalID`` . If you use the Amazon Cognito Management Console to create a role for SMS multi-factor authentication (MFA), Amazon Cognito creates a role with the required permissions and a trust policy that demonstrates use of the ``ExternalId`` . For more information about the ``ExternalId`` of a role, see `How to use an external ID when granting access to your AWS resources to a third party <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-user_externalid.html>`_ .
             :param sns_caller_arn: The Amazon Resource Name (ARN) of the Amazon SNS caller. This is the ARN of the IAM role in your AWS account that Amazon Cognito will use to send SMS messages. SMS messages are subject to a `spending limit <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-settings-email-phone-verification.html>`_ .
             :param sns_region: The AWS Region to use with Amazon SNS integration. You can choose the same Region as your user pool, or a supported *Legacy Amazon SNS alternate Region* . Amazon Cognito resources in the Asia Pacific (Seoul) AWS Region must use your Amazon SNS configuration in the Asia Pacific (Tokyo) Region. For more information, see `SMS message settings for Amazon Cognito user pools <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-sms-settings.html>`_ .
@@ -8445,6 +8607,17 @@ class CfnUserPool(
                 from aws_cdk import aws_cognito as cognito
                 
                 sms_configuration_property = cognito.CfnUserPool.SmsConfigurationProperty(
+                    eums_sms=cognito.CfnUserPool.EumsSmsConfigurationProperty(
+                        caller_arn="callerArn",
+                
+                        # the properties below are optional
+                        configuration_set_name="configurationSetName",
+                        external_id="externalId",
+                        in_entity_id="inEntityId",
+                        in_template_id="inTemplateId",
+                        origination_identity="originationIdentity",
+                        region="region"
+                    ),
                     external_id="externalId",
                     sns_caller_arn="snsCallerArn",
                     sns_region="snsRegion"
@@ -8452,16 +8625,29 @@ class CfnUserPool(
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__7bdd79abbed6d1c2a56f92beb7e51f5c19f5fdeac49af18d379dda0e31605f6e)
+                check_type(argname="argument eums_sms", value=eums_sms, expected_type=type_hints["eums_sms"])
                 check_type(argname="argument external_id", value=external_id, expected_type=type_hints["external_id"])
                 check_type(argname="argument sns_caller_arn", value=sns_caller_arn, expected_type=type_hints["sns_caller_arn"])
                 check_type(argname="argument sns_region", value=sns_region, expected_type=type_hints["sns_region"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if eums_sms is not None:
+                self._values["eums_sms"] = eums_sms
             if external_id is not None:
                 self._values["external_id"] = external_id
             if sns_caller_arn is not None:
                 self._values["sns_caller_arn"] = sns_caller_arn
             if sns_region is not None:
                 self._values["sns_region"] = sns_region
+
+        @builtins.property
+        def eums_sms(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.EumsSmsConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-smsconfiguration.html#cfn-cognito-userpool-smsconfiguration-eumssms
+            '''
+            result = self._values.get("eums_sms")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPool.EumsSmsConfigurationProperty"]], result)
 
         @builtins.property
         def external_id(self) -> typing.Optional[builtins.str]:
@@ -10444,7 +10630,8 @@ class CfnUserPoolDomain(
         
             # the properties below are optional
             custom_domain_config=cognito.CfnUserPoolDomain.CustomDomainConfigTypeProperty(
-                certificate_arn="certificateArn"
+                certificate_arn="certificateArn",
+                security_policy="securityPolicy"
             ),
             managed_login_version=123,
             routing=cognito.CfnUserPoolDomain.RoutingTypeProperty(
@@ -10635,17 +10822,22 @@ class CfnUserPoolDomain(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolDomain.CustomDomainConfigTypeProperty",
         jsii_struct_bases=[],
-        name_mapping={"certificate_arn": "certificateArn"},
+        name_mapping={
+            "certificate_arn": "certificateArn",
+            "security_policy": "securityPolicy",
+        },
     )
     class CustomDomainConfigTypeProperty:
         def __init__(
             self,
             *,
             certificate_arn: typing.Optional[builtins.str] = None,
+            security_policy: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configuration for a hosted UI custom domain.
 
             :param certificate_arn: The Amazon Resource Name (ARN) of an Certificate Manager SSL certificate. You use this certificate for the subdomain of your custom domain.
+            :param security_policy: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpooldomain-customdomainconfigtype.html
             :exampleMetadata: fixture=_generated
@@ -10657,15 +10849,19 @@ class CfnUserPoolDomain(
                 from aws_cdk import aws_cognito as cognito
                 
                 custom_domain_config_type_property = cognito.CfnUserPoolDomain.CustomDomainConfigTypeProperty(
-                    certificate_arn="certificateArn"
+                    certificate_arn="certificateArn",
+                    security_policy="securityPolicy"
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__dde97995e450b3b0c5468a27b415565086c00f64bdc255f297a8471e77b85243)
                 check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
+                check_type(argname="argument security_policy", value=security_policy, expected_type=type_hints["security_policy"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if certificate_arn is not None:
                 self._values["certificate_arn"] = certificate_arn
+            if security_policy is not None:
+                self._values["security_policy"] = security_policy
 
         @builtins.property
         def certificate_arn(self) -> typing.Optional[builtins.str]:
@@ -10676,6 +10872,14 @@ class CfnUserPoolDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpooldomain-customdomainconfigtype.html#cfn-cognito-userpooldomain-customdomainconfigtype-certificatearn
             '''
             result = self._values.get("certificate_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def security_policy(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpooldomain-customdomainconfigtype.html#cfn-cognito-userpooldomain-customdomainconfigtype-securitypolicy
+            '''
+            result = self._values.get("security_policy")
             return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -10863,7 +11067,8 @@ class CfnUserPoolDomainProps:
             
                 # the properties below are optional
                 custom_domain_config=cognito.CfnUserPoolDomain.CustomDomainConfigTypeProperty(
-                    certificate_arn="certificateArn"
+                    certificate_arn="certificateArn",
+                    security_policy="securityPolicy"
                 ),
                 managed_login_version=123,
                 routing=cognito.CfnUserPoolDomain.RoutingTypeProperty(
@@ -11915,6 +12120,17 @@ class CfnUserPoolProps:
                 )],
                 sms_authentication_message="smsAuthenticationMessage",
                 sms_configuration=cognito.CfnUserPool.SmsConfigurationProperty(
+                    eums_sms=cognito.CfnUserPool.EumsSmsConfigurationProperty(
+                        caller_arn="callerArn",
+            
+                        # the properties below are optional
+                        configuration_set_name="configurationSetName",
+                        external_id="externalId",
+                        in_entity_id="inEntityId",
+                        in_template_id="inTemplateId",
+                        origination_identity="originationIdentity",
+                        region="region"
+                    ),
                     external_id="externalId",
                     sns_caller_arn="snsCallerArn",
                     sns_region="snsRegion"
@@ -12501,6 +12717,17 @@ class CfnUserPoolRegionalConfigurationAttachment(
                 verify_auth_challenge_response="verifyAuthChallengeResponse"
             ),
             sms_configuration=cognito.CfnUserPoolRegionalConfigurationAttachment.SmsConfigurationProperty(
+                eums_sms=cognito.CfnUserPoolRegionalConfigurationAttachment.EumsSmsConfigurationProperty(
+                    caller_arn="callerArn",
+        
+                    # the properties below are optional
+                    configuration_set_name="configurationSetName",
+                    external_id="externalId",
+                    in_entity_id="inEntityId",
+                    in_template_id="inTemplateId",
+                    origination_identity="originationIdentity",
+                    region="region"
+                ),
                 external_id="externalId",
                 sns_caller_arn="snsCallerArn",
                 sns_region="snsRegion"
@@ -12962,6 +13189,154 @@ class CfnUserPoolRegionalConfigurationAttachment(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolRegionalConfigurationAttachment.EumsSmsConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "caller_arn": "callerArn",
+            "configuration_set_name": "configurationSetName",
+            "external_id": "externalId",
+            "in_entity_id": "inEntityId",
+            "in_template_id": "inTemplateId",
+            "origination_identity": "originationIdentity",
+            "region": "region",
+        },
+    )
+    class EumsSmsConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            caller_arn: builtins.str,
+            configuration_set_name: typing.Optional[builtins.str] = None,
+            external_id: typing.Optional[builtins.str] = None,
+            in_entity_id: typing.Optional[builtins.str] = None,
+            in_template_id: typing.Optional[builtins.str] = None,
+            origination_identity: typing.Optional[builtins.str] = None,
+            region: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param caller_arn: 
+            :param configuration_set_name: 
+            :param external_id: 
+            :param in_entity_id: 
+            :param in_template_id: 
+            :param origination_identity: 
+            :param region: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-eumssmsconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cognito as cognito
+                
+                eums_sms_configuration_property = cognito.CfnUserPoolRegionalConfigurationAttachment.EumsSmsConfigurationProperty(
+                    caller_arn="callerArn",
+                
+                    # the properties below are optional
+                    configuration_set_name="configurationSetName",
+                    external_id="externalId",
+                    in_entity_id="inEntityId",
+                    in_template_id="inTemplateId",
+                    origination_identity="originationIdentity",
+                    region="region"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__263903acd9918e739955f9ce4876864ed918160634ef882344ce315884d50a9c)
+                check_type(argname="argument caller_arn", value=caller_arn, expected_type=type_hints["caller_arn"])
+                check_type(argname="argument configuration_set_name", value=configuration_set_name, expected_type=type_hints["configuration_set_name"])
+                check_type(argname="argument external_id", value=external_id, expected_type=type_hints["external_id"])
+                check_type(argname="argument in_entity_id", value=in_entity_id, expected_type=type_hints["in_entity_id"])
+                check_type(argname="argument in_template_id", value=in_template_id, expected_type=type_hints["in_template_id"])
+                check_type(argname="argument origination_identity", value=origination_identity, expected_type=type_hints["origination_identity"])
+                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "caller_arn": caller_arn,
+            }
+            if configuration_set_name is not None:
+                self._values["configuration_set_name"] = configuration_set_name
+            if external_id is not None:
+                self._values["external_id"] = external_id
+            if in_entity_id is not None:
+                self._values["in_entity_id"] = in_entity_id
+            if in_template_id is not None:
+                self._values["in_template_id"] = in_template_id
+            if origination_identity is not None:
+                self._values["origination_identity"] = origination_identity
+            if region is not None:
+                self._values["region"] = region
+
+        @builtins.property
+        def caller_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-eumssmsconfiguration.html#cfn-cognito-userpoolregionalconfigurationattachment-eumssmsconfiguration-callerarn
+            '''
+            result = self._values.get("caller_arn")
+            assert result is not None, "Required property 'caller_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def configuration_set_name(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-eumssmsconfiguration.html#cfn-cognito-userpoolregionalconfigurationattachment-eumssmsconfiguration-configurationsetname
+            '''
+            result = self._values.get("configuration_set_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def external_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-eumssmsconfiguration.html#cfn-cognito-userpoolregionalconfigurationattachment-eumssmsconfiguration-externalid
+            '''
+            result = self._values.get("external_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def in_entity_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-eumssmsconfiguration.html#cfn-cognito-userpoolregionalconfigurationattachment-eumssmsconfiguration-inentityid
+            '''
+            result = self._values.get("in_entity_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def in_template_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-eumssmsconfiguration.html#cfn-cognito-userpoolregionalconfigurationattachment-eumssmsconfiguration-intemplateid
+            '''
+            result = self._values.get("in_template_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def origination_identity(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-eumssmsconfiguration.html#cfn-cognito-userpoolregionalconfigurationattachment-eumssmsconfiguration-originationidentity
+            '''
+            result = self._values.get("origination_identity")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def region(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-eumssmsconfiguration.html#cfn-cognito-userpoolregionalconfigurationattachment-eumssmsconfiguration-region
+            '''
+            result = self._values.get("region")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EumsSmsConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolRegionalConfigurationAttachment.InboundFederationProperty",
         jsii_struct_bases=[],
         name_mapping={"lambda_arn": "lambdaArn", "lambda_version": "lambdaVersion"},
@@ -13384,6 +13759,7 @@ class CfnUserPoolRegionalConfigurationAttachment(
         jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolRegionalConfigurationAttachment.SmsConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "eums_sms": "eumsSms",
             "external_id": "externalId",
             "sns_caller_arn": "snsCallerArn",
             "sns_region": "snsRegion",
@@ -13393,11 +13769,13 @@ class CfnUserPoolRegionalConfigurationAttachment(
         def __init__(
             self,
             *,
+            eums_sms: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnUserPoolRegionalConfigurationAttachment.EumsSmsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             external_id: typing.Optional[builtins.str] = None,
             sns_caller_arn: typing.Optional[builtins.str] = None,
             sns_region: typing.Optional[builtins.str] = None,
         ) -> None:
             '''
+            :param eums_sms: 
             :param external_id: 
             :param sns_caller_arn: 
             :param sns_region: 
@@ -13412,6 +13790,17 @@ class CfnUserPoolRegionalConfigurationAttachment(
                 from aws_cdk import aws_cognito as cognito
                 
                 sms_configuration_property = cognito.CfnUserPoolRegionalConfigurationAttachment.SmsConfigurationProperty(
+                    eums_sms=cognito.CfnUserPoolRegionalConfigurationAttachment.EumsSmsConfigurationProperty(
+                        caller_arn="callerArn",
+                
+                        # the properties below are optional
+                        configuration_set_name="configurationSetName",
+                        external_id="externalId",
+                        in_entity_id="inEntityId",
+                        in_template_id="inTemplateId",
+                        origination_identity="originationIdentity",
+                        region="region"
+                    ),
                     external_id="externalId",
                     sns_caller_arn="snsCallerArn",
                     sns_region="snsRegion"
@@ -13419,16 +13808,29 @@ class CfnUserPoolRegionalConfigurationAttachment(
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__848c86a60a9ac24607c12c97ad7840115cf0399058e3eecdfd653f37b727c552)
+                check_type(argname="argument eums_sms", value=eums_sms, expected_type=type_hints["eums_sms"])
                 check_type(argname="argument external_id", value=external_id, expected_type=type_hints["external_id"])
                 check_type(argname="argument sns_caller_arn", value=sns_caller_arn, expected_type=type_hints["sns_caller_arn"])
                 check_type(argname="argument sns_region", value=sns_region, expected_type=type_hints["sns_region"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if eums_sms is not None:
+                self._values["eums_sms"] = eums_sms
             if external_id is not None:
                 self._values["external_id"] = external_id
             if sns_caller_arn is not None:
                 self._values["sns_caller_arn"] = sns_caller_arn
             if sns_region is not None:
                 self._values["sns_region"] = sns_region
+
+        @builtins.property
+        def eums_sms(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.EumsSmsConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolregionalconfigurationattachment-smsconfiguration.html#cfn-cognito-userpoolregionalconfigurationattachment-smsconfiguration-eumssms
+            '''
+            result = self._values.get("eums_sms")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnUserPoolRegionalConfigurationAttachment.EumsSmsConfigurationProperty"]], result)
 
         @builtins.property
         def external_id(self) -> typing.Optional[builtins.str]:
@@ -13548,6 +13950,17 @@ class CfnUserPoolRegionalConfigurationAttachmentProps:
                     verify_auth_challenge_response="verifyAuthChallengeResponse"
                 ),
                 sms_configuration=cognito.CfnUserPoolRegionalConfigurationAttachment.SmsConfigurationProperty(
+                    eums_sms=cognito.CfnUserPoolRegionalConfigurationAttachment.EumsSmsConfigurationProperty(
+                        caller_arn="callerArn",
+            
+                        # the properties below are optional
+                        configuration_set_name="configurationSetName",
+                        external_id="externalId",
+                        in_entity_id="inEntityId",
+                        in_template_id="inTemplateId",
+                        origination_identity="originationIdentity",
+                        region="region"
+                    ),
                     external_id="externalId",
                     sns_caller_arn="snsCallerArn",
                     sns_region="snsRegion"
@@ -27967,6 +28380,19 @@ def _typecheckingstub__aec7382b1b4972784ecb012d15fbc2441bfecae360d5f26e90d1da3ce
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__747be0594a3096b15a0e6398cef9e4da26a119578eb302170d501d7715cba59e(
+    *,
+    caller_arn: builtins.str,
+    configuration_set_name: typing.Optional[builtins.str] = None,
+    external_id: typing.Optional[builtins.str] = None,
+    in_entity_id: typing.Optional[builtins.str] = None,
+    in_template_id: typing.Optional[builtins.str] = None,
+    origination_identity: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__da16d330cdb2c2cc3f11733a4e8ed7fe6dbe9cb03643a0949f55c29824318de5(
     *,
     lambda_arn: typing.Optional[builtins.str] = None,
@@ -28087,6 +28513,7 @@ def _typecheckingstub__71f41ee8011d666621169ad6aeb915855a76a5e105809ce7914229f99
 
 def _typecheckingstub__7bdd79abbed6d1c2a56f92beb7e51f5c19f5fdeac49af18d379dda0e31605f6e(
     *,
+    eums_sms: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPool.EumsSmsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     external_id: typing.Optional[builtins.str] = None,
     sns_caller_arn: typing.Optional[builtins.str] = None,
     sns_region: typing.Optional[builtins.str] = None,
@@ -28444,6 +28871,7 @@ def _typecheckingstub__6c33f81862d280c36447fed98b3e55fa6a44d50cc6a91594df213fdb8
 def _typecheckingstub__dde97995e450b3b0c5468a27b415565086c00f64bdc255f297a8471e77b85243(
     *,
     certificate_arn: typing.Optional[builtins.str] = None,
+    security_policy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28759,6 +29187,19 @@ def _typecheckingstub__d545bff337aa6363533a045df309531f81b8ce279fdf92425ce8db44b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__263903acd9918e739955f9ce4876864ed918160634ef882344ce315884d50a9c(
+    *,
+    caller_arn: builtins.str,
+    configuration_set_name: typing.Optional[builtins.str] = None,
+    external_id: typing.Optional[builtins.str] = None,
+    in_entity_id: typing.Optional[builtins.str] = None,
+    in_template_id: typing.Optional[builtins.str] = None,
+    origination_identity: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8384b0ddba0af6af7e834ad536e660de39c7cf9b76b4c5132201340d5e626567(
     *,
     lambda_arn: typing.Optional[builtins.str] = None,
@@ -28798,6 +29239,7 @@ def _typecheckingstub__f1a76c28230f9c451cc1f6326b68b320adc1dfdfd30c68ae0888d931c
 
 def _typecheckingstub__848c86a60a9ac24607c12c97ad7840115cf0399058e3eecdfd653f37b727c552(
     *,
+    eums_sms: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnUserPoolRegionalConfigurationAttachment.EumsSmsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     external_id: typing.Optional[builtins.str] = None,
     sns_caller_arn: typing.Optional[builtins.str] = None,
     sns_region: typing.Optional[builtins.str] = None,

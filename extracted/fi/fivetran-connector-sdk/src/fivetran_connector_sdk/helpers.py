@@ -7,6 +7,7 @@ import json
 import traceback
 import importlib.util
 from datetime import datetime
+from enum import Enum
 from prompt_toolkit import prompt
 from prompt_toolkit.document import Document
 from prompt_toolkit.history import FileHistory
@@ -27,11 +28,47 @@ from fivetran_connector_sdk.constants import (
 )
 
 
+class PromptMode(Enum):
+    INTERACTIVE = None
+    DEFAULT_ANSWER = "--non-interactive"
+    YES = "--yes"
+    FORCE = "--force"
+
+    @property
+    def is_non_interactive_mode(self) -> bool:
+        return self != PromptMode.INTERACTIVE
+
+    @classmethod
+    def from_args(cls, non_interactive: bool, force: bool, yes: bool) -> 'PromptMode':
+        active = [
+            (cls.DEFAULT_ANSWER, non_interactive),
+            (cls.FORCE, force),
+            (cls.YES, yes),
+        ]
+        active_modes = [mode for mode, val in active if val]
+        if len(active_modes) > 1:
+            flags = " and ".join(m.value for m in active_modes)
+            raise ValueError(f"{flags} cannot be used together")
+        return active_modes[0] if active_modes else cls.INTERACTIVE
+
 def _validate_table_name(table: str) -> None:
     if not isinstance(table, str):
         raise TypeError(f"Table name must be a string, got {type(table).__name__}")
     if not table.strip():
         raise ValueError("Table name must be a non-empty string")
+
+
+def _validate_message(message: str) -> None:
+    if not isinstance(message, str):
+        raise TypeError(f"Message must be a string, got {type(message).__name__}")
+    if not message.strip():
+        raise ValueError("Message must be a non-empty string")
+
+
+def _validate_trace(trace) -> None:
+    # trace is optional -- None means no trace was provided, which is valid.
+    if trace is not None and not isinstance(trace, str):
+        raise TypeError(f"Trace must be a string, got {type(trace).__name__}")
 
 
 def is_regular_file_or_fifo(filepath):
@@ -410,26 +447,32 @@ def validate_and_load_state(args, state):
     return state
 
 
-def reset_local_file_directory(args):
+def reset_local_file_directory(args, prompt_mode: PromptMode):
     files_path = os.path.join(args.project_path, OUTPUT_FILES_DIR)
-    if args.non_interactive:
-        confirm = "y"
-    else:
-        confirm = input(
-            "This will delete your current state and `warehouse.db` files. Do you want to continue? (Y/n): ")
-    if confirm.lower() != "y":
+    if not resolve_confirmation("This will delete your current state and `warehouse.db` files. Do you want to continue? (Y/n): ",
+                                default=True, prompt_mode=prompt_mode):
         print_library_log("reset cancelled")
-    else:
-        try:
-            print_library_log(f"resetting project {args.project_path}", log_icon=Logging.LogIcon.STEP)
-            if os.path.exists(files_path) and os.path.isdir(files_path):
-                shutil.rmtree(files_path)
-                print_library_log("reset successful", log_icon=Logging.LogIcon.SUCCESS)
-            else:
-                print_library_log(
-                    "No files were deleted. Ensure you are in the project root directory.",
-                    level=Logging.Level.SEVERE,
-                    log_icon=Logging.LogIcon.FAILURE)
-        except Exception as e:
-            print_library_log("reset failed", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
-            raise e
+        return
+    try:
+        print_library_log(f"resetting project {args.project_path}", log_icon=Logging.LogIcon.STEP)
+        if os.path.exists(files_path) and os.path.isdir(files_path):
+            shutil.rmtree(files_path)
+            print_library_log("reset successful", log_icon=Logging.LogIcon.SUCCESS)
+        else:
+            print_library_log(
+                "No files were deleted. Ensure you are in the project root directory.",
+                level=Logging.Level.SEVERE,
+                log_icon=Logging.LogIcon.FAILURE)
+    except Exception as e:
+        print_library_log("reset failed", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
+        raise e
+
+
+def resolve_confirmation(prompt: str, default: bool, prompt_mode: PromptMode) -> bool:
+    if prompt_mode == PromptMode.YES or prompt_mode == PromptMode.FORCE:
+        return True
+    if prompt_mode == PromptMode.DEFAULT_ANSWER:
+        return default
+    # interactive mode
+    answer = input(prompt).strip().lower()
+    return answer == "y" if answer else default

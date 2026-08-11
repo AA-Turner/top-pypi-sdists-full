@@ -21,7 +21,10 @@ from anyscale._private.models.model_base import (
     ModelEnumType,
     ResultIterator,
 )
-from anyscale.commands.help_examples_formatter import render_examples_for_help
+from anyscale.commands.help_examples_formatter import (
+    format_flag_for_command,
+    render_examples_for_help,
+)
 from anyscale.commands.util import (
     AnyscaleCommand,
     DeprecatedAnyscaleCommand,
@@ -452,7 +455,11 @@ class MarkdownGenerator:
         # Fall back to new command_metadata examples when there is no legacy example.
         if not cli_example:
             cli_example = (
-                render_examples_for_help(getattr(t, "doc_metadata", None)) or None
+                render_examples_for_help(
+                    getattr(t, "doc_metadata", None),
+                    output_flag=format_flag_for_command(t),
+                )
+                or None
             )
 
         if isinstance(t, ModelBaseType):

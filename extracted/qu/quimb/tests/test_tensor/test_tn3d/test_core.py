@@ -35,6 +35,33 @@ class TestTensorNetwork3D:
         )
 
 
+class TestPEPS3D:
+    def test_cyclic_length_two_keeps_boundary_bonds(self):
+        peps = qtn.PEPS3D.rand(
+            2, 3, 3, bond_dim=1, cyclic=(True, False, False)
+        )
+        assert not peps.is_cyclic_y()
+        assert not peps.is_cyclic_z()
+        assert len(peps[0, 1, 1].bonds(peps[1, 1, 1])) == 2
+        assert peps.num_indices == 60
+
+    @pytest.mark.parametrize(
+        "Lx,Ly,Lz,cyclic,site,repeat",
+        [
+            (1, 3, 3, (True, False, False), (0, 1, 1), (0, 3)),
+            (3, 1, 3, (False, True, False), (1, 0, 1), (1, 4)),
+            (3, 3, 1, (False, False, True), (1, 1, 0), (2, 5)),
+        ],
+    )
+    def test_cyclic_length_one_keeps_self_bond(
+        self, Lx, Ly, Lz, cyclic, site, repeat
+    ):
+        peps = qtn.PEPS3D.rand(Lx, Ly, Lz, bond_dim=1, cyclic=cyclic)
+        tensor = peps[site]
+        assert tensor.inds[repeat[0]] == tensor.inds[repeat[1]]
+        assert peps.num_indices == 30
+
+
 class Test3DManualContract:
     @pytest.mark.parametrize("canonize", [False, True])
     def test_contract_boundary_ising_model(self, canonize):
@@ -45,6 +72,13 @@ class Test3DManualContract:
         Z = tn.contract_boundary(max_bond=8, canonize=canonize)
         f = -qu.log(Z) / (L**3 * beta)
         assert f == pytest.approx(fex, rel=1e-3)
+
+    def test_contract_peps_sweep_strip_exponent(self):
+        tn = qtn.TN3D_classical_ising_partition_function(3, 3, 3, beta=0.3)
+        tn.multiply_each_(1e20)
+        z = tn.contract_peps_sweep(max_bond=8, strip_exponent=True)
+        z_exact = tn.contract(all, strip_exponent=True)
+        assert z == pytest.approx(z_exact)
 
     @pytest.mark.parametrize("dims", [(10, 4, 3), (4, 3, 10), (3, 10, 4)])
     def test_contract_boundary_stopping_criterion(self, dims):

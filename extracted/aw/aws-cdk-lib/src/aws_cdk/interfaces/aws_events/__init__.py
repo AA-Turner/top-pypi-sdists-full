@@ -721,6 +721,51 @@ class _IEventBusRefProxy(
 typing.cast(typing.Any, IEventBusRef).__jsii_proxy_class__ = lambda : _IEventBusRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_events.IReplayRef")
+class IReplayRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Replay.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="replayRef")
+    def replay_ref(self) -> "ReplayReference":
+        '''(experimental) A reference to a Replay resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IReplayRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Replay.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_events.IReplayRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="replayRef")
+    def replay_ref(self) -> "ReplayReference":
+        '''(experimental) A reference to a Replay resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ReplayReference", jsii.get(self, "replayRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IReplayRef).__jsii_proxy_class__ = lambda : _IReplayRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_events.IRuleRef")
 class IRuleRef(
     _constructs_77d1e7e8.IConstruct,
@@ -764,6 +809,55 @@ class _IRuleRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IRuleRef).__jsii_proxy_class__ = lambda : _IRuleRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_events.ReplayReference",
+    jsii_struct_bases=[],
+    name_mapping={"replay_arn": "replayArn"},
+)
+class ReplayReference:
+    def __init__(self, *, replay_arn: builtins.str) -> None:
+        '''A reference to a Replay resource.
+
+        :param replay_arn: The ReplayArn of the Replay resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_events as interfaces_events
+            
+            replay_reference = interfaces_events.ReplayReference(
+                replay_arn="replayArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__51691e60f923081031dd32b344899294ec7909184f5d0d098a2556ce1c28f91a)
+            check_type(argname="argument replay_arn", value=replay_arn, expected_type=type_hints["replay_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "replay_arn": replay_arn,
+        }
+
+    @builtins.property
+    def replay_arn(self) -> builtins.str:
+        '''The ReplayArn of the Replay resource.'''
+        result = self._values.get("replay_arn")
+        assert result is not None, "Required property 'replay_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ReplayReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -828,7 +922,9 @@ __all__ = [
     "IEndpointRef",
     "IEventBusPolicyRef",
     "IEventBusRef",
+    "IReplayRef",
     "IRuleRef",
+    "ReplayReference",
     "RuleReference",
 ]
 
@@ -882,6 +978,13 @@ def _typecheckingstub__cd8cecdb7b30bd92322708fc33fdc2ad7fb6dea8f6e926855954f0f1a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__51691e60f923081031dd32b344899294ec7909184f5d0d098a2556ce1c28f91a(
+    *,
+    replay_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1386bff26a0e1756dfc8c5d9caea262c08aaf98d9b423f3afa7d30103b554c2b(
     *,
     rule_arn: builtins.str,
@@ -889,5 +992,5 @@ def _typecheckingstub__1386bff26a0e1756dfc8c5d9caea262c08aaf98d9b423f3afa7d30103
     """Type checking stubs"""
     pass
 
-for cls in [IApiDestinationRef, IArchiveRef, IConnectionRef, IEndpointRef, IEventBusPolicyRef, IEventBusRef, IRuleRef]:
+for cls in [IApiDestinationRef, IArchiveRef, IConnectionRef, IEndpointRef, IEventBusPolicyRef, IEventBusRef, IReplayRef, IRuleRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

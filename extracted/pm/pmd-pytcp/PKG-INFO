@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pmd-pytcp
-Version: 0.3.0
+Version: 0.3.1
 Summary: Pure-Python, zero-dependency TCP/IP stack — Ethernet through RFC 9293 TCP — running in user space on a TAP/TUN interface, embeddable in-process or run as a daemon, with a Berkeley-sockets API.
 Author-email: Sebastian Majewski <ccie18643@gmail.com>
 License-Expression: GPL-3.0-or-later

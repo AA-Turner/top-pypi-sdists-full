@@ -74,8 +74,7 @@ def _format_resource_quotas(resource_quotas: List[ResourceQuota]) -> str:
 @command_metadata(
     status=ReleaseStatus.BETA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
     examples=[
         CommandExample(
             description="Create a resource quota for a user in a project.",
@@ -165,10 +164,11 @@ def _format_resource_quotas(resource_quotas: List[ResourceQuota]) -> str:
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the created resource quota.",
 )
 def create(  # noqa: PLR0913
@@ -240,8 +240,7 @@ def create(  # noqa: PLR0913
 @command_metadata(
     status=ReleaseStatus.BETA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
     examples=[
         CommandExample(
             description="List the resource quotas of a cloud.",
@@ -303,10 +302,11 @@ def create(  # noqa: PLR0913
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 def list_resource_quotas(

@@ -14,7 +14,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 from typing_extensions import NotRequired, TypedDict
 
 from . import _debug
-from ._tool_identity import get_function_tool_approval_keys
+from ._tool_identity import get_tool_approval_item_call_id
 from .agent_output import AgentOutputSchemaBase
 from .agent_tool_input import (
     AgentAsToolInput,
@@ -23,9 +23,10 @@ from .agent_tool_input import (
     resolve_agent_tool_input,
 )
 from .agent_tool_state import (
-    consume_agent_tool_run_result,
+    get_agent_tool_resume_state,
     get_agent_tool_state_scope,
     peek_agent_tool_run_result,
+    record_agent_tool_resume_state,
     record_agent_tool_run_result,
     set_agent_tool_state_scope,
 )
@@ -58,13 +59,12 @@ from .tool import (
 )
 from .tool_context import ToolContext
 from .util import _transforms
-from .util._asyncio_tasks import gather_with_cancel
+from .util._asyncio_tasks import gather_with_cancel, run_producer_consumer
 from .util._types import MaybeAwaitable
 
 if TYPE_CHECKING:
     from openai.types.responses.response_function_tool_call import ResponseFunctionToolCall
 
-    from .items import ToolApprovalItem
     from .lifecycle import AgentHooks, RunHooks
     from .mcp import MCPServer
     from .memory.session import Session
@@ -338,7 +338,7 @@ class Agent(AgentBase, Generic[TContext]):
     """The model implementation to use when invoking the LLM.
 
     By default, if not set, the agent will use the default model configured in
-    `agents.models.get_default_model()` (currently "gpt-5.4-mini").
+    `agents.models.get_default_model()` (currently "gpt-5.6-luna").
     """
 
     model_settings: ModelSettings = field(default_factory=get_default_model_settings)
@@ -743,22 +743,84 @@ class Agent(AgentBase, Generic[TContext]):
             should_record_run_result = True
 
             def _nested_approvals_status(
-                interruptions: list[ToolApprovalItem],
+                pending_run_result: RunResult | RunResultStreaming,
             ) -> Literal["approved", "pending", "rejected"]:
+                interruptions = pending_run_result.interruptions
+                nested_decision_context = pending_run_result.to_state()._context
                 has_pending = False
                 has_decision = False
                 for interruption in interruptions:
-                    call_id = interruption.call_id
+                    call_id = get_tool_approval_item_call_id(interruption)
                     if not call_id:
                         has_pending = True
                         continue
                     tool_namespace = RunContextWrapper._resolve_tool_namespace(interruption)
-                    status = context.get_approval_status(
-                        interruption.tool_name or "",
-                        call_id,
-                        tool_namespace=tool_namespace,
-                        existing_pending=interruption,
+                    status = (
+                        nested_decision_context.get_approval_status(
+                            interruption.tool_name or "",
+                            call_id,
+                            tool_namespace=tool_namespace,
+                            existing_pending=interruption,
+                        )
+                        if nested_decision_context is not None
+                        else None
                     )
+                    if (
+                        status is None
+                        and nested_decision_context is not None
+                        and context._allow_legacy_approval_binding_reconstruction
+                    ):
+                        status = context.get_approval_status(
+                            interruption.tool_name or "",
+                            call_id,
+                            tool_namespace=tool_namespace,
+                            existing_pending=interruption,
+                        )
+                        if status is not None:
+                            legacy_namespace = RunContextWrapper._resolve_tool_namespace(
+                                interruption
+                            )
+                            legacy_tool_name = RunContextWrapper._resolve_tool_name(interruption)
+                            legacy_qualified_key = (
+                                f"{legacy_namespace}.{legacy_tool_name}"
+                                if legacy_namespace is not None
+                                else legacy_tool_name
+                            )
+                            approval_keys = (
+                                RunContextWrapper._resolve_approval_key(interruption),
+                                *RunContextWrapper._resolve_approval_keys(interruption),
+                                legacy_qualified_key,
+                            )
+                            approval_record = next(
+                                (
+                                    context._approvals[key]
+                                    for key in approval_keys
+                                    if key in context._approvals
+                                ),
+                                None,
+                            )
+                            if status:
+                                RunContextWrapper.approve_tool(
+                                    nested_decision_context,
+                                    interruption,
+                                    always_approve=bool(
+                                        approval_record and approval_record.approved is True
+                                    ),
+                                )
+                            else:
+                                RunContextWrapper.reject_tool(
+                                    nested_decision_context,
+                                    interruption,
+                                    always_reject=bool(
+                                        approval_record and approval_record.rejected is True
+                                    ),
+                                    rejection_message=context.get_rejection_message(
+                                        interruption.tool_name or "",
+                                        call_id,
+                                        tool_namespace=tool_namespace,
+                                        existing_pending=interruption,
+                                    ),
+                                )
                     if status is False:
                         return "rejected"
                     if status is True:
@@ -771,94 +833,36 @@ class Agent(AgentBase, Generic[TContext]):
                     return "pending"
                 return "approved"
 
-            def _apply_nested_approvals(
-                nested_context: RunContextWrapper[Any],
-                parent_context: RunContextWrapper[Any],
-                interruptions: list[ToolApprovalItem],
-            ) -> None:
-                def _find_mirrored_approval_record(
-                    interruption: ToolApprovalItem,
-                    *,
-                    approved: bool,
-                ) -> Any | None:
-                    candidate_keys = list(RunContextWrapper._resolve_approval_keys(interruption))
-                    for candidate_key in get_function_tool_approval_keys(
-                        tool_name=RunContextWrapper._resolve_tool_name(interruption),
-                        tool_namespace=RunContextWrapper._resolve_tool_namespace(interruption),
-                        tool_lookup_key=RunContextWrapper._resolve_tool_lookup_key(interruption),
-                        include_legacy_deferred_key=True,
-                    ):
-                        if candidate_key not in candidate_keys:
-                            candidate_keys.append(candidate_key)
-                    fallback: Any | None = None
-                    for candidate_key in candidate_keys:
-                        candidate = parent_context._approvals.get(candidate_key)
-                        if candidate is None:
-                            continue
-                        if approved and candidate.approved is True:
-                            return candidate
-                        if not approved and candidate.rejected is True:
-                            return candidate
-                        if fallback is None:
-                            fallback = candidate
-                    return fallback
-
-                for interruption in interruptions:
-                    call_id = interruption.call_id
-                    if not call_id:
-                        continue
-                    tool_name = RunContextWrapper._resolve_tool_name(interruption)
-                    tool_namespace = RunContextWrapper._resolve_tool_namespace(interruption)
-                    approval_key = RunContextWrapper._resolve_approval_key(interruption)
-                    status = parent_context.get_approval_status(
-                        tool_name,
-                        call_id,
-                        tool_namespace=tool_namespace,
-                        existing_pending=interruption,
-                    )
-                    if status is None:
-                        continue
-                    approval_record = parent_context._approvals.get(approval_key)
-                    if approval_record is None:
-                        approval_record = _find_mirrored_approval_record(
-                            interruption,
-                            approved=status,
-                        )
-                    if status is True:
-                        always_approve = bool(approval_record and approval_record.approved is True)
-                        nested_context.approve_tool(
-                            interruption,
-                            always_approve=always_approve,
-                        )
-                    else:
-                        always_reject = bool(approval_record and approval_record.rejected is True)
-                        nested_context.reject_tool(
-                            interruption,
-                            always_reject=always_reject,
-                        )
-
             if isinstance(context, ToolContext) and context.tool_call is not None:
                 pending_run_result = peek_agent_tool_run_result(
                     context.tool_call,
                     scope_id=tool_state_scope_id,
                 )
-                if pending_run_result and getattr(pending_run_result, "interruptions", None):
-                    status = _nested_approvals_status(pending_run_result.interruptions)
+                pending_resume_state = get_agent_tool_resume_state(pending_run_result)
+                if pending_resume_state is not None:
+                    resume_state = pending_resume_state
+                elif pending_run_result and getattr(pending_run_result, "interruptions", None):
+                    resolved_pending_result = cast(
+                        "RunResult | RunResultStreaming",
+                        pending_run_result,
+                    )
+                    status = _nested_approvals_status(resolved_pending_result)
                     if status == "pending":
-                        run_result = pending_run_result
+                        run_result = resolved_pending_result
                         should_record_run_result = False
                     elif status in ("approved", "rejected"):
-                        resume_state = pending_run_result.to_state()
+                        resume_state = resolved_pending_result.to_state()
                         if resume_state._context is not None:
-                            # Apply only explicit parent approvals to the nested resumed run.
-                            _apply_nested_approvals(
-                                resume_state._context,
-                                context,
-                                pending_run_result.interruptions,
-                            )
-                        consume_agent_tool_run_result(
+                            # Keep accumulating nested post-resume usage on the parent
+                            # ToolContext accumulator. resolve_resumed_context only
+                            # replaces application .context and would otherwise leave
+                            # the restored nested wrapper on a detached Usage object.
+                            resume_state._context.usage = context.usage
+                        record_agent_tool_resume_state(
                             context.tool_call,
+                            resume_state,
                             scope_id=tool_state_scope_id,
+                            approval_items=resolved_pending_result.interruptions,
                         )
 
             if run_result is None:
@@ -866,8 +870,11 @@ class Agent(AgentBase, Generic[TContext]):
                     stream_handler = on_stream
                     run_result_streaming = Runner.run_streamed(
                         starting_agent=cast(Agent[Any], self),
-                        input=resume_state or resolved_input,
-                        context=None if resume_state is not None else cast(Any, nested_context),
+                        input=resume_state if resume_state is not None else resolved_input,
+                        # On resume, pass the parent application context so
+                        # resolve_resumed_context can update the nested restored
+                        # wrapper's .context without dropping nested approvals.
+                        context=cast(Any, nested_context),
                         run_config=resolved_run_config,
                         max_turns=resolved_max_turns,
                         hooks=hooks,
@@ -912,10 +919,7 @@ class Agent(AgentBase, Generic[TContext]):
                             if is_sentinel:
                                 break
 
-                    dispatch_task = asyncio.create_task(dispatch_stream_events())
-                    stream_iteration_cancelled = False
-
-                    try:
+                    async def enqueue_stream_events() -> None:
                         from .stream_events import AgentUpdatedStreamEvent
 
                         current_agent = run_result_streaming.current_agent
@@ -930,26 +934,19 @@ class Agent(AgentBase, Generic[TContext]):
                                     "tool_call": context.tool_call,
                                 }
                                 await event_queue.put(payload)
-                        except asyncio.CancelledError:
-                            stream_iteration_cancelled = True
-                            raise
-                    finally:
-                        if stream_iteration_cancelled:
-                            dispatch_task.cancel()
-                            try:
-                                await dispatch_task
-                            except asyncio.CancelledError:
-                                pass
-                        else:
+                        finally:
                             await event_queue.put(None)
-                            await event_queue.join()
-                            await dispatch_task
+
+                    await run_producer_consumer(enqueue_stream_events(), dispatch_stream_events())
                     run_result = run_result_streaming
                 else:
                     run_result = await Runner.run(
                         starting_agent=cast(Agent[Any], self),
-                        input=resume_state or resolved_input,
-                        context=None if resume_state is not None else cast(Any, nested_context),
+                        input=resume_state if resume_state is not None else resolved_input,
+                        # On resume, pass the parent application context so
+                        # resolve_resumed_context can update the nested restored
+                        # wrapper's .context without dropping nested approvals.
+                        context=cast(Any, nested_context),
                         run_config=resolved_run_config,
                         max_turns=resolved_max_turns,
                         hooks=hooks,
@@ -970,6 +967,7 @@ class Agent(AgentBase, Generic[TContext]):
                         run_result,
                         scope_id=tool_state_scope_id,
                     )
+                return run_result.final_output
 
             if custom_output_extractor is not None:
                 return await custom_output_extractor(run_result)

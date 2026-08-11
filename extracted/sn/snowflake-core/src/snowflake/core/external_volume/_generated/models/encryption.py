@@ -42,6 +42,7 @@ class Encryption(BaseModel):
 
     @field_validator("type")
     def type_validate_enum(cls, v):
+
         if v not in ("NONE", "AWS_SSE_S3", "AWS_SSE_KMS", "GCS_SSE_KMS"):
             raise ValueError("must validate the enum values ('NONE','AWS_SSE_S3','AWS_SSE_KMS','GCS_SSE_KMS')")
         return v

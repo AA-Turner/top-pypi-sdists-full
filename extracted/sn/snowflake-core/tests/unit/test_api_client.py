@@ -29,3 +29,28 @@ def test_async_api_calls_are_submitted_to_the_pool(fake_root, event):
     assert isinstance(second_call, Future)
     assert not second_call.running()
     assert not second_call.done()
+
+
+def test_parameters_to_url_query_encodes_special_characters(fake_root):
+    api_client = ApiClient(fake_root)
+
+    # Scalar value with &, # and = characters
+    result = api_client.parameters_to_url_query(
+        [("targetName", "VICTIM&targetDatabase=PROD#"), ("targetDatabase", "SAFE")],
+        {},
+    )
+    assert result == "targetName=VICTIM%26targetDatabase%3DPROD%23&targetDatabase=SAFE"
+
+    # Multi-collection values: v is a list, each element emitted as a separate key=value pair
+    result = api_client.parameters_to_url_query(
+        [("tag", ["a&b", "c#d"])],
+        {"tag": "multi"},
+    )
+    assert result == "tag=a%26b&tag=c%23d"
+
+    # Delimiter-joined collection: values are encoded, but the delimiter itself is not
+    result = api_client.parameters_to_url_query(
+        [("cols", ["a,b", "c"])],
+        {"cols": "csv"},
+    )
+    assert result == "cols=a%2Cb,c"

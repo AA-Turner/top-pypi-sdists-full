@@ -1847,6 +1847,7 @@ class CfnDomain(
                 enabled=False,
                 kms_key_id="kmsKeyId"
             ),
+            engine_mode="engineMode",
             engine_version="engineVersion",
             identity_center_options=opensearchservice.CfnDomain.IdentityCenterOptionsProperty(
                 enabled_api_access=False,
@@ -1886,6 +1887,7 @@ class CfnDomain(
                 key="key",
                 value="value"
             )],
+            use_case="useCase",
             vpc_options=opensearchservice.CfnDomain.VPCOptionsProperty(
                 egress_enabled=False,
                 security_group_ids=["securityGroupIds"],
@@ -1912,6 +1914,7 @@ class CfnDomain(
         domain_name: typing.Optional[builtins.str] = None,
         ebs_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.EBSOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         encryption_at_rest_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.EncryptionAtRestOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        engine_mode: typing.Optional[builtins.str] = None,
         engine_version: typing.Optional[builtins.str] = None,
         identity_center_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.IdentityCenterOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
@@ -1922,6 +1925,7 @@ class CfnDomain(
         snapshot_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.SnapshotOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         software_update_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.SoftwareUpdateOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        use_case: typing.Optional[builtins.str] = None,
         vpc_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.VPCOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::OpenSearchService::Domain``.
@@ -1941,6 +1945,7 @@ class CfnDomain(
         :param domain_name: A name for the OpenSearch Service domain. The name must have a minimum length of 3 and a maximum length of 28. If you don't specify a name, CloudFormation generates a unique physical ID and uses that ID for the domain name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . Required when creating a new domain. .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
         :param ebs_options: The configurations of Amazon Elastic Block Store (Amazon EBS) volumes that are attached to data nodes in the OpenSearch Service domain. For more information, see `EBS volume size limits <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/limits.html#ebsresource>`_ in the *Amazon OpenSearch Service Developer Guide* .
         :param encryption_at_rest_options: Whether the domain should encrypt data at rest, and if so, the AWS key to use. See `Encryption of data at rest for Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/encryption-at-rest.html>`_ . If no encryption at rest options were initially specified in the template, updating this property by adding it causes no interruption. However, if you change this property after it's already been set within a template, the domain is deleted and recreated in order to modify the property.
+        :param engine_mode: The engine mode of the domain. Determines whether the domain runs the standard (GENERAL) engine or the optimized multi-engine (OPTIMIZED) engine. This value cannot be changed after the domain is created.
         :param engine_version: The version of OpenSearch to use. The value must be in the format ``OpenSearch_X.Y`` or ``Elasticsearch_X.Y`` . If not specified, the latest version of OpenSearch is used. For information about the versions that OpenSearch Service supports, see `Supported versions of OpenSearch and Elasticsearch <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/what-is.html#choosing-version>`_ in the *Amazon OpenSearch Service Developer Guide* . If you set the `EnableVersionUpgrade <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatepolicy.html#cfn-attributes-updatepolicy-upgradeopensearchdomain>`_ update policy to ``true`` , you can update ``EngineVersion`` without interruption. When ``EnableVersionUpgrade`` is set to ``false`` , or is not specified, updating ``EngineVersion`` results in `replacement <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement>`_ .
         :param identity_center_options: Configuration options for controlling IAM Identity Center integration within a domain.
         :param ip_address_type: Choose either dual stack or IPv4 as your IP address type. Dual stack allows you to share domain resources across IPv4 and IPv6 address types, and is the recommended option. If you set your IP address type to dual stack, you can't change your address type later.
@@ -1951,6 +1956,7 @@ class CfnDomain(
         :param snapshot_options: *DEPRECATED* . The automated snapshot configuration for the OpenSearch Service domain indexes.
         :param software_update_options: Service software update options for the domain.
         :param tags: An arbitrary set of tags (key–value pairs) to associate with the OpenSearch Service domain.
+        :param use_case: The primary use case of the domain. Determines the default configuration tuned for the workload. For GENERAL engine-mode domains, this value can be changed after creation. For OPTIMIZED engine-mode domains, this value cannot be changed after creation.
         :param vpc_options: The virtual private cloud (VPC) configuration for the OpenSearch Service domain. For more information, see `Launching your Amazon OpenSearch Service domains within a VPC <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/vpc.html>`_ in the *Amazon OpenSearch Service Developer Guide* . If you remove this entity altogether, along with its associated properties, it causes a replacement. You might encounter this scenario if you're updating your security configuration from a VPC to a public endpoint.
         '''
         if __debug__:
@@ -1971,6 +1977,7 @@ class CfnDomain(
             domain_name=domain_name,
             ebs_options=ebs_options,
             encryption_at_rest_options=encryption_at_rest_options,
+            engine_mode=engine_mode,
             engine_version=engine_version,
             identity_center_options=identity_center_options,
             ip_address_type=ip_address_type,
@@ -1981,6 +1988,7 @@ class CfnDomain(
             snapshot_options=snapshot_options,
             software_update_options=software_update_options,
             tags=tags,
+            use_case=use_case,
             vpc_options=vpc_options,
         )
 
@@ -2482,6 +2490,19 @@ class CfnDomain(
         jsii.set(self, "encryptionAtRestOptions", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="engineMode")
+    def engine_mode(self) -> typing.Optional[builtins.str]:
+        '''The engine mode of the domain.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "engineMode"))
+
+    @engine_mode.setter
+    def engine_mode(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a2d20283095a47a6a000a8847f34ee41d99c70e38c81eba480034e030186ca89)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "engineMode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="engineVersion")
     def engine_version(self) -> typing.Optional[builtins.str]:
         '''The version of OpenSearch to use.'''
@@ -2647,6 +2668,19 @@ class CfnDomain(
             type_hints = cached_type_hints(_typecheckingstub__492b192acd9acaa788b5501251071046e08d3e3cb47dc8fe653c58c5857dbc08)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="useCase")
+    def use_case(self) -> typing.Optional[builtins.str]:
+        '''The primary use case of the domain.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "useCase"))
+
+    @use_case.setter
+    def use_case(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__72cda0cea65a4e281b0cd9ed899df4c5185ef5fbea62ae1440cd2e4de17abedc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "useCase", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="vpcOptions")
@@ -5689,6 +5723,7 @@ class CfnDomain(
         "domain_name": "domainName",
         "ebs_options": "ebsOptions",
         "encryption_at_rest_options": "encryptionAtRestOptions",
+        "engine_mode": "engineMode",
         "engine_version": "engineVersion",
         "identity_center_options": "identityCenterOptions",
         "ip_address_type": "ipAddressType",
@@ -5699,6 +5734,7 @@ class CfnDomain(
         "snapshot_options": "snapshotOptions",
         "software_update_options": "softwareUpdateOptions",
         "tags": "tags",
+        "use_case": "useCase",
         "vpc_options": "vpcOptions",
     },
 )
@@ -5719,6 +5755,7 @@ class CfnDomainProps:
         domain_name: typing.Optional[builtins.str] = None,
         ebs_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.EBSOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         encryption_at_rest_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.EncryptionAtRestOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        engine_mode: typing.Optional[builtins.str] = None,
         engine_version: typing.Optional[builtins.str] = None,
         identity_center_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.IdentityCenterOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ip_address_type: typing.Optional[builtins.str] = None,
@@ -5729,6 +5766,7 @@ class CfnDomainProps:
         snapshot_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.SnapshotOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         software_update_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.SoftwareUpdateOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        use_case: typing.Optional[builtins.str] = None,
         vpc_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDomain.VPCOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnDomain``.
@@ -5746,6 +5784,7 @@ class CfnDomainProps:
         :param domain_name: A name for the OpenSearch Service domain. The name must have a minimum length of 3 and a maximum length of 28. If you don't specify a name, CloudFormation generates a unique physical ID and uses that ID for the domain name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . Required when creating a new domain. .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
         :param ebs_options: The configurations of Amazon Elastic Block Store (Amazon EBS) volumes that are attached to data nodes in the OpenSearch Service domain. For more information, see `EBS volume size limits <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/limits.html#ebsresource>`_ in the *Amazon OpenSearch Service Developer Guide* .
         :param encryption_at_rest_options: Whether the domain should encrypt data at rest, and if so, the AWS key to use. See `Encryption of data at rest for Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/encryption-at-rest.html>`_ . If no encryption at rest options were initially specified in the template, updating this property by adding it causes no interruption. However, if you change this property after it's already been set within a template, the domain is deleted and recreated in order to modify the property.
+        :param engine_mode: The engine mode of the domain. Determines whether the domain runs the standard (GENERAL) engine or the optimized multi-engine (OPTIMIZED) engine. This value cannot be changed after the domain is created.
         :param engine_version: The version of OpenSearch to use. The value must be in the format ``OpenSearch_X.Y`` or ``Elasticsearch_X.Y`` . If not specified, the latest version of OpenSearch is used. For information about the versions that OpenSearch Service supports, see `Supported versions of OpenSearch and Elasticsearch <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/what-is.html#choosing-version>`_ in the *Amazon OpenSearch Service Developer Guide* . If you set the `EnableVersionUpgrade <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatepolicy.html#cfn-attributes-updatepolicy-upgradeopensearchdomain>`_ update policy to ``true`` , you can update ``EngineVersion`` without interruption. When ``EnableVersionUpgrade`` is set to ``false`` , or is not specified, updating ``EngineVersion`` results in `replacement <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-replacement>`_ .
         :param identity_center_options: Configuration options for controlling IAM Identity Center integration within a domain.
         :param ip_address_type: Choose either dual stack or IPv4 as your IP address type. Dual stack allows you to share domain resources across IPv4 and IPv6 address types, and is the recommended option. If you set your IP address type to dual stack, you can't change your address type later.
@@ -5756,6 +5795,7 @@ class CfnDomainProps:
         :param snapshot_options: *DEPRECATED* . The automated snapshot configuration for the OpenSearch Service domain indexes.
         :param software_update_options: Service software update options for the domain.
         :param tags: An arbitrary set of tags (key–value pairs) to associate with the OpenSearch Service domain.
+        :param use_case: The primary use case of the domain. Determines the default configuration tuned for the workload. For GENERAL engine-mode domains, this value can be changed after creation. For OPTIMIZED engine-mode domains, this value cannot be changed after creation.
         :param vpc_options: The virtual private cloud (VPC) configuration for the OpenSearch Service domain. For more information, see `Launching your Amazon OpenSearch Service domains within a VPC <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/vpc.html>`_ in the *Amazon OpenSearch Service Developer Guide* . If you remove this entity altogether, along with its associated properties, it causes a replacement. You might encounter this scenario if you're updating your security configuration from a VPC to a public endpoint.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html
@@ -5879,6 +5919,7 @@ class CfnDomainProps:
                     enabled=False,
                     kms_key_id="kmsKeyId"
                 ),
+                engine_mode="engineMode",
                 engine_version="engineVersion",
                 identity_center_options=opensearchservice.CfnDomain.IdentityCenterOptionsProperty(
                     enabled_api_access=False,
@@ -5918,6 +5959,7 @@ class CfnDomainProps:
                     key="key",
                     value="value"
                 )],
+                use_case="useCase",
                 vpc_options=opensearchservice.CfnDomain.VPCOptionsProperty(
                     egress_enabled=False,
                     security_group_ids=["securityGroupIds"],
@@ -5940,6 +5982,7 @@ class CfnDomainProps:
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument ebs_options", value=ebs_options, expected_type=type_hints["ebs_options"])
             check_type(argname="argument encryption_at_rest_options", value=encryption_at_rest_options, expected_type=type_hints["encryption_at_rest_options"])
+            check_type(argname="argument engine_mode", value=engine_mode, expected_type=type_hints["engine_mode"])
             check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
             check_type(argname="argument identity_center_options", value=identity_center_options, expected_type=type_hints["identity_center_options"])
             check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
@@ -5950,6 +5993,7 @@ class CfnDomainProps:
             check_type(argname="argument snapshot_options", value=snapshot_options, expected_type=type_hints["snapshot_options"])
             check_type(argname="argument software_update_options", value=software_update_options, expected_type=type_hints["software_update_options"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument use_case", value=use_case, expected_type=type_hints["use_case"])
             check_type(argname="argument vpc_options", value=vpc_options, expected_type=type_hints["vpc_options"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if access_policies is not None:
@@ -5978,6 +6022,8 @@ class CfnDomainProps:
             self._values["ebs_options"] = ebs_options
         if encryption_at_rest_options is not None:
             self._values["encryption_at_rest_options"] = encryption_at_rest_options
+        if engine_mode is not None:
+            self._values["engine_mode"] = engine_mode
         if engine_version is not None:
             self._values["engine_version"] = engine_version
         if identity_center_options is not None:
@@ -5998,6 +6044,8 @@ class CfnDomainProps:
             self._values["software_update_options"] = software_update_options
         if tags is not None:
             self._values["tags"] = tags
+        if use_case is not None:
+            self._values["use_case"] = use_case
         if vpc_options is not None:
             self._values["vpc_options"] = vpc_options
 
@@ -6155,6 +6203,17 @@ class CfnDomainProps:
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDomain.EncryptionAtRestOptionsProperty"]], result)
 
     @builtins.property
+    def engine_mode(self) -> typing.Optional[builtins.str]:
+        '''The engine mode of the domain.
+
+        Determines whether the domain runs the standard (GENERAL) engine or the optimized multi-engine (OPTIMIZED) engine. This value cannot be changed after the domain is created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-enginemode
+        '''
+        result = self._values.get("engine_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def engine_version(self) -> typing.Optional[builtins.str]:
         '''The version of OpenSearch to use.
 
@@ -6268,6 +6327,17 @@ class CfnDomainProps:
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def use_case(self) -> typing.Optional[builtins.str]:
+        '''The primary use case of the domain.
+
+        Determines the default configuration tuned for the workload. For GENERAL engine-mode domains, this value can be changed after creation. For OPTIMIZED engine-mode domains, this value cannot be changed after creation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-domain.html#cfn-opensearchservice-domain-usecase
+        '''
+        result = self._values.get("use_case")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def vpc_options(
@@ -7719,6 +7789,12 @@ class EngineVersion(
     def OPENSEARCH_3_5(cls) -> "EngineVersion":
         '''AWS OpenSearch 3.5.'''
         return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_3_5"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENSEARCH_3_7")
+    def OPENSEARCH_3_7(cls) -> "EngineVersion":
+        '''AWS OpenSearch 3.7.'''
+        return typing.cast("EngineVersion", jsii.sget(cls, "OPENSEARCH_3_7"))
 
     @builtins.property
     @jsii.member(jsii_name="version")
@@ -11667,6 +11743,7 @@ def _typecheckingstub__6fcd2545392b3f48f314c640881e38e167b5936f1165d2eb1ce21766d
     domain_name: typing.Optional[builtins.str] = None,
     ebs_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.EBSOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     encryption_at_rest_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.EncryptionAtRestOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    engine_mode: typing.Optional[builtins.str] = None,
     engine_version: typing.Optional[builtins.str] = None,
     identity_center_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.IdentityCenterOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
@@ -11677,6 +11754,7 @@ def _typecheckingstub__6fcd2545392b3f48f314c640881e38e167b5936f1165d2eb1ce21766d
     snapshot_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.SnapshotOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     software_update_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.SoftwareUpdateOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    use_case: typing.Optional[builtins.str] = None,
     vpc_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.VPCOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -11800,6 +11878,12 @@ def _typecheckingstub__2a2b92e6c487faf5299f3c6d1f31ea619c1b1d93925b6634dfc0b81cd
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a2d20283095a47a6a000a8847f34ee41d99c70e38c81eba480034e030186ca89(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__88301df742e18b9ab560ac04b99b966a761eeee663731308b40ab8ca4cd509f1(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -11856,6 +11940,12 @@ def _typecheckingstub__8acae61e3be2830b5d0094ea6fec133fbcd21857779bf3d47fd39615a
 
 def _typecheckingstub__492b192acd9acaa788b5501251071046e08d3e3cb47dc8fe653c58c5857dbc08(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__72cda0cea65a4e281b0cd9ed899df4c5185ef5fbea62ae1440cd2e4de17abedc(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12159,6 +12249,7 @@ def _typecheckingstub__4a3bbf8db74762f8d49d2ee572e0b31eef8650964dd0e8a168a5fe2d6
     domain_name: typing.Optional[builtins.str] = None,
     ebs_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.EBSOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     encryption_at_rest_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.EncryptionAtRestOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    engine_mode: typing.Optional[builtins.str] = None,
     engine_version: typing.Optional[builtins.str] = None,
     identity_center_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.IdentityCenterOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
@@ -12169,6 +12260,7 @@ def _typecheckingstub__4a3bbf8db74762f8d49d2ee572e0b31eef8650964dd0e8a168a5fe2d6
     snapshot_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.SnapshotOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     software_update_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.SoftwareUpdateOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    use_case: typing.Optional[builtins.str] = None,
     vpc_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDomain.VPCOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

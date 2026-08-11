@@ -40,6 +40,7 @@ class _FunctionEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumT
     FUNCTION_MIN: _Function.ValueType  # 10
     FUNCTION_UNIQ: _Function.ValueType  # 11
     FUNCTION_ANY: _Function.ValueType  # 13
+    FUNCTION_COLLECT_UNIQUE: _Function.ValueType  # 14
 
 class Function(_Function, metaclass=_FunctionEnumTypeWrapper): ...
 
@@ -58,6 +59,7 @@ FUNCTION_MAX: Function.ValueType  # 9
 FUNCTION_MIN: Function.ValueType  # 10
 FUNCTION_UNIQ: Function.ValueType  # 11
 FUNCTION_ANY: Function.ValueType  # 13
+FUNCTION_COLLECT_UNIQUE: Function.ValueType  # 14
 global___Function = Function
 
 class _ExtrapolationMode:

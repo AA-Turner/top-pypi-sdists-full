@@ -169,6 +169,41 @@ class CfnConnectAttachment(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForConnectAttachment")
+    @builtins.classmethod
+    def arn_for_connect_attachment(
+        cls,
+        resource: "_aws_networkmanager_440bf644.IConnectAttachmentRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6ee1be6a9d104e822b3b538a22053ead64afb1897ec32bbbe03a3ced8ad8d6e7)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConnectAttachment", [resource]))
+
+    @jsii.member(jsii_name="fromAttachmentId")
+    @builtins.classmethod
+    def from_attachment_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        attachment_id: builtins.str,
+    ) -> "_aws_networkmanager_440bf644.IConnectAttachmentRef":
+        '''Creates a new IConnectAttachmentRef from a attachmentId.
+
+        :param scope: -
+        :param id: -
+        :param attachment_id: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9e037d8713710ba9021433de3be9ec51641f433285ddda8f6ffd832125cf10a0)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument attachment_id", value=attachment_id, expected_type=type_hints["attachment_id"])
+        return typing.cast("_aws_networkmanager_440bf644.IConnectAttachmentRef", jsii.sinvoke(cls, "fromAttachmentId", [scope, id, attachment_id]))
+
     @jsii.member(jsii_name="isCfnConnectAttachment")
     @builtins.classmethod
     def is_cfn_connect_attachment(cls, x: typing.Any) -> builtins.bool:
@@ -1010,6 +1045,41 @@ class CfnConnectPeer(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForConnectPeer")
+    @builtins.classmethod
+    def arn_for_connect_peer(
+        cls,
+        resource: "_aws_networkmanager_440bf644.IConnectPeerRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9539f56db4082869974bcf8ec1775d4a394fb2439ee06498c92dfbecfaf50771)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConnectPeer", [resource]))
+
+    @jsii.member(jsii_name="fromConnectPeerId")
+    @builtins.classmethod
+    def from_connect_peer_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        connect_peer_id: builtins.str,
+    ) -> "_aws_networkmanager_440bf644.IConnectPeerRef":
+        '''Creates a new IConnectPeerRef from a connectPeerId.
+
+        :param scope: -
+        :param id: -
+        :param connect_peer_id: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7d187bcb8ec29aaf67b316fe660a687be304a5ad5f292f083dc2ab2a1584a294)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument connect_peer_id", value=connect_peer_id, expected_type=type_hints["connect_peer_id"])
+        return typing.cast("_aws_networkmanager_440bf644.IConnectPeerRef", jsii.sinvoke(cls, "fromConnectPeerId", [scope, id, connect_peer_id]))
+
     @jsii.member(jsii_name="isCfnConnectPeer")
     @builtins.classmethod
     def is_cfn_connect_peer(cls, x: typing.Any) -> builtins.bool:
@@ -1809,48 +1879,6 @@ class CfnCoreNetwork(
             type_hints = cached_type_hints(_typecheckingstub__369dfbd2b8835ef1ae2b98a0e9601f46e1aba9df5923a622d2ee027df62b0b00)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCoreNetwork", [resource]))
-
-    @jsii.member(jsii_name="fromCoreNetworkArn")
-    @builtins.classmethod
-    def from_core_network_arn(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        arn: builtins.str,
-    ) -> "_aws_networkmanager_440bf644.ICoreNetworkRef":
-        '''Creates a new ICoreNetworkRef from an ARN.
-
-        :param scope: -
-        :param id: -
-        :param arn: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__ce07193a7eb1f10a48d36c0089cf0ee0e6ea82a76b548ec1f06d2aa54231fb99)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_aws_networkmanager_440bf644.ICoreNetworkRef", jsii.sinvoke(cls, "fromCoreNetworkArn", [scope, id, arn]))
-
-    @jsii.member(jsii_name="fromCoreNetworkId")
-    @builtins.classmethod
-    def from_core_network_id(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        core_network_id: builtins.str,
-    ) -> "_aws_networkmanager_440bf644.ICoreNetworkRef":
-        '''Creates a new ICoreNetworkRef from a coreNetworkId.
-
-        :param scope: -
-        :param id: -
-        :param core_network_id: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__16faa597c7a99d52d090ebd35f0b7ba59336b80e0d859cf943abffeeaa7f274d)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument core_network_id", value=core_network_id, expected_type=type_hints["core_network_id"])
-        return typing.cast("_aws_networkmanager_440bf644.ICoreNetworkRef", jsii.sinvoke(cls, "fromCoreNetworkId", [scope, id, core_network_id]))
 
     @jsii.member(jsii_name="isCfnCoreNetwork")
     @builtins.classmethod
@@ -8317,6 +8345,41 @@ class CfnVpcAttachment(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForVpcAttachment")
+    @builtins.classmethod
+    def arn_for_vpc_attachment(
+        cls,
+        resource: "_aws_networkmanager_440bf644.IVpcAttachmentRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6ecb8222bb0a126f3893e7e38ff93217f1bf950664bea9a3146e2169fd6b7b98)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForVpcAttachment", [resource]))
+
+    @jsii.member(jsii_name="fromAttachmentId")
+    @builtins.classmethod
+    def from_attachment_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        attachment_id: builtins.str,
+    ) -> "_aws_networkmanager_440bf644.IVpcAttachmentRef":
+        '''Creates a new IVpcAttachmentRef from a attachmentId.
+
+        :param scope: -
+        :param id: -
+        :param attachment_id: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5a9cbfd55c4f0f5e8645015279c1b35386da05b3099b1496eadec4750792fd9d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument attachment_id", value=attachment_id, expected_type=type_hints["attachment_id"])
+        return typing.cast("_aws_networkmanager_440bf644.IVpcAttachmentRef", jsii.sinvoke(cls, "fromAttachmentId", [scope, id, attachment_id]))
+
     @jsii.member(jsii_name="isCfnVpcAttachment")
     @builtins.classmethod
     def is_cfn_vpc_attachment(cls, x: typing.Any) -> builtins.bool:
@@ -9198,6 +9261,20 @@ def _typecheckingstub__d7415843def493b65c590878e3897c27e4c459f5d736fb5ee9738e5a1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6ee1be6a9d104e822b3b538a22053ead64afb1897ec32bbbe03a3ced8ad8d6e7(
+    resource: _aws_networkmanager_440bf644.IConnectAttachmentRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e037d8713710ba9021433de3be9ec51641f433285ddda8f6ffd832125cf10a0(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    attachment_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6d7f133fecccbc6fab881252b6c5bd679dc51ad6f32f23a2fc59c733eed77017(
     x: typing.Any,
 ) -> None:
@@ -9325,6 +9402,20 @@ def _typecheckingstub__614dda353f68a248b8ae08e0094dfb5ecab0817abd8f24330d861cce6
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9539f56db4082869974bcf8ec1775d4a394fb2439ee06498c92dfbecfaf50771(
+    resource: _aws_networkmanager_440bf644.IConnectPeerRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7d187bcb8ec29aaf67b316fe660a687be304a5ad5f292f083dc2ab2a1584a294(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    connect_peer_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__25e8ead32673cd0b3f33520064553b647bab4d7a1a93c88b5e1f9f3cd0ad0da3(
     x: typing.Any,
 ) -> None:
@@ -9440,22 +9531,6 @@ def _typecheckingstub__ef3cb1cd4abb4fa5b383cbcb25ab3b19985891cac9ee903fdc80a4b78
 
 def _typecheckingstub__369dfbd2b8835ef1ae2b98a0e9601f46e1aba9df5923a622d2ee027df62b0b00(
     resource: _aws_networkmanager_440bf644.ICoreNetworkRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ce07193a7eb1f10a48d36c0089cf0ee0e6ea82a76b548ec1f06d2aa54231fb99(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__16faa597c7a99d52d090ebd35f0b7ba59336b80e0d859cf943abffeeaa7f274d(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    core_network_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10559,6 +10634,20 @@ def _typecheckingstub__962ef8273d6d2d97a33b00603b7bf87793fdecfaae4031352d9cbc1bc
     proposed_segment_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVpcAttachment.ProposedSegmentChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     routing_policy_label: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ecb8222bb0a126f3893e7e38ff93217f1bf950664bea9a3146e2169fd6b7b98(
+    resource: _aws_networkmanager_440bf644.IVpcAttachmentRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5a9cbfd55c4f0f5e8645015279c1b35386da05b3099b1496eadec4750792fd9d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    attachment_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

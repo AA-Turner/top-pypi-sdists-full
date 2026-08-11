@@ -1,7 +1,7 @@
 """
 Snowflake Function API.
 
-The Snowflake Function API is a REST API that allows caller to create, execute and drop functions in a Snowflake database.  # noqa: E501
+The Snowflake Function API is a REST API that allows caller to create, execute and drop service functions in a Snowflake database.  # noqa: E501
 
 The version of the OpenAPI document: 0.0.1
 Contact: support@snowflake.com

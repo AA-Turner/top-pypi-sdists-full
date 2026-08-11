@@ -1298,7 +1298,7 @@ class AssertionInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'assertionInfo'
-    ASPECT_INFO = {'schemaVersion': 5}
+    ASPECT_INFO = {'schemaVersion': 6}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.assertion.AssertionInfo")
 
     def __init__(self,
@@ -1495,7 +1495,10 @@ class AssertionInfoClass(_Aspect):
     
     @property
     def note(self) -> Union[None, "AssertionNoteClass"]:
-        """An optional note to give technical owners more context about the assertion, and how to troubleshoot it.
+        """@deprecated Use the assertionNote aspect instead. This field is retained for backward
+    compatibility during migration and will be removed in a future release.
+    
+    An optional note to give technical owners more context about the assertion, and how to troubleshoot it.
     The UI will render this in markdown format."""
         return self._inner_dict.get('note')  # type: ignore
     
@@ -1514,10 +1517,16 @@ class AssertionInfoClass(_Aspect):
         self._inner_dict['entityUrn'] = value
     
     
-class AssertionNoteClass(DictWrapper):
-    # No docs available.
-    
+class AssertionNoteClass(_Aspect):
+    """A user-defined note attached to an Assertion, giving technical owners more context about the
+    assertion and how to troubleshoot failures. Stored as a separate aspect so that ingestion
+    sources that UPSERT AssertionInfo do not accidentally overwrite user-authored notes."""
+
+
+    ASPECT_NAME = 'assertionNote'
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.assertion.AssertionNote")
+
     def __init__(self,
         content: str,
         lastModified: "AuditStampClass",
@@ -1534,7 +1543,8 @@ class AssertionNoteClass(DictWrapper):
     
     @property
     def content(self) -> str:
-        """The note to give technical owners more context about the assertion, and how to troubleshoot it."""
+        """The note to give technical owners more context about the assertion, and how to troubleshoot it.
+    Rendered as markdown in the UI."""
         return self._inner_dict.get('content')  # type: ignore
     
     @content.setter
@@ -12103,6 +12113,7 @@ class DataProductPropertiesClass(_Aspect):
         name: Union[None, str]=None,
         description: Union[None, str]=None,
         assets: Union[None, List["DataProductAssociationClass"]]=None,
+        parentDataProduct: Union[None, str]=None,
     ):
         super().__init__()
         
@@ -12115,6 +12126,7 @@ class DataProductPropertiesClass(_Aspect):
         self.name = name
         self.description = description
         self.assets = assets
+        self.parentDataProduct = parentDataProduct
     
     def _restore_defaults(self) -> None:
         self.customProperties = dict()
@@ -12122,6 +12134,7 @@ class DataProductPropertiesClass(_Aspect):
         self.name = self.RECORD_SCHEMA.fields_dict["name"].default
         self.description = self.RECORD_SCHEMA.fields_dict["description"].default
         self.assets = self.RECORD_SCHEMA.fields_dict["assets"].default
+        self.parentDataProduct = self.RECORD_SCHEMA.fields_dict["parentDataProduct"].default
     
     
     @property
@@ -12172,6 +12185,16 @@ class DataProductPropertiesClass(_Aspect):
     @assets.setter
     def assets(self, value: Union[None, List["DataProductAssociationClass"]]) -> None:
         self._inner_dict['assets'] = value
+    
+    
+    @property
+    def parentDataProduct(self) -> Union[None, str]:
+        """Optional: parent Data Product, forming a parent-child taxonomy."""
+        return self._inner_dict.get('parentDataProduct')  # type: ignore
+    
+    @parentDataProduct.setter
+    def parentDataProduct(self, value: Union[None, str]) -> None:
+        self._inner_dict['parentDataProduct'] = value
     
     
 class DatasetDeprecationClass(_Aspect):
@@ -18690,7 +18713,7 @@ class AssertionKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'assertionKey'
-    ASPECT_INFO = {'keyForEntity': 'assertion', 'entityCategory': 'core', 'entityAspects': ['assertionInfo', 'dataPlatformInstance', 'assertionRunEvent', 'assertionRunSummary', 'assertionActions', 'status', 'globalTags', 'ownership'], 'entityDoc': 'Assertion represents a data quality rule applied on one or more dataset.'}
+    ASPECT_INFO = {'keyForEntity': 'assertion', 'entityCategory': 'core', 'entityAspects': ['assertionInfo', 'assertionNote', 'dataPlatformInstance', 'assertionRunEvent', 'assertionRunSummary', 'assertionActions', 'status', 'globalTags', 'ownership'], 'entityDoc': 'Assertion represents a data quality rule applied on one or more dataset.'}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.AssertionKey")
 
     def __init__(self,
@@ -29737,11 +29760,12 @@ class ServicePropertiesClass(_Aspect):
 
 
     ASPECT_NAME = 'serviceProperties'
-    ASPECT_INFO = {'schemaVersion': 2}
+    ASPECT_INFO = {'schemaVersion': 3}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.service.ServiceProperties")
 
     def __init__(self,
         displayName: str,
+        customProperties: Optional[Dict[str, str]]=None,
         description: Union[None, str]=None,
         lifecycle: Union[None, Union[str, "ServiceLifecycleClass"]]=None,
         apis: Union[None, List[str]]=None,
@@ -29749,6 +29773,11 @@ class ServicePropertiesClass(_Aspect):
     ):
         super().__init__()
         
+        if customProperties is None:
+            # default: {}
+            self.customProperties = dict()
+        else:
+            self.customProperties = customProperties
         self.displayName = displayName
         self.description = description
         self.lifecycle = lifecycle
@@ -29756,11 +29785,22 @@ class ServicePropertiesClass(_Aspect):
         self.sourceRepository = sourceRepository
     
     def _restore_defaults(self) -> None:
+        self.customProperties = dict()
         self.displayName = str()
         self.description = self.RECORD_SCHEMA.fields_dict["description"].default
         self.lifecycle = self.RECORD_SCHEMA.fields_dict["lifecycle"].default
         self.apis = self.RECORD_SCHEMA.fields_dict["apis"].default
         self.sourceRepository = self.RECORD_SCHEMA.fields_dict["sourceRepository"].default
+    
+    
+    @property
+    def customProperties(self) -> Dict[str, str]:
+        """Custom property bag."""
+        return self._inner_dict.get('customProperties')  # type: ignore
+    
+    @customProperties.setter
+    def customProperties(self, value: Dict[str, str]) -> None:
+        self._inner_dict['customProperties'] = value
     
     
     @property
@@ -33941,6 +33981,7 @@ ASPECT_CLASSES: List[Type[_Aspect]] = [
     DataTypeInfoClass,
     DataTypeKeyClass,
     AssertionRunEventClass,
+    AssertionNoteClass,
     AssertionRunSummaryClass,
     AssertionActionsClass,
     AssertionInfoClass,
@@ -34216,6 +34257,7 @@ class AspectBag(TypedDict, total=False):
     dataTypeInfo: DataTypeInfoClass
     dataTypeKey: DataTypeKeyClass
     assertionRunEvent: AssertionRunEventClass
+    assertionNote: AssertionNoteClass
     assertionRunSummary: AssertionRunSummaryClass
     assertionActions: AssertionActionsClass
     assertionInfo: AssertionInfoClass
@@ -34450,6 +34492,87 @@ ENTITY_TYPE_NAMES: List[str] = [
     'entityType',
     'structuredProperty'
 ]
+
+# Entity type -> full list of non-key aspect names, sourced verbatim from
+# entity-registry.yml. This is the authoritative set of aspects an entity type
+# may carry (includes timeseries aspects such as datasetProfile).
+# TODO: consumers that need the *running server's* registry (e.g. to pick up
+# custom aspects not in this build) can instead fetch it at runtime via
+# DataHubGraph.get_entity_aspect_specs() rather than this codegen constant.
+ENTITY_TYPE_TO_ASPECT_NAMES: Dict[str, List[str]] = {
+    'dataProduct': ['ownership', 'glossaryTerms', 'globalTags', 'domains', 'applications', 'dataProductProperties', 'institutionalMemory', 'deprecation', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'assetSettings'],
+    'dataHubUpgrade': ['dataHubUpgradeRequest', 'dataHubUpgradeResult'],
+    'dataJob': ['datahubIngestionRunSummary', 'datahubIngestionCheckpoint', 'domains', 'applications', 'deprecation', 'versionInfo', 'dataJobInfo', 'dataJobInputOutput', 'editableDataJobProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'container', 'browsePathsV2', 'structuredProperties', 'forms', 'subTypes', 'incidentsSummary', 'testResults', 'dataTransformLogic', 'documentation'],
+    'glossaryNode': ['glossaryNodeInfo', 'institutionalMemory', 'ownership', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'displayProperties', 'assetSettings', 'domains', 'globalTags'],
+    'mlModelDeployment': ['mlModelDeploymentProperties', 'ownership', 'status', 'deprecation', 'globalTags', 'dataPlatformInstance', 'testResults', 'container'],
+    'dataHubView': ['dataHubViewInfo'],
+    'corpuser': ['corpUserInfo', 'corpUserEditableInfo', 'corpUserStatus', 'groupMembership', 'globalTags', 'status', 'corpUserCredentials', 'nativeGroupMembership', 'corpUserSettings', 'origin', 'roleMembership', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'slackUserInfo'],
+    'corpGroup': ['corpGroupInfo', 'corpGroupEditableInfo', 'globalTags', 'ownership', 'status', 'origin', 'roleMembership', 'structuredProperties', 'forms', 'testResults', 'subTypes'],
+    'dataContract': ['dataContractProperties', 'dataContractStatus', 'status', 'structuredProperties'],
+    'mlModelGroup': ['glossaryTerms', 'editableMlModelGroupProperties', 'domains', 'applications', 'mlModelGroupProperties', 'ownership', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'container', 'institutionalMemory', 'documentation'],
+    'dataHubOpenAPISchema': ['systemMetadata'],
+    'aiAgent': ['aiAgentInfo', 'aiAgentDependencies', 'dataPlatformInstance', 'displayProperties', 'ownership', 'status', 'structuredProperties', 'upstreamLineage', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'incidentsSummary', 'versionProperties'],
+    'agentSkill': ['agentSkillInfo', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'structuredProperties', 'versionProperties'],
+    'semanticModel': ['semanticModelInfo', 'upstreamLineage', 'ownership', 'domains', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'structuredProperties', 'status', 'deprecation', 'dataPlatformInstance', 'subTypes', 'documentation', 'browsePathsV2', 'applications', 'aiContext'],
+    'dataHubExecutionRequest': ['dataHubExecutionRequestInput', 'dataHubExecutionRequestSignal', 'dataHubExecutionRequestResult'],
+    'mlModel': ['glossaryTerms', 'editableMlModelProperties', 'domains', 'applications', 'ownership', 'mlModelProperties', 'intendedUse', 'mlModelFactorPrompts', 'mlModelMetrics', 'mlModelEvaluationData', 'mlModelTrainingData', 'mlModelQuantitativeAnalyses', 'mlModelEthicalConsiderations', 'mlModelCaveatsAndRecommendations', 'institutionalMemory', 'sourceCode', 'status', 'cost', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'versionProperties', 'subTypes', 'container', 'documentation'],
+    'test': ['testInfo'],
+    'role': ['roleProperties', 'actors'],
+    'dataHubPageTemplate': ['dataHubPageTemplateProperties'],
+    'dataset': ['viewProperties', 'semanticModelProperties', 'subTypes', 'datasetProfile', 'datasetUsageStatistics', 'operation', 'domains', 'applications', 'schemaMetadata', 'status', 'container', 'deprecation', 'testResults', 'siblings', 'embed', 'incidentsSummary', 'datasetProperties', 'editableDatasetProperties', 'datasetDeprecation', 'datasetUpstreamLineage', 'upstreamLineage', 'institutionalMemory', 'ownership', 'editableSchemaMetadata', 'globalTags', 'glossaryTerms', 'browsePaths', 'dataPlatformInstance', 'browsePathsV2', 'access', 'structuredProperties', 'forms', 'partitionsSummary', 'versionProperties', 'icebergCatalogInfo', 'logicalParent', 'assetSettings', 'documentation', 'aliases'],
+    'globalSettings': ['globalSettingsInfo'],
+    'dataProcess': ['dataProcessInfo', 'ownership', 'status', 'testResults', 'subTypes'],
+    'dataPlatformInstance': ['dataPlatformInstanceProperties', 'ownership', 'globalTags', 'institutionalMemory', 'deprecation', 'status', 'icebergWarehouseInfo'],
+    'post': ['postInfo', 'subTypes'],
+    'chart': ['chartInfo', 'editableChartProperties', 'chartQuery', 'inputFields', 'chartUsageStatistics', 'embed', 'browsePaths', 'domains', 'applications', 'container', 'deprecation', 'ownership', 'status', 'institutionalMemory', 'dataPlatformInstance', 'globalTags', 'glossaryTerms', 'browsePathsV2', 'subTypes', 'structuredProperties', 'incidentsSummary', 'forms', 'testResults', 'documentation'],
+    'incident': ['incidentInfo', 'incidentExternalLinks', 'incidentNotes', 'globalTags'],
+    'metric': ['metricInfo', 'metricRelationships', 'metricUpstreams', 'ownership', 'domains', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'structuredProperties', 'status', 'deprecation', 'dataPlatformInstance', 'subTypes', 'documentation', 'browsePathsV2', 'applications', 'aiContext'],
+    'dataHubConnection': ['dataHubConnectionDetails', 'dataPlatformInstance'],
+    'mlFeatureTable': ['glossaryTerms', 'editableMlFeatureTableProperties', 'domains', 'applications', 'mlFeatureTableProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'documentation'],
+    'lifecycleStageType': ['lifecycleStageTypeInfo', 'status'],
+    'api': ['apiProperties', 'apiSignature', 'restApiProperties', 'subTypes', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'institutionalMemory', 'domains', 'structuredProperties', 'versionProperties'],
+    'ownershipType': ['ownershipTypeInfo', 'status'],
+    'dataHubFile': ['dataHubFileInfo', 'status'],
+    'mlFeature': ['glossaryTerms', 'editableMlFeatureProperties', 'domains', 'applications', 'mlFeatureProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'browsePaths', 'globalTags', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'documentation'],
+    'dataPlatform': ['dataPlatformInfo'],
+    'dataHubAction': [],
+    'dataHubRole': ['dataHubRoleInfo'],
+    'telemetry': ['telemetryClientId'],
+    'notebook': ['notebookInfo', 'notebookContent', 'editableNotebookProperties', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'browsePaths', 'institutionalMemory', 'domains', 'applications', 'subTypes', 'dataPlatformInstance', 'browsePathsV2', 'testResults', 'documentation'],
+    'dataHubPageModule': ['dataHubPageModuleProperties'],
+    'domain': ['domainProperties', 'institutionalMemory', 'ownership', 'deprecation', 'structuredProperties', 'forms', 'testResults', 'displayProperties', 'assetSettings'],
+    'container': ['containerProperties', 'editableContainerProperties', 'dataPlatformInstance', 'subTypes', 'ownership', 'deprecation', 'container', 'globalTags', 'glossaryTerms', 'institutionalMemory', 'browsePaths', 'status', 'domains', 'applications', 'browsePathsV2', 'structuredProperties', 'forms', 'testResults', 'access', 'documentation'],
+    'inviteToken': ['inviteToken'],
+    'dataHubAccessToken': ['dataHubAccessTokenInfo'],
+    'dataFlow': ['domains', 'applications', 'deprecation', 'versionInfo', 'dataFlowInfo', 'editableDataFlowProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'container', 'browsePathsV2', 'structuredProperties', 'incidentsSummary', 'forms', 'subTypes', 'testResults', 'documentation'],
+    'tag': ['tagProperties', 'ownership', 'deprecation', 'status', 'testResults'],
+    'schemaField': ['schemafieldInfo', 'structuredProperties', 'forms', 'businessAttributes', 'status', 'schemaFieldAliases', 'documentation', 'testResults', 'deprecation', 'subTypes', 'logicalParent', 'globalTags', 'glossaryTerms', 'semanticFieldAnnotation', 'aiContext'],
+    'dataHubPersona': ['dataHubPersonaInfo'],
+    'document': ['documentInfo', 'documentSettings', 'status', 'ownership', 'domains', 'structuredProperties', 'subTypes', 'dataPlatformInstance', 'browsePathsV2', 'globalTags', 'glossaryTerms', 'semanticContent', 'semanticText', 'institutionalMemory', 'documentation', 'documentUsageStatistics'],
+    'dataProcessInstance': ['dataProcessInstanceInput', 'dataProcessInstanceOutput', 'dataProcessInstanceProperties', 'dataProcessInstanceRelationships', 'dataProcessInstanceRunEvent', 'status', 'testResults', 'dataPlatformInstance', 'subTypes', 'container', 'mlTrainingRunProperties'],
+    'erModelRelationship': ['erModelRelationshipProperties', 'editableERModelRelationshipProperties', 'institutionalMemory', 'ownership', 'status', 'globalTags', 'glossaryTerms'],
+    'dataHubStepState': ['dataHubStepStateProperties'],
+    'versionSet': ['versionSetProperties'],
+    'assertion': ['assertionInfo', 'assertionNote', 'dataPlatformInstance', 'assertionRunEvent', 'assertionRunSummary', 'assertionActions', 'status', 'globalTags', 'ownership'],
+    'dataHubIngestionSource': ['dataHubIngestionSourceInfo', 'ownership'],
+    'glossaryTerm': ['glossaryTermInfo', 'glossaryRelatedTerms', 'institutionalMemory', 'schemaMetadata', 'ownership', 'deprecation', 'domains', 'applications', 'status', 'browsePaths', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'displayProperties', 'assetSettings', 'globalTags'],
+    'dataHubSecret': ['dataHubSecretValue'],
+    'dashboard': ['domains', 'applications', 'container', 'deprecation', 'dashboardUsageStatistics', 'inputFields', 'subTypes', 'embed', 'dashboardInfo', 'editableDashboardProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'browsePathsV2', 'structuredProperties', 'incidentsSummary', 'forms', 'testResults', 'documentation', 'access'],
+    'mlPrimaryKey': ['glossaryTerms', 'editableMlPrimaryKeyProperties', 'domains', 'applications', 'mlPrimaryKeyProperties', 'ownership', 'institutionalMemory', 'status', 'deprecation', 'globalTags', 'dataPlatformInstance', 'structuredProperties', 'forms', 'testResults', 'subTypes'],
+    'form': ['formInfo', 'dynamicFormAssignment', 'ownership'],
+    'dataHubPolicy': ['dataHubPolicyInfo'],
+    'dataHubRetention': ['dataHubRetentionConfig'],
+    'query': ['queryProperties', 'querySubjects', 'queryUsageStatistics', 'status', 'dataPlatformInstance', 'subTypes'],
+    'businessAttribute': ['businessAttributeInfo', 'status', 'ownership', 'institutionalMemory'],
+    'application': ['applicationProperties', 'applicationLineage', 'ownership', 'glossaryTerms', 'globalTags', 'domains', 'institutionalMemory', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes'],
+    'dataType': ['dataTypeInfo', 'institutionalMemory', 'status'],
+    'service': ['serviceProperties', 'mcpServerProperties', 'serviceDefinition', 'incidentsSummary', 'subTypes', 'ownership', 'status', 'globalTags', 'semanticContent', 'dataPlatformInstance'],
+    'platformResource': ['dataPlatformInstance', 'platformResourceInfo', 'status'],
+    'repository': ['repositoryProperties', 'repositorySource', 'repositoryLineage', 'subTypes', 'dataPlatformInstance', 'ownership', 'status', 'globalTags', 'glossaryTerms', 'semanticContent', 'domains', 'institutionalMemory', 'structuredProperties', 'browsePathsV2'],
+    'entityType': ['entityTypeInfo', 'institutionalMemory', 'status'],
+    'structuredProperty': ['propertyDefinition', 'structuredPropertySettings', 'institutionalMemory', 'status']
+}
+
 EntityTypeName = Literal[
     'dataProduct',
     'dataHubUpgrade',

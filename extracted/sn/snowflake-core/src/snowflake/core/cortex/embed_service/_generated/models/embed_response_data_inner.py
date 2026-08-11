@@ -46,6 +46,7 @@ class EmbedResponseDataInner(BaseModel):
 
     @field_validator("object")
     def object_validate_enum(cls, v):
+
         if v not in ("embedding"):
             raise ValueError("must validate the enum values ('embedding')")
         return v

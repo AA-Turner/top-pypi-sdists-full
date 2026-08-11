@@ -2312,6 +2312,190 @@ class CfnMultiRegionClusterProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_memorydb_f0938d3f.IMultiRegionParameterGroupRef)
+class CfnMultiRegionParameterGroup(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_memorydb.CfnMultiRegionParameterGroup",
+):
+    '''Represents a multi-region parameter group that can be applied to clusters across multiple regions in Amazon MemoryDB.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregionparametergroup.html
+    :cloudformationResource: AWS::MemoryDB::MultiRegionParameterGroup
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_memorydb as memorydb
+        
+        cfn_multi_region_parameter_group = memorydb.CfnMultiRegionParameterGroup(self, "MyCfnMultiRegionParameterGroup")
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::MemoryDB::MultiRegionParameterGroup``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c0d0ebfa99d4606dd634b7145c2fd0c78b088d3de498fa4aae9b910909d8acee)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnMultiRegionParameterGroupProps()
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForMultiRegionParameterGroup")
+    @builtins.classmethod
+    def arn_for_multi_region_parameter_group(
+        cls,
+        resource: "_aws_memorydb_f0938d3f.IMultiRegionParameterGroupRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__93a3cce4dfdd50a52e69e93b14417df5576fd4ad61a2ee71521406f11167a9a2)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMultiRegionParameterGroup", [resource]))
+
+    @jsii.member(jsii_name="isCfnMultiRegionParameterGroup")
+    @builtins.classmethod
+    def is_cfn_multi_region_parameter_group(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnMultiRegionParameterGroup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f729cb6a6ec2027ce79d46e025012a957eab1933692279523c86b11f89a21238)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMultiRegionParameterGroup", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c0c3dc5255b0850b358cdf4832008128e27f91edc89e8c021b30c5fa703f8bad)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__54b93b57764329750443274c8485b3a245fa227ad4201575071908d8ff380852)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the multi-region parameter group.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDescription")
+    def attr_description(self) -> builtins.str:
+        '''A description of the multi-region parameter group.
+
+        :cloudformationAttribute: Description
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDescription"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFamily")
+    def attr_family(self) -> builtins.str:
+        '''The name of the parameter group family that this multi-region parameter group is compatible with.
+
+        :cloudformationAttribute: Family
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFamily"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMultiRegionParameterGroupName")
+    def attr_multi_region_parameter_group_name(self) -> builtins.str:
+        '''The name of the multi-region parameter group.
+
+        :cloudformationAttribute: MultiRegionParameterGroupName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrMultiRegionParameterGroupName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="multiRegionParameterGroupRef")
+    def multi_region_parameter_group_ref(
+        self,
+    ) -> "_aws_memorydb_f0938d3f.MultiRegionParameterGroupReference":
+        '''A reference to a MultiRegionParameterGroup resource.'''
+        return typing.cast("_aws_memorydb_f0938d3f.MultiRegionParameterGroupReference", jsii.get(self, "multiRegionParameterGroupRef"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_memorydb.CfnMultiRegionParameterGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class CfnMultiRegionParameterGroupProps:
+    def __init__(self) -> None:
+        '''Properties for defining a ``CfnMultiRegionParameterGroup``.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregionparametergroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_memorydb as memorydb
+            
+            cfn_multi_region_parameter_group_props = memorydb.CfnMultiRegionParameterGroupProps()
+        '''
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMultiRegionParameterGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_memorydb_f0938d3f.IParameterGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnParameterGroup(
     _aws_cdk_0cae9daa.CfnResource,
@@ -2711,6 +2895,334 @@ class CfnParameterGroupProps:
 
     def __repr__(self) -> str:
         return "CfnParameterGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_memorydb_f0938d3f.IReservedNodeRef)
+class CfnReservedNode(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_memorydb.CfnReservedNode",
+):
+    '''Represents a MemoryDB reserved node purchased via PurchaseReservedNodesOffering.
+
+    Reserved nodes are not eligible for cancellation and are non-refundable.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-reservednode.html
+    :cloudformationResource: AWS::MemoryDB::ReservedNode
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_memorydb as memorydb
+        
+        cfn_reserved_node = memorydb.CfnReservedNode(self, "MyCfnReservedNode")
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::MemoryDB::ReservedNode``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9e570e3473fed8705e44189f1c375b3918b06edf147306b2cb9c6044e995335a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnReservedNodeProps()
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForReservedNode")
+    @builtins.classmethod
+    def arn_for_reserved_node(
+        cls,
+        resource: "_aws_memorydb_f0938d3f.IReservedNodeRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__55c965e0c624dd4205755e2584935cd38ae74acd4cce607b7d134da76c1ca147)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForReservedNode", [resource]))
+
+    @jsii.member(jsii_name="isCfnReservedNode")
+    @builtins.classmethod
+    def is_cfn_reserved_node(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnReservedNode.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__47529aeda35c21dbdf29d39fb938935c88dd8489ed97e5e40cd5508ca18fbfc1)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReservedNode", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__121d1fb2834e6fcee7ee2da4f429c3e734b85b7edea8e0dc4f1dd59c8f8623a5)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3d77a2fcc9e9c7477fcbba0397c6b9d248e77e54787b09b57151de3b4adb3781)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the reserved node.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDuration")
+    def attr_duration(self) -> jsii.Number:
+        '''The duration of the reservation in seconds.
+
+        :cloudformationAttribute: Duration
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrDuration"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFixedPrice")
+    def attr_fixed_price(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The fixed price charged for this reserved node.
+
+        :cloudformationAttribute: FixedPrice
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrFixedPrice"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrNodeCount")
+    def attr_node_count(self) -> jsii.Number:
+        '''The number of nodes that have been reserved.
+
+        :cloudformationAttribute: NodeCount
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrNodeCount"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrNodeType")
+    def attr_node_type(self) -> builtins.str:
+        '''The node type for the reserved nodes.
+
+        :cloudformationAttribute: NodeType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrNodeType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOfferingType")
+    def attr_offering_type(self) -> builtins.str:
+        '''The offering type of this reserved node.
+
+        :cloudformationAttribute: OfferingType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOfferingType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRecurringCharges")
+    def attr_recurring_charges(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The recurring price charged to run this reserved node.
+
+        :cloudformationAttribute: RecurringCharges
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrRecurringCharges"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrReservationId")
+    def attr_reservation_id(self) -> builtins.str:
+        '''A customer-specified identifier to track this reservation.
+
+        :cloudformationAttribute: ReservationId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrReservationId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrReservedNodesOfferingId")
+    def attr_reserved_nodes_offering_id(self) -> builtins.str:
+        '''The ID of the reserved node offering to purchase.
+
+        :cloudformationAttribute: ReservedNodesOfferingId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrReservedNodesOfferingId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStartTime")
+    def attr_start_time(self) -> builtins.str:
+        '''The time the reservation started.
+
+        :cloudformationAttribute: StartTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStartTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The state of the reserved node.
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTags")
+    def attr_tags(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''A list of tags to be added to this resource.
+
+        :cloudformationAttribute: Tags
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrTags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="reservedNodeRef")
+    def reserved_node_ref(self) -> "_aws_memorydb_f0938d3f.ReservedNodeReference":
+        '''A reference to a ReservedNode resource.'''
+        return typing.cast("_aws_memorydb_f0938d3f.ReservedNodeReference", jsii.get(self, "reservedNodeRef"))
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_memorydb.CfnReservedNode.RecurringChargeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "recurring_charge_amount": "recurringChargeAmount",
+            "recurring_charge_frequency": "recurringChargeFrequency",
+        },
+    )
+    class RecurringChargeProperty:
+        def __init__(
+            self,
+            *,
+            recurring_charge_amount: typing.Optional[jsii.Number] = None,
+            recurring_charge_frequency: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param recurring_charge_amount: The amount of the recurring charge.
+            :param recurring_charge_frequency: The frequency of the recurring charge.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-memorydb-reservednode-recurringcharge.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_memorydb as memorydb
+                
+                recurring_charge_property = memorydb.CfnReservedNode.RecurringChargeProperty(
+                    recurring_charge_amount=123,
+                    recurring_charge_frequency="recurringChargeFrequency"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__4a2738a8e7c1a9ecccd6b8d96765b026ab3b497e9d3e110d1f54e5c7f7a3879d)
+                check_type(argname="argument recurring_charge_amount", value=recurring_charge_amount, expected_type=type_hints["recurring_charge_amount"])
+                check_type(argname="argument recurring_charge_frequency", value=recurring_charge_frequency, expected_type=type_hints["recurring_charge_frequency"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if recurring_charge_amount is not None:
+                self._values["recurring_charge_amount"] = recurring_charge_amount
+            if recurring_charge_frequency is not None:
+                self._values["recurring_charge_frequency"] = recurring_charge_frequency
+
+        @builtins.property
+        def recurring_charge_amount(self) -> typing.Optional[jsii.Number]:
+            '''The amount of the recurring charge.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-memorydb-reservednode-recurringcharge.html#cfn-memorydb-reservednode-recurringcharge-recurringchargeamount
+            '''
+            result = self._values.get("recurring_charge_amount")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def recurring_charge_frequency(self) -> typing.Optional[builtins.str]:
+            '''The frequency of the recurring charge.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-memorydb-reservednode-recurringcharge.html#cfn-memorydb-reservednode-recurringcharge-recurringchargefrequency
+            '''
+            result = self._values.get("recurring_charge_frequency")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RecurringChargeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_memorydb.CfnReservedNodeProps",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class CfnReservedNodeProps:
+    def __init__(self) -> None:
+        '''Properties for defining a ``CfnReservedNode``.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-reservednode.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_memorydb as memorydb
+            
+            cfn_reserved_node_props = memorydb.CfnReservedNodeProps()
+        '''
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnReservedNodeProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -3557,8 +4069,12 @@ __all__ = [
     "CfnClusterProps",
     "CfnMultiRegionCluster",
     "CfnMultiRegionClusterProps",
+    "CfnMultiRegionParameterGroup",
+    "CfnMultiRegionParameterGroupProps",
     "CfnParameterGroup",
     "CfnParameterGroupProps",
+    "CfnReservedNode",
+    "CfnReservedNodeProps",
     "CfnSubnetGroup",
     "CfnSubnetGroupProps",
     "CfnUser",
@@ -4057,6 +4573,37 @@ def _typecheckingstub__b9569a071e60bd5ca40bd8abc1af42fe02251ff3ce59a2492eead0d07
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c0d0ebfa99d4606dd634b7145c2fd0c78b088d3de498fa4aae9b910909d8acee(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__93a3cce4dfdd50a52e69e93b14417df5576fd4ad61a2ee71521406f11167a9a2(
+    resource: _aws_memorydb_f0938d3f.IMultiRegionParameterGroupRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f729cb6a6ec2027ce79d46e025012a957eab1933692279523c86b11f89a21238(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c0c3dc5255b0850b358cdf4832008128e27f91edc89e8c021b30c5fa703f8bad(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__54b93b57764329750443274c8485b3a245fa227ad4201575071908d8ff380852(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__61162072dcce7ce6eaedeac288d04351f356c4501c7c00303d65b4be539cccbc(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -4147,6 +4694,45 @@ def _typecheckingstub__be6b7833c24ddd9e0e309e9aaec933dfc2aeac5e49f40692fef7c14f6
     description: typing.Optional[builtins.str] = None,
     parameters: typing.Any = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e570e3473fed8705e44189f1c375b3918b06edf147306b2cb9c6044e995335a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__55c965e0c624dd4205755e2584935cd38ae74acd4cce607b7d134da76c1ca147(
+    resource: _aws_memorydb_f0938d3f.IReservedNodeRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__47529aeda35c21dbdf29d39fb938935c88dd8489ed97e5e40cd5508ca18fbfc1(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__121d1fb2834e6fcee7ee2da4f429c3e734b85b7edea8e0dc4f1dd59c8f8623a5(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d77a2fcc9e9c7477fcbba0397c6b9d248e77e54787b09b57151de3b4adb3781(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4a2738a8e7c1a9ecccd6b8d96765b026ab3b497e9d3e110d1f54e5c7f7a3879d(
+    *,
+    recurring_charge_amount: typing.Optional[jsii.Number] = None,
+    recurring_charge_frequency: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

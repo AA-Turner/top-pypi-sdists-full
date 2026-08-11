@@ -488,6 +488,45 @@ def excluded_by_wheel_tags(
     return True
 
 
+def _parsed_version(raw: str) -> Version | None:
+    """Return the interned version, or None when it is not a PEP 440 version."""
+    try:
+        return _intern_version(raw)
+    except InvalidVersion:
+        return None
+
+
+def has_filtered_in_range_release(
+    provider: Provider,
+    normalized: str,
+    version_range: VersionRange,
+    kept: Sequence[Version],
+) -> bool:
+    """Whether a filter dropped a release inside ``version_range``.
+
+    Callers ask only when no surviving version falls in the range, so a
+    dropped one that does is the release the requirement asked for.  A
+    dropped version equal to one in ``kept`` survived under another
+    spelling instead: :func:`filter_distributions` collapses equal
+    versions onto one representative, and ``===`` compares its string
+    form.  Filtering through ``version_range`` keeps the pre-release
+    semantics candidate selection uses.
+    """
+    files = provider.coordinator.index.get_listing(normalized)
+    if not files:
+        return False
+
+    surviving = set(kept)
+    dropped = (
+        version
+        for dist in files
+        if (version := _parsed_version(dist.version)) is not None
+        and version not in surviving
+    )
+
+    return any(version_range.filter(dropped))
+
+
 def _drop_sdist_install_wheel_only(
     result: list[tuple[Version, DistFile]],
     policy_by_version: Mapping[Version, DistPolicy],
@@ -585,10 +624,10 @@ def excluded_by_python(
         try:
             spec = SpecifierSet(effective)
             cached = not provider.target.admits_requires_python(spec)
-        except InvalidSpecifier:
-            # Malformed Requires-Python on the dist: treat as
-            # not-excluded, let downstream logic decide.  Our own
-            # python_version is validated at Provider construction.
+        except ValueError:
+            # Malformed Requires-Python on the dist, or a digit run int()
+            # refuses: treat as not-excluded, let downstream logic decide.
+            # Our own python_version is validated at Provider construction.
             cached = False
         provider.requires_python_cache[effective] = cached
     if cached:
@@ -644,9 +683,9 @@ def prefetch_walk_ahead(
 ) -> None:
     """Submit metadata for the next ``deep_count`` wheels of ``normalized``.
 
-    Called when the scan is about to walk past its ``PREFETCH_BATCH``
-    window.  Front-loading the rest of the walk lets ``_try_abort_skip``
-    and any restart hit cache instead of one RTT per visit.
+    Called at the top of the pipelined scan, so a walk that runs past the
+    first ``PREFETCH_BATCH`` window hits cache instead of paying one RTT
+    per visit.
 
     Takes each version's artifact from :func:`wheel_by_version`, so the
     sidecar it warms is the one the read asks for.  Skips already-cached
@@ -658,9 +697,17 @@ def prefetch_walk_ahead(
         return
     picked = wheel_by_version(provider, normalized, versions_list)
     coordinator_index = provider.coordinator.index
+
+    # Reverse out of place: ``versions_list`` is the shared cached listing.
+    ordered = (
+        list(reversed(versions_list))
+        if provider.wants_lowest(normalized)
+        else versions_list
+    )
+
     items: list[tuple[str, str, str, tuple[str, str] | None]] = []
     seen_versions: set[Version] = set()
-    for version, _ in versions_list:
+    for version, _ in ordered:
         if version in seen_versions:
             continue
         seen_versions.add(version)
@@ -795,9 +842,10 @@ def prefetch_new_deps(provider: Provider, deps: Mapping[str, VersionRange]) -> N
         ):
             continue
         if normalized not in provider.versions_cache:
-            # Listing not cached: request it. When it arrives,
-            # prioritize() will notice and fire metadata prefetch.
-            provider.coordinator.request_listing(normalized)
+            # Listing not cached: request it speculatively so its read work
+            # overlaps resolver CPU on the fetcher thread. When it arrives,
+            # prioritize() notices and fires metadata prefetch.
+            provider.coordinator.request_listing(normalized, speculative=True)
         else:
             # Listing cached: fire speculative metadata prefetch.
             speculative_prefetch(

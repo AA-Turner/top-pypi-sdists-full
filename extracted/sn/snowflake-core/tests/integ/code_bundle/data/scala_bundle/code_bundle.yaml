@@ -1,0 +1,23 @@
+bundle:
+  type: spark
+  compute_type: warehouse
+  language: scala
+  
+  compute_options:
+    runtime_version: "1.29"
+    language_version: "2.12"
+
+  properties:
+    java_dependencies:
+      jars:
+        - scos-cb-scala_2.12-1.0.0-assembly.jar
+  
+  env_vars:
+    - SCOS_ENV_A: named_a
+    - SCOS_ENV_B: named_b
+    - SPARK_LOCAL_IP: 127.0.0.1
+    - SNOWPARK_SUBMIT_SPARK_APPLICATION_ID: SSA_TEST_1234
+
+  telemetry_options:
+    log_level: DEBUG
+    trace_level: ALWAYS

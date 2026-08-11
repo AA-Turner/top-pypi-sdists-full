@@ -51,6 +51,7 @@ class NonStreamingCompleteResponse(BaseModel):
 
     @field_validator("finish_reason")
     def finish_reason_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("stop", "content_filter", "tool_calls", "length"):

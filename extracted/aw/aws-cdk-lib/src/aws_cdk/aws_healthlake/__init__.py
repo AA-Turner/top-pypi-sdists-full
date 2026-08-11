@@ -67,6 +67,737 @@ else:
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_healthlake_d03fc20c.IDataTransformationProfileRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnDataTransformationProfile(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_healthlake.CfnDataTransformationProfile",
+):
+    '''Creates a Data Transformation Profile in AWS HealthLake that converts healthcare data from a source format (such as C-CDA or CSV) into FHIR R4.
+
+    A profile is immutable once created; to change its template content, replace the resource. Only its tags can be updated in place.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthlake-datatransformationprofile.html
+    :cloudformationResource: AWS::HealthLake::DataTransformationProfile
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_healthlake as healthlake
+        
+        cfn_data_transformation_profile = healthlake.CfnDataTransformationProfile(self, "MyCfnDataTransformationProfile",
+            profile_name="profileName",
+            source_format="sourceFormat",
+        
+            # the properties below are optional
+            kms_key_id="kmsKeyId",
+            profile_description="profileDescription",
+            source=healthlake.CfnDataTransformationProfile.SourceProperty(
+                existing_versioned_profile_id=healthlake.CfnDataTransformationProfile.ExistingVersionedProfileSourceProperty(
+                    profile_id="profileId",
+                    version=123
+                ),
+                profile_mapping=healthlake.CfnDataTransformationProfile.ProfileMappingSourceProperty(
+                    profile_mapping={
+                        "profile_mapping_key": "profileMapping"
+                    }
+                ),
+                starter_profile=healthlake.CfnDataTransformationProfile.StarterProfileSourceProperty(
+                    starter_profile_name="starterProfileName"
+                )
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        profile_name: builtins.str,
+        source_format: builtins.str,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        profile_description: typing.Optional[builtins.str] = None,
+        source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataTransformationProfile.SourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::HealthLake::DataTransformationProfile``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param profile_name: The human-readable name of the profile.
+        :param source_format: The source format that this profile converts from.
+        :param kms_key_id: The identifier (key ID or ARN) of a customer-managed KMS key used to encrypt the profile's template content at rest. If omitted, an AWS owned key is used.
+        :param profile_description: A human-readable description of the profile's purpose.
+        :param source: The source from which to create the profile's initial template content. Exactly one of the members must be specified. Use StarterProfile (C-CDA only), ProfileMapping (C-CDA or CSV), or ExistingVersionedProfileId to clone an existing profile. Each produces a published profile.
+        :param tags: An array of key-value pairs to apply to this profile.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ffa7f40a55c908b5c71d8b021cb4bc5def1f3d33e73427064b902fe2f00f5cd5)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDataTransformationProfileProps(
+            profile_name=profile_name,
+            source_format=source_format,
+            kms_key_id=kms_key_id,
+            profile_description=profile_description,
+            source=source,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForDataTransformationProfile")
+    @builtins.classmethod
+    def arn_for_data_transformation_profile(
+        cls,
+        resource: "_aws_healthlake_d03fc20c.IDataTransformationProfileRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ba9ba7186101ad3636b33a3380dbbf50e17791493b400773d1f51dac14d23ddc)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDataTransformationProfile", [resource]))
+
+    @jsii.member(jsii_name="isCfnDataTransformationProfile")
+    @builtins.classmethod
+    def is_cfn_data_transformation_profile(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDataTransformationProfile.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d96bb697a4df81a1f6f068354d53364d470246af42304fec6d76824cebd19fb1)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDataTransformationProfile", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__17fe2cefd9247d79f84504fd1bb7c4dd592b3257d789e6bf240e7b6b533763f8)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__91abd016be8ce2f2a2a6f50f134f4bbfa65013218ced141348e8e50dad36f145)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the data transformation profile.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProfileId")
+    def attr_profile_id(self) -> builtins.str:
+        '''The unique, server-generated identifier of the profile (32-character lowercase hexadecimal).
+
+        :cloudformationAttribute: ProfileId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrProfileId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTargetFormat")
+    def attr_target_format(self) -> builtins.str:
+        '''The target format that this profile converts to.
+
+        Always FHIR_R4.
+
+        :cloudformationAttribute: TargetFormat
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrTargetFormat"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dataTransformationProfileRef")
+    def data_transformation_profile_ref(
+        self,
+    ) -> "_aws_healthlake_d03fc20c.DataTransformationProfileReference":
+        '''A reference to a DataTransformationProfile resource.'''
+        return typing.cast("_aws_healthlake_d03fc20c.DataTransformationProfileReference", jsii.get(self, "dataTransformationProfileRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="profileName")
+    def profile_name(self) -> builtins.str:
+        '''The human-readable name of the profile.'''
+        return typing.cast(builtins.str, jsii.get(self, "profileName"))
+
+    @profile_name.setter
+    def profile_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9ebc07ff74a99d99b611bf1ccdf04f15b0439f0941af32a0d3f29788ccd1b98e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "profileName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceFormat")
+    def source_format(self) -> builtins.str:
+        '''The source format that this profile converts from.'''
+        return typing.cast(builtins.str, jsii.get(self, "sourceFormat"))
+
+    @source_format.setter
+    def source_format(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__15c904204562f714f3203e7b9697e0b749faa45d018ec8fcf28958a8a8a99056)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceFormat", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyId")
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier (key ID or ARN) of a customer-managed KMS key used to encrypt the profile's template content at rest.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
+
+    @kms_key_id.setter
+    def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a0295dd98c6aed49aaf7df89c6d4a3e2ff56e0dbaa8ec41340be48fd349e4b54)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="profileDescription")
+    def profile_description(self) -> typing.Optional[builtins.str]:
+        '''A human-readable description of the profile's purpose.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "profileDescription"))
+
+    @profile_description.setter
+    def profile_description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__07be715f497b62f1ea6f103ef6fea6b01a1c3265134bef46ef3a2dbc49d2948b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "profileDescription", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="source")
+    def source(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataTransformationProfile.SourceProperty"]]:
+        '''The source from which to create the profile's initial template content.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataTransformationProfile.SourceProperty"]], jsii.get(self, "source"))
+
+    @source.setter
+    def source(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataTransformationProfile.SourceProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0634fb098e12ecb4f06c1a886cb10ec45fdc1789d44fbefa8babca15e9440cb4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "source", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this profile.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bcd46233cb0eecf58baa705df6c53ad8c03fa75cd42a5011e9e49f0e82b0839a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_healthlake.CfnDataTransformationProfile.ExistingVersionedProfileSourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"profile_id": "profileId", "version": "version"},
+    )
+    class ExistingVersionedProfileSourceProperty:
+        def __init__(self, *, profile_id: builtins.str, version: jsii.Number) -> None:
+            '''Create the profile by cloning a specific version of an existing profile.
+
+            :param profile_id: The unique identifier of the source profile to clone.
+            :param version: The version number of the source profile to clone.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-healthlake-datatransformationprofile-existingversionedprofilesource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_healthlake as healthlake
+                
+                existing_versioned_profile_source_property = healthlake.CfnDataTransformationProfile.ExistingVersionedProfileSourceProperty(
+                    profile_id="profileId",
+                    version=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__70d021157bc45cc79c2c24f0227d22c35e4e523115d5be9d2677db6747bbb1b8)
+                check_type(argname="argument profile_id", value=profile_id, expected_type=type_hints["profile_id"])
+                check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "profile_id": profile_id,
+                "version": version,
+            }
+
+        @builtins.property
+        def profile_id(self) -> builtins.str:
+            '''The unique identifier of the source profile to clone.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-healthlake-datatransformationprofile-existingversionedprofilesource.html#cfn-healthlake-datatransformationprofile-existingversionedprofilesource-profileid
+            '''
+            result = self._values.get("profile_id")
+            assert result is not None, "Required property 'profile_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def version(self) -> jsii.Number:
+            '''The version number of the source profile to clone.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-healthlake-datatransformationprofile-existingversionedprofilesource.html#cfn-healthlake-datatransformationprofile-existingversionedprofilesource-version
+            '''
+            result = self._values.get("version")
+            assert result is not None, "Required property 'version' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ExistingVersionedProfileSourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_healthlake.CfnDataTransformationProfile.ProfileMappingSourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"profile_mapping": "profileMapping"},
+    )
+    class ProfileMappingSourceProperty:
+        def __init__(
+            self,
+            *,
+            profile_mapping: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]],
+        ) -> None:
+            '''Create the profile from raw Velocity template mapping content.
+
+            :param profile_mapping: Map of template file paths to their Velocity template content.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-healthlake-datatransformationprofile-profilemappingsource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_healthlake as healthlake
+                
+                profile_mapping_source_property = healthlake.CfnDataTransformationProfile.ProfileMappingSourceProperty(
+                    profile_mapping={
+                        "profile_mapping_key": "profileMapping"
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__21589af684261b5e206ff0002a218cd1f07462e63c1dad79bbca931e75dbee5f)
+                check_type(argname="argument profile_mapping", value=profile_mapping, expected_type=type_hints["profile_mapping"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "profile_mapping": profile_mapping,
+            }
+
+        @builtins.property
+        def profile_mapping(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]:
+            '''Map of template file paths to their Velocity template content.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-healthlake-datatransformationprofile-profilemappingsource.html#cfn-healthlake-datatransformationprofile-profilemappingsource-profilemapping
+            '''
+            result = self._values.get("profile_mapping")
+            assert result is not None, "Required property 'profile_mapping' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProfileMappingSourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_healthlake.CfnDataTransformationProfile.SourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "existing_versioned_profile_id": "existingVersionedProfileId",
+            "profile_mapping": "profileMapping",
+            "starter_profile": "starterProfile",
+        },
+    )
+    class SourceProperty:
+        def __init__(
+            self,
+            *,
+            existing_versioned_profile_id: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataTransformationProfile.ExistingVersionedProfileSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            profile_mapping: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataTransformationProfile.ProfileMappingSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            starter_profile: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataTransformationProfile.StarterProfileSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The source from which to create the profile's initial template content.
+
+            Exactly one of the members must be specified. Use StarterProfile (C-CDA only), ProfileMapping (C-CDA or CSV), or ExistingVersionedProfileId to clone an existing profile. Each produces a published profile.
+
+            :param existing_versioned_profile_id: Create the profile by cloning a specific version of an existing profile.
+            :param profile_mapping: Create the profile from raw Velocity template mapping content.
+            :param starter_profile: Create the profile from a predefined starter profile of transformation templates.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-healthlake-datatransformationprofile-source.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_healthlake as healthlake
+                
+                source_property = healthlake.CfnDataTransformationProfile.SourceProperty(
+                    existing_versioned_profile_id=healthlake.CfnDataTransformationProfile.ExistingVersionedProfileSourceProperty(
+                        profile_id="profileId",
+                        version=123
+                    ),
+                    profile_mapping=healthlake.CfnDataTransformationProfile.ProfileMappingSourceProperty(
+                        profile_mapping={
+                            "profile_mapping_key": "profileMapping"
+                        }
+                    ),
+                    starter_profile=healthlake.CfnDataTransformationProfile.StarterProfileSourceProperty(
+                        starter_profile_name="starterProfileName"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9f6738e7624c37b9b0601248d91777f2bcadb7e16c0567df96df6b4c183ecaf0)
+                check_type(argname="argument existing_versioned_profile_id", value=existing_versioned_profile_id, expected_type=type_hints["existing_versioned_profile_id"])
+                check_type(argname="argument profile_mapping", value=profile_mapping, expected_type=type_hints["profile_mapping"])
+                check_type(argname="argument starter_profile", value=starter_profile, expected_type=type_hints["starter_profile"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if existing_versioned_profile_id is not None:
+                self._values["existing_versioned_profile_id"] = existing_versioned_profile_id
+            if profile_mapping is not None:
+                self._values["profile_mapping"] = profile_mapping
+            if starter_profile is not None:
+                self._values["starter_profile"] = starter_profile
+
+        @builtins.property
+        def existing_versioned_profile_id(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataTransformationProfile.ExistingVersionedProfileSourceProperty"]]:
+            '''Create the profile by cloning a specific version of an existing profile.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-healthlake-datatransformationprofile-source.html#cfn-healthlake-datatransformationprofile-source-existingversionedprofileid
+            '''
+            result = self._values.get("existing_versioned_profile_id")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataTransformationProfile.ExistingVersionedProfileSourceProperty"]], result)
+
+        @builtins.property
+        def profile_mapping(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataTransformationProfile.ProfileMappingSourceProperty"]]:
+            '''Create the profile from raw Velocity template mapping content.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-healthlake-datatransformationprofile-source.html#cfn-healthlake-datatransformationprofile-source-profilemapping
+            '''
+            result = self._values.get("profile_mapping")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataTransformationProfile.ProfileMappingSourceProperty"]], result)
+
+        @builtins.property
+        def starter_profile(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataTransformationProfile.StarterProfileSourceProperty"]]:
+            '''Create the profile from a predefined starter profile of transformation templates.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-healthlake-datatransformationprofile-source.html#cfn-healthlake-datatransformationprofile-source-starterprofile
+            '''
+            result = self._values.get("starter_profile")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataTransformationProfile.StarterProfileSourceProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_healthlake.CfnDataTransformationProfile.StarterProfileSourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"starter_profile_name": "starterProfileName"},
+    )
+    class StarterProfileSourceProperty:
+        def __init__(self, *, starter_profile_name: builtins.str) -> None:
+            '''Create the profile from a predefined starter profile of transformation templates.
+
+            :param starter_profile_name: The name of the starter profile to seed the profile from.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-healthlake-datatransformationprofile-starterprofilesource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_healthlake as healthlake
+                
+                starter_profile_source_property = healthlake.CfnDataTransformationProfile.StarterProfileSourceProperty(
+                    starter_profile_name="starterProfileName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3b61a87dcbbda68f6695fa1aad8fd146ca983dcebd45fb4810fcda352a0c05ad)
+                check_type(argname="argument starter_profile_name", value=starter_profile_name, expected_type=type_hints["starter_profile_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "starter_profile_name": starter_profile_name,
+            }
+
+        @builtins.property
+        def starter_profile_name(self) -> builtins.str:
+            '''The name of the starter profile to seed the profile from.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-healthlake-datatransformationprofile-starterprofilesource.html#cfn-healthlake-datatransformationprofile-starterprofilesource-starterprofilename
+            '''
+            result = self._values.get("starter_profile_name")
+            assert result is not None, "Required property 'starter_profile_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StarterProfileSourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_healthlake.CfnDataTransformationProfileProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "profile_name": "profileName",
+        "source_format": "sourceFormat",
+        "kms_key_id": "kmsKeyId",
+        "profile_description": "profileDescription",
+        "source": "source",
+        "tags": "tags",
+    },
+)
+class CfnDataTransformationProfileProps:
+    def __init__(
+        self,
+        *,
+        profile_name: builtins.str,
+        source_format: builtins.str,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        profile_description: typing.Optional[builtins.str] = None,
+        source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataTransformationProfile.SourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDataTransformationProfile``.
+
+        :param profile_name: The human-readable name of the profile.
+        :param source_format: The source format that this profile converts from.
+        :param kms_key_id: The identifier (key ID or ARN) of a customer-managed KMS key used to encrypt the profile's template content at rest. If omitted, an AWS owned key is used.
+        :param profile_description: A human-readable description of the profile's purpose.
+        :param source: The source from which to create the profile's initial template content. Exactly one of the members must be specified. Use StarterProfile (C-CDA only), ProfileMapping (C-CDA or CSV), or ExistingVersionedProfileId to clone an existing profile. Each produces a published profile.
+        :param tags: An array of key-value pairs to apply to this profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthlake-datatransformationprofile.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_healthlake as healthlake
+            
+            cfn_data_transformation_profile_props = healthlake.CfnDataTransformationProfileProps(
+                profile_name="profileName",
+                source_format="sourceFormat",
+            
+                # the properties below are optional
+                kms_key_id="kmsKeyId",
+                profile_description="profileDescription",
+                source=healthlake.CfnDataTransformationProfile.SourceProperty(
+                    existing_versioned_profile_id=healthlake.CfnDataTransformationProfile.ExistingVersionedProfileSourceProperty(
+                        profile_id="profileId",
+                        version=123
+                    ),
+                    profile_mapping=healthlake.CfnDataTransformationProfile.ProfileMappingSourceProperty(
+                        profile_mapping={
+                            "profile_mapping_key": "profileMapping"
+                        }
+                    ),
+                    starter_profile=healthlake.CfnDataTransformationProfile.StarterProfileSourceProperty(
+                        starter_profile_name="starterProfileName"
+                    )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__76ec0f2eb8014f6283a9cedab74d21e354d4017d5caa09bc38c8c7e3338c2a49)
+            check_type(argname="argument profile_name", value=profile_name, expected_type=type_hints["profile_name"])
+            check_type(argname="argument source_format", value=source_format, expected_type=type_hints["source_format"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument profile_description", value=profile_description, expected_type=type_hints["profile_description"])
+            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "profile_name": profile_name,
+            "source_format": source_format,
+        }
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if profile_description is not None:
+            self._values["profile_description"] = profile_description
+        if source is not None:
+            self._values["source"] = source
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def profile_name(self) -> builtins.str:
+        '''The human-readable name of the profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthlake-datatransformationprofile.html#cfn-healthlake-datatransformationprofile-profilename
+        '''
+        result = self._values.get("profile_name")
+        assert result is not None, "Required property 'profile_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def source_format(self) -> builtins.str:
+        '''The source format that this profile converts from.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthlake-datatransformationprofile.html#cfn-healthlake-datatransformationprofile-sourceformat
+        '''
+        result = self._values.get("source_format")
+        assert result is not None, "Required property 'source_format' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier (key ID or ARN) of a customer-managed KMS key used to encrypt the profile's template content at rest.
+
+        If omitted, an AWS owned key is used.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthlake-datatransformationprofile.html#cfn-healthlake-datatransformationprofile-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def profile_description(self) -> typing.Optional[builtins.str]:
+        '''A human-readable description of the profile's purpose.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthlake-datatransformationprofile.html#cfn-healthlake-datatransformationprofile-profiledescription
+        '''
+        result = self._values.get("profile_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def source(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataTransformationProfile.SourceProperty"]]:
+        '''The source from which to create the profile's initial template content.
+
+        Exactly one of the members must be specified. Use StarterProfile (C-CDA only), ProfileMapping (C-CDA or CSV), or ExistingVersionedProfileId to clone an existing profile. Each produces a published profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthlake-datatransformationprofile.html#cfn-healthlake-datatransformationprofile-source
+        '''
+        result = self._values.get("source")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataTransformationProfile.SourceProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthlake-datatransformationprofile.html#cfn-healthlake-datatransformationprofile-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDataTransformationProfileProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_healthlake_d03fc20c.IFHIRDatastoreRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnFHIRDatastore(
     _aws_cdk_0cae9daa.CfnResource,
@@ -1003,11 +1734,130 @@ class CfnFHIRDatastoreProps:
 
 
 __all__ = [
+    "CfnDataTransformationProfile",
+    "CfnDataTransformationProfileProps",
     "CfnFHIRDatastore",
     "CfnFHIRDatastoreProps",
 ]
 
 publication.publish()
+
+def _typecheckingstub__ffa7f40a55c908b5c71d8b021cb4bc5def1f3d33e73427064b902fe2f00f5cd5(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    profile_name: builtins.str,
+    source_format: builtins.str,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    profile_description: typing.Optional[builtins.str] = None,
+    source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataTransformationProfile.SourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba9ba7186101ad3636b33a3380dbbf50e17791493b400773d1f51dac14d23ddc(
+    resource: _aws_healthlake_d03fc20c.IDataTransformationProfileRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d96bb697a4df81a1f6f068354d53364d470246af42304fec6d76824cebd19fb1(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__17fe2cefd9247d79f84504fd1bb7c4dd592b3257d789e6bf240e7b6b533763f8(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__91abd016be8ce2f2a2a6f50f134f4bbfa65013218ced141348e8e50dad36f145(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ebc07ff74a99d99b611bf1ccdf04f15b0439f0941af32a0d3f29788ccd1b98e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__15c904204562f714f3203e7b9697e0b749faa45d018ec8fcf28958a8a8a99056(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a0295dd98c6aed49aaf7df89c6d4a3e2ff56e0dbaa8ec41340be48fd349e4b54(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__07be715f497b62f1ea6f103ef6fea6b01a1c3265134bef46ef3a2dbc49d2948b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0634fb098e12ecb4f06c1a886cb10ec45fdc1789d44fbefa8babca15e9440cb4(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDataTransformationProfile.SourceProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bcd46233cb0eecf58baa705df6c53ad8c03fa75cd42a5011e9e49f0e82b0839a(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__70d021157bc45cc79c2c24f0227d22c35e4e523115d5be9d2677db6747bbb1b8(
+    *,
+    profile_id: builtins.str,
+    version: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__21589af684261b5e206ff0002a218cd1f07462e63c1dad79bbca931e75dbee5f(
+    *,
+    profile_mapping: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9f6738e7624c37b9b0601248d91777f2bcadb7e16c0567df96df6b4c183ecaf0(
+    *,
+    existing_versioned_profile_id: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataTransformationProfile.ExistingVersionedProfileSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    profile_mapping: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataTransformationProfile.ProfileMappingSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    starter_profile: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataTransformationProfile.StarterProfileSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b61a87dcbbda68f6695fa1aad8fd146ca983dcebd45fb4810fcda352a0c05ad(
+    *,
+    starter_profile_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__76ec0f2eb8014f6283a9cedab74d21e354d4017d5caa09bc38c8c7e3338c2a49(
+    *,
+    profile_name: builtins.str,
+    source_format: builtins.str,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    profile_description: typing.Optional[builtins.str] = None,
+    source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataTransformationProfile.SourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__5a84066c5df4c48a34d687987d48edfe8b65e8bda26e4da5f30db9c938e54b90(
     scope: _constructs_77d1e7e8.Construct,

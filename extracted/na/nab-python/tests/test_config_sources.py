@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import errno
 import logging
+from collections.abc import Callable
+from contextlib import AbstractContextManager
 from pathlib import Path
 from unittest.mock import patch
 
@@ -57,6 +59,7 @@ from nab_python.config_sources import (
 from nab_python.provider import (
     ArchiveSource,
     BuildPolicy,
+    DecisionOrder,
     DistPolicy,
     ResolutionStrategy,
     ResolveMode,
@@ -175,6 +178,54 @@ class TestResolutionLadder:
 
     def test_resolution_non_string_errors(self, tmp_path: Path) -> None:
         _project(tmp_path, "resolution = 3\n")
+        with pytest.raises(SourceConfigError, match="must be a string"):
+            _resolve(SourceRoots(project_dir=tmp_path))
+
+
+class TestDecisionOrderLadder:
+    def test_default_is_arrival(self, tmp_path: Path) -> None:
+        _project(tmp_path)
+        eff = _resolve(SourceRoots(project_dir=tmp_path))
+        assert eff["decision-order"].value is DecisionOrder.ARRIVAL
+        assert eff["decision-order"].origin.kind is SourceKind.DEFAULT
+
+    def test_pyproject_sets_decision_order(self, tmp_path: Path) -> None:
+        _project(tmp_path, 'decision-order = "stable"\n')
+        eff = _resolve(SourceRoots(project_dir=tmp_path))
+        assert eff["decision-order"].value is DecisionOrder.STABLE
+        assert eff["decision-order"].origin.kind is SourceKind.PYPROJECT
+
+    def test_project_nab_toml_sets_decision_order(self, tmp_path: Path) -> None:
+        _project(tmp_path)
+        _write(tmp_path / "nab.toml", 'decision-order = "stable"\n')
+        eff = _resolve(SourceRoots(project_dir=tmp_path))
+        assert eff["decision-order"].value is DecisionOrder.STABLE
+        assert eff["decision-order"].origin.kind is SourceKind.PROJECT_TOML
+
+    def test_cli_project_decision_order_wins(self, tmp_path: Path) -> None:
+        _project(tmp_path, 'decision-order = "stable"\n')
+        eff = _resolve(
+            SourceRoots(project_dir=tmp_path), cli={"decision-order": "arrival"}
+        )
+        assert eff["decision-order"].value is DecisionOrder.ARRIVAL
+        assert eff["decision-order"].origin.kind is SourceKind.CLI
+
+    def test_decision_order_in_user_nab_toml_errors(self, tmp_path: Path) -> None:
+        _project(tmp_path)
+        user = _write(
+            tmp_path / "usr" / "nab" / "nab.toml", 'decision-order = "stable"\n'
+        )
+        roots = SourceRoots(user_toml=user, project_dir=tmp_path)
+        with pytest.raises(SourceConfigError, match="project-scope option"):
+            _resolve(roots)
+
+    def test_bad_decision_order_value_errors(self, tmp_path: Path) -> None:
+        _project(tmp_path, 'decision-order = "whenever"\n')
+        with pytest.raises(SourceConfigError, match="must be one of"):
+            _resolve(SourceRoots(project_dir=tmp_path))
+
+    def test_decision_order_non_string_errors(self, tmp_path: Path) -> None:
+        _project(tmp_path, "decision-order = 3\n")
         with pytest.raises(SourceConfigError, match="must be a string"):
             _resolve(SourceRoots(project_dir=tmp_path))
 
@@ -315,6 +366,15 @@ class TestCacheDirLadder:
                 SourceRoots(project_dir=tmp_path),
                 environ={"NAB_CACHE_DIR": ""},
             )
+
+    def test_cache_dir_with_nul_errors(self, tmp_path: Path) -> None:
+        # An embedded NUL is valid TOML, so the parser hands it through.
+        _project(tmp_path)
+        user = _write(
+            tmp_path / "usr" / "nab" / "nab.toml", 'cache-dir = "/c/\\u0000x"\n'
+        )
+        with pytest.raises(SourceConfigError, match="is not a usable filesystem path"):
+            _resolve(SourceRoots(user_toml=user, project_dir=tmp_path))
 
 
 class TestHttpBackendLadder:
@@ -626,6 +686,22 @@ class TestDiscoverAndMissing:
         with pytest.raises(SourceConfigError, match="not a regular file"):
             discover_layers(SourceRoots(project_dir=tmp_path))
 
+    def test_unsearchable_parent_reports_the_errno(
+        self,
+        tmp_path: Path,
+        deny_access: Callable[[Path], AbstractContextManager[None]],
+    ) -> None:
+        # An unsearchable parent directory lands EACCES on the presence
+        # check's stat.  The source is present, so it must reach the read
+        # and be named there, neither skipped as absent nor escaping as a
+        # raw PermissionError.
+        pyproject = _project(tmp_path)
+        with (
+            deny_access(pyproject),
+            pytest.raises(SourceConfigError, match="cannot read .*Permission denied"),
+        ):
+            discover_layers(SourceRoots(project_dir=tmp_path))
+
     def test_read_pyproject_false_keeps_project_nab_toml(self, tmp_path: Path) -> None:
         _write(tmp_path / "pyproject.toml", "[project\n")
         _write(tmp_path / "nab.toml", 'resolution = "lowest"\n')
@@ -646,6 +722,24 @@ class TestRenderers:
         assert "offline" in out
         assert "cache-dir" in out
         assert "<computed>" in out  # cache-dir default render
+
+    def test_renderers_label_pyproject_as_project(self, tmp_path: Path) -> None:
+        _project(tmp_path, 'resolution = "lowest"\n')
+        eff = _resolve(SourceRoots(project_dir=tmp_path))
+
+        row = next(
+            line
+            for line in render_list(eff).splitlines()
+            if line.startswith("resolution")
+        )
+        assert row.split()[2] == "project"
+
+        winner = next(
+            line
+            for line in render_explain(eff, "resolution").splitlines()
+            if line.startswith(">")
+        )
+        assert winner.split()[1] == "project"
 
     def test_render_list_surfaces_orphan_rejection(self, tmp_path: Path) -> None:
         # An unknown NAB_* var attaches to no option, so it is unreachable
@@ -741,6 +835,24 @@ class TestRenderers:
         assert "rejected" in out
         assert "project-scope" in out
 
+    def test_render_explain_docstring_names_every_status(self, tmp_path: Path) -> None:
+        # One source per status: the user file is rejected (project-scope
+        # key), the pyproject binding is shadowed, and the CLI wins.
+        _project(tmp_path, 'resolution = "lowest"\n')
+        user = _write(tmp_path / "usr" / "nab.toml", 'resolution = "highest"\n')
+
+        eff = _resolve(
+            SourceRoots(user_toml=user, project_dir=tmp_path),
+            cli={"resolution": "highest"},
+            collect_rejected=True,
+        )
+        printed = render_explain(eff, "resolution", include_rejected=True)
+
+        doc = render_explain.__doc__ or ""
+        for status in ("winner", "shadowed", "rejected"):
+            assert status in printed, status
+            assert f"``{status}``" in doc, status
+
 
 class TestReproducibilityNotice:
     """A CLI PROJECT override is never silent; the lock can be reproduced."""
@@ -803,6 +915,10 @@ class TestReproducibilityNotice:
                 "project_uploaded_prior_to": None,
                 "project_dist_policy": "sdist-only",
                 "project_build_policy": None,
+                "project_build_requires_depth": None,
+                "project_decision_order": None,
+                "project_base_group": None,
+                "project_build_group": None,
                 "project_constraint": (),
                 "project_default_group": ("dev",),
             }
@@ -823,6 +939,9 @@ class TestParserFoldHelpers:
         assert pyproject_registry_keys() == frozenset(
             {
                 "resolution",
+                "decision-order",
+                "base-group",
+                "build-group",
                 "mode",
                 "constraints",
                 "default-groups",
@@ -830,6 +949,7 @@ class TestParserFoldHelpers:
                 "uploaded-prior-to",
                 "dist-policy",
                 "build-policy",
+                "build-requires-depth",
                 "environment",
                 "marker-environment",
                 "vcs",
@@ -895,9 +1015,16 @@ class TestRegistryShape:
             assert by_key[key].env_var == env
 
     def test_origin_scope_for_every_kind(self) -> None:
-        for kind in SourceKind:
-            origin = Origin(kind, "x")
-            assert isinstance(origin.scope, str)
+        # PYPROJECT reports "project": it shares the project precedence level.
+        assert {kind: Origin(kind, "x").scope for kind in SourceKind} == {
+            SourceKind.DEFAULT: "default",
+            SourceKind.SYSTEM_TOML: "system",
+            SourceKind.USER_TOML: "user",
+            SourceKind.PYPROJECT: "project",
+            SourceKind.PROJECT_TOML: "project",
+            SourceKind.ENV: "env",
+            SourceKind.CLI: "cli",
+        }
 
     def test_layer_dataclass_roundtrip(self) -> None:
         layer = Layer(Origin(SourceKind.CLI, "cli"), {"offline": True})
@@ -1215,9 +1342,10 @@ class TestTableProjectOptions:
         assert eff["marker-environment"].value == {"platform_system": "Linux"}
         assert eff["marker-environment"].origin.kind is SourceKind.PROJECT_TOML
 
-    def test_marker_environment_disjoint_vars_merge(self, tmp_path: Path) -> None:
-        # Different sub-keys merge: disjoint marker vars across the two
-        # project files merge instead of raising a spurious conflict.
+    def test_marker_environment_disjoint_vars_conflict(self, tmp_path: Path) -> None:
+        # The table is compared whole, so two project files setting
+        # different marker vars conflict rather than folding into one
+        # environment neither file declares.
         _project(
             tmp_path,
             '[tool.nab.marker-environment]\nplatform_system = "Linux"\n',
@@ -1226,25 +1354,8 @@ class TestTableProjectOptions:
             tmp_path / "nab.toml",
             '[marker-environment]\nsys_platform = "linux"\n',
         )
-        eff = _resolve(SourceRoots(project_dir=tmp_path))
-        assert eff["marker-environment"].value == {
-            "platform_system": "Linux",
-            "sys_platform": "linux",
-        }
-
-    def test_marker_environment_explain_shows_merged(self, tmp_path: Path) -> None:
-        _project(
-            tmp_path,
-            '[tool.nab.marker-environment]\nplatform_system = "Linux"\n',
-        )
-        _write(
-            tmp_path / "nab.toml",
-            '[marker-environment]\nsys_platform = "linux"\n',
-        )
-        eff = _resolve(SourceRoots(project_dir=tmp_path))
-        explained = render_explain(eff, "marker-environment")
-        assert "contributes" in explained
-        assert "= effective: platform_system=Linux, sys_platform=linux" in explained
+        with pytest.raises(SourceConfigError, match="conflicting values"):
+            _resolve(SourceRoots(project_dir=tmp_path))
 
     def test_marker_environment_default_render(self, tmp_path: Path) -> None:
         _project(tmp_path)
@@ -1298,6 +1409,16 @@ class TestTableProjectOptions:
     def test_vcs_cross_file_conflict(self, tmp_path: Path) -> None:
         _project(tmp_path, '[tool.nab.vcs]\npolicy = "allow"\n')
         _write(tmp_path / "nab.toml", '[vcs]\npolicy = "block"\n')
+        with pytest.raises(SourceConfigError, match="conflicting values"):
+            _resolve(SourceRoots(project_dir=tmp_path))
+
+    def test_vcs_cross_file_disjoint_sub_keys_still_conflict(
+        self, tmp_path: Path
+    ) -> None:
+        # vcs is compared as one value, not folded sub-key by sub-key, so
+        # disjoint sub-keys across the two project files still conflict.
+        _project(tmp_path, '[tool.nab.vcs]\npolicy = "allow"\n')
+        _write(tmp_path / "nab.toml", "[vcs]\nrequire-pin = true\n")
         with pytest.raises(SourceConfigError, match="conflicting values"):
             _resolve(SourceRoots(project_dir=tmp_path))
 
@@ -1415,9 +1536,9 @@ class TestArrayProjectOptions:
     """The PROJECT array options: constraints, default-groups.
 
     Each reuses the single-environment list parser, is gated PROJECT-only,
-    is visible in ``nab config``, and (unlike the scalar/table rows)
-    concatenates additively across the ladder, so the two project files
-    merge rather than conflict.
+    and is visible in ``nab config``.  A list is one value like any other
+    row, so the highest source supplies the whole of it and the two
+    project files setting it differently is a conflict.
     """
 
     def test_constraints_from_pyproject(self, tmp_path: Path) -> None:
@@ -1468,29 +1589,19 @@ class TestArrayProjectOptions:
         with pytest.raises(SourceConfigError, match="must be a list of strings"):
             _resolve(SourceRoots(project_dir=tmp_path))
 
-    def test_constraints_concat_across_project_files(self, tmp_path: Path) -> None:
-        # Arrays are exempt from the conflict check: the two same-rung project
-        # files contribute additively, so differing lists merge (pyproject
-        # first, then the project-dir nab.toml) rather than raise a conflict.
+    def test_constraints_cross_file_conflict(self, tmp_path: Path) -> None:
+        # A list at the same rung raises the hard error a scalar does.
         _project(tmp_path, 'constraints = ["urllib3<2"]\n')
         _write(tmp_path / "nab.toml", 'constraints = ["certifi>=2024"]\n')
-        eff = _resolve(SourceRoots(project_dir=tmp_path))
-        assert eff["constraints"].value == ("urllib3<2", "certifi>=2024")
-        assert eff["constraints"].origin.kind is SourceKind.PROJECT_TOML
-
-    def test_constraints_concat_revalidates_whole(self, tmp_path: Path) -> None:
-        # The concatenated whole is re-validated as PEP 508: a per-file
-        # list can be individually fine yet the merge re-runs the check.
-        _project(tmp_path, 'constraints = ["urllib3<2"]\n')
-        _write(tmp_path / "nab.toml", 'constraints = ["bad !! req"]\n')
-        with pytest.raises(SourceConfigError, match="is not a valid requirement"):
+        with pytest.raises(SourceConfigError, match="conflicting values"):
             _resolve(SourceRoots(project_dir=tmp_path))
 
-    def test_constraints_identical_lists_concat(self, tmp_path: Path) -> None:
+    def test_constraints_identical_lists_across_files_ok(self, tmp_path: Path) -> None:
         _project(tmp_path, 'constraints = ["urllib3<2"]\n')
         _write(tmp_path / "nab.toml", 'constraints = ["urllib3<2"]\n')
         eff = _resolve(SourceRoots(project_dir=tmp_path))
-        assert eff["constraints"].value == ("urllib3<2", "urllib3<2")
+        assert eff["constraints"].value == ("urllib3<2",)
+        assert eff["constraints"].origin.kind is SourceKind.PROJECT_TOML
 
     def test_default_groups_from_pyproject(self, tmp_path: Path) -> None:
         _project(tmp_path, 'default-groups = ["dev"]\n')
@@ -1529,11 +1640,11 @@ class TestArrayProjectOptions:
         with pytest.raises(SourceConfigError, match="must be a string"):
             _resolve(SourceRoots(project_dir=tmp_path))
 
-    def test_default_groups_concat_across_project_files(self, tmp_path: Path) -> None:
+    def test_default_groups_cross_file_conflict(self, tmp_path: Path) -> None:
         _project(tmp_path, 'default-groups = ["dev"]\n')
         _write(tmp_path / "nab.toml", 'default-groups = ["docs"]\n')
-        eff = _resolve(SourceRoots(project_dir=tmp_path))
-        assert eff["default-groups"].value == ("dev", "docs")
+        with pytest.raises(SourceConfigError, match="conflicting values"):
+            _resolve(SourceRoots(project_dir=tmp_path))
 
     def test_array_defaults_empty(self, tmp_path: Path) -> None:
         _project(tmp_path)
@@ -1561,47 +1672,45 @@ class TestArrayProjectOptions:
         assert "dev" in explained
 
     def test_array_explain_shows_both_project_files(self, tmp_path: Path) -> None:
-        # Both project-file bindings show in the explain stack (the array
-        # merge keeps the full shadowed stack, ordered low -> high).
+        # Both project-file bindings show in the explain stack, ordered
+        # low -> high, even though only the higher one is the value.
         _project(tmp_path, 'constraints = ["urllib3<2"]\n')
-        _write(tmp_path / "nab.toml", 'constraints = ["certifi>=2024"]\n')
+        _write(tmp_path / "nab.toml", 'constraints = ["urllib3<2"]\n')
         eff = _resolve(SourceRoots(project_dir=tmp_path))
         stack_kinds = [origin.kind for origin, _ in eff["constraints"].stack]
         assert stack_kinds == [SourceKind.PYPROJECT, SourceKind.PROJECT_TOML]
 
-    def test_array_explain_shows_merged_effective(self, tmp_path: Path) -> None:
-        # An array option has no single winning layer: every layer
-        # "contributes" and the concatenated effective value is rendered on
-        # its own line, so explain and get cannot diverge on the effective
-        # value.
+    def test_array_cli_flag_replaces_the_file_list(self, tmp_path: Path) -> None:
+        # The CLI is the highest rung, so its list is the whole value; the
+        # file's list is shadowed rather than appended to.
         _project(tmp_path, 'constraints = ["urllib3<2"]\n')
-        _write(tmp_path / "nab.toml", 'constraints = ["certifi>=2024"]\n')
-        eff = _resolve(SourceRoots(project_dir=tmp_path))
+        eff = _resolve(
+            SourceRoots(project_dir=tmp_path), cli={"constraints": ("certifi>=2024",)}
+        )
+        assert eff["constraints"].value == ("certifi>=2024",)
+        assert eff["constraints"].origin.kind is SourceKind.CLI
         explained = render_explain(eff, "constraints")
-        assert "winner" not in explained
-        assert explained.count("contributes") == 2
-        merged = render_get(eff, "constraints").strip()
-        assert f"= effective: {merged}" in explained
+        assert "urllib3<2" in explained
+        assert "shadowed" in explained
+        assert render_get(eff, "constraints").strip() == "certifi>=2024"
 
-    def test_array_project_rows_have_append_cli_flags(self) -> None:
+    def test_array_project_rows_have_repeatable_cli_flags(self) -> None:
         for key, flag in (
             ("constraints", "--project-constraint"),
             ("default-groups", "--project-default-group"),
         ):
             spec = next(s for s in OPTIONS if s.key == key)
             assert spec.cli_flag == flag
-            assert spec.is_array is True
 
 
 class TestArrayOfTablesSources:
     """The array-of-tables PROJECT sources: indexes, local-sources,
     vcs-sources.  Each reuses the single-environment parser per layer
     (shape/key/dup messages match the pyproject path), is gated
-    PROJECT-only and file-only, concatenates additively across the two
-    project files, and is visible in ``nab config``.  indexes re-runs its
-    same-name dup check over the merged whole; local/vcs-sources carry no
-    intra-key dup check (the cross-key local/vcs check stays on the resolve
-    path), so their merge is a plain concat.
+    PROJECT-only and file-only, and is visible in ``nab config``.  The
+    declaring file owns the whole list, so the same-name dup check is a
+    within-file check and the two project files declaring different lists
+    is a conflict.
     """
 
     def test_indexes_from_pyproject(self, tmp_path: Path) -> None:
@@ -1673,7 +1782,9 @@ class TestArrayOfTablesSources:
         with pytest.raises(SourceConfigError, match="unknown indexes"):
             _resolve(SourceRoots(project_dir=tmp_path))
 
-    def test_indexes_concat_across_project_files(self, tmp_path: Path) -> None:
+    def test_indexes_cross_file_conflict(self, tmp_path: Path) -> None:
+        # A second index is added by editing the file that declares them,
+        # not by declaring a rival list in the other project file.
         _project(
             tmp_path,
             '[[tool.nab.indexes]]\nname = "pypi"\nurl = "https://pypi.org/simple/"\n',
@@ -1682,23 +1793,7 @@ class TestArrayOfTablesSources:
             tmp_path / "nab.toml",
             '[[indexes]]\nname = "extra"\nurl = "https://extra/simple/"\n',
         )
-        eff = _resolve(SourceRoots(project_dir=tmp_path))
-        assert [i.name for i in eff["indexes"].value] == ["pypi", "extra"]
-        assert eff["indexes"].origin.kind is SourceKind.PROJECT_TOML
-
-    def test_indexes_merge_rejects_duplicate_name(self, tmp_path: Path) -> None:
-        # The merged-whole re-check: the same index name in both project
-        # files conflicts, with the same message the single-file dup check
-        # raises.
-        _project(
-            tmp_path,
-            '[[tool.nab.indexes]]\nname = "pypi"\nurl = "https://pypi.org/simple/"\n',
-        )
-        _write(
-            tmp_path / "nab.toml",
-            '[[indexes]]\nname = "pypi"\nurl = "https://other/simple/"\n',
-        )
-        with pytest.raises(SourceConfigError, match="duplicate index name"):
+        with pytest.raises(SourceConfigError, match="conflicting values"):
             _resolve(SourceRoots(project_dir=tmp_path))
 
     def test_indexes_per_file_duplicate_name(self, tmp_path: Path) -> None:
@@ -1755,13 +1850,11 @@ class TestArrayOfTablesSources:
         with pytest.raises(SourceConfigError, match="not settable on a file:// index"):
             _resolve(SourceRoots(project_dir=tmp_path))
 
-    def test_indexes_pin_survives_the_across_file_concat(self, tmp_path: Path) -> None:
-        _project(
-            tmp_path,
-            '[[tool.nab.indexes]]\nname = "pypi"\nurl = "https://pypi.org/simple/"\n',
-        )
+    def test_indexes_pin_is_per_entry(self, tmp_path: Path) -> None:
+        _project(tmp_path)
         _write(
             tmp_path / "nab.toml",
+            '[[indexes]]\nname = "pypi"\nurl = "https://pypi.org/simple/"\n'
             '[[indexes]]\nname = "extra"\nurl = "https://extra/simple/"\n'
             'serialization = "html"\n',
         )
@@ -1769,21 +1862,6 @@ class TestArrayOfTablesSources:
         assert [i.name for i in value] == ["pypi", "extra"]
         assert value[0].serialization is SimpleSerialization.NEGOTIATE
         assert value[1].serialization is SimpleSerialization.HTML
-
-    def test_indexes_pin_cannot_be_added_to_an_index_declared_elsewhere(
-        self, tmp_path: Path
-    ) -> None:
-        _project(
-            tmp_path,
-            '[[tool.nab.indexes]]\nname = "pypi"\nurl = "https://pypi.org/simple/"\n',
-        )
-        _write(
-            tmp_path / "nab.toml",
-            '[[indexes]]\nname = "pypi"\nurl = "https://pypi.org/simple/"\n'
-            'serialization = "json"\n',
-        )
-        with pytest.raises(SourceConfigError, match="duplicate index name"):
-            _resolve(SourceRoots(project_dir=tmp_path))
 
     def test_local_sources_from_pyproject(self, tmp_path: Path) -> None:
         _project(
@@ -1835,7 +1913,7 @@ class TestArrayOfTablesSources:
         with pytest.raises(SourceConfigError, match="must be an array of tables"):
             _resolve(SourceRoots(project_dir=tmp_path))
 
-    def test_local_sources_concat_across_project_files(self, tmp_path: Path) -> None:
+    def test_local_sources_cross_file_conflict(self, tmp_path: Path) -> None:
         _project(
             tmp_path,
             '[[tool.nab.local-sources]]\nname = "a"\npath = "./a"\n',
@@ -1844,8 +1922,8 @@ class TestArrayOfTablesSources:
             tmp_path / "nab.toml",
             '[[local-sources]]\nname = "b"\npath = "./b"\n',
         )
-        eff = _resolve(SourceRoots(project_dir=tmp_path))
-        assert [s.name for s in eff["local-sources"].value] == ["a", "b"]
+        with pytest.raises(SourceConfigError, match="conflicting values"):
+            _resolve(SourceRoots(project_dir=tmp_path))
 
     def test_local_sources_render(self, tmp_path: Path) -> None:
         spec = next(s for s in OPTIONS if s.key == "local-sources")
@@ -1905,7 +1983,7 @@ class TestArrayOfTablesSources:
         with pytest.raises(SourceConfigError, match="must be an array of tables"):
             _resolve(SourceRoots(project_dir=tmp_path))
 
-    def test_vcs_sources_concat_across_project_files(self, tmp_path: Path) -> None:
+    def test_vcs_sources_cross_file_conflict(self, tmp_path: Path) -> None:
         _project(
             tmp_path,
             '[[tool.nab.vcs-sources]]\nname = "a"\nurl = "git+https://e/a.git@1"\n',
@@ -1914,8 +1992,8 @@ class TestArrayOfTablesSources:
             tmp_path / "nab.toml",
             '[[vcs-sources]]\nname = "b"\nurl = "git+https://e/b.git@2"\n',
         )
-        eff = _resolve(SourceRoots(project_dir=tmp_path))
-        assert [s.name for s in eff["vcs-sources"].value] == ["a", "b"]
+        with pytest.raises(SourceConfigError, match="conflicting values"):
+            _resolve(SourceRoots(project_dir=tmp_path))
 
     def test_vcs_sources_render(self) -> None:
         spec = next(s for s in OPTIONS if s.key == "vcs-sources")
@@ -1930,12 +2008,11 @@ class TestArrayOfTablesSources:
         rendered = spec.render((ArchiveSource(name="pkg", url=url),))
         assert rendered == f"pkg@{url}"
 
-    def test_array_of_tables_rows_are_file_only_arrays(self) -> None:
+    def test_array_of_tables_rows_are_file_only(self) -> None:
         for key in ("indexes", "local-sources", "vcs-sources"):
             spec = next(s for s in OPTIONS if s.key == key)
             assert spec.cli_flag is None
             assert spec.cli_param is None
-            assert spec.is_array is True
 
     def test_array_of_tables_keys_visible_in_config(self, tmp_path: Path) -> None:
         _project(
@@ -1955,13 +2032,12 @@ class TestOverrideTables:
 
     ``packages`` (name-keyed sugar) and ``package-rules`` (array of tables)
     both desugar into the same ``PackageOverride`` tuple; each is its own
-    file-only PROJECT array row, concatenating additively across the two
-    project files and re-running the same-field overlap check over the
-    merged whole.  ``index`` is a name-keyed table that merges sub-key by
-    sub-key like marker-environment.  Each reuses the single-environment
-    parser per layer so shape/key/body/overlap messages match the pyproject
-    path; the cross-key checks (packages-vs-package-rules overlap, route or
-    key names a declared index) run over the merged config instead.
+    file-only PROJECT row that carries the same-field overlap check over
+    its own surface.  ``index`` is a name-keyed table.  Each reuses the
+    single-environment parser per layer so shape/key/body/overlap messages
+    match the pyproject path; the cross-key checks (packages-vs-package-rules
+    overlap, route or key names a declared index) run over the merged config
+    instead.
     """
 
     def test_packages_from_pyproject(self, tmp_path: Path) -> None:
@@ -2015,48 +2091,32 @@ class TestOverrideTables:
         with pytest.raises(SourceConfigError, match="overlapping versions"):
             _resolve(SourceRoots(project_dir=tmp_path))
 
-    def test_packages_concat_across_project_files(self, tmp_path: Path) -> None:
+    def test_packages_cross_file_conflict(self, tmp_path: Path) -> None:
         _project(tmp_path, '[tool.nab.packages.lxml]\ndist-policy = "sdist-only"\n')
         _write(
             tmp_path / "nab.toml",
             '[packages.numpy]\ndist-policy = "wheel-only"\n',
         )
-        eff = _resolve(SourceRoots(project_dir=tmp_path))
-        assert sorted(o.name for o in eff["packages"].value) == ["lxml", "numpy"]
-        assert eff["packages"].origin.kind is SourceKind.PROJECT_TOML
-
-    def test_packages_merge_overlap_across_project_files(self, tmp_path: Path) -> None:
-        # The same field for one package over overlapping ranges in both
-        # project files raises the same-field overlap error over the merged
-        # whole, not a silent last-win.
-        _project(tmp_path, '[tool.nab.packages.lxml]\ndist-policy = "sdist-only"\n')
-        _write(
-            tmp_path / "nab.toml",
-            '[packages.lxml]\ndist-policy = "wheel-only"\n',
-        )
-        with pytest.raises(SourceConfigError, match="overlapping versions"):
+        with pytest.raises(SourceConfigError, match="conflicting values"):
             _resolve(SourceRoots(project_dir=tmp_path))
 
-    def test_packages_identical_overlap_still_errors(self, tmp_path: Path) -> None:
-        # Two entries setting one field for one package always overlap, so
-        # even identical bodies in the two project files conflict: arrays
-        # skip the cross-file equality check (they concat) and the overlap
-        # check then fires over the merged tuple, as it would within one file.
+    def test_packages_identical_across_files_ok(self, tmp_path: Path) -> None:
+        # One file's table is the whole value, so the two entries never
+        # land in the same overlap check.
         _project(tmp_path, '[tool.nab.packages.lxml]\ndist-policy = "sdist-only"\n')
         _write(
             tmp_path / "nab.toml",
             '[packages.lxml]\ndist-policy = "sdist-only"\n',
         )
-        with pytest.raises(SourceConfigError, match="overlapping versions"):
-            _resolve(SourceRoots(project_dir=tmp_path))
+        eff = _resolve(SourceRoots(project_dir=tmp_path))
+        assert [o.name for o in eff["packages"].value] == ["lxml"]
+        assert eff["packages"].origin.kind is SourceKind.PROJECT_TOML
 
-    def test_packages_disjoint_ranges_across_files_ok(self, tmp_path: Path) -> None:
+    def test_packages_disjoint_ranges_in_one_file_ok(self, tmp_path: Path) -> None:
         _project(
-            tmp_path, '[tool.nab.packages."lxml <= 2"]\ndist-policy = "sdist-only"\n'
-        )
-        _write(
-            tmp_path / "nab.toml",
-            '[packages."lxml > 2"]\ndist-policy = "wheel-only"\n',
+            tmp_path,
+            '[tool.nab.packages."lxml <= 2"]\ndist-policy = "sdist-only"\n'
+            '[tool.nab.packages."lxml > 2"]\ndist-policy = "wheel-only"\n',
         )
         eff = _resolve(SourceRoots(project_dir=tmp_path))
         assert [o.name for o in eff["packages"].value] == ["lxml", "lxml"]
@@ -2118,7 +2178,7 @@ class TestOverrideTables:
         with pytest.raises(SourceConfigError, match=r"package-rules\[0\] must be"):
             _resolve(SourceRoots(project_dir=tmp_path))
 
-    def test_package_rules_concat_across_project_files(self, tmp_path: Path) -> None:
+    def test_package_rules_cross_file_conflict(self, tmp_path: Path) -> None:
         _project(
             tmp_path,
             '[[tool.nab.package-rules]]\nmatch = ["a"]\ndist-policy = "sdist-only"\n',
@@ -2127,8 +2187,19 @@ class TestOverrideTables:
             tmp_path / "nab.toml",
             '[[package-rules]]\nmatch = ["b"]\ndist-policy = "wheel-only"\n',
         )
-        eff = _resolve(SourceRoots(project_dir=tmp_path))
-        assert [o.name for o in eff["package-rules"].value] == ["a", "b"]
+        with pytest.raises(SourceConfigError, match="conflicting values"):
+            _resolve(SourceRoots(project_dir=tmp_path))
+
+    def test_package_rules_intra_file_overlap_keeps_message(
+        self, tmp_path: Path
+    ) -> None:
+        _project(
+            tmp_path,
+            '[[tool.nab.package-rules]]\nmatch = ["a"]\ndist-policy = "sdist-only"\n'
+            '[[tool.nab.package-rules]]\nmatch = ["a"]\ndist-policy = "wheel-only"\n',
+        )
+        with pytest.raises(SourceConfigError, match="overlapping versions"):
+            _resolve(SourceRoots(project_dir=tmp_path))
 
     def test_index_from_pyproject(self, tmp_path: Path) -> None:
         _project(
@@ -2199,16 +2270,28 @@ class TestOverrideTables:
         eff = _resolve(SourceRoots(project_dir=tmp_path))
         assert set(eff["index"].value) == {"pypi"}
 
-    def test_index_disjoint_names_merge(self, tmp_path: Path) -> None:
-        # Different sub-keys merge: disjoint index names across the two
-        # project files merge by sub-key rather than tripping a conflict.
+    def test_index_disjoint_names_conflict(self, tmp_path: Path) -> None:
+        # The table is one value, so each project file naming a different
+        # index is a conflict.
         _project(tmp_path, '[tool.nab.index.pypi]\ndist-policy = "wheel-only"\n')
         _write(
             tmp_path / "nab.toml",
             '[index.internal]\ndist-policy = "sdist-only"\n',
         )
+        with pytest.raises(SourceConfigError, match="conflicting values"):
+            _resolve(SourceRoots(project_dir=tmp_path))
+
+    def test_index_assume_fresh_seconds_is_per_index(self, tmp_path: Path) -> None:
+        _project(tmp_path)
+        _write(
+            tmp_path / "nab.toml",
+            "[index.pypi]\nassume-fresh-seconds = 3600\n"
+            "[index.internal]\nassume-fresh-seconds = 30\n",
+        )
         eff = _resolve(SourceRoots(project_dir=tmp_path))
-        assert set(eff["index"].value) == {"pypi", "internal"}
+        overrides = eff["index"].value
+        assert overrides["pypi"].assume_fresh_seconds == 3600
+        assert overrides["internal"].assume_fresh_seconds == 30
 
     def test_index_identical_duration_across_files_ok(self, tmp_path: Path) -> None:
         # An identical relative P<n>D in an index override body across both
@@ -2233,12 +2316,11 @@ class TestOverrideTables:
         )
         _write(
             tmp_path / "nab.toml",
-            '[packages.numpy]\nuploaded-prior-to = "P4D"\n',
+            '[packages.lxml]\nuploaded-prior-to = "P4D"\n',
         )
         with inspector_anchor():
             eff = _resolve(SourceRoots(project_dir=tmp_path))
-        names = {str(o.requirement) for o in eff["packages"].value}
-        assert names == {"lxml", "numpy"}
+        assert {str(o.requirement) for o in eff["packages"].value} == {"lxml"}
 
     def test_override_defaults_empty(self, tmp_path: Path) -> None:
         _project(tmp_path)
@@ -2271,15 +2353,10 @@ class TestOverrideTables:
         assert render_get(eff, "index").strip() == "a, b"
 
     def test_override_rows_shape(self) -> None:
-        for key in ("packages", "package-rules"):
+        for key in ("packages", "package-rules", "index"):
             spec = next(s for s in OPTIONS if s.key == key)
             assert spec.cli_flag is None
             assert spec.cli_param is None
-            assert spec.is_array is True
-        index = next(s for s in OPTIONS if s.key == "index")
-        assert index.cli_flag is None
-        assert index.cli_param is None
-        assert index.is_array is False
 
     def test_override_keys_visible_in_config(self, tmp_path: Path) -> None:
         _project(
@@ -2369,28 +2446,13 @@ class TestCrossFieldProjectOptions:
         ):
             _resolve(SourceRoots(project_dir=tmp_path))
 
-    def test_conflicts_concat_across_project_files(self, tmp_path: Path) -> None:
-        # Arrays skip the conflict check: the two same-rung project files
-        # contribute additively.
+    def test_conflicts_cross_file_conflict(self, tmp_path: Path) -> None:
         _project(tmp_path, _CONFLICTS_PYPROJECT)
         _write(
             tmp_path / "nab.toml",
             'conflicts = [[{ group = "test" }, { group = "docs" }]]\n',
         )
-        eff = _resolve(SourceRoots(project_dir=tmp_path))
-        assert len(eff["conflicts"].value) == 2
-        assert eff["conflicts"].origin.kind is SourceKind.PROJECT_TOML
-
-    def test_conflicts_merge_rejects_duplicate_member(self, tmp_path: Path) -> None:
-        # The merged-whole re-check: a member declared in both project files
-        # is the existing hard error, the same message the single-file
-        # uniqueness check raises.
-        _project(tmp_path, _CONFLICTS_PYPROJECT)
-        _write(
-            tmp_path / "nab.toml",
-            'conflicts = [[{ extra = "cpu" }, { extra = "tpu" }]]\n',
-        )
-        with pytest.raises(SourceConfigError, match="in more than one set"):
+        with pytest.raises(SourceConfigError, match="conflicting values"):
             _resolve(SourceRoots(project_dir=tmp_path))
 
     def test_conflicts_per_file_duplicate_member(self, tmp_path: Path) -> None:
@@ -2463,6 +2525,16 @@ class TestCrossFieldProjectOptions:
         ):
             _resolve(SourceRoots(project_dir=tmp_path))
 
+    def test_matrix_python_order_bad_type_keeps_message(self, tmp_path: Path) -> None:
+        _project(tmp_path)
+        _write(
+            tmp_path / "nab.toml", _MATRIX_PROJECT_TOML + 'python-order = ["desc"]\n'
+        )
+        with pytest.raises(
+            SourceConfigError, match="matrix.python-order must be a string, got list"
+        ):
+            _resolve(SourceRoots(project_dir=tmp_path))
+
     def test_matrix_cross_file_conflict(self, tmp_path: Path) -> None:
         _project(tmp_path, _MATRIX_PYPROJECT)
         _write(
@@ -2498,14 +2570,10 @@ class TestCrossFieldProjectOptions:
         assert rendered == "python=>=3.11, platforms=['linux_x86_64', 'macos_arm64']"
 
     def test_cross_field_rows_shape(self) -> None:
-        conflicts = next(s for s in OPTIONS if s.key == "conflicts")
-        assert conflicts.cli_flag is None
-        assert conflicts.cli_param is None
-        assert conflicts.is_array is True
-        matrix = next(s for s in OPTIONS if s.key == "matrix")
-        assert matrix.cli_flag is None
-        assert matrix.cli_param is None
-        assert matrix.is_array is False
+        for key in ("conflicts", "matrix"):
+            spec = next(s for s in OPTIONS if s.key == key)
+            assert spec.cli_flag is None
+            assert spec.cli_param is None
 
     def test_cross_field_keys_visible_in_config(self, tmp_path: Path) -> None:
         _project(tmp_path, _CONFLICTS_PYPROJECT + _MATRIX_PYPROJECT)

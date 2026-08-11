@@ -4,6 +4,7 @@ import datetime
 import json
 import logging
 import os
+import re
 import ssl
 import typing
 
@@ -52,13 +53,24 @@ STATUS_CODES_MAPPING = {
 }
 
 
+_DOT_SEGMENT_RE = re.compile(r"^\.\.?$")
+
+
+def _validate_path_param(name: str, value: str) -> str:
+    if _DOT_SEGMENT_RE.match(value):
+        raise ValueError(f"Invalid value {value!r} for path parameter '{name}': identifiers may not be '.' or '..'.")
+    return value
+
+
 def resolve_url(
     resource_path: str, path_params: dict[str, str], collection_formats: dict[typing.Any, typing.Any], safe_quoting: str
 ) -> str:
     if path_params:
         path_params = sanitize_for_serialization(path_params)
         path_params_list = parameters_to_tuples(path_params, collection_formats)
-        resource_path = resource_path.format(**{k: quote(str(v), safe=safe_quoting) for k, v in path_params_list})
+        resource_path = resource_path.format(
+            **{k: quote(_validate_path_param(k, str(v)), safe=safe_quoting) for k, v in path_params_list}
+        )
     return resource_path
 
 

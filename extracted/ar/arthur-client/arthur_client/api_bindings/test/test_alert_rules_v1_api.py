@@ -54,6 +54,13 @@ class TestAlertRulesV1Api(unittest.TestCase):
         """
         pass
 
+    def test_get_model_alert_rules_timeline(self) -> None:
+        """Test case for get_model_alert_rules_timeline
+
+        Get Model Alert Rules Timeline
+        """
+        pass
+
     def test_patch_alert_rule(self) -> None:
         """Test case for patch_alert_rule
 

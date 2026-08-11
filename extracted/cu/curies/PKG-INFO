@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: curies
-Version: 0.14.6
+Version: 0.15.0
 Summary: Idiomatic conversion between URIs and compact URIs (CURIEs)
 Keywords: snekpack,cookiecutter,semantic web,compact uniform resource identifiers,uniform resource identifiers,curies,IRIs,URIs
 Author: Charles Tapley Hoyt
@@ -16,15 +16,14 @@ Classifier: Framework :: tox
 Classifier: Framework :: Sphinx
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Typing :: Typed
-Requires-Dist: pystow>=0.8.0
+Requires-Dist: pystow>=0.9.0
 Requires-Dist: pydantic>=2.0
-Requires-Dist: typing-extensions
 Requires-Dist: fastapi ; extra == 'fastapi'
 Requires-Dist: python-multipart ; extra == 'fastapi'
 Requires-Dist: httpx ; extra == 'fastapi'
@@ -38,7 +37,7 @@ Requires-Dist: sqlalchemy ; extra == 'sqlalchemy'
 Requires-Dist: sqlmodel ; extra == 'sqlmodel'
 Maintainer: Charles Tapley Hoyt
 Maintainer-email: Charles Tapley Hoyt <cthoyt@gmail.com>
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Project-URL: Bug Tracker, https://github.com/biopragmatics/curies/issues
 Project-URL: Homepage, https://github.com/biopragmatics/curies
 Project-URL: Repository, https://github.com/biopragmatics/curies.git

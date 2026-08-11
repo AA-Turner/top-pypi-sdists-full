@@ -1,6 +1,15 @@
 import re
 from collections.abc import Iterable
 from pathlib import Path, PureWindowsPath
+from typing import Optional, Union
+
+# A schema type in any of its accepted representations: an encoded string, a
+# NodeType wrapper, or a parsed structure (scalar name, container, enum/range).
+SchemaType = Union[str, "NodeType", list, set, tuple, "NodeEnumType", "NodeRangeType"]
+
+# A candidate accepted by NodeType.astype/contains/istype: a class, a
+# NodeEnumType/NodeRangeType instance, or a string token resolving to one.
+TypeCheck = Union[str, type, "NodeEnumType", "NodeRangeType"]
 
 
 class NodeType:
@@ -116,10 +125,50 @@ class NodeType:
         raise ValueError(f"{sctype} not a recognized type")
 
     @staticmethod
-    def contains(value, check):
+    def astype(spec: TypeCheck) -> TypeCheck:
+        """
+        Resolve a friendly type token into the object used for type checks by
+        :meth:`contains` and :meth:`istype`.
+
+        This lets callers use plain strings everywhere instead of importing the
+        ``NodeEnumType`` / ``NodeRangeType`` classes:
+
+        - ``'enum'`` resolves to ``NodeEnumType``
+        - ``'range'`` resolves to ``NodeRangeType``
+        - ``'list'``, ``'set'``, ``'tuple'`` resolve to the container classes
+
+        Scalar type names (``'int'``, ``'float'``, ``'str'``, ``'bool'``,
+        ``'file'``, ``'dir'``) and anything already resolved (a class, or a
+        ``NodeEnumType`` / ``NodeRangeType`` instance) are returned unchanged.
+
+        Args:
+            spec (str or type): the token or type to resolve.
+        """
+
+        if isinstance(spec, str):
+            return {
+                "list": list,
+                "set": set,
+                "tuple": tuple,
+                "enum": NodeEnumType,
+                "range": NodeRangeType,
+            }.get(spec, spec)
+        return spec
+
+    @staticmethod
+    def contains(value: SchemaType, check: TypeCheck) -> bool:
         """
         Check if the type contains a specific type.
+
+        ``check`` may be a class (``list``, ``tuple``, ``set``,
+        ``NodeEnumType``, ``NodeRangeType``) or the equivalent string token
+        accepted by :meth:`astype` (e.g. ``'enum'``, ``'list'``), as well as a
+        scalar type name (``'int'``, ``'file'``, ...).
         """
+        if isinstance(value, NodeType):
+            value = value.type
+
+        check = NodeType.astype(check)
         if check in (list, tuple, set, NodeEnumType, NodeRangeType):
             if isinstance(value, check):
                 return True
@@ -132,6 +181,114 @@ class NodeType:
         if isinstance(value, NodeRangeType):
             return value.base == check
         return value == check
+
+    @staticmethod
+    def istype(sctype: SchemaType, *types: TypeCheck) -> bool:
+        """
+        Check whether the top-level type is exactly one of ``types``.
+
+        Unlike :meth:`contains`, this does not recurse into container types, so
+        ``istype('[int]', 'int')`` is ``False`` while ``istype('[int]', list)``
+        is ``True``. This makes it the right check for asking "is this
+        parameter a scalar ``int``" without matching ``[int]``/``(int,int)``.
+
+        Accepted checks are the scalar type names (``'int'``, ``'float'``,
+        ``'str'``, ``'bool'``, ``'file'``, ``'dir'``), plus any token accepted
+        by :meth:`astype` for containers, enums and ranges (``'list'``,
+        ``'set'``, ``'tuple'``, ``'enum'``, ``'range'``, or the equivalent
+        classes). Range types match their numeric base (``'int'``/``'float'``)
+        as well as ``'range'``/``NodeRangeType``.
+
+        Args:
+            sctype (str, NodeType, or type): the type to inspect.
+            *types: one or more candidate types to match against.
+        """
+
+        if isinstance(sctype, NodeType):
+            sctype = sctype.type
+        elif isinstance(sctype, str):
+            sctype = NodeType.parse(sctype)
+
+        types = tuple(NodeType.astype(check) for check in types)
+
+        if isinstance(sctype, list):
+            return list in types
+        if isinstance(sctype, set):
+            return set in types
+        if isinstance(sctype, tuple):
+            return tuple in types
+        if isinstance(sctype, NodeRangeType):
+            return NodeRangeType in types or sctype.base in types
+        if isinstance(sctype, NodeEnumType):
+            return NodeEnumType in types
+        if isinstance(sctype, str):
+            return sctype in types
+        return False
+
+    @staticmethod
+    def basetype(sctype: SchemaType) -> Optional[str]:
+        """
+        Return the underlying scalar base type name of a type, unwrapping any
+        container nesting (list, set, tuple) and range/enum wrappers.
+
+        - Range types return their numeric base (``'int'``/``'float'``).
+        - Enum types return ``'enum'``.
+        - Homogeneous containers return their element base (``'[int]'`` ->
+          ``'int'``).
+        - Heterogeneous tuples (e.g. ``'(str,int)'``) return ``None`` since they
+          have no single base type.
+
+        Args:
+            sctype (str, NodeType, or type): the type to inspect.
+        """
+
+        if isinstance(sctype, NodeType):
+            sctype = sctype.type
+        elif isinstance(sctype, str):
+            sctype = NodeType.parse(sctype)
+
+        if isinstance(sctype, list):
+            return NodeType.basetype(sctype[0])
+        if isinstance(sctype, set):
+            return NodeType.basetype(next(iter(sctype)))
+        if isinstance(sctype, tuple):
+            bases = {NodeType.basetype(subtype) for subtype in sctype}
+            return bases.pop() if len(bases) == 1 else None
+        if isinstance(sctype, NodeRangeType):
+            return sctype.base
+        if isinstance(sctype, NodeEnumType):
+            return 'enum'
+        if isinstance(sctype, str):
+            return sctype
+        return None
+
+    @staticmethod
+    def _tcl_ascii(value: str) -> str:
+        r'''Escape non-ASCII characters as Tcl ``\uXXXX``.
+
+        Tcl decodes a script using the *system* encoding, which follows the
+        host's locale. A manifest written as UTF-8 and read back under LANG=C
+        does not merely display oddly -- it decodes to a different string:
+        "café-Ω µm" comes back with a length of 12 instead of 9, so a path or a
+        design name silently stops matching. Escaping sidesteps the question,
+        because an ASCII file decodes the same way under every locale.
+
+        Must be applied *after* the backslash doubling in to_tcl, so that the
+        backslashes introduced here survive as escapes.
+        '''
+        out = []
+        for char in value:
+            point = ord(char)
+            if point < 0x80:
+                out.append(char)
+            elif point <= 0xFFFF:
+                out.append(f"\\u{point:04x}")
+            else:
+                # Tcl 8.6 has no \U; emit the surrogate pair it expects.
+                point -= 0x10000
+                out.append(f"\\u{0xD800 + (point >> 10):04x}"
+                           f"\\u{0xDC00 + (point & 0x3FF):04x}")
+        return "".join(out)
 
     @staticmethod
     def to_tcl(value, sctype):
@@ -161,11 +318,18 @@ class NodeType:
         if isinstance(sctype, tuple):
             if value is None:
                 return '[list ]'
-            valstr = ' '.join(NodeType.to_tcl(v, subtype) for v, subtype in zip(value, sctype))
+            # Recurse into each field of the tuple. A None field serializes to
+            # an explicit empty element ({} for a scalar, '[list ]' for a
+            # container), so its position survives the round-trip to Tcl.
+            valstr = ' '.join(NodeType.to_tcl(v, subtype)
+                              for v, subtype in zip(value, sctype))
             return f'[list {valstr}]'
 
         if value is None:
-            return ''
+            # Emit an explicit empty Tcl element rather than '' so a None never
+            # collapses in a '[list ...]' join (which would shift later tuple
+            # fields) and is written as a valid empty value in 'dict set'.
+            return '{}'
 
         if sctype == 'str' or isinstance(sctype, NodeEnumType):
             # Escape string by surrounding it with "" and escaping the few
@@ -179,7 +343,7 @@ class NodeType:
                                 .replace('[', '\\[')    # escape '[' to avoid command substitution
                                 .replace('$', '\\$')    # escape '$' to avoid variable substitution
                                 .replace('"', '\\"'))   # escape '"' to avoid string terminating
-            return '"' + escaped_val + '"'
+            return '"' + NodeType._tcl_ascii(escaped_val) + '"'
 
         if sctype == 'bool':
             return 'true' if value else 'false'
@@ -199,7 +363,7 @@ class NodeType:
                                                         # insert '\')
                                 .replace('[', '\\[')    # escape '[' to avoid command substitution
                                 .replace('"', '\\"'))   # escape '"' to avoid string terminating
-            return '"' + escaped_val + '"'
+            return '"' + NodeType._tcl_ascii(escaped_val) + '"'
 
         raise TypeError(f'{sctype} is not a supported type')
 

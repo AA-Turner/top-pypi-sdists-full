@@ -1,7 +1,9 @@
+import dataclasses
+from datetime import datetime, timezone
 from io import StringIO
 import pathlib
 from subprocess import list2cmdline
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import click
 from rich.console import Console
@@ -24,6 +26,7 @@ from anyscale.commands.list_util import (
     create_table,
     display_list,
     NON_INTERACTIVE_DEFAULT_MAX_ITEMS,
+    resolve_interactive,
     validate_page_size,
 )
 from anyscale.commands.output_format import (
@@ -32,6 +35,7 @@ from anyscale.commands.output_format import (
     OutputFormat,
     print_output,
     resolve_output_format,
+    warn_deprecated_flag,
 )
 from anyscale.commands.util import (
     AnyscaleCommand,
@@ -46,11 +50,14 @@ from anyscale.controllers.job_controller import JobController
 from anyscale.job.models import (
     JobConfig,
     JobLogMode,
-    JobRunStatus,
     JobSortField,
     JobState,
     JobStatus,
 )
+
+# Aliased because `anyscale.job.models.JobConfig` (new format) is already imported above
+# under its own name and the two classes are unrelated.
+from anyscale.models.job_model import JobConfig as LegacyJobConfig
 from anyscale.util import (
     get_endpoint,
     validate_non_negative_arg,
@@ -114,27 +121,29 @@ def _print_job_list_diagnostics(  # noqa: PLR0913
     stderr.print(f"\nView your Jobs in the UI at {get_endpoint('/jobs')}\n")
 
 
-def _check_for_new_format_fields(config_file: str) -> None:
-    """Check if a config file contains new-format fields that require using -f flag.
+_JOB_API_DOCS_URL = "https://docs.anyscale.com/reference/job-api"
 
-    Raises a ClickException if new-format fields are detected, suggesting the user
-    should use the --config-file/-f flag instead.
+# Derived from the models rather than hand-listed: a hand-maintained list drifts as either
+# schema gains fields, which is how `ray_version`/`tags` (legal in both) ended up being
+# reported as new-format-only.
+_NEW_FORMAT_FIELDS: Set[str] = {f.name for f in dataclasses.fields(JobConfig)}
+_LEGACY_FORMAT_FIELDS: Set[str] = set(LegacyJobConfig.__fields__)
+_NEW_FORMAT_ONLY_FIELDS: Set[str] = _NEW_FORMAT_FIELDS - _LEGACY_FORMAT_FIELDS
+_LEGACY_FORMAT_ONLY_FIELDS: Set[str] = _LEGACY_FORMAT_FIELDS - _NEW_FORMAT_FIELDS
+
+
+def _quote_fields(field_names: Set[str]) -> str:
+    # Sorted so the message is stable across processes (set iteration order is not).
+    return ", ".join(f"'{name}'" for name in sorted(field_names))
+
+
+def _check_config_schema(config_file: str, *, passed_with_config_flag: bool) -> None:
+    """Reject a config file whose schema doesn't match how it was passed to `job submit`.
+
+    A config passed positionally is parsed with the legacy schema and one passed with `-f`
+    with the new one. Handing either schema to the other's path otherwise surfaces a raw
+    `ValidationError`/`TypeError` from the model rather than a friendly message.
     """
-    # Fields that are specific to the new job submission API
-    NEW_FORMAT_FIELDS = {
-        "image_uri",
-        "containerfile",
-        "working_dir",
-        "requirements",
-        "env_vars",
-        "py_modules",
-        "excludes",
-        "ray_version",
-        "registry_login_secret",
-        "timeout_s",
-        "tags",
-    }
-
     try:
         with open(config_file) as f:
             config_dict = yaml.safe_load(f) or {}
@@ -145,16 +154,40 @@ def _check_for_new_format_fields(config_file: str) -> None:
     if not isinstance(config_dict, dict):
         return
 
-    found_fields = [field for field in NEW_FORMAT_FIELDS if field in config_dict]
+    # Only fields exclusive to one schema are evidence; the schemas share fields whose
+    # presence says nothing about which format the config is in.
+    keys = set(config_dict)
+    new_format_only = keys & _NEW_FORMAT_ONLY_FIELDS
+    legacy_only = keys & _LEGACY_FORMAT_ONLY_FIELDS
 
-    if found_fields:
-        fields_str = ", ".join(f"'{field}'" for field in found_fields)
+    if new_format_only and legacy_only:
+        # Neither invocation can parse this, so neither may point at the other.
         raise click.ClickException(
-            f"Your config file contains fields that require the new job submission API: {fields_str}\n\n"
+            f"Your config file mixes fields from two incompatible job config schemas, so no form of `anyscale job submit` accepts it.\n\n"
+            f"Fields only supported by the legacy job submission API: {_quote_fields(legacy_only)}\n"
+            f"Fields that require the new job submission API: {_quote_fields(new_format_only)}\n\n"
+            f"Remove one of the two groups, then submit with the matching command:\n"
+            f"  new format:    anyscale job submit -f {config_file}\n"
+            f"  legacy format: anyscale job submit {config_file}\n\n"
+            f"See {_JOB_API_DOCS_URL} for more information."
+        )
+
+    if new_format_only and not passed_with_config_flag:
+        raise click.ClickException(
+            f"Your config file contains fields that require the new job submission API: {_quote_fields(new_format_only)}\n\n"
             f"Please use the '--config-file' or '-f' flag instead:\n"
             f"  anyscale job submit -f {config_file}\n\n"
             f"Alternatively, update your config to use the legacy format.\n"
-            f"See https://docs.anyscale.com/reference/job-api for more information."
+            f"See {_JOB_API_DOCS_URL} for more information."
+        )
+
+    if legacy_only and passed_with_config_flag:
+        raise click.ClickException(
+            f"Your config file contains fields that are only supported by the legacy job submission API: {_quote_fields(legacy_only)}\n\n"
+            f"Please pass the config file as a positional argument instead:\n"
+            f"  anyscale job submit {config_file}\n\n"
+            f"Alternatively, update your config to use the new format.\n"
+            f"See {_JOB_API_DOCS_URL} for more information."
         )
 
 
@@ -167,15 +200,29 @@ def job_cli() -> None:
     status=ReleaseStatus.GA,
     since="0.0.0",
     output_formats=[OutputFormat.TEXT],
+    error_codes=[ErrorCode.INVALID_CONFIG],
     option_docs={
         "--config-file": {"schema": JobConfig},
         "--connection": {"status": ReleaseStatus.BETA},
     },
     examples=[
         CommandExample(
-            description="Submit a job with an inline entrypoint or from a YAML config file.",
+            description="Submit a job with an inline entrypoint (inherits the workspace environment).",
+            command="anyscale job submit --name my-job --wait -- python main.py",
+            output_raw=(
+                "Job 'my-job' submitted, ID: 'prodjob_abc123'.\n"
+                "View the job in the UI: https://console.anyscale.com/jobs/prodjob_abc123\n"
+                "Job 'my-job' transitioned from STARTING to SUCCEEDED\n"
+            ),
+        ),
+        CommandExample(
+            description="Submit a job from a YAML config file.",
             command="anyscale job submit -f job.yaml",
-            output_raw=command_examples.JOB_SUBMIT_EXAMPLE,
+            output_raw=(
+                "Job 'my-job' submitted, ID: 'prodjob_abc123'.\n"
+                "View the job in the UI: https://console.anyscale.com/jobs/prodjob_abc123\n"
+                "Use `--wait` to wait for the job to run and stream logs.\n"
+            ),
         ),
     ],
 )
@@ -374,10 +421,11 @@ and override the entrypoint with `python main.py`.
 
     job_controller = JobController()
     if len(entrypoint) == 1 and (
-        pathlib.Path(entrypoint[0]).is_file() or entrypoint[0].endswith(".yaml")
+        pathlib.Path(entrypoint[0]).is_file()
+        or entrypoint[0].endswith((".yaml", ".yml"))
     ):
-        # If entrypoint is a single string that ends with .yaml, e.g. `anyscale job submit config.yaml`,
-        # treat it as a config file, and use the old job submission API.
+        # If entrypoint is a single string that ends with .yaml/.yml, e.g. `anyscale job
+        # submit config.yaml`, treat it as a config file, and use the old job submission API.
         if config_file is not None:
             raise click.ClickException(
                 "`--config-file` should not be used when providing a config file as the entrypoint."
@@ -403,8 +451,7 @@ and override the entrypoint with `python main.py`.
         if not pathlib.Path(config_file).is_file():
             raise click.ClickException(f"Job config file '{config_file}' not found.")
 
-        # Check if the config file contains new-format fields that require using -f
-        _check_for_new_format_fields(config_file)
+        _check_config_schema(config_file, passed_with_config_flag=False)
 
         log.info(f"Submitting job from config file {config_file}.")
 
@@ -417,8 +464,12 @@ and override the entrypoint with `python main.py`.
             raise click.ClickException(
                 "Either a config file or an inlined entrypoint must be provided."
             )
-        if config_file is not None and not pathlib.Path(config_file).is_file():
-            raise click.ClickException(f"Job config file '{config_file}' not found.")
+        if config_file is not None:
+            if not pathlib.Path(config_file).is_file():
+                raise click.ClickException(
+                    f"Job config file '{config_file}' not found."
+                )
+            _check_config_schema(config_file, passed_with_config_flag=True)
 
         args = {}
         if len(entrypoint) > 0:
@@ -662,16 +713,21 @@ def _display_jobs_table(jobs: List[JobStatus]) -> None:
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to [TEXT, JSON] when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
-            description="List jobs matching a name.",
+            description="List jobs.",
             command="anyscale job list --v2",
             output_raw=command_examples.JOB_LIST_EXAMPLE,
             output_instance=[
                 {
-                    "id": "prodjob_jjtrnxhdr7ltfdv482b8zxmrw6",
+                    "id": "prodjob_abc123",
                     "name": "eval-gpu-idle",
                     "state": "SUCCEEDED",
                     "entrypoint": 'python -c "import time; time.sleep(300)"',
@@ -681,7 +737,7 @@ def _display_jobs_table(jobs: List[JobStatus]) -> None:
                     "status_updated_at": "2026-06-29T07:52:04.084344+00:00",
                 },
                 {
-                    "id": "prodjob_n757jp7drz1rzp6jv3n94bxjbb",
+                    "id": "prodjob_def456",
                     "name": "eval-term-job",
                     "state": "TERMINATED",
                     "entrypoint": 'python -c "import time; time.sleep(900)"',
@@ -691,7 +747,7 @@ def _display_jobs_table(jobs: List[JobStatus]) -> None:
                     "status_updated_at": "2026-06-29T05:51:15.607632+00:00",
                 },
                 {
-                    "id": "prodjob_g2nvnjsgurgkdtng89c1eub9rq",
+                    "id": "prodjob_ghi789",
                     "name": "eval-list-job",
                     "state": "SUCCEEDED",
                     "entrypoint": "python -c \"print('hello from eval-list-job')\"",
@@ -843,7 +899,6 @@ def _display_jobs_table(jobs: List[JobStatus]) -> None:
     type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result. Only with --v2.",
 )
 @click.option(
@@ -884,6 +939,8 @@ def list(  # noqa: A001 PLR0913 PLR0912
     json_output: bool,
     interactive: bool,
 ) -> None:
+    if json_output:
+        warn_deprecated_flag("--json", "-o json")
     json_output = json_output or output_format == OutputFormat.JSON.value
 
     # Validate states based on v2 flag
@@ -914,7 +971,12 @@ def list(  # noqa: A001 PLR0913 PLR0912
     if v2:
         # New SDK path with pagination, sorting, and output options
 
-        # Validate max_items only allowed with --no-interactive (v2 only)
+        # Resolve inside the v2 branch only: the legacy else-branch reads the raw
+        # flag to reject --no-interactive without --v2.
+        interactive = resolve_interactive(interactive, json_output)
+
+        # Validate max_items only allowed with --no-interactive (v2 only); check
+        # the resolved value so a piped or --json run accepts --max-items.
         if max_items is not None and interactive:
             raise click.UsageError("--max-items only allowed with --no-interactive")
 
@@ -1455,23 +1517,28 @@ def wait(
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="Query the status of a job by name.",
             command="anyscale job status -n my-job",
             output_raw=command_examples.JOB_STATUS_EXAMPLE,
-            output_instance=lambda: JobStatus(
-                id="prodjob_6ntzknwk1i9b1uw1zk1gp9dbhe",
-                name="my-job",
-                state=JobState.STARTING,
-                config=JobConfig(name="my-job", entrypoint="python main.py"),
-                runs=[
-                    JobRunStatus(name="raysubmit_ynxBVGT1SmzndiXL", state="SUCCEEDED")
-                ],
-                creator_id="usr_we8x7d7u8hq8mj2488ed9x47n6",
-            ),
+            output_instance={
+                "id": "prodjob_abc123",
+                "name": "my-job",
+                "state": "STARTING",
+                "runs": [{"name": "raysubmit_abc123", "state": "SUCCEEDED"}],
+                "creator_id": "usr_abc123",
+                "created_at": datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+                "updated_at": datetime(2026, 1, 1, 0, 5, 0, tzinfo=timezone.utc),
+                "status_updated_at": datetime(2026, 1, 1, 0, 5, 0, tzinfo=timezone.utc),
+            },
             labels=["cloud:aws"],
         ),
     ],
@@ -1510,10 +1577,11 @@ def wait(
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 @click.option(
@@ -1554,6 +1622,8 @@ id should be used, specifying both will result in an error.
     If job is specified by name and there are multiple jobs with the specified name, the most recently created job
 status will be returned.
     """
+    if json:
+        warn_deprecated_flag("--json", "-o json")
     _validate_job_name_and_id(name=name, id=id)
 
     status: JobStatus = anyscale.job.status(
@@ -1685,8 +1755,18 @@ def remove_tags(
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[
+        OutputFormat.TEXT,
+        OutputFormat.JSON,
+        OutputFormat.YAML,
+        OutputFormat.TABLE,
+    ],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="List the tags of a job by name.",
@@ -1711,7 +1791,6 @@ def remove_tags(
     type=click.Choice([f.value for f in OutputFormat]),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 @click.option("--json", "json_output", is_flag=True, default=False, help="JSON output.")
@@ -1728,6 +1807,8 @@ def list_tags(
     json_output: bool,
     include_archived: bool,
 ) -> None:
+    if json_output:
+        warn_deprecated_flag("--json", "-o json")
     if not job_id and not name:
         raise click.ClickException("Provide either --id or --name.")
     tag_map = anyscale.job.list_tags(

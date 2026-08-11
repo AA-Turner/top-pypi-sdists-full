@@ -1,16 +1,14 @@
 use itertools::Itertools;
 use tombi_comment_directive::value::{FloatCommonFormatRules, FloatCommonLintRules};
-use tombi_document_tree::ValueImpl;
 use tombi_future::{BoxFuture, Boxable};
-use tombi_schema_store::ValueSchema;
+use tombi_schema_store::SchemaView;
 use tombi_severity_level::SeverityLevelDefaultError;
 
 use crate::{
     comment_directive::get_tombi_key_table_value_rules_and_diagnostics,
     validate::{
-        handle_anything_schema, handle_deprecated_value, handle_nothing_schema,
-        handle_type_mismatch, handle_unused_noqa, is_multiple_of_with_tolerance,
-        validate_adjacent_applicators,
+        handle_anything_schema, handle_deprecated_value, handle_nothing_schema, handle_unused_noqa,
+        is_multiple_of_with_tolerance, validate_adjacent_applicators,
     },
 };
 
@@ -22,8 +20,18 @@ impl Validate for tombi_document_tree::Float {
         accessors: &'a [tombi_schema_store::Accessor],
         current_schema: Option<&'a tombi_schema_store::CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
-    ) -> BoxFuture<'b, Result<crate::EvaluatedLocations, crate::Error>> {
+    ) -> BoxFuture<'b, Result<crate::Valid, crate::Invalid>> {
         async move {
+            if let Some(projected_schema) = crate::validate::project_current_schema_for_value(
+                self,
+                current_schema,
+                schema_context,
+            ) {
+                return self
+                    .validate(accessors, Some(&projected_schema), schema_context)
+                    .await;
+            }
+
             let (lint_rules, lint_rules_diagnostics) =
                 get_tombi_key_table_value_rules_and_diagnostics::<
                     FloatCommonFormatRules,
@@ -32,8 +40,8 @@ impl Validate for tombi_document_tree::Float {
                 .await;
 
             let result = if let Some(current_schema) = current_schema {
-                match current_schema.value_schema.as_ref() {
-                    ValueSchema::Float(float_schema) => {
+                match current_schema.schema_view.as_ref() {
+                    SchemaView::Float(float_schema) => {
                         validate_float(
                             self,
                             accessors,
@@ -47,7 +55,7 @@ impl Validate for tombi_document_tree::Float {
                         )
                         .await
                     }
-                    ValueSchema::OneOf(one_of_schema) => {
+                    SchemaView::OneOf(one_of_schema) => {
                         validate_one_of(
                             self,
                             accessors,
@@ -61,7 +69,7 @@ impl Validate for tombi_document_tree::Float {
                         )
                         .await
                     }
-                    ValueSchema::AnyOf(any_of_schema) => {
+                    SchemaView::AnyOf(any_of_schema) => {
                         validate_any_of(
                             self,
                             accessors,
@@ -75,7 +83,7 @@ impl Validate for tombi_document_tree::Float {
                         )
                         .await
                     }
-                    ValueSchema::AllOf(all_of_schema) => {
+                    SchemaView::AllOf(all_of_schema) => {
                         validate_all_of(
                             self,
                             accessors,
@@ -89,18 +97,25 @@ impl Validate for tombi_document_tree::Float {
                         )
                         .await
                     }
-                    ValueSchema::Null => return Ok(crate::EvaluatedLocations::new()),
-                    ValueSchema::Anything(_) => handle_anything_schema(self),
-                    ValueSchema::Nothing(_) => handle_nothing_schema(self),
-                    value_schema => handle_type_mismatch(
-                        value_schema.value_type().await,
-                        self.value_type(),
-                        self.range(),
-                        lint_rules.as_ref().map(|rules| &rules.common),
-                    ),
+                    SchemaView::Null => return Ok(crate::Valid::new()),
+                    SchemaView::Anything(_) => handle_anything_schema(self),
+                    SchemaView::Nothing(_) => handle_nothing_schema(self),
+                    _ => {
+                        crate::validate::validate_mismatched_schema(
+                            self,
+                            accessors,
+                            current_schema,
+                            schema_context,
+                            self.comment_directives()
+                                .map(|directives| directives.cloned().collect_vec())
+                                .as_deref(),
+                            lint_rules.as_ref().map(|rules| &rules.common),
+                        )
+                        .await
+                    }
                 }
             } else {
-                Ok(crate::EvaluatedLocations::new())
+                Ok(crate::Valid::new())
             };
 
             crate::validate::with_lint_diagnostics(result, lint_rules_diagnostics)
@@ -117,7 +132,7 @@ async fn validate_float(
     schema_context: &tombi_schema_store::SchemaContext<'_>,
     comment_directives: Option<&[tombi_ast::TombiValueCommentDirective]>,
     lint_rules: Option<&FloatCommonLintRules>,
-) -> Result<crate::EvaluatedLocations, crate::Error> {
+) -> Result<crate::Valid, crate::Invalid> {
     let mut diagnostics = vec![];
 
     let value = float_value.value();
@@ -370,7 +385,7 @@ async fn validate_float(
     }
 
     let base_result = if diagnostics.is_empty() {
-        Ok(crate::EvaluatedLocations::new())
+        Ok(crate::Valid::new())
     } else {
         Err(diagnostics.into())
     };

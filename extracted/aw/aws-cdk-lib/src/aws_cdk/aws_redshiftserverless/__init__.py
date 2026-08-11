@@ -1275,6 +1275,246 @@ class CfnNamespaceProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_redshiftserverless_d9862add.IRecoveryPointRef)
+class CfnRecoveryPoint(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_redshiftserverless.CfnRecoveryPoint",
+):
+    '''Represents an automatically created recovery point for an Amazon Redshift Serverless namespace.
+
+    Recovery points are created every 30 minutes and kept for 24 hours.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-recoverypoint.html
+    :cloudformationResource: AWS::RedshiftServerless::RecoveryPoint
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_redshiftserverless as redshiftserverless
+        
+        cfn_recovery_point = redshiftserverless.CfnRecoveryPoint(self, "MyCfnRecoveryPoint",
+            namespace_name="namespaceName"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        namespace_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::RedshiftServerless::RecoveryPoint``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param namespace_name: The name of the namespace the recovery point is associated with.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2945e0c9020d12c6cac4502a8239479a5f97105cd334dd8fc5ca001a2173e82d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRecoveryPointProps(namespace_name=namespace_name)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForRecoveryPoint")
+    @builtins.classmethod
+    def arn_for_recovery_point(
+        cls,
+        resource: "_aws_redshiftserverless_d9862add.IRecoveryPointRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3e43e256a44876b455d4fdb598c517a2815e5ae1151c6b5f9cf0f596bde704c9)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRecoveryPoint", [resource]))
+
+    @jsii.member(jsii_name="isCfnRecoveryPoint")
+    @builtins.classmethod
+    def is_cfn_recovery_point(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRecoveryPoint.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bb7d69c18c513674f4d526de84271c049ae6da1620b66cf72df5e6b83f90ab92)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRecoveryPoint", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__efa807a1dbd303b429daf653a3b3d827de9718c588799497df2315acbe6849a2)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7b71005a34d7562e9dde86925c3fc8fbaa5562d09142faae5e478ee8e22d4b93)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the recovery point.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrNamespaceArn")
+    def attr_namespace_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the namespace the recovery point is associated with.
+
+        :cloudformationAttribute: NamespaceArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrNamespaceArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRecoveryPointCreateTime")
+    def attr_recovery_point_create_time(self) -> builtins.str:
+        '''The time the recovery point was created, in ISO 8601 format.
+
+        :cloudformationAttribute: RecoveryPointCreateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRecoveryPointCreateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRecoveryPointId")
+    def attr_recovery_point_id(self) -> builtins.str:
+        '''The unique identifier of the recovery point.
+
+        :cloudformationAttribute: RecoveryPointId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRecoveryPointId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTags")
+    def attr_tags(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The list of tags associated with the recovery point.
+
+        :cloudformationAttribute: Tags
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrTags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTotalSizeInMegaBytes")
+    def attr_total_size_in_mega_bytes(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The total size of the data in the recovery point in megabytes.
+
+        :cloudformationAttribute: TotalSizeInMegaBytes
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrTotalSizeInMegaBytes"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="recoveryPointRef")
+    def recovery_point_ref(
+        self,
+    ) -> "_aws_redshiftserverless_d9862add.RecoveryPointReference":
+        '''A reference to a RecoveryPoint resource.'''
+        return typing.cast("_aws_redshiftserverless_d9862add.RecoveryPointReference", jsii.get(self, "recoveryPointRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="namespaceName")
+    def namespace_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the namespace the recovery point is associated with.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "namespaceName"))
+
+    @namespace_name.setter
+    def namespace_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7a8250e3bcebd4a02a42060a1b7721a596d807f7ccc2d18c2ac1d3a1ecf33365)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "namespaceName", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_redshiftserverless.CfnRecoveryPointProps",
+    jsii_struct_bases=[],
+    name_mapping={"namespace_name": "namespaceName"},
+)
+class CfnRecoveryPointProps:
+    def __init__(self, *, namespace_name: typing.Optional[builtins.str] = None) -> None:
+        '''Properties for defining a ``CfnRecoveryPoint``.
+
+        :param namespace_name: The name of the namespace the recovery point is associated with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-recoverypoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_redshiftserverless as redshiftserverless
+            
+            cfn_recovery_point_props = redshiftserverless.CfnRecoveryPointProps(
+                namespace_name="namespaceName"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e9a5d97909b8ba7df9bec47a3d6f5291a9f7bf9f23d404458c7d6838a042515a)
+            check_type(argname="argument namespace_name", value=namespace_name, expected_type=type_hints["namespace_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if namespace_name is not None:
+            self._values["namespace_name"] = namespace_name
+
+    @builtins.property
+    def namespace_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the namespace the recovery point is associated with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshiftserverless-recoverypoint.html#cfn-redshiftserverless-recoverypoint-namespacename
+        '''
+        result = self._values.get("namespace_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRecoveryPointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_redshiftserverless_d9862add.ISnapshotRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnSnapshot(
     _aws_cdk_0cae9daa.CfnResource,
@@ -3737,6 +3977,8 @@ class CfnWorkgroupProps:
 __all__ = [
     "CfnNamespace",
     "CfnNamespaceProps",
+    "CfnRecoveryPoint",
+    "CfnRecoveryPointProps",
     "CfnSnapshot",
     "CfnSnapshotProps",
     "CfnWorkgroup",
@@ -3929,6 +4171,52 @@ def _typecheckingstub__5964a5da555f62a5d9615a6e07cd0d1128cdf904fd5aa3c5be9fd5e53
     redshift_idc_application_arn: typing.Optional[builtins.str] = None,
     snapshot_copy_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnNamespace.SnapshotCopyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2945e0c9020d12c6cac4502a8239479a5f97105cd334dd8fc5ca001a2173e82d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    namespace_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e43e256a44876b455d4fdb598c517a2815e5ae1151c6b5f9cf0f596bde704c9(
+    resource: _aws_redshiftserverless_d9862add.IRecoveryPointRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bb7d69c18c513674f4d526de84271c049ae6da1620b66cf72df5e6b83f90ab92(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__efa807a1dbd303b429daf653a3b3d827de9718c588799497df2315acbe6849a2(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7b71005a34d7562e9dde86925c3fc8fbaa5562d09142faae5e478ee8e22d4b93(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7a8250e3bcebd4a02a42060a1b7721a596d807f7ccc2d18c2ac1d3a1ecf33365(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e9a5d97909b8ba7df9bec47a3d6f5291a9f7bf9f23d404458c7d6838a042515a(
+    *,
+    namespace_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

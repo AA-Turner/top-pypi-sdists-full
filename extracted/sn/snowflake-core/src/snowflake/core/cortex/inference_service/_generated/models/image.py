@@ -48,6 +48,7 @@ class Image(BaseModel):
 
     @field_validator("type")
     def type_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("image"):

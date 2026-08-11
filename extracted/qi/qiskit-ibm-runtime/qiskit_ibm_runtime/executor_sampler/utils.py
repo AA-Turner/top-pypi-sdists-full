@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from qiskit.circuit import QuantumCircuit
     from qiskit.primitives.containers.sampler_pub import SamplerPub
 
-    from ..options_models.twirling_options import TwirlingOptions
+    from ..options_models.twirling import TwirlingOptions
 
 
 def validate_no_boxes(circuit: QuantumCircuit) -> None:
@@ -68,7 +68,7 @@ def validate_meas_type_twirling(meas_type: str | None, enable_measure: bool | No
         )
 
 
-def validate_twirling_option_fileds_are_not_none(options: TwirlingOptions) -> None:
+def validate_twirling_option_fields_are_not_none(options: TwirlingOptions) -> None:
     """Validate that twirling options fields are not ``None``.
 
     Args:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pystac-ext-item-assets
-Version: 1.0.0
+Version: 1.0.1
 Summary: Item Assets extension for PySTAC
 Project-URL: Documentation, https://pystac.readthedocs.io
 Project-URL: Repository, https://github.com/stac-utils/pystac

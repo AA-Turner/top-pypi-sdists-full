@@ -1,9 +1,9 @@
-__version__="4.10.1"
-__copyright__="Copyright (c) 2001 - 2025 The SCons Foundation"
+__version__="4.11.0"
+__copyright__="Copyright (c) 2001 - 2026 The SCons Foundation"
 __developer__="bdbaddog"
-__date__="Sun, 16 Nov 2025 14:18:20 -0700"
+__date__="Mon, 10 Aug 2026 21:23:44 -0700"
 __buildsys__="M1Dog2021"
-__revision__="055b01f429d58b686701a56df863a817c36bb103"
-__build__="055b01f429d58b686701a56df863a817c36bb103"
+__revision__="190853a12d8c2128f29abe849a6a162f0ed9f049"
+__build__="190853a12d8c2128f29abe849a6a162f0ed9f049"
 # make sure compatibility is always in place
 import SCons.compat  # noqa

@@ -24,7 +24,7 @@ from typing import Any
 
 from clanganalyzer import run_command
 from clanganalyzer.arguments import parse_args
-from clanganalyzer.clang import get_arguments, get_version
+from clanganalyzer.clang import ClangCompilationError, get_arguments, get_version
 from clanganalyzer.compilation import Compilation, CompilationDatabase, classify_source
 from clanganalyzer.config import get_disabled_architectures, get_ignored_flags, get_supported_languages
 from clanganalyzer.report import document
@@ -86,8 +86,9 @@ def analyze_build() -> int:
         run_analyzer_parallel(compilations, args)
         # cover report generation and bug counting
         number_of_bugs = document(args)
-        # set exit status as it was requested
-        return number_of_bugs if args.status_bugs else 0
+        # set exit status as it was requested. (do not return the raw bug
+        # count: exit codes wrap modulo 256, so 256 bugs would report clean)
+        return 1 if args.status_bugs and number_of_bugs else 0
 
 
 def analyze_parameters(args: argparse.Namespace) -> dict[str, Any]:
@@ -170,15 +171,15 @@ def run_analyzer_parallel(compilations: Iterable[Compilation], args: argparse.Na
     consts = analyze_parameters(args)
     parameters = (dict(compilation.as_dict(), **consts) for compilation in compilations)
     # when verbose output requested execute sequentially
-    pool = multiprocessing.Pool(
+    with multiprocessing.Pool(
         1 if args.verbose > 2 else None,
         initializer=_pool_initializer,
         initargs=(args.verbose,),
-    )
-    for current in pool.imap_unordered(run, parameters):
-        logging_analyzer_output(current)
-    pool.close()
-    pool.join()
+    ) as pool:
+        for current in pool.imap_unordered(run, parameters):
+            logging_analyzer_output(current)
+        pool.close()
+        pool.join()
 
 
 @contextlib.contextmanager
@@ -309,20 +310,20 @@ def report_failure(opts: dict[str, Any]) -> None:
         cwd = opts["directory"]
         cmd = get_arguments([opts["clang"], "-fsyntax-only", "-E"] + opts["flags"] + [opts["source"], "-o", name], cwd)
         run_command(cmd, cwd=cwd)
-        # write general information about the crash
+        # write general information about the crash. (write "\n" instead of
+        # os.linesep: the text mode handle translates it on windows, while
+        # os.linesep would end up as "\r\r\n".)
         with open(name + ".info.txt", "w") as handle:
-            handle.write(opts["source"] + os.linesep)
-            handle.write(error.title().replace("_", " ") + os.linesep)
-            handle.write(" ".join(cmd) + os.linesep)
-            handle.write(" ".join(platform.uname()) + os.linesep)
+            handle.write(opts["source"] + "\n")
+            handle.write(error.title().replace("_", " ") + "\n")
+            handle.write(" ".join(cmd) + "\n")
+            handle.write(" ".join(platform.uname()) + "\n")
             handle.write(get_version(opts["clang"]))
-            handle.close()
         # write the captured output too
         with open(name + ".stderr.txt", "w") as handle:
             for line in opts["error_output"]:
-                handle.write(line)
-            handle.close()
-    except (OSError, subprocess.CalledProcessError):
+                handle.write(line + "\n")
+    except (OSError, subprocess.CalledProcessError, ClangCompilationError):
         logging.warning("failed to report failure", exc_info=True)
 
 
@@ -350,6 +351,11 @@ def run_analyzer(opts: dict[str, Any], continuation: Callable[[dict[str, Any]], 
     except OSError:
         message = f'failed to execute "{opts["clang"]}"'
         return {"error_output": [message], "exit_code": 127}
+    except ClangCompilationError as ex:
+        # Clang rejected the flags of this entry (e.g. a GCC-only flag in
+        # the compilation database). Report it and let the run continue.
+        logging.warning("analysis failed: %s", ex)
+        return {"error_output": [str(ex)], "exit_code": 1}
     except subprocess.CalledProcessError as ex:
         logging.warning("analysis failed", exc_info=True)
         result = {"error_output": ex.output, "exit_code": ex.returncode}
@@ -458,19 +464,25 @@ def classify_parameters(
     }
 
     # iterate on the compile options
+    # NOTE: next() calls must have a default: a bare StopIteration from a
+    # truncated flag list would escape the pool worker and be mistaken for
+    # normal end of iteration by imap_unordered in the parent process,
+    # silently dropping the remaining results.
     args = iter(opts["flags"])
     for arg in args:
         # take arch flags into a separate basket
         if arg == "-arch":
-            result["arch_list"].append(next(args))
+            arch = next(args, None)
+            if arch is not None:
+                result["arch_list"].append(arch)
         # take language
         elif arg == "-x":
-            result["language"] = next(args)
+            result["language"] = next(args, None)
         # ignore some flags
         elif arg in get_ignored_flags():
             count = get_ignored_flags()[arg]
             for _ in range(count):
-                next(args)
+                next(args, None)
         # we don't care about extra warnings, but we should suppress ones
         # that we don't want to see.
         elif re.match(r"^-W.+", arg) and not re.match(r"^-Wno-.+", arg):

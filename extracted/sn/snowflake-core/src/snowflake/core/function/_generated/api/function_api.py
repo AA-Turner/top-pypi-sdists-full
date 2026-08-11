@@ -1,7 +1,7 @@
 """
 Snowflake Function API.
 
-The Snowflake Function API is a REST API that allows caller to create, execute and drop functions in a Snowflake database.  # noqa: E501
+The Snowflake Function API is a REST API that allows caller to create, execute and drop service functions in a Snowflake database.  # noqa: E501
 
 The version of the OpenAPI document: 0.0.1
 Contact: support@snowflake.com
@@ -317,9 +317,9 @@ class FunctionApi:
         ] = None,
         **kwargs,
     ) -> Union[SuccessResponse, Future[SuccessResponse]]:
-        r"""Create a Function  # noqa: E501
+        r"""Create a service function.  # noqa: E501
 
-        Create a function.  # noqa: E501
+        Create a service function.  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -378,9 +378,9 @@ class FunctionApi:
         ] = None,
         **kwargs,
     ):
-        r"""Create a Function  # noqa: E501
+        r"""Create a service function.  # noqa: E501
 
-        Create a function.  # noqa: E501
+        Create a service function.  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -612,9 +612,9 @@ class FunctionApi:
         function_argument: Optional[List[FunctionArgument]] = None,
         **kwargs,
     ) -> Union[object, Future[object]]:
-        r"""Execute a Function.  # noqa: E501
+        r"""Execute a service function.  # noqa: E501
 
-        Execute a Function.  # noqa: E501
+        Execute a service function.  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -668,9 +668,9 @@ class FunctionApi:
         function_argument: Optional[List[FunctionArgument]] = None,
         **kwargs,
     ):
-        r"""Execute a Function.  # noqa: E501
+        r"""Execute a service function.  # noqa: E501
 
-        Execute a Function.  # noqa: E501
+        Execute a service function.  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -896,9 +896,9 @@ class FunctionApi:
         name_with_args: Annotated[StrictStr, Field(description="Function's name with Args")],
         **kwargs,
     ) -> Union[Function, Future[Function]]:
-        r"""Fetch a Function.  # noqa: E501
+        r"""Fetch a service function.  # noqa: E501
 
-        Fetch a Function using the describe command output.  # noqa: E501
+        Fetch a service function.  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -949,9 +949,9 @@ class FunctionApi:
         name_with_args: Annotated[StrictStr, Field(description="Function's name with Args")],
         **kwargs,
     ):
-        r"""Fetch a Function.  # noqa: E501
+        r"""Fetch a service function.  # noqa: E501
 
-        Fetch a Function using the describe command output.  # noqa: E501
+        Fetch a service function.  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -1187,9 +1187,9 @@ class FunctionApi:
         ] = None,
         **kwargs,
     ) -> Union[Iterable[TagAssignment], Future[Iterable[TagAssignment]]]:
-        r"""Get the tag assignments for a function.  # noqa: E501
+        r"""Get the tag assignments for a service function.  # noqa: E501
 
-        Returns all tags assigned to a function. This operation requires an active warehouse.  # noqa: E501
+        Returns all tags assigned to a service function. This operation requires an active warehouse.  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -1248,9 +1248,9 @@ class FunctionApi:
         ] = None,
         **kwargs,
     ):
-        r"""Get the tag assignments for a function.  # noqa: E501
+        r"""Get the tag assignments for a service function.  # noqa: E501
 
-        Returns all tags assigned to a function. This operation requires an active warehouse.  # noqa: E501
+        Returns all tags assigned to a service function. This operation requires an active warehouse.  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -1492,9 +1492,9 @@ class FunctionApi:
         ] = None,
         **kwargs,
     ) -> Union[Iterable[Function], Future[Iterable[Function]]]:
-        r"""List Functions  # noqa: E501
+        r"""List service functions.  # noqa: E501
 
-        Lists the user functions under the database and schema.  # noqa: E501
+        Lists service functions under the database and schema.  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -1550,9 +1550,9 @@ class FunctionApi:
         ] = None,
         **kwargs,
     ):
-        r"""List Functions  # noqa: E501
+        r"""List service functions.  # noqa: E501
 
-        Lists the user functions under the database and schema.  # noqa: E501
+        Lists service functions under the database and schema.  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -1792,9 +1792,9 @@ class FunctionApi:
         ] = None,
         **kwargs,
     ) -> Union[SuccessResponse, Future[SuccessResponse]]:
-        r"""Set tags on a function.  # noqa: E501
+        r"""Set tags on a service function.  # noqa: E501
 
-        Set tags on a function.  # noqa: E501
+        Set tags on a service function.  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -1858,9 +1858,9 @@ class FunctionApi:
         ] = None,
         **kwargs,
     ):
-        r"""Set tags on a function.  # noqa: E501
+        r"""Set tags on a service function.  # noqa: E501
 
-        Set tags on a function.  # noqa: E501
+        Set tags on a service function.  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -2122,9 +2122,9 @@ class FunctionApi:
         ] = None,
         **kwargs,
     ) -> Union[SuccessResponse, Future[SuccessResponse]]:
-        r"""Unset tags from a function.  # noqa: E501
+        r"""Unset tags from a service function.  # noqa: E501
 
-        Unset tags from a function.  # noqa: E501
+        Unset tags from a service function.  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -2188,9 +2188,9 @@ class FunctionApi:
         ] = None,
         **kwargs,
     ):
-        r"""Unset tags from a function.  # noqa: E501
+        r"""Unset tags from a service function.  # noqa: E501
 
-        Unset tags from a function.  # noqa: E501
+        Unset tags from a service function.  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -2448,9 +2448,9 @@ class FunctionApi:
         ] = None,
         **kwargs,
     ) -> Union[SuccessResponse, Future[SuccessResponse]]:
-        r"""Delete a function  # noqa: E501
+        r"""Delete a service function.  # noqa: E501
 
-        Delete a function with the given name and args.  # noqa: E501
+        Delete a service function with the given name and args.  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
@@ -2509,9 +2509,9 @@ class FunctionApi:
         ] = None,
         **kwargs,
     ):
-        r"""Delete a function  # noqa: E501
+        r"""Delete a service function.  # noqa: E501
 
-        Delete a function with the given name and args.  # noqa: E501
+        Delete a service function with the given name and args.  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True

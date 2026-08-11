@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.bedrock-kb-retrieval-mcp-server
-Version: 1.0.24
+Version: 1.0.25
 Summary: An AWS Labs Model Context Protocol (MCP) server for Bedrock Knowledge Base Retrieval
 Project-URL: Homepage, https://awslabs.github.io/mcp/
 Project-URL: Documentation, https://awslabs.github.io/mcp/servers/bedrock-kb-retrieval-mcp-server/

@@ -26,6 +26,7 @@ from anyscale.commands.list_util import (
     display_list,
     MAX_PAGE_SIZE,
     NON_INTERACTIVE_DEFAULT_MAX_ITEMS,
+    resolve_interactive,
     validate_page_size,
 )
 from anyscale.commands.output_format import (
@@ -34,6 +35,7 @@ from anyscale.commands.output_format import (
     OutputFormat,
     print_output,
     resolve_output_format,
+    warn_deprecated_flag,
 )
 from anyscale.commands.util import (
     AnyscaleCommand,
@@ -105,8 +107,13 @@ VIEW_COLUMNS: Dict[ViewOption, List[JobQueueStatusKeys]] = {
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to [TEXT, JSON] when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="List job queues.",
@@ -114,11 +121,12 @@ VIEW_COLUMNS: Dict[ViewOption, List[JobQueueStatusKeys]] = {
             output_raw=command_examples.JOB_QUEUE_LIST,
             output_instance=[
                 {
-                    "id": "jq_h8fcze2qkr8wttuuvapi1hvyuc",
-                    "name": "queue_3",
+                    "name": "my-queue",
+                    "id": "jq_abc123",
                     "state": "ACTIVE",
-                    "max_concurrency": "3",
-                    "idle_timeout_s": "5000",
+                    "creator_email": "someone@myorg.com",
+                    "project_id": "prj_abc123",
+                    "created_at": "2026-01-01 00:00:00",
                 }
             ],
         ),
@@ -198,7 +206,6 @@ VIEW_COLUMNS: Dict[ViewOption, List[JobQueueStatusKeys]] = {
     type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 @click.option(
@@ -228,7 +235,11 @@ def list_job_queues(  # noqa: PLR0913
     include_archived: bool,
 ) -> None:
     """List and page job queues according to filters and view."""
+    if json_output:
+        warn_deprecated_flag("--json", "-o json")
     json_output = json_output or output_format == OutputFormat.JSON.value
+
+    interactive = resolve_interactive(interactive, json_output)
 
     if max_items and interactive:
         raise click.UsageError("--max-items only in non-interactive mode")
@@ -304,20 +315,35 @@ def list_job_queues(  # noqa: PLR0913
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="Raise the concurrency limit of a job queue.",
-            command="anyscale job-queue update --id jq_h8fcze2qkr8wttuuvapi1hvyuc --max-concurrency 5",
+            command="anyscale job-queue update --id jq_abc123 --max-concurrency 5",
             output_raw=command_examples.JOB_QUEUE_UPDATE,
             output_instance={
-                "id": "jq_h8fcze2qkr8wttuuvapi1hvyuc",
-                "name": "queue_3",
+                "id": "jq_abc123",
                 "state": "ACTIVE",
-                "execution_mode": "PRIORITY",
+                "name": "my-queue",
+                "creator_email": "someone@myorg.com",
+                "project_id": "prj_abc123",
+                "created_at": "2026-01-01 00:00:00",
                 "max_concurrency": "5",
                 "idle_timeout_s": "5000",
+                "user_provided_id": "my-queue",
+                "execution_mode": "PRIORITY",
+                "creator_id": "usr_abc123",
+                "cloud_id": "cld_abc123",
+                "total_jobs": "6",
+                "successful_jobs": "6",
+                "failed_jobs": "0",
+                "active_jobs": "0",
             },
         ),
     ],
@@ -342,10 +368,11 @@ def list_job_queues(  # noqa: PLR0913
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 @click.option(
@@ -362,6 +389,8 @@ def update_job_queue(
     json_output: bool,
 ) -> None:
     """Update the max_concurrency or idle_timeout_s of a job queue."""
+    if json_output:
+        warn_deprecated_flag("--json", "-o json")
     if not job_queue_id and not name:
         raise click.ClickException("Provide either --id or --name.")
     if max_concurrency is None and idle_timeout_s is None:
@@ -481,8 +510,18 @@ def remove_tags(
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[
+        OutputFormat.TEXT,
+        OutputFormat.JSON,
+        OutputFormat.YAML,
+        OutputFormat.TABLE,
+    ],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="List the tags of a job queue by name.",
@@ -510,7 +549,6 @@ def remove_tags(
     type=click.Choice([f.value for f in OutputFormat]),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 @click.option("--json", "json_output", is_flag=True, default=False, help="JSON output.")
@@ -520,6 +558,8 @@ def list_tags(
     output_format: str,
     json_output: bool,
 ) -> None:
+    if json_output:
+        warn_deprecated_flag("--json", "-o json")
     if not job_queue_id and not name:
         raise click.ClickException("Provide either --id or --name.")
     tag_map = anyscale.job_queue.list_tags(job_queue_id=job_queue_id, name=name)
@@ -538,20 +578,35 @@ def list_tags(
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="Show the details of a job queue by ID.",
-            command="anyscale job-queue status --id jq_h8fcze2qkr8wttuuvapi1hvyuc",
+            command="anyscale job-queue status --id jq_abc123",
             output_raw=command_examples.JOB_QUEUE_STATUS,
             output_instance={
-                "id": "jq_h8fcze2qkr8wttuuvapi1hvyuc",
-                "name": "queue_3",
+                "id": "jq_abc123",
                 "state": "ACTIVE",
-                "execution_mode": "PRIORITY",
+                "name": "my-queue",
+                "creator_email": "someone@myorg.com",
+                "project_id": "prj_abc123",
+                "created_at": "2026-01-01 00:00:00",
                 "max_concurrency": "3",
                 "idle_timeout_s": "5000",
+                "user_provided_id": "my-queue",
+                "execution_mode": "PRIORITY",
+                "creator_id": "usr_abc123",
+                "cloud_id": "cld_abc123",
+                "total_jobs": "6",
+                "successful_jobs": "6",
+                "failed_jobs": "0",
+                "active_jobs": "0",
             },
         ),
     ],
@@ -581,10 +636,11 @@ def list_tags(
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 @click.option(
@@ -607,6 +663,8 @@ def status(
     include_archived: bool,
 ) -> None:
     """Fetch and display a single job queue's details."""
+    if json_output:
+        warn_deprecated_flag("--json", "-o json")
     if not job_queue_id and not name:
         raise click.ClickException("Provide either --id or --name.")
     if job_queue_id and (project or cloud):

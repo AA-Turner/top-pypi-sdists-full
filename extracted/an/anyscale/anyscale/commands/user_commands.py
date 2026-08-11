@@ -19,6 +19,7 @@ from anyscale.commands.list_util import (
     display_list,
     MAX_PAGE_SIZE,
     NON_INTERACTIVE_DEFAULT_MAX_ITEMS,
+    resolve_interactive,
     validate_page_size,
 )
 from anyscale.commands.output_format import (
@@ -26,6 +27,7 @@ from anyscale.commands.output_format import (
     OUTPUT_FLAG_LONG,
     OutputFormat,
     print_output,
+    warn_deprecated_flag,
 )
 from anyscale.commands.util import AnyscaleCommand
 from anyscale.user.models import AdminCreateUser, AdminCreateUsers, User
@@ -110,8 +112,13 @@ def admin_batch_create(users_file: str,) -> None:
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to [TEXT, JSON] when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="List the users in your organization.",
@@ -121,7 +128,8 @@ def admin_batch_create(users_file: str,) -> None:
                 {
                     "email": "someone@myorg.com",
                     "name": "Some One",
-                    "user_id": "usr_we8x7d7u8hq8mj2488ed9x47n6",
+                    "user_id": "usr_abc123",
+                    "created_at": "2026-01-01T00:00:00+00:00",
                     "permission_level": "collaborator",
                 }
             ],
@@ -176,7 +184,6 @@ def admin_batch_create(users_file: str,) -> None:
     type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 @click.option(
@@ -202,7 +209,11 @@ def list_users(  # noqa: A001, PLR0913
     interactive: bool,
 ) -> None:
     """List users within the organization."""
+    if json_output:
+        warn_deprecated_flag("--json", "-o json")
     json_output = json_output or output_format == OutputFormat.JSON.value
+
+    interactive = resolve_interactive(interactive, json_output)
 
     if max_items is not None and interactive:
         raise click.UsageError("--max-items only allowed with --no-interactive")
@@ -272,8 +283,13 @@ def list_users(  # noqa: A001, PLR0913
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="Get details for a user by email.",
@@ -283,7 +299,8 @@ def list_users(  # noqa: A001, PLR0913
             output_instance={
                 "email": "someone@myorg.com",
                 "name": "Some One",
-                "user_id": "usr_we8x7d7u8hq8mj2488ed9x47n6",
+                "user_id": "usr_abc123",
+                "created_at": "2026-01-01T00:00:00+00:00",
                 "permission_level": "collaborator",
             },
         ),
@@ -322,10 +339,11 @@ def list_users(  # noqa: A001, PLR0913
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 @click.option(
@@ -343,6 +361,8 @@ def get_user(  # noqa: A001, PLR0913
     json_output: bool,
 ) -> None:
     """Retrieve details for a single user by email or ID."""
+    if json_output:
+        warn_deprecated_flag("--json", "-o json")
     if email is None and name is None:
         raise click.UsageError("Provide --email or --name.")
 
@@ -373,14 +393,14 @@ def get_user(  # noqa: A001, PLR0913
     except Exception as exc:  # noqa: BLE001
         raise click.ClickException(f"Failed to get user: {exc}")
 
+    if output_format != OutputFormat.TEXT.value:
+        print_output(user, output_format)
+        return
+
     if json_output:
         console.print_json(
             json=json_dumps(user.to_dict(), indent=2, cls=AnyscaleJSONEncoder)
         )
-        return
-
-    if output_format != OutputFormat.TEXT.value:
-        print_output(user, output_format)
         return
 
     table = _create_user_list_table(show_header=True)
@@ -399,33 +419,42 @@ def get_user(  # noqa: A001, PLR0913
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
+    option_docs={
+        "--output": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use --output-file instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="List all users and their effective permissions.",
             command="anyscale user list-permissions",
             output_raw=command_examples.USER_LIST_PERMISSIONS_EXAMPLE,
             output_instance={
-                "organization_id": "org_p72",
-                "org_owners": [{"user_email": "admin1@p72.com", "user_id": "usr_aaa"}],
+                "organization_id": "org_abc123",
+                "org_owners": [
+                    {"user_email": "admin@myorg.com", "user_id": "usr_admin123"}
+                ],
                 "users": [
                     {
+                        "user_id": "usr_abc123",
+                        "user_email": "someone@myorg.com",
+                        "is_service_account": False,
                         "clouds": [
                             {
-                                "cloud_id": "cld_111",
-                                "cloud_name": "prod-cloud",
+                                "cloud_id": "cld_abc123",
+                                "cloud_name": "my-cloud",
                                 "role": "collaborator",
                                 "projects": [
                                     {
-                                        "project_id": "prj_111",
-                                        "project_name": "prod-project",
+                                        "project_id": "prj_abc123",
+                                        "project_name": "my-project",
                                         "role": "readonly",
                                     }
                                 ],
                             }
                         ],
-                        "user_email": "alice@p72.com",
-                        "user_id": "usr_abc",
                     }
                 ],
             },
@@ -444,6 +473,13 @@ def get_user(  # noqa: A001, PLR0913
     help="Filter to a specific user ID. If not provided, lists permissions for all users.",
 )
 @click.option(
+    "--output-file",
+    "output_file",
+    type=click.Path(),
+    default=None,
+    help="Write JSON output to a file instead of stdout.",
+)
+@click.option(
     "--output",
     "-o",
     type=click.Path(),
@@ -453,14 +489,18 @@ def get_user(  # noqa: A001, PLR0913
 @click.option(
     "--output-format",
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
-    help="Output format for the result. Ignored when --output is provided.",
+    help="Output format for the result. Ignored when writing to a file.",
 )
 def list_permissions(
-    user_id: Optional[str], output: Optional[str], output_format: str
+    user_id: Optional[str],
+    output_file: Optional[str],
+    output: Optional[str],
+    output_format: str,
 ) -> None:
     """
     List users and their effective cloud/project permissions across the organization.
@@ -481,9 +521,12 @@ def list_permissions(
         json_output = json.dumps(result, indent=2, sort_keys=True)
 
         if output:
-            with open(output, "w") as f:
+            warn_deprecated_flag("-o/--output", "--output-file")
+        file_target = output_file or output
+        if file_target:
+            with open(file_target, "w") as f:
                 f.write(json_output)
-            log.info(f"Results written to {output}")
+            log.info(f"Results written to {file_target}")
         elif output_format != OutputFormat.TEXT.value:
             print_output(result, output_format)
         else:

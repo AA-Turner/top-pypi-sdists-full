@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unsloth
-Version: 2026.8.10
+Version: 2026.8.12
 Summary: 2-5X faster training, reinforcement learning & finetuning
 Author: Unsloth AI team
 Author-email: info@unsloth.ai
@@ -101,7 +101,7 @@ Requires-Dist: pydantic; extra == "huggingface"
 Requires-Dist: pyyaml; extra == "huggingface"
 Requires-Dist: nest-asyncio; extra == "huggingface"
 Provides-Extra: huggingfacenotorch
-Requires-Dist: unsloth_zoo>=2026.8.7; extra == "huggingfacenotorch"
+Requires-Dist: unsloth_zoo>=2026.8.9; extra == "huggingfacenotorch"
 Requires-Dist: wheel>=0.42.0; extra == "huggingfacenotorch"
 Requires-Dist: packaging; extra == "huggingfacenotorch"
 Requires-Dist: numpy; extra == "huggingfacenotorch"
@@ -124,7 +124,7 @@ Provides-Extra: amd
 Requires-Dist: unsloth[huggingfacenotorch]; extra == "amd"
 Requires-Dist: bitsandbytes>=0.50.0; ("linux" in sys_platform and (platform_machine == "AMD64" or platform_machine == "x86_64" or platform_machine == "aarch64")) and extra == "amd"
 Requires-Dist: bitsandbytes>=0.50.0; (sys_platform == "win32" and (platform_machine == "AMD64" or platform_machine == "x86_64")) and extra == "amd"
-Requires-Dist: unsloth_zoo>=2026.8.7; extra == "amd"
+Requires-Dist: unsloth_zoo>=2026.8.9; extra == "amd"
 Requires-Dist: torchvision; extra == "amd"
 Requires-Dist: unsloth[triton]; extra == "amd"
 Provides-Extra: windows
@@ -417,7 +417,7 @@ Requires-Dist: bitsandbytes!=0.46.0,!=0.48.0,>=0.45.5; extra == "colab-ampere-to
 Requires-Dist: unsloth[cu121onlytorch220]; extra == "colab-ampere-torch220"
 Requires-Dist: unsloth[flashattention]; extra == "colab-ampere-torch220"
 Provides-Extra: colab-new
-Requires-Dist: unsloth_zoo>=2026.8.7; extra == "colab-new"
+Requires-Dist: unsloth_zoo>=2026.8.9; extra == "colab-new"
 Requires-Dist: packaging; extra == "colab-new"
 Requires-Dist: tyro; extra == "colab-new"
 Requires-Dist: transformers!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.0,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.5.0,>=4.51.3; extra == "colab-new"
@@ -653,16 +653,45 @@ Unsloth Studio lets you run and train models locally.
 
 <p align="center">
   <a href="#-features">Features</a> •
-  <a href="#-unsloth-news">News</a> •
+  <a href="https://unsloth.ai/docs/new/changelog">News</a> •
   <a href="#-install">Quickstart</a> •
   <a href="#-free-notebooks">Notebooks</a> •
   <a href="https://unsloth.ai/docs">Documentation</a>
 </p>
-<br>
-<a href="https://unsloth.ai/docs/new/studio">
-<img alt="unsloth studio ui homepage" src="https://github.com/user-attachments/assets/53ae17a9-d975-44ef-9686-efb4ebd0454d" style="max-width: 100%; margin-bottom: 0;"></a>
 
 ## ⚡ Get started
+
+Download the native Unsloth desktop app for your operating system:
+<table>
+  <tr>
+    <td><b>Platform</b></td>
+    <td><b>Link</b></td>
+  </tr>
+  <tr>
+    <td><b>Windows</b></td>
+    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.60-beta/Unsloth-Desktop-0_1_60_beta-Windows.exe'>Download</a></td>
+  </tr>
+  <tr>
+    <td><b>macOS</b></td>
+    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.60-beta/Unsloth-Desktop-0_1_60_beta-MacOS.dmg'>Download</a></td>
+  </tr>
+  <tr>
+    <td><b>Linux (deb)</b></td>
+    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.60-beta/Unsloth-Desktop-0_1_60_beta-Linux.deb'>Download</a></td>
+  </tr>
+  <tr>
+    <td><b>Linux (AppImage)</b></td>
+    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.60-beta/Unsloth-Desktop-0_1_60_beta-Linux.AppImage'>Download</a></td>
+  </tr>
+  <tr>
+    <td><b>Linux (Arm64)</b></td>
+    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.60-beta/Unsloth-Desktop-0_1_60_beta-ARM64.app.tar.gz'>Download</a></td>
+  </tr>
+</table>
+
+Download from [Unsloth](https://unsloth.ai/) or [GitHub Releases](https://github.com/unslothai/unsloth/releases).
+
+Or if you prefer to install manually:
 
 #### macOS, Linux, WSL:
 ```bash

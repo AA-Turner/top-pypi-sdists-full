@@ -5,7 +5,7 @@ use tombi_comment_directive::value::{StringCommonFormatRules, StringCommonLintRu
 use tombi_document_tree::{LikeString, ValueImpl};
 use tombi_future::{BoxFuture, Boxable};
 use tombi_regex::Regex;
-use tombi_schema_store::ValueSchema;
+use tombi_schema_store::SchemaView;
 use tombi_severity_level::{SeverityLevelDefaultError, SeverityLevelDefaultWarn};
 use tombi_x_keyword::StringFormat;
 use unicode_segmentation::UnicodeSegmentation;
@@ -28,7 +28,7 @@ impl Validate for tombi_document_tree::String {
         accessors: &'a [tombi_schema_store::Accessor],
         current_schema: Option<&'a tombi_schema_store::CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
-    ) -> BoxFuture<'b, Result<crate::EvaluatedLocations, crate::Error>> {
+    ) -> BoxFuture<'b, Result<crate::Valid, crate::Invalid>> {
         validate_like_string(self, accessors, current_schema, schema_context, false)
     }
 }
@@ -39,7 +39,7 @@ impl Validate for tombi_document_tree::Key {
         accessors: &'a [tombi_schema_store::Accessor],
         current_schema: Option<&'a tombi_schema_store::CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
-    ) -> BoxFuture<'b, Result<crate::EvaluatedLocations, crate::Error>> {
+    ) -> BoxFuture<'b, Result<crate::Valid, crate::Invalid>> {
         validate_like_string(self, accessors, current_schema, schema_context, true)
     }
 }
@@ -50,11 +50,26 @@ fn validate_like_string<'a: 'b, 'b, T>(
     current_schema: Option<&'a tombi_schema_store::CurrentSchema<'a>>,
     schema_context: &'a tombi_schema_store::SchemaContext,
     enable_key_empty_validation: bool,
-) -> BoxFuture<'b, Result<crate::EvaluatedLocations, crate::Error>>
+) -> BoxFuture<'b, Result<crate::Valid, crate::Invalid>>
 where
     T: Validate + LikeString + ValueImpl + ToString + Sync + Send + std::fmt::Debug,
 {
     async move {
+        if let Some(projected_schema) = crate::validate::project_current_schema_for_value(
+            string_value,
+            current_schema,
+            schema_context,
+        ) {
+            return validate_like_string(
+                string_value,
+                accessors,
+                Some(&projected_schema),
+                schema_context,
+                enable_key_empty_validation,
+            )
+            .await;
+        }
+
         let comment_directives = string_value
             .comment_directives()
             .map(|directives| directives.cloned().collect_vec());
@@ -88,14 +103,14 @@ where
             };
 
         let result = if let Some(current_schema) = current_schema {
-            match current_schema.value_schema.as_ref() {
-                ValueSchema::String(string_schema) => {
+            match current_schema.schema_view.as_ref() {
+                SchemaView::String(string_schema) => {
                     let key_empty_result = if enable_key_empty_validation
                         && should_validate_key_empty(Some(current_schema))
                     {
                         validate_key_empty_rule(string_value, key_rules.as_ref())
                     } else {
-                        Ok(crate::EvaluatedLocations::new())
+                        Ok(crate::Valid::new())
                     };
                     let format_assertion = schema_context
                         .root_schema
@@ -118,7 +133,7 @@ where
                         .await,
                     )
                 }
-                ValueSchema::OneOf(one_of_schema) => {
+                SchemaView::OneOf(one_of_schema) => {
                     let result = validate_one_of(
                         string_value,
                         accessors,
@@ -140,7 +155,7 @@ where
                         result
                     }
                 }
-                ValueSchema::AnyOf(any_of_schema) => {
+                SchemaView::AnyOf(any_of_schema) => {
                     let result = validate_any_of(
                         string_value,
                         accessors,
@@ -162,7 +177,7 @@ where
                         result
                     }
                 }
-                ValueSchema::AllOf(all_of_schema) => {
+                SchemaView::AllOf(all_of_schema) => {
                     let result = validate_all_of(
                         string_value,
                         accessors,
@@ -184,13 +199,13 @@ where
                         result
                     }
                 }
-                ValueSchema::Null => return Ok(crate::EvaluatedLocations::new()),
-                ValueSchema::Anything(_) => handle_anything_schema(string_value),
-                ValueSchema::Nothing(_) => handle_nothing_schema(string_value),
+                SchemaView::Null => return Ok(crate::Valid::new()),
+                SchemaView::Anything(_) => handle_anything_schema(string_value),
+                SchemaView::Nothing(_) => handle_nothing_schema(string_value),
                 // When the schema expects a TOML date/time type but the value is a string,
                 // check if x-tombi-string-formats includes the corresponding format.
                 // If so, validate the string against the format instead of reporting type mismatch.
-                ValueSchema::OffsetDateTime(_) => validate_string_as_date_format(
+                SchemaView::OffsetDateTime(_) => validate_string_as_date_format(
                     string_value,
                     StringFormat::DateTime,
                     tombi_schema_store::ValueType::OffsetDateTime,
@@ -198,7 +213,7 @@ where
                     schema_context,
                     lint_rules.as_ref(),
                 ),
-                ValueSchema::LocalDateTime(_) => validate_string_as_date_format(
+                SchemaView::LocalDateTime(_) => validate_string_as_date_format(
                     string_value,
                     StringFormat::DateTimeLocal,
                     tombi_schema_store::ValueType::LocalDateTime,
@@ -206,7 +221,7 @@ where
                     schema_context,
                     lint_rules.as_ref(),
                 ),
-                ValueSchema::LocalDate(_) => validate_string_as_date_format(
+                SchemaView::LocalDate(_) => validate_string_as_date_format(
                     string_value,
                     StringFormat::Date,
                     tombi_schema_store::ValueType::LocalDate,
@@ -214,7 +229,7 @@ where
                     schema_context,
                     lint_rules.as_ref(),
                 ),
-                ValueSchema::LocalTime(_) => validate_string_as_date_format(
+                SchemaView::LocalTime(_) => validate_string_as_date_format(
                     string_value,
                     StringFormat::TimeLocal,
                     tombi_schema_store::ValueType::LocalTime,
@@ -222,17 +237,22 @@ where
                     schema_context,
                     lint_rules.as_ref(),
                 ),
-                value_schema => handle_type_mismatch(
-                    value_schema.value_type().await,
-                    string_value.value_type(),
-                    ValueImpl::range(string_value),
-                    lint_rules.as_ref().map(|rules| &rules.common),
-                ),
+                _ => {
+                    crate::validate::validate_mismatched_schema(
+                        string_value,
+                        accessors,
+                        current_schema,
+                        schema_context,
+                        comment_directives.as_deref(),
+                        lint_rules.as_ref().map(|rules| &rules.common),
+                    )
+                    .await
+                }
             }
         } else if enable_key_empty_validation && should_validate_key_empty(None) {
             validate_key_empty_rule(string_value, key_rules.as_ref())
         } else {
-            Ok(crate::EvaluatedLocations::new())
+            Ok(crate::Valid::new())
         };
 
         match result {
@@ -260,8 +280,8 @@ fn should_validate_key_empty(
     current_schema: Option<&tombi_schema_store::CurrentSchema<'_>>,
 ) -> bool {
     !matches!(
-        current_schema.map(|schema| schema.value_schema.as_ref()),
-        Some(ValueSchema::String(string_schema)) if string_schema.min_length == Some(0)
+        current_schema.map(|schema| schema.schema_view.as_ref()),
+        Some(SchemaView::String(string_schema)) if string_schema.min_length == Some(0)
     )
 }
 
@@ -269,12 +289,12 @@ fn should_validate_key_empty(
 fn validate_key_empty_rule<T>(
     string_value: &T,
     key_rules: Option<&KeyLinkRules>,
-) -> Result<crate::EvaluatedLocations, crate::Error>
+) -> Result<crate::Valid, crate::Invalid>
 where
     T: LikeString + ValueImpl,
 {
     if !string_value.value().is_empty() {
-        return Ok(crate::EvaluatedLocations::new());
+        return Ok(crate::Valid::new());
     }
 
     let level = key_rules
@@ -300,7 +320,7 @@ async fn validate_string<T>(
     comment_directives: Option<&[TombiValueCommentDirective]>,
     format_assertion: bool,
     lint_rules: Option<&StringCommonLintRules>,
-) -> Result<crate::EvaluatedLocations, crate::Error>
+) -> Result<crate::Valid, crate::Invalid>
 where
     T: LikeString + ValueImpl + ToString + Validate + Sync + Send + std::fmt::Debug,
 {
@@ -372,33 +392,38 @@ pub(crate) fn validate_raw_string<'a>(
     format_assertion: bool,
     lint_rules: Option<&StringCommonLintRules>,
     comment_directives: Option<impl IntoIterator<Item = &'a TombiValueCommentDirective> + 'a>,
-) -> Result<crate::EvaluatedLocations, crate::Error> {
+) -> Result<crate::Valid, crate::Invalid> {
     let mut diagnostics = vec![];
+    let mut assertion_failed = false;
+    let mut match_evidence = Box::<crate::MatchEvidence>::default();
 
     let comment_directives =
         comment_directives.map(|directives| directives.into_iter().cloned().collect_vec());
 
-    if let Some(const_value) = &string_schema.const_value
-        && value != const_value.as_str()
-    {
-        let level = lint_rules
-            .map(|rules| &rules.common)
-            .and_then(|rules| {
-                rules
-                    .const_value
-                    .as_ref()
-                    .map(SeverityLevelDefaultError::from)
-            })
-            .unwrap_or_default();
+    if let Some(const_value) = &string_schema.const_value {
+        let matched = value == const_value.as_str();
+        match_evidence.mark_root_value_assertion(matched, true);
+        if !matched {
+            assertion_failed = true;
+            let level = lint_rules
+                .map(|rules| &rules.common)
+                .and_then(|rules| {
+                    rules
+                        .const_value
+                        .as_ref()
+                        .map(SeverityLevelDefaultError::from)
+                })
+                .unwrap_or_default();
 
-        crate::Diagnostic {
-            kind: Box::new(crate::DiagnosticKind::Const {
-                expected: format!("\"{const_value}\""),
-                actual: display_value.to_string(),
-            }),
-            range,
+            crate::Diagnostic {
+                kind: Box::new(crate::DiagnosticKind::Const {
+                    expected: format!("\"{const_value}\""),
+                    actual: display_value.to_string(),
+                }),
+                range,
+            }
+            .push_diagnostic_with_level(level, &mut diagnostics);
         }
-        .push_diagnostic_with_level(level, &mut diagnostics);
     } else if lint_rules
         .and_then(|rules| rules.common.const_value.as_ref())
         .and_then(|rules| rules.disabled)
@@ -412,22 +437,25 @@ pub(crate) fn validate_raw_string<'a>(
         );
     }
 
-    if let Some(r#enum) = &string_schema.r#enum
-        && !r#enum.iter().any(|item| item == value)
-    {
-        let level = lint_rules
-            .map(|rules| &rules.common)
-            .and_then(|rules| rules.r#enum().map(SeverityLevelDefaultError::from))
-            .unwrap_or_default();
+    if let Some(r#enum) = &string_schema.r#enum {
+        let matched = r#enum.iter().any(|item| item == value);
+        match_evidence.mark_root_value_assertion(matched, r#enum.len() == 1);
+        if !matched {
+            assertion_failed = true;
+            let level = lint_rules
+                .map(|rules| &rules.common)
+                .and_then(|rules| rules.r#enum().map(SeverityLevelDefaultError::from))
+                .unwrap_or_default();
 
-        crate::Diagnostic {
-            kind: Box::new(crate::DiagnosticKind::Enum {
-                expected: r#enum.iter().map(|s| format!("\"{s}\"")).collect(),
-                actual: display_value.to_string(),
-            }),
-            range,
+            crate::Diagnostic {
+                kind: Box::new(crate::DiagnosticKind::Enum {
+                    expected: r#enum.iter().map(|s| format!("\"{s}\"")).collect(),
+                    actual: display_value.to_string(),
+                }),
+                range,
+            }
+            .push_diagnostic_with_level(level, &mut diagnostics);
         }
-        .push_diagnostic_with_level(level, &mut diagnostics);
     } else if lint_rules
         .and_then(|rules| rules.common.r#enum())
         .and_then(|rules| rules.disabled)
@@ -596,10 +624,20 @@ pub(crate) fn validate_raw_string<'a>(
         );
     }
 
-    if diagnostics.is_empty() {
-        Ok(crate::EvaluatedLocations::new())
+    assertion_failed |= diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.level() == tombi_diagnostic::Level::ERROR);
+    if diagnostics.is_empty() && !assertion_failed {
+        let mut valid = crate::Valid::new();
+        valid.match_evidence = match_evidence;
+        Ok(valid)
     } else {
-        Err(diagnostics.into())
+        Err(crate::Invalid {
+            assertion_failed,
+            match_evidence,
+            diagnostics,
+            local_evaluated_locations: Default::default(),
+        })
     }
 }
 
@@ -614,7 +652,7 @@ fn validate_string_as_date_format(
     validate_fn: fn(&str) -> bool,
     schema_context: &tombi_schema_store::SchemaContext,
     lint_rules: Option<&StringCommonLintRules>,
-) -> Result<crate::EvaluatedLocations, crate::Error> {
+) -> Result<crate::Valid, crate::Invalid> {
     if !schema_context.has_string_format(string_format) {
         return handle_type_mismatch(
             expected_value_type,
@@ -625,7 +663,7 @@ fn validate_string_as_date_format(
     }
 
     if validate_fn(string_value.value()) {
-        Ok(crate::EvaluatedLocations::new())
+        Ok(crate::Valid::new())
     } else {
         let level = lint_rules
             .map(|rules| &rules.value)

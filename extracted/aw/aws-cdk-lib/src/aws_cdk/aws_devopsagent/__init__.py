@@ -3803,6 +3803,7 @@ class CfnPrivateConnection(
                     vpc_id="vpcId",
         
                     # the properties below are optional
+                    dns_resolution="dnsResolution",
                     ip_address_type="ipAddressType",
                     ipv4_addresses_per_eni=123,
                     port_ranges=["portRanges"],
@@ -4057,6 +4058,7 @@ class CfnPrivateConnection(
                         vpc_id="vpcId",
                 
                         # the properties below are optional
+                        dns_resolution="dnsResolution",
                         ip_address_type="ipAddressType",
                         ipv4_addresses_per_eni=123,
                         port_ranges=["portRanges"],
@@ -4166,6 +4168,7 @@ class CfnPrivateConnection(
         name_mapping={
             "host_address": "hostAddress",
             "vpc_id": "vpcId",
+            "dns_resolution": "dnsResolution",
             "ip_address_type": "ipAddressType",
             "ipv4_addresses_per_eni": "ipv4AddressesPerEni",
             "port_ranges": "portRanges",
@@ -4179,6 +4182,7 @@ class CfnPrivateConnection(
             *,
             host_address: builtins.str,
             vpc_id: builtins.str,
+            dns_resolution: typing.Optional[builtins.str] = None,
             ip_address_type: typing.Optional[builtins.str] = None,
             ipv4_addresses_per_eni: typing.Optional[jsii.Number] = None,
             port_ranges: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -4189,6 +4193,7 @@ class CfnPrivateConnection(
 
             :param host_address: IP address or DNS name of the target resource.
             :param vpc_id: VPC to create the service-managed Resource Gateway in.
+            :param dns_resolution: DNS resolution mode for the resource gateway. Defaults to PUBLIC when not set.
             :param ip_address_type: IP address type of the service-managed Resource Gateway.
             :param ipv4_addresses_per_eni: Number of IPv4 addresses in each ENI for the service-managed Resource Gateway.
             :param port_ranges: TCP port ranges that a consumer can use to access the resource.
@@ -4209,6 +4214,7 @@ class CfnPrivateConnection(
                     vpc_id="vpcId",
                 
                     # the properties below are optional
+                    dns_resolution="dnsResolution",
                     ip_address_type="ipAddressType",
                     ipv4_addresses_per_eni=123,
                     port_ranges=["portRanges"],
@@ -4220,6 +4226,7 @@ class CfnPrivateConnection(
                 type_hints = cached_type_hints(_typecheckingstub__8fee6e08afdb0c9c636dbb7c0d262dc667068c03d13e61ccfbc3b6fe4e5d6c2c)
                 check_type(argname="argument host_address", value=host_address, expected_type=type_hints["host_address"])
                 check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+                check_type(argname="argument dns_resolution", value=dns_resolution, expected_type=type_hints["dns_resolution"])
                 check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
                 check_type(argname="argument ipv4_addresses_per_eni", value=ipv4_addresses_per_eni, expected_type=type_hints["ipv4_addresses_per_eni"])
                 check_type(argname="argument port_ranges", value=port_ranges, expected_type=type_hints["port_ranges"])
@@ -4229,6 +4236,8 @@ class CfnPrivateConnection(
                 "host_address": host_address,
                 "vpc_id": vpc_id,
             }
+            if dns_resolution is not None:
+                self._values["dns_resolution"] = dns_resolution
             if ip_address_type is not None:
                 self._values["ip_address_type"] = ip_address_type
             if ipv4_addresses_per_eni is not None:
@@ -4259,6 +4268,17 @@ class CfnPrivateConnection(
             result = self._values.get("vpc_id")
             assert result is not None, "Required property 'vpc_id' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def dns_resolution(self) -> typing.Optional[builtins.str]:
+            '''DNS resolution mode for the resource gateway.
+
+            Defaults to PUBLIC when not set.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-privateconnection-servicemanagedmode.html#cfn-devopsagent-privateconnection-servicemanagedmode-dnsresolution
+            '''
+            result = self._values.get("dns_resolution")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def ip_address_type(self) -> typing.Optional[builtins.str]:
@@ -4363,6 +4383,7 @@ class CfnPrivateConnectionProps:
                         vpc_id="vpcId",
             
                         # the properties below are optional
+                        dns_resolution="dnsResolution",
                         ip_address_type="ipAddressType",
                         ipv4_addresses_per_eni=123,
                         port_ranges=["portRanges"],
@@ -4510,6 +4531,13 @@ class CfnService(
                             api_key_name="apiKeyName",
                             api_key_value="apiKeyValue"
                         ),
+                        bearer_token=devopsagent.CfnService.BearerTokenDetailsProperty(
+                            token_name="tokenName",
+                            token_value="tokenValue",
+        
+                            # the properties below are optional
+                            authorization_header="authorizationHeader"
+                        ),
                         o_auth_client_credentials=devopsagent.CfnService.MCPServerOAuthClientCredentialsConfigProperty(
                             client_id="clientId",
                             client_secret="clientSecret",
@@ -4560,13 +4588,14 @@ class CfnService(
                 mcp_server_sig_v4=devopsagent.CfnService.MCPServerSigV4DetailsProperty(
                     authorization_config=devopsagent.CfnService.MCPServerSigV4AuthorizationConfigProperty(
                         region="region",
-                        role_arn="roleArn",
                         service="service",
         
                         # the properties below are optional
                         custom_headers={
                             "custom_headers_key": "customHeaders"
-                        }
+                        },
+                        mcp_role_arn="mcpRoleArn",
+                        role_arn="roleArn"
                     ),
                     endpoint="endpoint",
                     name="name",
@@ -4642,7 +4671,7 @@ class CfnService(
         :param id: Construct identifier for this resource (unique in its scope).
         :param service_type: The type of service being registered.
         :param kms_key_arn: The ARN of the KMS key to use for encryption.
-        :param service_details: Service-specific configuration details - only MCPServerSigV4 supports in-place updates, all other service types require replacement when modified.
+        :param service_details: Service-specific configuration details - MCPServerSigV4 supports in-place updates; GitLab (TokenValue), MCPServer (ApiKey or BearerToken credential rotation), MCPServerNewRelic (ApiKey rotation), and MCPServerGrafana (BearerToken rotation) support in-place credential rotation; all other service types and fields require replacement when modified
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
@@ -4845,7 +4874,7 @@ class CfnService(
     def service_details(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.ServiceDetailsProperty"]]:
-        '''Service-specific configuration details - only MCPServerSigV4 supports in-place updates, all other service types require replacement when modified.'''
+        '''Service-specific configuration details - MCPServerSigV4 supports in-place updates;'''
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.ServiceDetailsProperty"]], jsii.get(self, "serviceDetails"))
 
     @service_details.setter
@@ -4978,7 +5007,8 @@ class CfnService(
                         custom_headers={
                             "custom_headers_key": "customHeaders"
                         },
-                        description="description"
+                        description="description",
+                        mcp_role_arn="mcpRoleArn"
                     ),
                     mcp_server_splunk=devopsagent.CfnService.RegisteredMCPServerDetailsProperty(
                         authorization_method="authorizationMethod",
@@ -5710,6 +5740,7 @@ class CfnService(
         jsii_struct_bases=[],
         name_mapping={
             "api_key": "apiKey",
+            "bearer_token": "bearerToken",
             "o_auth_client_credentials": "oAuthClientCredentials",
         },
     )
@@ -5718,10 +5749,12 @@ class CfnService(
             self,
             *,
             api_key: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.ApiKeyDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            bearer_token: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.BearerTokenDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             o_auth_client_credentials: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.MCPServerOAuthClientCredentialsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param api_key: API key authentication details.
+            :param bearer_token: Bearer token authentication details.
             :param o_auth_client_credentials: MCP server OAuth client credentials configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserverauthorizationconfig.html
@@ -5741,6 +5774,13 @@ class CfnService(
                         api_key_name="apiKeyName",
                         api_key_value="apiKeyValue"
                     ),
+                    bearer_token=devopsagent.CfnService.BearerTokenDetailsProperty(
+                        token_name="tokenName",
+                        token_value="tokenValue",
+                
+                        # the properties below are optional
+                        authorization_header="authorizationHeader"
+                    ),
                     o_auth_client_credentials=devopsagent.CfnService.MCPServerOAuthClientCredentialsConfigProperty(
                         client_id="clientId",
                         client_secret="clientSecret",
@@ -5756,10 +5796,13 @@ class CfnService(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__d23407dd8b2083d432d8db1552b2c86a3325b7151f0c72016ef6edc6a6fd65e8)
                 check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
+                check_type(argname="argument bearer_token", value=bearer_token, expected_type=type_hints["bearer_token"])
                 check_type(argname="argument o_auth_client_credentials", value=o_auth_client_credentials, expected_type=type_hints["o_auth_client_credentials"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if api_key is not None:
                 self._values["api_key"] = api_key
+            if bearer_token is not None:
+                self._values["bearer_token"] = bearer_token
             if o_auth_client_credentials is not None:
                 self._values["o_auth_client_credentials"] = o_auth_client_credentials
 
@@ -5773,6 +5816,17 @@ class CfnService(
             '''
             result = self._values.get("api_key")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.ApiKeyDetailsProperty"]], result)
+
+        @builtins.property
+        def bearer_token(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.BearerTokenDetailsProperty"]]:
+            '''Bearer token authentication details.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserverauthorizationconfig.html#cfn-devopsagent-service-mcpserverauthorizationconfig-bearertoken
+            '''
+            result = self._values.get("bearer_token")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.BearerTokenDetailsProperty"]], result)
 
         @builtins.property
         def o_auth_client_credentials(
@@ -5839,6 +5893,13 @@ class CfnService(
                             api_key_header="apiKeyHeader",
                             api_key_name="apiKeyName",
                             api_key_value="apiKeyValue"
+                        ),
+                        bearer_token=devopsagent.CfnService.BearerTokenDetailsProperty(
+                            token_name="tokenName",
+                            token_value="tokenValue",
+                
+                            # the properties below are optional
+                            authorization_header="authorizationHeader"
                         ),
                         o_auth_client_credentials=devopsagent.CfnService.MCPServerOAuthClientCredentialsConfigProperty(
                             client_id="clientId",
@@ -6253,9 +6314,10 @@ class CfnService(
         jsii_struct_bases=[],
         name_mapping={
             "region": "region",
-            "role_arn": "roleArn",
             "service": "service",
             "custom_headers": "customHeaders",
+            "mcp_role_arn": "mcpRoleArn",
+            "role_arn": "roleArn",
         },
     )
     class MCPServerSigV4AuthorizationConfigProperty:
@@ -6263,16 +6325,18 @@ class CfnService(
             self,
             *,
             region: builtins.str,
-            role_arn: builtins.str,
             service: builtins.str,
             custom_headers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            mcp_role_arn: typing.Optional[builtins.str] = None,
+            role_arn: typing.Optional[builtins.str] = None,
         ) -> None:
             '''SigV4 authorization configuration for MCP server.
 
             :param region: AWS region for SigV4 signing. Use '*' for SigV4a multi-region signing.
-            :param role_arn: IAM role ARN to assume for SigV4 signing.
             :param service: AWS service name for SigV4 signing.
             :param custom_headers: Custom headers for the SigV4 MCP server.
+            :param mcp_role_arn: IAM role ARN to assume for SigV4 signing. Optional - when omitted, credentials are resolved at runtime via a monitor account association.
+            :param role_arn: Deprecated - use McpRoleArn instead. IAM role ARN to assume for SigV4 signing
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversigv4authorizationconfig.html
             :exampleMetadata: fixture=_generated
@@ -6285,28 +6349,33 @@ class CfnService(
                 
                 m_cp_server_sig_v4_authorization_config_property = devopsagent.CfnService.MCPServerSigV4AuthorizationConfigProperty(
                     region="region",
-                    role_arn="roleArn",
                     service="service",
                 
                     # the properties below are optional
                     custom_headers={
                         "custom_headers_key": "customHeaders"
-                    }
+                    },
+                    mcp_role_arn="mcpRoleArn",
+                    role_arn="roleArn"
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__dbe588b1e3456b646061af08c161d891f42e0088a6279e9d947f0af6e4226e90)
                 check_type(argname="argument region", value=region, expected_type=type_hints["region"])
-                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument service", value=service, expected_type=type_hints["service"])
                 check_type(argname="argument custom_headers", value=custom_headers, expected_type=type_hints["custom_headers"])
+                check_type(argname="argument mcp_role_arn", value=mcp_role_arn, expected_type=type_hints["mcp_role_arn"])
+                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "region": region,
-                "role_arn": role_arn,
                 "service": service,
             }
             if custom_headers is not None:
                 self._values["custom_headers"] = custom_headers
+            if mcp_role_arn is not None:
+                self._values["mcp_role_arn"] = mcp_role_arn
+            if role_arn is not None:
+                self._values["role_arn"] = role_arn
 
         @builtins.property
         def region(self) -> builtins.str:
@@ -6318,16 +6387,6 @@ class CfnService(
             '''
             result = self._values.get("region")
             assert result is not None, "Required property 'region' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def role_arn(self) -> builtins.str:
-            '''IAM role ARN to assume for SigV4 signing.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversigv4authorizationconfig.html#cfn-devopsagent-service-mcpserversigv4authorizationconfig-rolearn
-            '''
-            result = self._values.get("role_arn")
-            assert result is not None, "Required property 'role_arn' is missing"
             return typing.cast(builtins.str, result)
 
         @builtins.property
@@ -6350,6 +6409,28 @@ class CfnService(
             '''
             result = self._values.get("custom_headers")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        @builtins.property
+        def mcp_role_arn(self) -> typing.Optional[builtins.str]:
+            '''IAM role ARN to assume for SigV4 signing.
+
+            Optional - when omitted, credentials are resolved at runtime via a monitor account association.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversigv4authorizationconfig.html#cfn-devopsagent-service-mcpserversigv4authorizationconfig-mcprolearn
+            '''
+            result = self._values.get("mcp_role_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def role_arn(self) -> typing.Optional[builtins.str]:
+            '''Deprecated - use McpRoleArn instead.
+
+            IAM role ARN to assume for SigV4 signing
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversigv4authorizationconfig.html#cfn-devopsagent-service-mcpserversigv4authorizationconfig-rolearn
+            '''
+            result = self._values.get("role_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6400,13 +6481,14 @@ class CfnService(
                 m_cp_server_sig_v4_details_property = devopsagent.CfnService.MCPServerSigV4DetailsProperty(
                     authorization_config=devopsagent.CfnService.MCPServerSigV4AuthorizationConfigProperty(
                         region="region",
-                        role_arn="roleArn",
                         service="service",
                 
                         # the properties below are optional
                         custom_headers={
                             "custom_headers_key": "customHeaders"
-                        }
+                        },
+                        mcp_role_arn="mcpRoleArn",
+                        role_arn="roleArn"
                     ),
                     endpoint="endpoint",
                     name="name",
@@ -7695,6 +7777,7 @@ class CfnService(
             "service": "service",
             "custom_headers": "customHeaders",
             "description": "description",
+            "mcp_role_arn": "mcpRoleArn",
         },
     )
     class RegisteredMCPServerSigV4DetailsProperty:
@@ -7708,16 +7791,18 @@ class CfnService(
             service: builtins.str,
             custom_headers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
             description: typing.Optional[builtins.str] = None,
+            mcp_role_arn: typing.Optional[builtins.str] = None,
         ) -> None:
             '''SigV4-authenticated MCP server details returned after registration.
 
             :param endpoint: The MCP server endpoint URL.
             :param name: The MCP server name.
             :param region: AWS region for SigV4 signing.
-            :param role_arn: IAM role ARN for SigV4 signing.
+            :param role_arn: Deprecated - use McpRoleArn instead. IAM role ARN for SigV4 signing
             :param service: AWS service name for SigV4 signing.
             :param custom_headers: Custom headers for the SigV4 MCP server.
             :param description: Optional description for the MCP server.
+            :param mcp_role_arn: IAM role ARN for SigV4 signing. Absent when no dedicated role is configured.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpserversigv4details.html
             :exampleMetadata: fixture=_generated
@@ -7739,7 +7824,8 @@ class CfnService(
                     custom_headers={
                         "custom_headers_key": "customHeaders"
                     },
-                    description="description"
+                    description="description",
+                    mcp_role_arn="mcpRoleArn"
                 )
             '''
             if __debug__:
@@ -7751,6 +7837,7 @@ class CfnService(
                 check_type(argname="argument service", value=service, expected_type=type_hints["service"])
                 check_type(argname="argument custom_headers", value=custom_headers, expected_type=type_hints["custom_headers"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+                check_type(argname="argument mcp_role_arn", value=mcp_role_arn, expected_type=type_hints["mcp_role_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "endpoint": endpoint,
                 "name": name,
@@ -7762,6 +7849,8 @@ class CfnService(
                 self._values["custom_headers"] = custom_headers
             if description is not None:
                 self._values["description"] = description
+            if mcp_role_arn is not None:
+                self._values["mcp_role_arn"] = mcp_role_arn
 
         @builtins.property
         def endpoint(self) -> builtins.str:
@@ -7795,7 +7884,9 @@ class CfnService(
 
         @builtins.property
         def role_arn(self) -> builtins.str:
-            '''IAM role ARN for SigV4 signing.
+            '''Deprecated - use McpRoleArn instead.
+
+            IAM role ARN for SigV4 signing
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpserversigv4details.html#cfn-devopsagent-service-registeredmcpserversigv4details-rolearn
             '''
@@ -7831,6 +7922,17 @@ class CfnService(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpserversigv4details.html#cfn-devopsagent-service-registeredmcpserversigv4details-description
             '''
             result = self._values.get("description")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def mcp_role_arn(self) -> typing.Optional[builtins.str]:
+            '''IAM role ARN for SigV4 signing.
+
+            Absent when no dedicated role is configured.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpserversigv4details.html#cfn-devopsagent-service-registeredmcpserversigv4details-mcprolearn
+            '''
+            result = self._values.get("mcp_role_arn")
             return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -8131,6 +8233,13 @@ class CfnService(
                                 api_key_name="apiKeyName",
                                 api_key_value="apiKeyValue"
                             ),
+                            bearer_token=devopsagent.CfnService.BearerTokenDetailsProperty(
+                                token_name="tokenName",
+                                token_value="tokenValue",
+                
+                                # the properties below are optional
+                                authorization_header="authorizationHeader"
+                            ),
                             o_auth_client_credentials=devopsagent.CfnService.MCPServerOAuthClientCredentialsConfigProperty(
                                 client_id="clientId",
                                 client_secret="clientSecret",
@@ -8181,13 +8290,14 @@ class CfnService(
                     mcp_server_sig_v4=devopsagent.CfnService.MCPServerSigV4DetailsProperty(
                         authorization_config=devopsagent.CfnService.MCPServerSigV4AuthorizationConfigProperty(
                             region="region",
-                            role_arn="roleArn",
                             service="service",
                 
                             # the properties below are optional
                             custom_headers={
                                 "custom_headers_key": "customHeaders"
-                            }
+                            },
+                            mcp_role_arn="mcpRoleArn",
+                            role_arn="roleArn"
                         ),
                         endpoint="endpoint",
                         name="name",
@@ -8575,7 +8685,7 @@ class CfnServiceProps:
 
         :param service_type: The type of service being registered.
         :param kms_key_arn: The ARN of the KMS key to use for encryption.
-        :param service_details: Service-specific configuration details - only MCPServerSigV4 supports in-place updates, all other service types require replacement when modified.
+        :param service_details: Service-specific configuration details - MCPServerSigV4 supports in-place updates; GitLab (TokenValue), MCPServer (ApiKey or BearerToken credential rotation), MCPServerNewRelic (ApiKey rotation), and MCPServerGrafana (BearerToken rotation) support in-place credential rotation; all other service types and fields require replacement when modified
         :param tags: An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-service.html
@@ -8632,6 +8742,13 @@ class CfnServiceProps:
                                 api_key_name="apiKeyName",
                                 api_key_value="apiKeyValue"
                             ),
+                            bearer_token=devopsagent.CfnService.BearerTokenDetailsProperty(
+                                token_name="tokenName",
+                                token_value="tokenValue",
+            
+                                # the properties below are optional
+                                authorization_header="authorizationHeader"
+                            ),
                             o_auth_client_credentials=devopsagent.CfnService.MCPServerOAuthClientCredentialsConfigProperty(
                                 client_id="clientId",
                                 client_secret="clientSecret",
@@ -8682,13 +8799,14 @@ class CfnServiceProps:
                     mcp_server_sig_v4=devopsagent.CfnService.MCPServerSigV4DetailsProperty(
                         authorization_config=devopsagent.CfnService.MCPServerSigV4AuthorizationConfigProperty(
                             region="region",
-                            role_arn="roleArn",
                             service="service",
             
                             # the properties below are optional
                             custom_headers={
                                 "custom_headers_key": "customHeaders"
-                            }
+                            },
+                            mcp_role_arn="mcpRoleArn",
+                            role_arn="roleArn"
                         ),
                         endpoint="endpoint",
                         name="name",
@@ -8786,7 +8904,9 @@ class CfnServiceProps:
     def service_details(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.ServiceDetailsProperty"]]:
-        '''Service-specific configuration details - only MCPServerSigV4 supports in-place updates, all other service types require replacement when modified.
+        '''Service-specific configuration details - MCPServerSigV4 supports in-place updates;
+
+        GitLab (TokenValue), MCPServer (ApiKey or BearerToken credential rotation), MCPServerNewRelic (ApiKey rotation), and MCPServerGrafana (BearerToken rotation) support in-place credential rotation; all other service types and fields require replacement when modified
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-service.html#cfn-devopsagent-service-servicedetails
         '''
@@ -9300,6 +9420,7 @@ def _typecheckingstub__8fee6e08afdb0c9c636dbb7c0d262dc667068c03d13e61ccfbc3b6fe4
     *,
     host_address: builtins.str,
     vpc_id: builtins.str,
+    dns_resolution: typing.Optional[builtins.str] = None,
     ip_address_type: typing.Optional[builtins.str] = None,
     ipv4_addresses_per_eni: typing.Optional[jsii.Number] = None,
     port_ranges: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -9467,6 +9588,7 @@ def _typecheckingstub__6b58d9276d7725a7b2a814720d881a8dd974b0d85b18fe425efb863bc
 def _typecheckingstub__d23407dd8b2083d432d8db1552b2c86a3325b7151f0c72016ef6edc6a6fd65e8(
     *,
     api_key: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.ApiKeyDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    bearer_token: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.BearerTokenDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     o_auth_client_credentials: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.MCPServerOAuthClientCredentialsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -9514,9 +9636,10 @@ def _typecheckingstub__198a110da941ce87aaecb0a0b1ba18fa10731b81d29b4a768fd8f795f
 def _typecheckingstub__dbe588b1e3456b646061af08c161d891f42e0088a6279e9d947f0af6e4226e90(
     *,
     region: builtins.str,
-    role_arn: builtins.str,
     service: builtins.str,
     custom_headers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    mcp_role_arn: typing.Optional[builtins.str] = None,
+    role_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9655,6 +9778,7 @@ def _typecheckingstub__3dfa7ec3a9a0d94659cfc778970e21b2e98b7be71f7c5ad9f0a44fcb7
     service: builtins.str,
     custom_headers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     description: typing.Optional[builtins.str] = None,
+    mcp_role_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

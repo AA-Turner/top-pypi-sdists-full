@@ -54,6 +54,8 @@ class SendMessageRequest(BaseModel):
         an optional field to specify the source of the request. e.g "eval", "prod"
     experimental : str, optional
         JSON serialized string of experimental API fields (undocumented).
+    semantic_sql : str, optional
+        Controls semantic SQL generation behavior. 'auto' (default) uses the current cascade behavior, 'require' forces semantic SQL, 'disable' disables it entirely.
     """
 
     semantic_model_file: Optional[StrictStr] = None
@@ -76,6 +78,8 @@ class SendMessageRequest(BaseModel):
 
     experimental: Optional[StrictStr] = None
 
+    semantic_sql: Optional[StrictStr] = None
+
     __properties = [
         "semantic_model_file",
         "semantic_model",
@@ -87,14 +91,25 @@ class SendMessageRequest(BaseModel):
         "messages",
         "source",
         "experimental",
+        "semantic_sql",
     ]
 
     @field_validator("operation")
     def operation_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("sql_generation", "answer_generation"):
             raise ValueError("must validate the enum values ('sql_generation','answer_generation')")
+        return v
+
+    @field_validator("semantic_sql")
+    def semantic_sql_validate_enum(cls, v):
+
+        if v is None:
+            return v
+        if v not in ("auto", "require", "disable"):
+            raise ValueError("must validate the enum values ('auto','require','disable')")
         return v
 
     model_config = ConfigDict(
@@ -174,6 +189,7 @@ class SendMessageRequest(BaseModel):
                 else None,
                 "source": obj.get("source"),
                 "experimental": obj.get("experimental"),
+                "semantic_sql": obj.get("semantic_sql"),
             }
         )
 
@@ -194,6 +210,7 @@ class SendMessageRequestModel:
         warehouse: Optional[str] = None,
         source: Optional[str] = None,
         experimental: Optional[str] = None,
+        semantic_sql: Optional[str] = None,
     ):
         """A model object representing the SendMessageRequest resource.
 
@@ -221,6 +238,8 @@ class SendMessageRequestModel:
             an optional field to specify the source of the request. e.g "eval", "prod"
         experimental : str, optional
             JSON serialized string of experimental API fields (undocumented).
+        semantic_sql : str, optional
+            Controls semantic SQL generation behavior. 'auto' (default) uses the current cascade behavior, 'require' forces semantic SQL, 'disable' disables it entirely.
         """
         self.semantic_model_file = semantic_model_file
         self.semantic_model = semantic_model
@@ -232,6 +251,7 @@ class SendMessageRequestModel:
         self.messages = messages
         self.source = source
         self.experimental = experimental
+        self.semantic_sql = semantic_sql
 
     __properties = [
         "semantic_model_file",
@@ -244,6 +264,7 @@ class SendMessageRequestModel:
         "messages",
         "source",
         "experimental",
+        "semantic_sql",
     ]
 
     def __repr__(self) -> str:
@@ -261,6 +282,7 @@ class SendMessageRequestModel:
             messages=[x._to_model() for x in self.messages] if self.messages is not None else None,
             source=self.source,
             experimental=self.experimental,
+            semantic_sql=self.semantic_sql,
         )
 
     @classmethod
@@ -278,6 +300,7 @@ class SendMessageRequestModel:
             messages=[MessageObjectModel._from_model(x) for x in model.messages] if model.messages else None,
             source=model.source,
             experimental=model.experimental,
+            semantic_sql=model.semantic_sql,
         )
 
     def to_dict(self):

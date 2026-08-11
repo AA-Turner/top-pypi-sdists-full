@@ -120,6 +120,87 @@ class ActionConnectorReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_quicksight.AgentReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "agent_arn": "agentArn",
+        "agent_id": "agentId",
+        "aws_account_id": "awsAccountId",
+    },
+)
+class AgentReference:
+    def __init__(
+        self,
+        *,
+        agent_arn: builtins.str,
+        agent_id: builtins.str,
+        aws_account_id: builtins.str,
+    ) -> None:
+        '''A reference to a Agent resource.
+
+        :param agent_arn: The ARN of the Agent resource.
+        :param agent_id: The AgentId of the Agent resource.
+        :param aws_account_id: The AwsAccountId of the Agent resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_quicksight as interfaces_quicksight
+            
+            agent_reference = interfaces_quicksight.AgentReference(
+                agent_arn="agentArn",
+                agent_id="agentId",
+                aws_account_id="awsAccountId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2c7989ae50557fc5538eafdbe0d391cb4802a256e6d4c33f2143c1bbab8b3e24)
+            check_type(argname="argument agent_arn", value=agent_arn, expected_type=type_hints["agent_arn"])
+            check_type(argname="argument agent_id", value=agent_id, expected_type=type_hints["agent_id"])
+            check_type(argname="argument aws_account_id", value=aws_account_id, expected_type=type_hints["aws_account_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "agent_arn": agent_arn,
+            "agent_id": agent_id,
+            "aws_account_id": aws_account_id,
+        }
+
+    @builtins.property
+    def agent_arn(self) -> builtins.str:
+        '''The ARN of the Agent resource.'''
+        result = self._values.get("agent_arn")
+        assert result is not None, "Required property 'agent_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def agent_id(self) -> builtins.str:
+        '''The AgentId of the Agent resource.'''
+        result = self._values.get("agent_id")
+        assert result is not None, "Required property 'agent_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def aws_account_id(self) -> builtins.str:
+        '''The AwsAccountId of the Agent resource.'''
+        result = self._values.get("aws_account_id")
+        assert result is not None, "Required property 'aws_account_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AgentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_quicksight.AnalysisReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -196,142 +277,6 @@ class AnalysisReference:
 
     def __repr__(self) -> str:
         return "AnalysisReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_quicksight.AssetBundleExportJobReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "asset_bundle_export_job_arn": "assetBundleExportJobArn",
-        "asset_bundle_export_job_id": "assetBundleExportJobId",
-    },
-)
-class AssetBundleExportJobReference:
-    def __init__(
-        self,
-        *,
-        asset_bundle_export_job_arn: builtins.str,
-        asset_bundle_export_job_id: builtins.str,
-    ) -> None:
-        '''A reference to a AssetBundleExportJob resource.
-
-        :param asset_bundle_export_job_arn: The ARN of the AssetBundleExportJob resource.
-        :param asset_bundle_export_job_id: The AssetBundleExportJobId of the AssetBundleExportJob resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk.interfaces import aws_quicksight as interfaces_quicksight
-            
-            asset_bundle_export_job_reference = interfaces_quicksight.AssetBundleExportJobReference(
-                asset_bundle_export_job_arn="assetBundleExportJobArn",
-                asset_bundle_export_job_id="assetBundleExportJobId"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__a65e4fbda9e58f80b2e831d0e18b763aa2a9d6c95bade5514bad3996e7f2ae8b)
-            check_type(argname="argument asset_bundle_export_job_arn", value=asset_bundle_export_job_arn, expected_type=type_hints["asset_bundle_export_job_arn"])
-            check_type(argname="argument asset_bundle_export_job_id", value=asset_bundle_export_job_id, expected_type=type_hints["asset_bundle_export_job_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "asset_bundle_export_job_arn": asset_bundle_export_job_arn,
-            "asset_bundle_export_job_id": asset_bundle_export_job_id,
-        }
-
-    @builtins.property
-    def asset_bundle_export_job_arn(self) -> builtins.str:
-        '''The ARN of the AssetBundleExportJob resource.'''
-        result = self._values.get("asset_bundle_export_job_arn")
-        assert result is not None, "Required property 'asset_bundle_export_job_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def asset_bundle_export_job_id(self) -> builtins.str:
-        '''The AssetBundleExportJobId of the AssetBundleExportJob resource.'''
-        result = self._values.get("asset_bundle_export_job_id")
-        assert result is not None, "Required property 'asset_bundle_export_job_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "AssetBundleExportJobReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_quicksight.AssetBundleImportJobReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "asset_bundle_import_job_arn": "assetBundleImportJobArn",
-        "asset_bundle_import_job_id": "assetBundleImportJobId",
-    },
-)
-class AssetBundleImportJobReference:
-    def __init__(
-        self,
-        *,
-        asset_bundle_import_job_arn: builtins.str,
-        asset_bundle_import_job_id: builtins.str,
-    ) -> None:
-        '''A reference to a AssetBundleImportJob resource.
-
-        :param asset_bundle_import_job_arn: The ARN of the AssetBundleImportJob resource.
-        :param asset_bundle_import_job_id: The AssetBundleImportJobId of the AssetBundleImportJob resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk.interfaces import aws_quicksight as interfaces_quicksight
-            
-            asset_bundle_import_job_reference = interfaces_quicksight.AssetBundleImportJobReference(
-                asset_bundle_import_job_arn="assetBundleImportJobArn",
-                asset_bundle_import_job_id="assetBundleImportJobId"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__cbf29610dad9eb775f1363fa5c2d71776bc5b966708430d21eb1549b5113afa2)
-            check_type(argname="argument asset_bundle_import_job_arn", value=asset_bundle_import_job_arn, expected_type=type_hints["asset_bundle_import_job_arn"])
-            check_type(argname="argument asset_bundle_import_job_id", value=asset_bundle_import_job_id, expected_type=type_hints["asset_bundle_import_job_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "asset_bundle_import_job_arn": asset_bundle_import_job_arn,
-            "asset_bundle_import_job_id": asset_bundle_import_job_id,
-        }
-
-    @builtins.property
-    def asset_bundle_import_job_arn(self) -> builtins.str:
-        '''The ARN of the AssetBundleImportJob resource.'''
-        result = self._values.get("asset_bundle_import_job_arn")
-        assert result is not None, "Required property 'asset_bundle_import_job_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def asset_bundle_import_job_id(self) -> builtins.str:
-        '''The AssetBundleImportJobId of the AssetBundleImportJob resource.'''
-        result = self._values.get("asset_bundle_import_job_id")
-        assert result is not None, "Required property 'asset_bundle_import_job_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "AssetBundleImportJobReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -835,6 +780,51 @@ class _IActionConnectorRefProxy(
 typing.cast(typing.Any, IActionConnectorRef).__jsii_proxy_class__ = lambda : _IActionConnectorRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IAgentRef")
+class IAgentRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Agent.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="agentRef")
+    def agent_ref(self) -> "AgentReference":
+        '''(experimental) A reference to a Agent resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAgentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Agent.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_quicksight.IAgentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="agentRef")
+    def agent_ref(self) -> "AgentReference":
+        '''(experimental) A reference to a Agent resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("AgentReference", jsii.get(self, "agentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAgentRef).__jsii_proxy_class__ = lambda : _IAgentRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IAnalysisRef")
 class IAnalysisRef(
     _constructs_77d1e7e8.IConstruct,
@@ -878,100 +868,6 @@ class _IAnalysisRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IAnalysisRef).__jsii_proxy_class__ = lambda : _IAnalysisRefProxy
-
-
-@jsii.interface(
-    jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IAssetBundleExportJobRef"
-)
-class IAssetBundleExportJobRef(
-    _constructs_77d1e7e8.IConstruct,
-    _interfaces_8ca7e747.IEnvironmentAware,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a AssetBundleExportJob.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="assetBundleExportJobRef")
-    def asset_bundle_export_job_ref(self) -> "AssetBundleExportJobReference":
-        '''(experimental) A reference to a AssetBundleExportJob resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IAssetBundleExportJobRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a AssetBundleExportJob.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_quicksight.IAssetBundleExportJobRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="assetBundleExportJobRef")
-    def asset_bundle_export_job_ref(self) -> "AssetBundleExportJobReference":
-        '''(experimental) A reference to a AssetBundleExportJob resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("AssetBundleExportJobReference", jsii.get(self, "assetBundleExportJobRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IAssetBundleExportJobRef).__jsii_proxy_class__ = lambda : _IAssetBundleExportJobRefProxy
-
-
-@jsii.interface(
-    jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IAssetBundleImportJobRef"
-)
-class IAssetBundleImportJobRef(
-    _constructs_77d1e7e8.IConstruct,
-    _interfaces_8ca7e747.IEnvironmentAware,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a AssetBundleImportJob.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="assetBundleImportJobRef")
-    def asset_bundle_import_job_ref(self) -> "AssetBundleImportJobReference":
-        '''(experimental) A reference to a AssetBundleImportJob resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IAssetBundleImportJobRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a AssetBundleImportJob.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_quicksight.IAssetBundleImportJobRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="assetBundleImportJobRef")
-    def asset_bundle_import_job_ref(self) -> "AssetBundleImportJobReference":
-        '''(experimental) A reference to a AssetBundleImportJob resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("AssetBundleImportJobReference", jsii.get(self, "assetBundleImportJobRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IAssetBundleImportJobRef).__jsii_proxy_class__ = lambda : _IAssetBundleImportJobRefProxy
 
 
 @jsii.interface(
@@ -1246,6 +1142,51 @@ class _IFolderRefProxy(
 typing.cast(typing.Any, IFolderRef).__jsii_proxy_class__ = lambda : _IFolderRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IKnowledgeBaseRef")
+class IKnowledgeBaseRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a KnowledgeBase.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="knowledgeBaseRef")
+    def knowledge_base_ref(self) -> "KnowledgeBaseReference":
+        '''(experimental) A reference to a KnowledgeBase resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IKnowledgeBaseRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a KnowledgeBase.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_quicksight.IKnowledgeBaseRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="knowledgeBaseRef")
+    def knowledge_base_ref(self) -> "KnowledgeBaseReference":
+        '''(experimental) A reference to a KnowledgeBase resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("KnowledgeBaseReference", jsii.get(self, "knowledgeBaseRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IKnowledgeBaseRef).__jsii_proxy_class__ = lambda : _IKnowledgeBaseRefProxy
+
+
 @jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IOAuthClientApplicationRef"
 )
@@ -1336,6 +1277,51 @@ class _IRefreshScheduleRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IRefreshScheduleRef).__jsii_proxy_class__ = lambda : _IRefreshScheduleRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.ISpaceRef")
+class ISpaceRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Space.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="spaceRef")
+    def space_ref(self) -> "SpaceReference":
+        '''(experimental) A reference to a Space resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISpaceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Space.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_quicksight.ISpaceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="spaceRef")
+    def space_ref(self) -> "SpaceReference":
+        '''(experimental) A reference to a Space resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SpaceReference", jsii.get(self, "spaceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISpaceRef).__jsii_proxy_class__ = lambda : _ISpaceRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.ITemplateRef")
@@ -1519,6 +1505,87 @@ typing.cast(typing.Any, IVPCConnectionRef).__jsii_proxy_class__ = lambda : _IVPC
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_quicksight.KnowledgeBaseReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "aws_account_id": "awsAccountId",
+        "knowledge_base_arn": "knowledgeBaseArn",
+        "knowledge_base_id": "knowledgeBaseId",
+    },
+)
+class KnowledgeBaseReference:
+    def __init__(
+        self,
+        *,
+        aws_account_id: builtins.str,
+        knowledge_base_arn: builtins.str,
+        knowledge_base_id: builtins.str,
+    ) -> None:
+        '''A reference to a KnowledgeBase resource.
+
+        :param aws_account_id: The AwsAccountId of the KnowledgeBase resource.
+        :param knowledge_base_arn: The ARN of the KnowledgeBase resource.
+        :param knowledge_base_id: The KnowledgeBaseId of the KnowledgeBase resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_quicksight as interfaces_quicksight
+            
+            knowledge_base_reference = interfaces_quicksight.KnowledgeBaseReference(
+                aws_account_id="awsAccountId",
+                knowledge_base_arn="knowledgeBaseArn",
+                knowledge_base_id="knowledgeBaseId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__07a0f8327fdaffd076e0cc9273c2f7696c8754a0777dfaf05186eecba824c3b3)
+            check_type(argname="argument aws_account_id", value=aws_account_id, expected_type=type_hints["aws_account_id"])
+            check_type(argname="argument knowledge_base_arn", value=knowledge_base_arn, expected_type=type_hints["knowledge_base_arn"])
+            check_type(argname="argument knowledge_base_id", value=knowledge_base_id, expected_type=type_hints["knowledge_base_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "aws_account_id": aws_account_id,
+            "knowledge_base_arn": knowledge_base_arn,
+            "knowledge_base_id": knowledge_base_id,
+        }
+
+    @builtins.property
+    def aws_account_id(self) -> builtins.str:
+        '''The AwsAccountId of the KnowledgeBase resource.'''
+        result = self._values.get("aws_account_id")
+        assert result is not None, "Required property 'aws_account_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def knowledge_base_arn(self) -> builtins.str:
+        '''The ARN of the KnowledgeBase resource.'''
+        result = self._values.get("knowledge_base_arn")
+        assert result is not None, "Required property 'knowledge_base_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def knowledge_base_id(self) -> builtins.str:
+        '''The KnowledgeBaseId of the KnowledgeBase resource.'''
+        result = self._values.get("knowledge_base_id")
+        assert result is not None, "Required property 'knowledge_base_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "KnowledgeBaseReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_quicksight.OAuthClientApplicationReference",
     jsii_struct_bases=[],
     name_mapping={"o_auth_client_application_arn": "oAuthClientApplicationArn"},
@@ -1657,6 +1724,87 @@ class RefreshScheduleReference:
 
     def __repr__(self) -> str:
         return "RefreshScheduleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_quicksight.SpaceReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "aws_account_id": "awsAccountId",
+        "space_arn": "spaceArn",
+        "space_id": "spaceId",
+    },
+)
+class SpaceReference:
+    def __init__(
+        self,
+        *,
+        aws_account_id: builtins.str,
+        space_arn: builtins.str,
+        space_id: builtins.str,
+    ) -> None:
+        '''A reference to a Space resource.
+
+        :param aws_account_id: The AwsAccountId of the Space resource.
+        :param space_arn: The ARN of the Space resource.
+        :param space_id: The SpaceId of the Space resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_quicksight as interfaces_quicksight
+            
+            space_reference = interfaces_quicksight.SpaceReference(
+                aws_account_id="awsAccountId",
+                space_arn="spaceArn",
+                space_id="spaceId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__70f0e10ebaa10a2ba10c7da7f214b875b35636c85f9db3760e0154a44f74a710)
+            check_type(argname="argument aws_account_id", value=aws_account_id, expected_type=type_hints["aws_account_id"])
+            check_type(argname="argument space_arn", value=space_arn, expected_type=type_hints["space_arn"])
+            check_type(argname="argument space_id", value=space_id, expected_type=type_hints["space_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "aws_account_id": aws_account_id,
+            "space_arn": space_arn,
+            "space_id": space_id,
+        }
+
+    @builtins.property
+    def aws_account_id(self) -> builtins.str:
+        '''The AwsAccountId of the Space resource.'''
+        result = self._values.get("aws_account_id")
+        assert result is not None, "Required property 'aws_account_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def space_arn(self) -> builtins.str:
+        '''The ARN of the Space resource.'''
+        result = self._values.get("space_arn")
+        assert result is not None, "Required property 'space_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def space_id(self) -> builtins.str:
+        '''The SpaceId of the Space resource.'''
+        result = self._values.get("space_id")
+        assert result is not None, "Required property 'space_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SpaceReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -1987,9 +2135,8 @@ class VPCConnectionReference:
 
 __all__ = [
     "ActionConnectorReference",
+    "AgentReference",
     "AnalysisReference",
-    "AssetBundleExportJobReference",
-    "AssetBundleImportJobReference",
     "CustomPermissionsReference",
     "DashboardReference",
     "DataSetReference",
@@ -1997,23 +2144,26 @@ __all__ = [
     "FlowReference",
     "FolderReference",
     "IActionConnectorRef",
+    "IAgentRef",
     "IAnalysisRef",
-    "IAssetBundleExportJobRef",
-    "IAssetBundleImportJobRef",
     "ICustomPermissionsRef",
     "IDashboardRef",
     "IDataSetRef",
     "IDataSourceRef",
     "IFlowRef",
     "IFolderRef",
+    "IKnowledgeBaseRef",
     "IOAuthClientApplicationRef",
     "IRefreshScheduleRef",
+    "ISpaceRef",
     "ITemplateRef",
     "IThemeRef",
     "ITopicRef",
     "IVPCConnectionRef",
+    "KnowledgeBaseReference",
     "OAuthClientApplicationReference",
     "RefreshScheduleReference",
+    "SpaceReference",
     "TemplateReference",
     "ThemeReference",
     "TopicReference",
@@ -2031,27 +2181,20 @@ def _typecheckingstub__31055bc274e952c4fc3166d11f0fbbc107ed08b00575ccf7d73fa07a9
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__79dd570d6da6d3fe7b5ab82dcad552abbb17b11f076a26256bed0f162c545988(
+def _typecheckingstub__2c7989ae50557fc5538eafdbe0d391cb4802a256e6d4c33f2143c1bbab8b3e24(
     *,
-    analysis_arn: builtins.str,
-    analysis_id: builtins.str,
+    agent_arn: builtins.str,
+    agent_id: builtins.str,
     aws_account_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__a65e4fbda9e58f80b2e831d0e18b763aa2a9d6c95bade5514bad3996e7f2ae8b(
+def _typecheckingstub__79dd570d6da6d3fe7b5ab82dcad552abbb17b11f076a26256bed0f162c545988(
     *,
-    asset_bundle_export_job_arn: builtins.str,
-    asset_bundle_export_job_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cbf29610dad9eb775f1363fa5c2d71776bc5b966708430d21eb1549b5113afa2(
-    *,
-    asset_bundle_import_job_arn: builtins.str,
-    asset_bundle_import_job_id: builtins.str,
+    analysis_arn: builtins.str,
+    analysis_id: builtins.str,
+    aws_account_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2108,6 +2251,15 @@ def _typecheckingstub__68d11833d18be618b7ec87af3be2a77728a162bc466dd4aaa5584c1b4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__07a0f8327fdaffd076e0cc9273c2f7696c8754a0777dfaf05186eecba824c3b3(
+    *,
+    aws_account_id: builtins.str,
+    knowledge_base_arn: builtins.str,
+    knowledge_base_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1da0f0dbb95217952fac925b01457b1c48d3db3d3961d62ab097ab0defadb3a3(
     *,
     o_auth_client_application_arn: builtins.str,
@@ -2121,6 +2273,15 @@ def _typecheckingstub__8723d097fe811477bf46d6e8328f08cbc18d550832e45dfd85d0a290a
     data_set_id: builtins.str,
     refresh_schedule_arn: builtins.str,
     schedule_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__70f0e10ebaa10a2ba10c7da7f214b875b35636c85f9db3760e0154a44f74a710(
+    *,
+    aws_account_id: builtins.str,
+    space_arn: builtins.str,
+    space_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2161,5 +2322,5 @@ def _typecheckingstub__8a94c806f9f5d8f329e5fe8025b2cd7112ef5f8d032fce0a9cf2e9f64
     """Type checking stubs"""
     pass
 
-for cls in [IActionConnectorRef, IAnalysisRef, IAssetBundleExportJobRef, IAssetBundleImportJobRef, ICustomPermissionsRef, IDashboardRef, IDataSetRef, IDataSourceRef, IFlowRef, IFolderRef, IOAuthClientApplicationRef, IRefreshScheduleRef, ITemplateRef, IThemeRef, ITopicRef, IVPCConnectionRef]:
+for cls in [IActionConnectorRef, IAgentRef, IAnalysisRef, ICustomPermissionsRef, IDashboardRef, IDataSetRef, IDataSourceRef, IFlowRef, IFolderRef, IKnowledgeBaseRef, IOAuthClientApplicationRef, IRefreshScheduleRef, ISpaceRef, ITemplateRef, IThemeRef, ITopicRef, IVPCConnectionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

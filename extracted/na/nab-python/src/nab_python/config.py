@@ -31,10 +31,10 @@ from ._conflict_kind import KIND_EXTRA, KIND_GROUP
 from ._iso8601 import parse_iso_datetime
 from ._toml import tool_nab_section
 from ._vcs_admission import known_vcs_schemes
-from ._vendor.packaging.requirements import InvalidRequirement, Requirement
+from ._vendor.packaging.requirements import Requirement
 from ._vendor.packaging.specifiers import InvalidSpecifier, SpecifierSet
 from ._vendor.packaging.utils import InvalidName, canonicalize_name
-from ._vendor.packaging.version import InvalidVersion, Version
+from ._vendor.packaging.version import Version
 from .config_sources import (
     ConfigError,
     EffectiveValue,
@@ -49,9 +49,11 @@ from .config_sources import (
     resolve_config,
 )
 from .fetch import DEFAULT_INDEX_NAME, DEFAULT_INDEX_URL, IndexRoute
+from .paths import resolve_path
 from .provider import (
     ArchiveSource,
     BuildPolicy,
+    DecisionOrder,
     DistPolicy,
     LocalSource,
     ResolutionStrategy,
@@ -59,7 +61,6 @@ from .provider import (
     VcsConfig,
     VcsPolicy,
     VcsSource,
-    _normalize_extra,
 )
 from .tags import DEFAULT_LIBC, LIBC_MAJOR, Libc, PlatformSpec, platform_kind
 from .target import (
@@ -100,10 +101,12 @@ __all__ = [
     "OverrideConflictError",
     "PackageOverride",
     "ResolveMode",
+    "configured_group_names",
     "conflict_exclusion_groups",
     "conflict_forks",
     "conflict_member_groups",
     "enforce_build_policy_for_targets",
+    "index_cache_floors_from_config",
     "index_routes_from_config",
     "matrix_from_config",
     "plan_targets",
@@ -136,6 +139,10 @@ _PEP508_MARKER_VARIABLES = frozenset(
 
 # Marker variables whose values must parse as PEP 440 versions.
 _VERSION_MARKER_VARIABLES = frozenset({"python_version", "python_full_version"})
+
+# Release-component count of a bare ``major.minor`` python declaration; more
+# parts name a concrete patch level.
+_PYTHON_MINOR_PARTS = 2
 
 # How a ``requires-python`` declaration is named back to the user.  The
 # [tool.nab] key stays bare because the CLI's error prefix already names that
@@ -273,15 +280,20 @@ class ConflictFork:
     """One fork of a conflict-driven universal resolve.
 
     ``selection`` is the active conflicting members as ``(kind, name)``
-    pairs.  ``active_extras`` and ``active_groups`` are the full extra
-    and group selections this fork resolves with: the non-conflicting
-    selections plus this fork's chosen members.  An unforked resolve is
-    a single fork with an empty ``selection``.
+    pairs.  ``active_extras`` and ``active_groups`` are the selections
+    this fork resolves with, the non-conflicting ones plus its own chosen
+    members, and hold only names the project declares.  A name
+    ``[tool.nab]`` configures is on ``active_configured`` instead.  An
+    unforked resolve is a single fork with an empty ``selection``.
     """
 
     selection: tuple[tuple[str, str], ...]
     active_extras: tuple[str, ...]
     active_groups: tuple[str, ...]
+    active_configured: tuple[str, ...] = ()
+    """The configured group names (``base-group``, ``build-group``) this
+    fork carries.  Their requirements come from a pyproject table rather
+    than from ``[dependency-groups]``."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -338,10 +350,11 @@ class IndexOverride:
 
     Keyed by a declared index name.  The body sets any combination of
     ``dist_policy`` (with ``dist_trust_unverified_deps``),
-    ``build_policy``, and the ``uploaded_prior_to`` cutoff (or
-    ``uploaded_prior_to_disabled`` for the ``false`` form).  It applies
-    to every package served from that index; it carries no routing and
-    no version scope.
+    ``build_policy``, the ``uploaded_prior_to`` cutoff (or
+    ``uploaded_prior_to_disabled`` for the ``false`` form), and
+    ``assume_fresh_seconds``, a read-time freshness floor on the index's
+    Simple listing.  It applies to every package served from that index;
+    it carries no routing and no version scope.
     """
 
     dist_policy: DistPolicy | None = None
@@ -349,6 +362,7 @@ class IndexOverride:
     build_policy: BuildPolicy | None = None
     uploaded_prior_to: datetime | None = None
     uploaded_prior_to_disabled: bool = False
+    assume_fresh_seconds: int | None = None
 
 
 # Two active selections engage the set's exclusivity, forcing a fork.
@@ -361,6 +375,7 @@ def conflict_forks(
     selected_extras: Sequence[str],
     selected_groups: Sequence[str],
     conflicts: Sequence[ConflictSet],
+    configured_groups: Sequence[str] = (),
 ) -> list[ConflictFork]:
     """Split a selection into one fork per mutually-exclusive combination.
 
@@ -373,14 +388,24 @@ def conflict_forks(
     in every fork.  With no engaged set the result is a single unforked
     fork carrying the whole selection.
 
+    A declared group is active when the selection names it.  A
+    ``configured_groups`` name is active whenever it is set, since the
+    context it names is part of every resolve rather than something a run
+    asks for, so a set naming one engages on every run.  Those names come
+    back on :attr:`ConflictFork.active_configured` rather than
+    ``active_groups``, which stays what the ``[dependency-groups]`` loader
+    can resolve.
+
     Names compare and emit canonicalised; the extra and group loaders
     normalise on lookup, so a canonical active set resolves the same
     requirements the user's spelling would.
     """
     base_extras = [canonicalize_name(e) for e in selected_extras]
     base_groups = [canonicalize_name(g) for g in selected_groups]
+    configured = list(dict.fromkeys(canonicalize_name(g) for g in configured_groups))
+    configured_set = set(configured)
     extra_set = set(base_extras)
-    group_set = set(base_groups)
+    group_set = set(base_groups) | configured_set
 
     # Collect the engaged sets (2+ selected members) and the members to
     # drop from the shared base; each engaged set becomes a fork axis.
@@ -401,20 +426,31 @@ def conflict_forks(
             target.add(member.name)
 
     if not engaged:
-        return [ConflictFork((), tuple(base_extras), tuple(base_groups))]
+        return [
+            ConflictFork(
+                selection=(),
+                active_extras=tuple(base_extras),
+                active_groups=tuple(base_groups),
+                active_configured=tuple(configured),
+            )
+        ]
 
     # One fork per choice of a single member from each engaged set.
     rest_extras = [e for e in base_extras if e not in drop_extras]
     rest_groups = [g for g in base_groups if g not in drop_groups]
+    rest_configured = [g for g in configured if g not in drop_groups]
     forks: list[ConflictFork] = []
     for combo in itertools.product(*engaged):
         chosen_extras = [m.name for m in combo if m.kind is ConflictKind.EXTRA]
-        chosen_groups = [m.name for m in combo if m.kind is ConflictKind.GROUP]
+        chosen = [m.name for m in combo if m.kind is ConflictKind.GROUP]
+        chosen_groups = [g for g in chosen if g not in configured_set]
+        chosen_configured = [g for g in chosen if g in configured_set]
         forks.append(
             ConflictFork(
                 selection=tuple(sorted((m.kind.value, m.name) for m in combo)),
                 active_extras=tuple(rest_extras + chosen_extras),
                 active_groups=tuple(rest_groups + chosen_groups),
+                active_configured=tuple(rest_configured + chosen_configured),
             )
         )
     return forks
@@ -427,6 +463,8 @@ class NabProjectConfig:
     mode: ResolveMode = ResolveMode.SPECIFIC
     constraints: tuple[str, ...] = ()
     default_groups: tuple[str, ...] = ()
+    base_group: str | None = None
+    build_group: str | None = None
     # The project's declared Python support range: recorded as the lock's
     # top-level ``requires-python`` and checked against the resolve target.
     # It does not choose the target; ``environment`` does.
@@ -437,6 +475,9 @@ class NabProjectConfig:
     uploaded_prior_to: datetime | None = None
     dist_policy: DistPolicy = DistPolicy.WHEEL_OR_SDIST
     build_policy: BuildPolicy = BuildPolicy.BUILD_LOCAL
+    # How many build environments may be opened beneath the first one, to
+    # build a build requirement that publishes no wheel this host installs.
+    build_requires_depth: int = 0
     trust_unverified_sdist_deps: bool = False
     # The declared resolve environment from ``[tool.nab.environment]``, or
     # ``None`` for the host.  Mutually exclusive with ``matrix``.
@@ -450,6 +491,7 @@ class NabProjectConfig:
     archive_sources: tuple[ArchiveSource, ...] = ()
     matrix: MatrixConfig | None = None
     resolution: ResolutionStrategy = ResolutionStrategy.HIGHEST
+    decision_order: DecisionOrder = DecisionOrder.ARRIVAL
     workspace: WorkspaceConfig | None = None
     conflicts: tuple[ConflictSet, ...] = ()
     # Per-package overrides from ``[tool.nab.packages.<name>]`` and
@@ -468,6 +510,19 @@ class NabProjectConfig:
     # ``local_sources``, which also carries explicit
     # ``[[tool.nab.local-sources]]`` entries.
     workspace_member_names: frozenset[str] = field(default_factory=frozenset)
+
+
+def configured_group_names(config: NabProjectConfig) -> tuple[str, ...]:
+    """Return the group names active by configuration rather than by selection.
+
+    ``base-group`` names the project's own dependencies and ``build-group``
+    its build requirements; neither is ever in a run's selection, so every
+    caller that has to treat them as active asks here rather than naming
+    the two fields itself.
+    """
+    return tuple(
+        name for name in (config.base_group, config.build_group) if name is not None
+    )
 
 
 class ConflictSelectionError(ConfigError):
@@ -644,6 +699,13 @@ def read_pyproject_config(
         pyproject_dir=pyproject_dir,
         project_requires_python=project_requires_python,
     )
+    _validate_base_group_is_free(effective["base-group"], path)
+    _validate_build_group_has_a_base_group(
+        effective["build-group"], effective["base-group"]
+    )
+    _validate_build_group_is_free(
+        effective["build-group"], effective["base-group"], path
+    )
     if discover_workspace:
         config = _apply_workspace_discovery(
             path, config, declared_in=effective["workspace"].origin.label
@@ -748,7 +810,12 @@ def _config_from_effective(
 
     default_groups = effective["default-groups"].value
     conflicts = effective["conflicts"].value
-    _validate_default_groups_against_conflicts(default_groups, conflicts)
+    _validate_default_groups_against_conflicts(
+        default_groups, conflicts, effective["base-group"].value
+    )
+    _validate_configured_conflict_sets(
+        conflicts, effective["base-group"].value, effective["build-group"].value
+    )
 
     local_sources = effective["local-sources"].value
     vcs_sources = effective["vcs-sources"].value
@@ -762,11 +829,14 @@ def _config_from_effective(
         mode=mode,
         constraints=effective["constraints"].value,
         default_groups=default_groups,
+        base_group=effective["base-group"].value,
+        build_group=effective["build-group"].value,
         requires_python=requires_python,
         requires_python_source=requires_python_source,
         uploaded_prior_to=effective["uploaded-prior-to"].value,
         dist_policy=dist_policy,
         build_policy=build_policy,
+        build_requires_depth=effective["build-requires-depth"].value,
         trust_unverified_sdist_deps=trust_unverified,
         environment=environment,
         indexes=indexes,
@@ -776,6 +846,7 @@ def _config_from_effective(
         archive_sources=archive_sources,
         matrix=matrix,
         resolution=effective["resolution"].value,
+        decision_order=effective["decision-order"].value,
         workspace=effective["workspace"].value,
         conflicts=conflicts,
         package_overrides=package_overrides,
@@ -913,9 +984,10 @@ def plan_targets(config: NabProjectConfig) -> tuple[ResolveTarget, ...]:
     project that declares neither resolves against the running interpreter,
     like pip.
 
-    The ``requires-python`` declaration is checked here rather than at parse
-    time because ``--python`` moves the target after the config is read, and
-    it is the flag that rescues a project whose declaration excludes the host.
+    The ``requires-python`` declaration and the free-threaded floor are
+    checked here rather than at parse time because ``--python`` moves the
+    target after the config is read, and it is the flag that rescues a
+    project whose declaration excludes the host.
 
     Every target is checked, matrix included: the lock records the
     declaration at top level and the targets in ``environments``, so a
@@ -923,6 +995,12 @@ def plan_targets(config: NabProjectConfig) -> tuple[ResolveTarget, ...]:
     and that a PEP 751 installer refuses.
     """
     targets = _plan_targets(config.matrix, config.environment)
+
+    if config.environment is not None:
+        _check_free_threaded_environment(
+            config.environment, (targets[0].python_version,)
+        )
+
     for target in targets:
         _check_requires_python_admits_target(
             config.requires_python,
@@ -966,21 +1044,45 @@ def _declared_target(environment: EnvironmentConfig) -> ResolveTarget:
     python = environment.python or host_environment()["python_full_version"]
     axis = python_axis_environment(python)
     implementation = environment.implementation or "cpython"
-    try:
-        check_free_threaded(
-            platforms=(environment.platform,),
-            implementations=(implementation,),
-            python_versions=(axis["python_version"],),
-        )
-    except ValueError as exc:
-        msg = f"invalid [tool.nab.environment]: {exc}"
-        raise ConfigError(msg) from exc
+
+    _check_free_threaded_environment(
+        environment, (axis["python_version"],) if environment.python else ()
+    )
+
+    # More than major.minor ("3.10.5", "3.12.0", or the host's release) names a
+    # concrete micro, resolved whole.  A bare minor ("3.12") gets a synthetic
+    # .0 floor and resolves as a micro interval.
+    pinned_micro = len(Version(python).release) > _PYTHON_MINOR_PARTS
+
     return ResolveTarget.for_declared(
         python_version=axis["python_version"],
         spec=environment.platform,
         implementation=implementation,
-        python_full_version=axis["python_full_version"],
+        python_full_version=axis["python_full_version"] if pinned_micro else None,
     )
+
+
+def _check_free_threaded_environment(
+    environment: EnvironmentConfig, python_versions: Sequence[str]
+) -> None:
+    """Hold ``[tool.nab.environment]`` to the free-threaded interpreter floor.
+
+    ``python_versions`` is empty for a table that names no python, since
+    ``--python`` can still move that axis after the parse.  The parse then
+    checks only the implementation, and :func:`plan_targets` checks the
+    python the target ended up on.
+    """
+    if environment.platform is None:
+        return
+    try:
+        check_free_threaded(
+            platforms=(environment.platform,),
+            implementations=(environment.implementation or "cpython",),
+            python_versions=python_versions,
+        )
+    except ValueError as exc:
+        msg = f"invalid [tool.nab.environment]: {exc}"
+        raise ConfigError(msg) from exc
 
 
 def matrix_from_config(matrix: MatrixConfig) -> Matrix:
@@ -1113,7 +1215,7 @@ def with_python_override(
 
     try:
         Version(python)
-    except InvalidVersion as exc:
+    except ValueError as exc:
         msg = f"--python must be a version like '3.12' or '3.12.4', got {python!r}"
         raise ConfigError(msg) from exc
 
@@ -1223,7 +1325,9 @@ def _require_constraint(key: str, item: str) -> None:
     """
     try:
         req = Requirement(item)
-    except InvalidRequirement as exc:
+        # a specifier defers parsing its versions; to_range() forces it
+        req.specifier.to_range()
+    except ValueError as exc:
         msg = f"{key} is not a valid requirement: {exc}"
         raise ConfigError(msg) from exc
 
@@ -1259,6 +1363,38 @@ def _parse_string_value(key: str, value: object) -> str:
     return value
 
 
+def _parse_base_group(value: object) -> str | None:
+    """Parse ``[tool.nab].base-group`` as a PEP 735 group name.
+
+    Names the group a lock gives the project's own dependencies, so an
+    installer can ask for one group without them.  Unset leaves them
+    unconditional.
+    """
+    raw = _parse_string_value("base-group", value)
+    try:
+        canonical = canonicalize_name(raw, validate=True)
+    except InvalidName as e:
+        msg = f"base-group {raw!r} is not a valid group name: {e}"
+        raise ConfigError(msg) from e
+    return str(canonical)
+
+
+def _parse_build_group(value: object) -> str | None:
+    """Parse ``[tool.nab].build-group`` as a PEP 735 group name.
+
+    Names the group a lock gives ``[build-system].requires``, so one lock
+    can describe the environment the project is built in as well as the
+    one it runs in.  Unset, a lock says nothing about how it is built.
+    """
+    raw = _parse_string_value("build-group", value)
+    try:
+        canonical = canonicalize_name(raw, validate=True)
+    except InvalidName as e:
+        msg = f"build-group {raw!r} is not a valid group name: {e}"
+        raise ConfigError(msg) from e
+    return str(canonical)
+
+
 def _parse_requires_python(value: object) -> str | None:
     """Parse ``[tool.nab].requires-python`` as a PEP 440 specifier.
 
@@ -1273,14 +1409,121 @@ def _parse_requires_python(value: object) -> str | None:
     """
     raw = _parse_string_value("requires-python", value)
     try:
-        SpecifierSet(raw)
-    except InvalidSpecifier as exc:
+        # a specifier defers parsing its versions; to_range() forces it
+        SpecifierSet(raw).to_range()
+    except ValueError as exc:
         msg = (
             f"requires-python must be a PEP 440 specifier, got {raw!r}."
             f"  Did you mean ==X.Y or >=X.Y,<X.{{Y+1}}?"
         )
         raise ConfigError(msg) from exc
     return raw
+
+
+def _validate_base_group_is_free(base_group: EffectiveValue, path: Path) -> None:
+    """Reject a ``base-group`` the project already declares as a group.
+
+    Both would emit ``'name' in dependency_groups`` and no marker could
+    say which was meant.  Checked as the file is read rather than at
+    emission, so it costs no resolve and holds for every output format.
+    """
+    name: str | None = base_group.value
+    if name is None:
+        return
+    with path.open("rb") as f:
+        data = tomli.load(f)
+    groups = data.get("dependency-groups")
+    if not isinstance(groups, dict):
+        return
+    taken = sorted(
+        declared for declared in groups if canonicalize_name(declared) == name
+    )
+    if not taken:
+        return
+    names = ", ".join(repr(declared) for declared in taken)
+    key = (
+        "--project-base-group"
+        if base_group.origin.kind is SourceKind.CLI
+        else "base-group"
+    )
+    msg = (
+        f"{key} {name!r} and [dependency-groups] {names} are the same name;"
+        " one marker cannot mean both"
+    )
+    raise ConfigError(msg)
+
+
+def _validate_build_group_has_a_base_group(
+    build_group: EffectiveValue, base_group: EffectiveValue
+) -> None:
+    """Reject a ``build-group`` without a ``base-group`` to answer for the rest.
+
+    Unnamed, the project's own dependencies carry no marker and install
+    under every selection, so asking for the build group returns them too
+    and nothing can install the build requirements alone, which is the
+    reason to name them.  Naming both costs nothing: an install that wants
+    them together selects both groups.
+    """
+    if build_group.value is None or base_group.value is not None:
+        return
+    key = (
+        "--project-build-group"
+        if build_group.origin.kind is SourceKind.CLI
+        else "build-group"
+    )
+    msg = (
+        f"{key} is {build_group.value!r}, but base-group is unset, so the"
+        " project's own dependencies carry no marker and install alongside"
+        " every group; set base-group to name them, or drop build-group and"
+        " use nab lock --build-requirements for a separate lock"
+    )
+    raise ConfigError(msg)
+
+
+def _validate_build_group_is_free(
+    build_group: EffectiveValue, base_group: EffectiveValue, path: Path
+) -> None:
+    """Reject a ``build-group`` some other group already answers to.
+
+    A declared ``[dependency-groups]`` name and ``base-group`` are both
+    already spoken for, and all three emit ``'name' in dependency_groups``.
+    Checked as the file is read, like :func:`_validate_base_group_is_free`.
+    """
+    name: str | None = build_group.value
+    if name is None:
+        return
+    key = (
+        "--project-build-group"
+        if build_group.origin.kind is SourceKind.CLI
+        else "build-group"
+    )
+    if name == base_group.value:
+        other = (
+            "--project-base-group"
+            if base_group.origin.kind is SourceKind.CLI
+            else "base-group"
+        )
+        msg = f"{key} and {other} are both {name!r}; one marker cannot mean both"
+        raise ConfigError(msg)
+
+    with path.open("rb") as f:
+        data = tomli.load(f)
+    groups = data.get("dependency-groups")
+    if not isinstance(groups, dict):
+        return
+    taken = sorted(
+        declared
+        for declared in groups
+        if isinstance(declared, str) and canonicalize_name(declared) == name
+    )
+    if not taken:
+        return
+    names = ", ".join(repr(declared) for declared in taken)
+    msg = (
+        f"{key} {name!r} and [dependency-groups] {names} are the same name;"
+        " one marker cannot mean both"
+    )
+    raise ConfigError(msg)
 
 
 def _read_project_requires_python(path: Path) -> str | None:
@@ -1316,6 +1559,15 @@ def index_routes_from_config(config: NabProjectConfig) -> list[IndexRoute]:
     ]
 
 
+def index_cache_floors_from_config(config: NabProjectConfig) -> dict[str, int]:
+    """Project per-index cache-freshness floors, keyed by index name."""
+    return {
+        name: override.assume_fresh_seconds
+        for name, override in config.index_overrides.items()
+        if override.assume_fresh_seconds is not None
+    }
+
+
 def _parse_uploaded_prior_to(value: object, *, anchor: datetime) -> datetime:
     """Parse ``uploaded-prior-to`` (ISO datetime, TOML datetime, or ``P<n>D``).
 
@@ -1344,10 +1596,10 @@ def _parse_uploaded_prior_to(value: object, *, anchor: datetime) -> datetime:
 
     duration_match = _DURATION_PATTERN.match(value)
     if duration_match is not None:
-        days = int(duration_match.group(1))
+        # ``int()`` raises ValueError past CPython's int-from-string limit.
         try:
-            return anchor - timedelta(days=days)
-        except OverflowError:
+            return anchor - timedelta(days=int(duration_match.group(1)))
+        except (OverflowError, ValueError):
             msg = f"uploaded-prior-to duration is too large: {value!r}"
             raise ConfigError(msg) from None
     try:
@@ -1457,7 +1709,7 @@ def _parse_marker_environment(value: object) -> dict[str, str]:
         if k in _VERSION_MARKER_VARIABLES:
             try:
                 Version(v)
-            except InvalidVersion as exc:
+            except ValueError as exc:
                 msg = f"marker-environment.{k} must be a PEP 440 version, got {v!r}"
                 raise ConfigError(msg) from exc
         out[k] = v
@@ -1523,7 +1775,7 @@ def _validate_environment_values(environment: Mapping[str, Any]) -> None:
     if python is not None:
         try:
             Version(python)
-        except InvalidVersion as exc:
+        except ValueError as exc:
             msg = (
                 "environment.python must be a version like '3.12' or"
                 f" '3.12.4', got {python!r}"
@@ -1782,12 +2034,7 @@ def _parse_indexes(value: object) -> tuple[IndexConfig, ...]:
 
 
 def _check_index_name_uniqueness(indexes: Sequence[IndexConfig]) -> None:
-    """Reject two indexes declared with the same name.
-
-    Shared by the single-file parse and the registry's across-file merge
-    re-validation (config_sources): a name may appear at most once, whether
-    the duplicate is in one file or split across the two project files.
-    """
+    """Reject two indexes declared with the same name."""
     seen: set[str] = set()
     for index in indexes:
         if index.name in seen:
@@ -1810,7 +2057,9 @@ _PACKAGE_OVERRIDE_BODY_KEYS = frozenset(
 )
 # A [[tool.nab.package-rules]] entry carries a ``match`` selector plus body keys.
 _PACKAGE_RULE_KEYS = frozenset({"match"}) | _PACKAGE_OVERRIDE_BODY_KEYS
-_INDEX_OVERRIDE_KEYS = frozenset({"dist-policy", "build-policy", "uploaded-prior-to"})
+_INDEX_OVERRIDE_KEYS = frozenset(
+    {"dist-policy", "build-policy", "uploaded-prior-to", "assume-fresh-seconds"}
+)
 # Override-body keys not supported yet; rejected so nothing inert ships.
 # ``metadata`` is the nested-table form the flat body keys replace.
 _OVERRIDE_DEFERRED_KEYS = frozenset(
@@ -2024,7 +2273,9 @@ def _requirement_from_selector(raw: str, where: str) -> Requirement:
     """
     try:
         requirement = Requirement(raw)
-    except InvalidRequirement as exc:
+        # a specifier defers parsing its versions; to_range() forces it
+        requirement.specifier.to_range()
+    except ValueError as exc:
         msg = f"{where} entry {raw!r} is not a valid PEP 508 requirement"
         raise ConfigError(msg) from exc
     if requirement.extras or requirement.marker is not None or requirement.url:
@@ -2160,12 +2411,16 @@ def _parse_index_override_body(
         anchor=anchor,
         present="uploaded-prior-to" in body,
     )
+    assume_fresh_seconds = _parse_index_assume_fresh(
+        body.get("assume-fresh-seconds"), where
+    )
     has_body = (
         dist_policy is not None
         or dist_trust is not None
         or build_policy is not None
         or uploaded_prior_to is not None
         or uploaded_disabled
+        or assume_fresh_seconds is not None
     )
     if not has_body:
         msg = (
@@ -2179,6 +2434,7 @@ def _parse_index_override_body(
         build_policy=build_policy,
         uploaded_prior_to=uploaded_prior_to,
         uploaded_prior_to_disabled=uploaded_disabled,
+        assume_fresh_seconds=assume_fresh_seconds,
     )
 
 
@@ -2264,6 +2520,19 @@ def _parse_override_uploaded_prior_to(
     return (cutoff, False)
 
 
+def _parse_index_assume_fresh(value: object, where: str) -> int | None:
+    """Parse ``assume-fresh-seconds``: a positive integer number of seconds."""
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        msg = (
+            f"{where}.assume-fresh-seconds must be a positive integer number of"
+            f" seconds, got {value!r}"
+        )
+        raise ConfigError(msg)
+    return value
+
+
 def _parse_override_requires_python(value: object, where: str) -> str | None:
     """Parse a per-package ``requires-python`` override, naming the entry.
 
@@ -2312,24 +2581,26 @@ def _parse_override_dependencies(
             )
             raise ConfigError(msg)
         try:
-            out.append(Requirement(item))
-        except InvalidRequirement as exc:
+            requirement = Requirement(item)
+            # a specifier defers parsing its versions; to_range() forces it
+            requirement.specifier.to_range()
+        except ValueError as exc:
             msg = (
                 f"{where}.dependencies[{i}] is not a valid PEP 508"
                 f" requirement: {item!r}"
             )
             raise ConfigError(msg) from exc
+        out.append(requirement)
     return tuple(out)
 
 
 def _parse_override_provides_extra(value: object, where: str) -> tuple[str, ...] | None:
     """Parse the ``provides-extra`` body: the extras the override declares.
 
-    A TOML array of extra names, each normalised per PEP 685 (the same
-    rule :func:`nab_python.provider._normalize_extra` applies to parsed
-    ``Provides-Extra``), so an extra compares equal regardless of spelling.
-    A present-but-empty list is stored as ``()`` (declares no extras),
-    distinct from the key being absent (``None``).
+    A TOML array of extra names, each normalised per PEP 685 like a parsed
+    ``Provides-Extra``, so an extra compares equal regardless of spelling. A
+    present-but-empty list is stored as ``()`` (declares no extras), distinct
+    from the key being absent (``None``).
     """
     if value is None:
         return None
@@ -2349,7 +2620,7 @@ def _parse_override_provides_extra(value: object, where: str) -> tuple[str, ...]
                 f" {type(item).__name__}"
             )
             raise ConfigError(msg)
-        out.append(_normalize_extra(item))
+        out.append(canonicalize_name(item))
     return tuple(out)
 
 
@@ -2410,6 +2681,8 @@ def _parse_vcs(value: object) -> VcsConfig:
     allowed_repos = _parse_string_list(
         "vcs.allowed-repos", value.get("allowed-repos", [])
     )
+    for repo in allowed_repos:
+        _validate_allowed_repo(repo)
     require_pin_raw = value.get("require-pin", True)
     if not isinstance(require_pin_raw, bool):
         msg = f"vcs.require-pin must be a boolean, got {type(require_pin_raw).__name__}"
@@ -2422,7 +2695,71 @@ def _parse_vcs(value: object) -> VcsConfig:
     )
 
 
+def _validate_allowed_repo(repo: str) -> None:
+    """Reject an ``allowed-repos`` entry whose authority does not parse.
+
+    :func:`urlsplit` raises ValueError on an authority it cannot parse,
+    such as an unterminated IPv6 bracket.
+    """
+    try:
+        urlsplit(repo)
+    except ValueError as exc:
+        msg = f"vcs.allowed-repos entry {repo!r} does not parse: {exc}"
+        raise ConfigError(msg) from exc
+
+
 _LOCAL_SOURCE_KEYS = frozenset({"name", "path", "editable", "subdirectory"})
+
+
+def _parse_local_source(entry: object, i: int, *, pyproject_dir: Path) -> LocalSource:
+    if not isinstance(entry, dict):
+        msg = f"local-sources[{i}] must be a table, got {type(entry).__name__}"
+        raise ConfigError(msg)
+
+    unknown = sorted(set(entry) - _LOCAL_SOURCE_KEYS)
+    if unknown:
+        msg = (
+            f"unknown local-sources[{i}] keys: {unknown!r};"
+            f" expected {sorted(_LOCAL_SOURCE_KEYS)!r}"
+        )
+        raise ConfigError(msg)
+
+    try:
+        name = entry["name"]
+        path_value = entry["path"]
+    except KeyError as missing:
+        msg = f"local-sources[{i}] missing required key {missing!s}"
+        raise ConfigError(msg) from None
+    if not isinstance(name, str) or not isinstance(path_value, str):
+        msg = f"local-sources[{i}] name and path must be strings"
+        raise ConfigError(msg)
+
+    editable = entry.get("editable", False)
+    if not isinstance(editable, bool):
+        msg = f"local-sources[{i}] editable must be a boolean"
+        raise ConfigError(msg)
+
+    subdirectory = entry.get("subdirectory")
+    if subdirectory is not None and not isinstance(subdirectory, str):
+        msg = f"local-sources[{i}] subdirectory must be a string"
+        raise ConfigError(msg)
+    if subdirectory is not None and subdirectory_escapes(subdirectory):
+        msg = (
+            f"local-sources[{i}] subdirectory {subdirectory!r} escapes the source tree"
+        )
+        raise ConfigError(msg)
+
+    resolved = resolve_path(pyproject_dir, path_value)
+    if resolved is None:
+        msg = f"local-sources[{i}] path {path_value!r} is not a usable filesystem path"
+        raise ConfigError(msg)
+
+    return LocalSource(
+        name=name,
+        path=str(resolved),
+        editable=editable,
+        subdirectory=subdirectory,
+    )
 
 
 def _parse_local_sources(
@@ -2431,51 +2768,10 @@ def _parse_local_sources(
     if not isinstance(value, list):
         msg = f"local-sources must be an array of tables, got {type(value).__name__}"
         raise ConfigError(msg)
-    out: list[LocalSource] = []
-    for i, entry in enumerate(value):
-        if not isinstance(entry, dict):
-            msg = f"local-sources[{i}] must be a table, got {type(entry).__name__}"
-            raise ConfigError(msg)
-        unknown = sorted(set(entry) - _LOCAL_SOURCE_KEYS)
-        if unknown:
-            msg = (
-                f"unknown local-sources[{i}] keys: {unknown!r};"
-                f" expected {sorted(_LOCAL_SOURCE_KEYS)!r}"
-            )
-            raise ConfigError(msg)
-        try:
-            name = entry["name"]
-            path_value = entry["path"]
-        except KeyError as missing:
-            msg = f"local-sources[{i}] missing required key {missing!s}"
-            raise ConfigError(msg) from None
-        if not isinstance(name, str) or not isinstance(path_value, str):
-            msg = f"local-sources[{i}] name and path must be strings"
-            raise ConfigError(msg)
-        editable = entry.get("editable", False)
-        if not isinstance(editable, bool):
-            msg = f"local-sources[{i}] editable must be a boolean"
-            raise ConfigError(msg)
-        subdirectory = entry.get("subdirectory")
-        if subdirectory is not None and not isinstance(subdirectory, str):
-            msg = f"local-sources[{i}] subdirectory must be a string"
-            raise ConfigError(msg)
-        if subdirectory is not None and subdirectory_escapes(subdirectory):
-            msg = (
-                f"local-sources[{i}] subdirectory {subdirectory!r}"
-                " escapes the source tree"
-            )
-            raise ConfigError(msg)
-        resolved = str((pyproject_dir / path_value).resolve())
-        out.append(
-            LocalSource(
-                name=name,
-                path=resolved,
-                editable=editable,
-                subdirectory=subdirectory,
-            )
-        )
-    return tuple(out)
+    return tuple(
+        _parse_local_source(entry, i, pyproject_dir=pyproject_dir)
+        for i, entry in enumerate(value)
+    )
 
 
 _VCS_SOURCE_KEYS = frozenset({"name", "url"})
@@ -2544,12 +2840,14 @@ def _parse_archive_sources(value: object) -> tuple[ArchiveSource, ...]:
 
 
 def _validate_archive_url(index: int, url: str) -> None:
-    """Reject an archive URL with no hash or an unsupported format.
+    """Reject an archive URL that is malformed, has no hash, or is not a .tar.gz.
 
     PEP 751 ``packages.archive.hashes`` is required, so nab requires the
     hash in the URL fragment and verifies the download against it.  Only
     ``.tar.gz`` source archives are supported today; wheels and zips are
-    refused loudly rather than mis-handled.
+    refused loudly rather than mis-handled.  :func:`urlsplit` raises
+    ValueError on an authority it cannot parse, such as an unterminated
+    IPv6 bracket, so that surfaces as a ConfigError here too.
     """
     try:
         request = ArchiveRequest.parse(url)
@@ -2564,7 +2862,13 @@ def _validate_archive_url(index: int, url: str) -> None:
         )
         raise ConfigError(msg)
 
-    if not urlsplit(request.url).path.endswith(".tar.gz"):
+    try:
+        path = urlsplit(request.url).path
+    except ValueError as exc:
+        msg = f"archive-sources[{index}] url {url!r} does not parse: {exc}"
+        raise ConfigError(msg) from exc
+
+    if not path.endswith(".tar.gz"):
         msg = (
             f"archive-sources[{index}] url {url!r} is not a .tar.gz archive;"
             " only .tar.gz source archives are supported"
@@ -2643,7 +2947,7 @@ def _parse_python_patches(value: object) -> dict[str, str] | None:
         try:
             minor = Version(k)
             full = Version(v)
-        except InvalidVersion as exc:
+        except ValueError as exc:
             msg = f"matrix.python-patches expects version strings, got {k!r}: {v!r}"
             raise ConfigError(msg) from exc
 
@@ -2705,13 +3009,7 @@ def _parse_conflicts(value: object) -> tuple[ConflictSet, ...]:
 
 
 def _check_conflict_member_uniqueness(sets: Sequence[ConflictSet]) -> None:
-    """Reject a member declared in more than one conflict set.
-
-    Shared by the single-file parse and the registry's across-file merge
-    re-validation (config_sources): a member may belong to at most one
-    conflict set, whether the duplicate is in one file or split across the
-    two project files.
-    """
+    """Reject a member declared in more than one conflict set."""
     seen: set[ConflictMember] = set()
     for conflict_set in sets:
         for member in conflict_set.members:
@@ -2727,28 +3025,112 @@ def _check_conflict_member_uniqueness(sets: Sequence[ConflictSet]) -> None:
 def _validate_default_groups_against_conflicts(
     default_groups: Sequence[str],
     conflicts: Sequence[ConflictSet],
+    base_group: str | None = None,
 ) -> None:
-    """Reject default-groups that co-activate an exclusive conflict set.
+    """Reject a default install that co-activates an exclusive conflict set.
 
     A default install activates every default group with no user
     selection, but the emit-time disjointness validator prunes any
     context that activates two members of an exclusive set, so it never
-    enumerates that install.  Two default groups in the same at-most-one
-    or exactly-one set would silently violate the declared conflict;
-    catch it at parse time.
+    enumerates that install.  Two members co-active by default would
+    silently violate the declared conflict; catch it at parse time.
+
+    ``base_group`` counts as a default: PEP 751 seeds ``dependency_groups``
+    from ``default-groups``, and the lock puts that name there so an
+    install asking for nothing still gets the project's own dependencies.
     """
+    configured = None if base_group is None else canonicalize_name(base_group)
     active = {canonicalize_name(g) for g in default_groups}
+    if configured is not None:
+        active.add(configured)
+
     for group in conflict_exclusion_groups(conflicts):
         co_active = sorted(
             name
             for kind, name in group
             if kind == ConflictKind.GROUP.value and name in active
         )
-        if len(co_active) >= _MIN_ENGAGED_MEMBERS:
+        if len(co_active) < _MIN_ENGAGED_MEMBERS:
+            continue
+
+        if configured in co_active:
+            others = ", ".join(repr(name) for name in co_active if name != configured)
+            msg = (
+                f"default-groups activates {others}, and base-group"
+                f" {base_group!r} names the project's own dependencies, which"
+                " every default install activates too; they are declared"
+                " mutually exclusive in [tool.nab].conflicts, so an installer"
+                " given no selection would install neither"
+            )
+        else:
             joined = ", ".join(repr(name) for name in co_active)
             msg = (
                 f"default-groups activates {joined}, which are declared"
                 " mutually exclusive in [tool.nab].conflicts"
+            )
+        raise ConfigError(msg)
+
+
+def _validate_configured_conflict_sets(
+    conflicts: Sequence[ConflictSet],
+    base_group: str | None,
+    build_group: str | None,
+) -> None:
+    """Reject the conflict sets a configured group name cannot mean.
+
+    A configured member is active on every run, so an at-least-one set
+    holding one can never fail and decides nothing.  A declaration that
+    decides nothing reads as one that took effect, so it is refused
+    rather than left to sit.
+
+    An exclusive set pairing ``base-group`` with an extra is worse than
+    inert.  A PEP 621 extra installs on top of the project's own
+    dependencies, and the extras axis never deselects a default group, so
+    the fork that chooses the extra describes an install context no
+    installer can produce.  ``build-group`` pairs with an extra fine: the
+    project's dependencies stay in every fork of that set.
+    """
+    names = {
+        canonicalize_name(name)
+        for name in (base_group, build_group)
+        if name is not None
+    }
+    for conflict_set in conflicts:
+        members = conflict_set.members
+        if conflict_set.policy is ConflictPolicy.AT_LEAST_ONE:
+            inert = sorted(
+                member.name
+                for member in members
+                if member.kind is ConflictKind.GROUP and member.name in names
+            )
+            if inert:
+                joined = ", ".join(repr(name) for name in inert)
+                msg = (
+                    f"[tool.nab].conflicts declares {joined} in an at-least-one"
+                    " set, but a group named by base-group or build-group is"
+                    " active on every run, so the set can never fail and"
+                    " decides nothing"
+                )
+                raise ConfigError(msg)
+            continue
+
+        if base_group is None:
+            continue
+        canonical_base = canonicalize_name(base_group)
+        holds_main = any(
+            member.kind is ConflictKind.GROUP and member.name == canonical_base
+            for member in members
+        )
+        extras = sorted(
+            member.name for member in members if member.kind is ConflictKind.EXTRA
+        )
+        if holds_main and extras:
+            joined = ", ".join(repr(name) for name in extras)
+            msg = (
+                f"[tool.nab].conflicts declares base-group {base_group!r}"
+                f" mutually exclusive with the extra {joined}, but an extra"
+                " installs on top of the project's own dependencies and never"
+                " deselects them, so nothing could install that extra"
             )
             raise ConfigError(msg)
 
@@ -2869,7 +3251,7 @@ def _validate_matrix_python(spec: str) -> None:
     for clause in specifier_set:
         try:
             version = Version(clause.version.removesuffix(".*"))
-        except InvalidVersion as exc:
+        except ValueError as exc:
             msg = f"matrix.python clause {clause} is not a valid version"
             raise ConfigError(msg) from exc
 
@@ -3023,7 +3405,7 @@ def _parse_major_minor(key: str, value: object) -> tuple[int, int] | None:
     text = _parse_string_value(key, value)
     try:
         version = Version(text)
-    except InvalidVersion as exc:
+    except ValueError as exc:
         msg = f"{key} must be a 'major.minor' version, got {text!r}"
         raise ConfigError(msg) from exc
     release = version.release
@@ -3076,7 +3458,9 @@ def _parse_matrix(value: object) -> MatrixConfig | None:
     # marker, which has no libc or free-threading variable, so two targets
     # sharing an id would render the same marker.
     _reject_duplicates("matrix.platforms", tuple(p.platform_id for p in platforms))
-    python_order = value.get("python-order", "asc")
+    python_order = _parse_string_value(
+        "matrix.python-order", value.get("python-order", "asc")
+    )
     if python_order not in {"asc", "desc"}:
         msg = f"matrix.python-order must be 'asc' or 'desc', got {python_order!r}"
         raise ConfigError(msg)

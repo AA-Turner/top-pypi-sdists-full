@@ -14594,41 +14594,6 @@ class CfnDBParameterGroup(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
-    @jsii.member(jsii_name="arnForDBParameterGroup")
-    @builtins.classmethod
-    def arn_for_db_parameter_group(
-        cls,
-        resource: "_aws_rds_26740a85.IDBParameterGroupRef",
-    ) -> builtins.str:
-        '''
-        :param resource: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__6211884dd5a9686889fb88a972e68b8f6f7834a48e4a61c870f855e73be14824)
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDBParameterGroup", [resource]))
-
-    @jsii.member(jsii_name="fromDBParameterGroupName")
-    @builtins.classmethod
-    def from_db_parameter_group_name(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        db_parameter_group_name: builtins.str,
-    ) -> "_aws_rds_26740a85.IDBParameterGroupRef":
-        '''Creates a new IDBParameterGroupRef from a dbParameterGroupName.
-
-        :param scope: -
-        :param id: -
-        :param db_parameter_group_name: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__164cd515e2b7a4d2cbd432b8170f5de34ff55898a532d748e9fcfda16e8122b2)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument db_parameter_group_name", value=db_parameter_group_name, expected_type=type_hints["db_parameter_group_name"])
-        return typing.cast("_aws_rds_26740a85.IDBParameterGroupRef", jsii.sinvoke(cls, "fromDBParameterGroupName", [scope, id, db_parameter_group_name]))
-
     @jsii.member(jsii_name="isCfnDBParameterGroup")
     @builtins.classmethod
     def is_cfn_db_parameter_group(cls, x: typing.Any) -> builtins.bool:
@@ -18265,6 +18230,20 @@ class CfnDBSubnetGroup(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForDBSubnetGroup")
+    @builtins.classmethod
+    def arn_for_db_subnet_group(
+        cls,
+        resource: "_aws_rds_26740a85.IDBSubnetGroupRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3f9da4301eeb780938e1e171d593e22e1a0a737e738b602d2e6b109edb710598)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDBSubnetGroup", [resource]))
+
     @jsii.member(jsii_name="isCfnDBSubnetGroup")
     @builtins.classmethod
     def is_cfn_db_subnet_group(cls, x: typing.Any) -> builtins.bool:
@@ -18306,6 +18285,14 @@ class CfnDBSubnetGroup(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDbSubnetGroupArn")
+    def attr_db_subnet_group_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: DBSubnetGroupArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDbSubnetGroupArn"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -20690,382 +20677,6 @@ class CfnOptionGroupProps:
 
     def __repr__(self) -> str:
         return "CfnOptionGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_rds_26740a85.IReservedDBInstanceRef)
-class CfnReservedDBInstance(
-    _aws_cdk_0cae9daa.CfnResource,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_rds.CfnReservedDBInstance",
-):
-    '''Resource Type definition for AWS::RDS::ReservedDBInstance.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-reserveddbinstance.html
-    :cloudformationResource: AWS::RDS::ReservedDBInstance
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_rds as rds
-        
-        cfn_reserved_db_instance = rds.CfnReservedDBInstance(self, "MyCfnReservedDBInstance",
-            db_instance_count=123
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        *,
-        db_instance_count: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Create a new ``AWS::RDS::ReservedDBInstance``.
-
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param db_instance_count: 
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__49d91aa2ad3874477e342b5752d53f624619c0c3967483244ce568686ba7f48e)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnReservedDBInstanceProps(db_instance_count=db_instance_count)
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="arnForReservedDBInstance")
-    @builtins.classmethod
-    def arn_for_reserved_db_instance(
-        cls,
-        resource: "_aws_rds_26740a85.IReservedDBInstanceRef",
-    ) -> builtins.str:
-        '''
-        :param resource: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__3394e8175f0dc5c6dd0c9c89eeab33b913b646be6059bb1dc80ea1b4b71edbb4)
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForReservedDBInstance", [resource]))
-
-    @jsii.member(jsii_name="isCfnReservedDBInstance")
-    @builtins.classmethod
-    def is_cfn_reserved_db_instance(cls, x: typing.Any) -> builtins.bool:
-        '''Checks whether the given object is a CfnReservedDBInstance.
-
-        :param x: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__9c193f7c281a6f5a2e9eca085527e2125412118159f9da74e09bc497c3df5c19)
-            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
-        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReservedDBInstance", [x]))
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__a81c2073c830d9c535e56ba8a2bd9a99c6fc98874b2079080a53c33f164e1487)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__d2f98b4b49402057550f0a8113c9ad4a69cf114d917d94962bced0b431e19c76)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrCurrencyCode")
-    def attr_currency_code(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: CurrencyCode
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrCurrencyCode"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrDbInstanceClass")
-    def attr_db_instance_class(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: DBInstanceClass
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrDbInstanceClass"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrDuration")
-    def attr_duration(self) -> jsii.Number:
-        '''
-        :cloudformationAttribute: Duration
-        '''
-        return typing.cast(jsii.Number, jsii.get(self, "attrDuration"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrFixedPrice")
-    def attr_fixed_price(self) -> "_aws_cdk_0cae9daa.IResolvable":
-        '''
-        :cloudformationAttribute: FixedPrice
-        '''
-        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrFixedPrice"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrMultiAz")
-    def attr_multi_az(self) -> "_aws_cdk_0cae9daa.IResolvable":
-        '''
-        :cloudformationAttribute: MultiAZ
-        '''
-        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrMultiAz"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrOfferingType")
-    def attr_offering_type(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: OfferingType
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrOfferingType"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrProductDescription")
-    def attr_product_description(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: ProductDescription
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrProductDescription"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrRecurringCharges")
-    def attr_recurring_charges(self) -> "_aws_cdk_0cae9daa.IResolvable":
-        '''
-        :cloudformationAttribute: RecurringCharges
-        '''
-        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrRecurringCharges"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrReservedDbInstanceArn")
-    def attr_reserved_db_instance_arn(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: ReservedDBInstanceArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrReservedDbInstanceArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrReservedDbInstanceId")
-    def attr_reserved_db_instance_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: ReservedDBInstanceId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrReservedDbInstanceId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrReservedDbInstancesOfferingId")
-    def attr_reserved_db_instances_offering_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: ReservedDBInstancesOfferingId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrReservedDbInstancesOfferingId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStartTime")
-    def attr_start_time(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: StartTime
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStartTime"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrState")
-    def attr_state(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: State
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrState"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrTags")
-    def attr_tags(self) -> "_aws_cdk_0cae9daa.IResolvable":
-        '''
-        :cloudformationAttribute: Tags
-        '''
-        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrTags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrUsagePrice")
-    def attr_usage_price(self) -> "_aws_cdk_0cae9daa.IResolvable":
-        '''
-        :cloudformationAttribute: UsagePrice
-        '''
-        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrUsagePrice"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnPropertyNames")
-    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
-        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
-
-    @builtins.property
-    @jsii.member(jsii_name="reservedDbInstanceRef")
-    def reserved_db_instance_ref(
-        self,
-    ) -> "_aws_rds_26740a85.ReservedDBInstanceReference":
-        '''A reference to a ReservedDBInstance resource.'''
-        return typing.cast("_aws_rds_26740a85.ReservedDBInstanceReference", jsii.get(self, "reservedDbInstanceRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="dbInstanceCount")
-    def db_instance_count(self) -> typing.Optional[jsii.Number]:
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "dbInstanceCount"))
-
-    @db_instance_count.setter
-    def db_instance_count(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__c4466cb73e79c397d74cccf008cc045f054fb69c15536e31c877b3aa72ac93ef)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbInstanceCount", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_rds.CfnReservedDBInstance.RecurringChargeProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "recurring_charge_amount": "recurringChargeAmount",
-            "recurring_charge_frequency": "recurringChargeFrequency",
-        },
-    )
-    class RecurringChargeProperty:
-        def __init__(
-            self,
-            *,
-            recurring_charge_amount: typing.Optional[jsii.Number] = None,
-            recurring_charge_frequency: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''
-            :param recurring_charge_amount: 
-            :param recurring_charge_frequency: 
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-reserveddbinstance-recurringcharge.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_rds as rds
-                
-                recurring_charge_property = rds.CfnReservedDBInstance.RecurringChargeProperty(
-                    recurring_charge_amount=123,
-                    recurring_charge_frequency="recurringChargeFrequency"
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__6063abb08e2d5fe11a37485e511aac7ef3d923dea4904d8a40cd89fadd01cca6)
-                check_type(argname="argument recurring_charge_amount", value=recurring_charge_amount, expected_type=type_hints["recurring_charge_amount"])
-                check_type(argname="argument recurring_charge_frequency", value=recurring_charge_frequency, expected_type=type_hints["recurring_charge_frequency"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if recurring_charge_amount is not None:
-                self._values["recurring_charge_amount"] = recurring_charge_amount
-            if recurring_charge_frequency is not None:
-                self._values["recurring_charge_frequency"] = recurring_charge_frequency
-
-        @builtins.property
-        def recurring_charge_amount(self) -> typing.Optional[jsii.Number]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-reserveddbinstance-recurringcharge.html#cfn-rds-reserveddbinstance-recurringcharge-recurringchargeamount
-            '''
-            result = self._values.get("recurring_charge_amount")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def recurring_charge_frequency(self) -> typing.Optional[builtins.str]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-reserveddbinstance-recurringcharge.html#cfn-rds-reserveddbinstance-recurringcharge-recurringchargefrequency
-            '''
-            result = self._values.get("recurring_charge_frequency")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "RecurringChargeProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_rds.CfnReservedDBInstanceProps",
-    jsii_struct_bases=[],
-    name_mapping={"db_instance_count": "dbInstanceCount"},
-)
-class CfnReservedDBInstanceProps:
-    def __init__(
-        self,
-        *,
-        db_instance_count: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnReservedDBInstance``.
-
-        :param db_instance_count: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-reserveddbinstance.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_rds as rds
-            
-            cfn_reserved_db_instance_props = rds.CfnReservedDBInstanceProps(
-                db_instance_count=123
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__c4798bbbd64b5ad16b86f15c95e46577ee5456b1162e439286a3e0e5992a3193)
-            check_type(argname="argument db_instance_count", value=db_instance_count, expected_type=type_hints["db_instance_count"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if db_instance_count is not None:
-            self._values["db_instance_count"] = db_instance_count
-
-    @builtins.property
-    def db_instance_count(self) -> typing.Optional[jsii.Number]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-reserveddbinstance.html#cfn-rds-reserveddbinstance-dbinstancecount
-        '''
-        result = self._values.get("db_instance_count")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnReservedDBInstanceProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -38208,6 +37819,12 @@ class OracleEngineVersion(
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2025_07_R1"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_19_0_0_0_2025_10_R1")
+    def VER_19_0_0_0_2025_10_R1(cls) -> "OracleEngineVersion":
+        '''Version "19.0.0.0.ru-2025-10.rur-2025-10.r1".'''
+        return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2025_10_R1"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_21")
     def VER_21(cls) -> "OracleEngineVersion":
         '''Version "21" (only a major version, without a specific minor version).'''
@@ -52880,8 +52497,6 @@ __all__ = [
     "CfnIntegrationProps",
     "CfnOptionGroup",
     "CfnOptionGroupProps",
-    "CfnReservedDBInstance",
-    "CfnReservedDBInstanceProps",
     "ClientPasswordAuthType",
     "ClusterEngineBindOptions",
     "ClusterEngineConfig",
@@ -54639,20 +54254,6 @@ def _typecheckingstub__c10aa78132a0eae6199258b5e55e45968fdce240e932138b48918eafb
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__6211884dd5a9686889fb88a972e68b8f6f7834a48e4a61c870f855e73be14824(
-    resource: _aws_rds_26740a85.IDBParameterGroupRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__164cd515e2b7a4d2cbd432b8170f5de34ff55898a532d748e9fcfda16e8122b2(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    db_parameter_group_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__2f17818f41efbd62d0fc1866fd7961a9fe1921edcae2321ea2baee88721a8972(
     x: typing.Any,
 ) -> None:
@@ -55304,6 +54905,12 @@ def _typecheckingstub__3437b6f3359034732d6fbef14006ac020c94fa5b18aa95cb4c8bb7332
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3f9da4301eeb780938e1e171d593e22e1a0a737e738b602d2e6b109edb710598(
+    resource: _aws_rds_26740a85.IDBSubnetGroupRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6a90115e589dd3577c1a865e074d8e881aadc1c514b2b304ca8f0e5ceb1851b9(
     x: typing.Any,
 ) -> None:
@@ -55773,60 +55380,6 @@ def _typecheckingstub__b27da44bf9cad42e51897f8f139ef66c4f8e0aed1b3dd42818469f62a
     option_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOptionGroup.OptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     option_group_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__49d91aa2ad3874477e342b5752d53f624619c0c3967483244ce568686ba7f48e(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    db_instance_count: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3394e8175f0dc5c6dd0c9c89eeab33b913b646be6059bb1dc80ea1b4b71edbb4(
-    resource: _aws_rds_26740a85.IReservedDBInstanceRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9c193f7c281a6f5a2e9eca085527e2125412118159f9da74e09bc497c3df5c19(
-    x: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a81c2073c830d9c535e56ba8a2bd9a99c6fc98874b2079080a53c33f164e1487(
-    inspector: _aws_cdk_0cae9daa.TreeInspector,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d2f98b4b49402057550f0a8113c9ad4a69cf114d917d94962bced0b431e19c76(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c4466cb73e79c397d74cccf008cc045f054fb69c15536e31c877b3aa72ac93ef(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6063abb08e2d5fe11a37485e511aac7ef3d923dea4904d8a40cd89fadd01cca6(
-    *,
-    recurring_charge_amount: typing.Optional[jsii.Number] = None,
-    recurring_charge_frequency: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c4798bbbd64b5ad16b86f15c95e46577ee5456b1162e439286a3e0e5992a3193(
-    *,
-    db_instance_count: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass

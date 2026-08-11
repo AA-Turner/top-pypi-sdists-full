@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import collections.abc
 import logging
-from typing import TYPE_CHECKING, Any, List, Mapping, Optional, Sequence, Tuple
+import time
+from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Optional, Sequence, Tuple
 from urllib.parse import urlsplit
 
 import grpc
@@ -219,3 +220,63 @@ def enqueue_model_call(
     feather_bytes = _encode_inputs(inputs)
     call_id = queue_client.enqueue(model_name, feather_bytes)
     return call_id, feather_bytes
+
+
+def _decode_first_value(chunks: Sequence[bytes]) -> Any:
+    """First column of the first row across all result chunks.
+    Unlike ``_decode_output``, this scans every chunk and batch: a queued result can
+    arrive split across successive polls.
+    """
+    import pyarrow as pa
+
+    for chunk in chunks:
+        for batch in pa.ipc.open_stream(chunk):
+            if batch.num_rows:  # Skip empty batches.
+                return batch.column(0)[0].as_py()
+    raise ModelRemoteError("Model call produced no output rows")
+
+
+class ModelCallHandle:
+    """Handle for a deferred model call, returned by ``DeployedModelVersion.defer()``."""
+
+    def __init__(self, get_queue_client: Callable[[], "RemoteCallClient"], model_name: str, call_id: str) -> None:
+        super().__init__()
+        self._get_queue_client = get_queue_client
+        self._model_name = model_name
+        self._call_id = call_id
+        self._cursor = ""
+        self._poll_count = 0
+        self._chunks: List[bytes] = []
+
+    @property
+    def call_id(self) -> str:
+        """Server-assigned id of the queued call."""
+        return self._call_id
+
+    def get(self, timeout: Optional[float] = None) -> Any:
+        """Block until the call completes, returning what ``remote()`` would return.
+
+        Raises ``ModelRemoteError`` if the call failed, or ``TimeoutError`` if
+        ``timeout`` seconds elapse first.
+        """
+        deadline = None if timeout is None else time.monotonic() + timeout
+        last_status = "unknown"
+
+        while True:
+            # poll_next blocks server-side and backs off internally, so this loop must not sleep.
+            result = self._get_queue_client().poll_next(self._call_id, self._cursor, self._poll_count)
+            self._cursor = result.cursor
+            self._poll_count = result.poll_count
+            last_status = result.status_name
+            self._chunks.extend(result.chunks)
+
+            if result.is_failed:
+                raise ModelRemoteError(result.error_message or f"Model call {self._call_id} failed")
+
+            if result.is_completed:
+                return _decode_first_value(self._chunks)
+
+            if deadline is not None and time.monotonic() >= deadline:
+                raise TimeoutError(
+                    f"Model call {self._call_id} ({self._model_name!r}) timed out (last status: {last_status})"
+                )

@@ -610,6 +610,53 @@ class _IIdNamespaceAssociationRefProxy(
 typing.cast(typing.Any, IIdNamespaceAssociationRef).__jsii_proxy_class__ = lambda : _IIdNamespaceAssociationRefProxy
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_cleanrooms.IIntermediateTableRef"
+)
+class IIntermediateTableRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a IntermediateTable.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="intermediateTableRef")
+    def intermediate_table_ref(self) -> "IntermediateTableReference":
+        '''(experimental) A reference to a IntermediateTable resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IIntermediateTableRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a IntermediateTable.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cleanrooms.IIntermediateTableRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="intermediateTableRef")
+    def intermediate_table_ref(self) -> "IntermediateTableReference":
+        '''(experimental) A reference to a IntermediateTable resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("IntermediateTableReference", jsii.get(self, "intermediateTableRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IIntermediateTableRef).__jsii_proxy_class__ = lambda : _IIntermediateTableRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cleanrooms.IMembershipRef")
 class IMembershipRef(
     _constructs_77d1e7e8.IConstruct,
@@ -865,6 +912,87 @@ class IdNamespaceAssociationReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cleanrooms.IntermediateTableReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "intermediate_table_arn": "intermediateTableArn",
+        "intermediate_table_identifier": "intermediateTableIdentifier",
+        "membership_identifier": "membershipIdentifier",
+    },
+)
+class IntermediateTableReference:
+    def __init__(
+        self,
+        *,
+        intermediate_table_arn: builtins.str,
+        intermediate_table_identifier: builtins.str,
+        membership_identifier: builtins.str,
+    ) -> None:
+        '''A reference to a IntermediateTable resource.
+
+        :param intermediate_table_arn: The ARN of the IntermediateTable resource.
+        :param intermediate_table_identifier: The IntermediateTableIdentifier of the IntermediateTable resource.
+        :param membership_identifier: The MembershipIdentifier of the IntermediateTable resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cleanrooms as interfaces_cleanrooms
+            
+            intermediate_table_reference = interfaces_cleanrooms.IntermediateTableReference(
+                intermediate_table_arn="intermediateTableArn",
+                intermediate_table_identifier="intermediateTableIdentifier",
+                membership_identifier="membershipIdentifier"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7fb65c2198a0d17804ac1afa60b33d3f40208fe2592e5ffdd46922c935c3ecee)
+            check_type(argname="argument intermediate_table_arn", value=intermediate_table_arn, expected_type=type_hints["intermediate_table_arn"])
+            check_type(argname="argument intermediate_table_identifier", value=intermediate_table_identifier, expected_type=type_hints["intermediate_table_identifier"])
+            check_type(argname="argument membership_identifier", value=membership_identifier, expected_type=type_hints["membership_identifier"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "intermediate_table_arn": intermediate_table_arn,
+            "intermediate_table_identifier": intermediate_table_identifier,
+            "membership_identifier": membership_identifier,
+        }
+
+    @builtins.property
+    def intermediate_table_arn(self) -> builtins.str:
+        '''The ARN of the IntermediateTable resource.'''
+        result = self._values.get("intermediate_table_arn")
+        assert result is not None, "Required property 'intermediate_table_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def intermediate_table_identifier(self) -> builtins.str:
+        '''The IntermediateTableIdentifier of the IntermediateTable resource.'''
+        result = self._values.get("intermediate_table_identifier")
+        assert result is not None, "Required property 'intermediate_table_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def membership_identifier(self) -> builtins.str:
+        '''The MembershipIdentifier of the IntermediateTable resource.'''
+        result = self._values.get("membership_identifier")
+        assert result is not None, "Required property 'membership_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "IntermediateTableReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_cleanrooms.MembershipReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -1024,10 +1152,12 @@ __all__ = [
     "IConfiguredTableRef",
     "IIdMappingTableRef",
     "IIdNamespaceAssociationRef",
+    "IIntermediateTableRef",
     "IMembershipRef",
     "IPrivacyBudgetTemplateRef",
     "IdMappingTableReference",
     "IdNamespaceAssociationReference",
+    "IntermediateTableReference",
     "MembershipReference",
     "PrivacyBudgetTemplateReference",
 ]
@@ -1086,6 +1216,15 @@ def _typecheckingstub__4e5c51d77a9254a26baaaef48d6f7fef6cb7bb514ba0928032c6f95eb
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7fb65c2198a0d17804ac1afa60b33d3f40208fe2592e5ffdd46922c935c3ecee(
+    *,
+    intermediate_table_arn: builtins.str,
+    intermediate_table_identifier: builtins.str,
+    membership_identifier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9d5a8a067b5206625d9650c35900d7f89d583beb5413a3ec0462e084a2ebdc9b(
     *,
     membership_arn: builtins.str,
@@ -1103,5 +1242,5 @@ def _typecheckingstub__75fffac054bd44cf4a1c25f9dbb25317dfa83275ae8e640fdbc838380
     """Type checking stubs"""
     pass
 
-for cls in [IAnalysisTemplateRef, ICollaborationRef, IConfiguredTableAssociationRef, IConfiguredTableRef, IIdMappingTableRef, IIdNamespaceAssociationRef, IMembershipRef, IPrivacyBudgetTemplateRef]:
+for cls in [IAnalysisTemplateRef, ICollaborationRef, IConfiguredTableAssociationRef, IConfiguredTableRef, IIdMappingTableRef, IIdNamespaceAssociationRef, IIntermediateTableRef, IMembershipRef, IPrivacyBudgetTemplateRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -33,7 +33,7 @@ class StageInstanceConfig(BaseModel):
     stage_id: Optional[StrictStr] = Field(default=None, description="Stage implementation ID (overrides stage_name for lookups)")
     parameters: Optional[Dict[str, Any]] = Field(default=None, description="Stage parameters")
     pre_filters: Optional[LogicalOperatorInput] = Field(default=None, description="Filters to apply to the documents *before* this stage is executed.These filters are combined with any global retriever filters.")
-    post_filters: Optional[LogicalOperatorInput] = Field(default=None, description="Filters to apply to the documents *after* this stage is executed.These filters are applied to the results of this stage before passing to the next.")
+    post_filters: Optional[LogicalOperatorInput] = Field(default=None, description="NOT APPLIED (BACKE-3257). This field is accepted, template-evaluated and resolved, but no stage reads it, so supplying a predicate here returns UNFILTERED results with HTTP 200 and no warning. It is retained only so existing configs keep validating. Use `pre_filters` to restrict the documents this stage sees.")
     stats: Optional[StagePerformanceInput] = Field(default=None, description="Performance statistics for this stage")
     __properties: ClassVar[List[str]] = ["stage_name", "stage_id", "parameters", "pre_filters", "post_filters", "stats"]
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: shandy-sqlfmt
-Version: 0.31.0
+Version: 0.32.0
 Summary: sqlfmt formats your dbt SQL files so you don't have to.
 Project-URL: Homepage, https://sqlfmt.com
 Project-URL: Repository, https://github.com/tconbeer/sqlfmt

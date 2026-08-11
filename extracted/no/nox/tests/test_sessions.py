@@ -561,7 +561,7 @@ class TestSession:
         ):
             shutdown_process.return_value = ("", "")
 
-            timeout_kwargs: dict[str, None | float] = {}
+            timeout_kwargs: dict[str, float | None] = {}
             if interrupt_timeout_setting != "default":
                 timeout_kwargs["interrupt_timeout"] = interrupt_timeout_setting
             if terminate_timeout_setting != "default":
@@ -608,26 +608,6 @@ class TestSession:
 
         with pytest.raises(ValueError, match="arg"):
             session.conda_install()
-
-    @pytest.mark.skipif(not sys.platform.startswith("win32"), reason="Only on Windows")
-    def test_conda_install_bad_args_odd_nb_double_quotes(self) -> None:
-        session, runner = self.make_session_and_runner()
-        runner.venv = mock.create_autospec(nox.virtualenv.CondaEnv)
-        assert runner.venv
-        runner.venv.location = "./not/a/location"
-
-        with pytest.raises(ValueError, match="odd number of quotes"):
-            session.conda_install('a"a')
-
-    @pytest.mark.skipif(not sys.platform.startswith("win32"), reason="Only on Windows")
-    def test_conda_install_bad_args_cannot_escape(self) -> None:
-        session, runner = self.make_session_and_runner()
-        runner.venv = mock.create_autospec(nox.virtualenv.CondaEnv)
-        assert runner.venv
-        runner.venv.location = "./not/a/location"
-
-        with pytest.raises(ValueError, match="Cannot escape"):
-            session.conda_install('a"o"<a')
 
     def test_conda_install_not_a_condaenv(self) -> None:
         session, runner = self.make_session_and_runner()
@@ -685,7 +665,7 @@ class TestSession:
                 *args,
                 "--prefix",
                 "/path/to/conda/env",
-                '"requests<99"' if sys.platform.startswith("win32") else "requests<99",
+                "requests<99",
                 "urllib3",
                 **_run_with_defaults(silent=True, external="error"),
             )
@@ -720,11 +700,11 @@ class TestSession:
         assert run.called is run_called
 
     @pytest.mark.parametrize(
-        "version_constraint",
-        ["no", "yes", "already_dbl_quoted"],
-        ids="version_constraint={}".format,
+        "pkg_requirement",
+        ["urllib3", "urllib3<1.25", '"urllib3<1.25"'],
+        ids=["no_constraint", "version_constraint", "pre_quoted"],
     )
-    def test_conda_install_non_default_kwargs(self, version_constraint: str) -> None:
+    def test_conda_install_non_default_kwargs(self, pkg_requirement: str) -> None:
         runner = nox.sessions.SessionRunner(
             name="test",
             signatures=["test"],
@@ -744,18 +724,6 @@ class TestSession:
 
         session = SessionNoSlots(runner=runner)
 
-        if version_constraint == "no":
-            pkg_requirement = passed_arg = "urllib3"
-        elif version_constraint == "yes" and not sys.platform.startswith("win32"):
-            pkg_requirement = passed_arg = "urllib3<1.25"
-        elif version_constraint == "yes" and sys.platform.startswith("win32"):
-            pkg_requirement = "urllib3<1.25"
-            passed_arg = f'"{pkg_requirement}"'
-        elif version_constraint == "already_dbl_quoted":
-            pkg_requirement = passed_arg = '"urllib3<1.25"'
-        else:
-            raise ValueError(version_constraint)
-
         with mock.patch.object(session, "_run", autospec=True) as run:
             session.conda_install("requests", pkg_requirement, silent=False)
             run.assert_called_once_with(
@@ -765,8 +733,7 @@ class TestSession:
                 "--prefix",
                 "/path/to/conda/env",
                 "requests",
-                # this will be double quoted if unquoted constraint is present
-                passed_arg,
+                pkg_requirement,
                 **_run_with_defaults(silent=False, external="error"),
             )
 
@@ -1292,7 +1259,7 @@ class TestSessionRunner:
     def test__create_venv_options(
         self,
         create_method: str,
-        venv_backend: None | str,
+        venv_backend: str | None,
         expected_backend: type[nox.virtualenv.VirtualEnv | nox.virtualenv.CondaEnv],
     ) -> None:
         runner = self.make_runner()
@@ -1379,7 +1346,10 @@ class TestSessionRunner:
         ],
     )
     def test__reuse_venv_outcome(
-        self, reuse_venv: str, reuse_venv_func: bool | None, should_reuse: bool
+        self,
+        reuse_venv: Literal["no", "yes", "never", "always"],
+        reuse_venv_func: bool | None,
+        should_reuse: bool,
     ) -> None:
         runner = self.make_runner()
         runner.func.reuse_venv = reuse_venv_func
@@ -1388,10 +1358,8 @@ class TestSessionRunner:
 
     def test__reuse_venv_invalid(self) -> None:
         runner = self.make_runner()
-        runner.global_config.reuse_venv = True
-        msg = "nox.options.reuse_venv must be set to 'always', 'never', 'no', or 'yes', got True!"
-        with pytest.raises(AttributeError, match=re.escape(msg)):
-            runner.reuse_existing_venv()
+        with pytest.raises(ValueError, match="'reuse_venv' must be in"):
+            runner.global_config.reuse_venv = True  # type: ignore[assignment]
 
     def make_runner_with_mock_venv(self) -> nox.sessions.SessionRunner:
         runner = self.make_runner()
@@ -1502,6 +1470,17 @@ class TestSessionRunner:
         result = runner.execute()
 
         assert result.status == nox.sessions.Status.FAILED
+
+    def test_execute_no_dependencies_skips_check(self) -> None:
+        runner = self.make_runner_with_mock_venv()
+        runner.global_config.no_dependencies = True
+        runner.get_direct_dependencies = mock.Mock(  # type: ignore[method-assign]
+            side_effect=AssertionError("dependencies must not be checked")
+        )
+
+        result = runner.execute()
+
+        assert result.status == nox.sessions.Status.SUCCESS
 
     def test_execute_interrupted(self) -> None:
         runner = self.make_runner_with_mock_venv()

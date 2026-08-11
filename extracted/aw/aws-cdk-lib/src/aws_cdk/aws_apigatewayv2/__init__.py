@@ -1673,6 +1673,14 @@ class CfnApi(
         return typing.cast(builtins.str, jsii.get(self, "attrApiId"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrExecuteApiArn")
+    def attr_execute_api_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: ExecuteApiArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrExecuteApiArn"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))

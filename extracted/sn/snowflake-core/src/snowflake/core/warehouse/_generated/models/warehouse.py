@@ -103,9 +103,13 @@ class Warehouse(BaseModel):
     owner_role_type : str, optional
         The type of role that owns the object — **Read-only:** *any user-provided value will be ignored.*
     warehouse_credit_limit : int, optional
-        Credit limit that are can be executed by the warehouse.
+        This property is deprecated and will be removed in a future major release.
     target_statement_size : str, optional
-        Names of size: X-Small, Small, Medium, Large, X-Large, 2X-Large, 3X-Large, 4X-Large, 5X-Large, 6X-Large
+        This property is deprecated and will be removed in a future major release.
+    query_throughput_multiplier : int, optional
+        Multiplier used to compute the maximum throughput at any given time, expressed as a non-negative integer scale factor over the system-computed minimum. This property can only be set on an adaptive warehouse.
+    max_query_performance_level : str, optional
+        Upper bound on the performance level for a single statement. This property can only be set on an adaptive warehouse. Possible values: XSMALL, SMALL, MEDIUM, LARGE, XLARGE, XXLARGE, XXXLARGE, X4LARGE.
     """
 
     name: Annotated[str, Field(strict=True)]
@@ -184,6 +188,10 @@ class Warehouse(BaseModel):
 
     target_statement_size: Optional[StrictStr] = None
 
+    query_throughput_multiplier: Optional[StrictInt] = None
+
+    max_query_performance_level: Optional[StrictStr] = None
+
     __properties = [
         "name",
         "warehouse_type",
@@ -223,16 +231,20 @@ class Warehouse(BaseModel):
         "owner_role_type",
         "warehouse_credit_limit",
         "target_statement_size",
+        "query_throughput_multiplier",
+        "max_query_performance_level",
     ]
 
     @field_validator("name")
     def name_validate_regular_expression(cls, v):
+
         if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$""", v):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
     @field_validator("wait_for_completion")
     def wait_for_completion_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("true", "false"):
@@ -241,6 +253,7 @@ class Warehouse(BaseModel):
 
     @field_validator("auto_resume")
     def auto_resume_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("true", "false"):
@@ -249,6 +262,7 @@ class Warehouse(BaseModel):
 
     @field_validator("initially_suspended")
     def initially_suspended_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("true", "false"):
@@ -257,6 +271,7 @@ class Warehouse(BaseModel):
 
     @field_validator("resource_monitor")
     def resource_monitor_validate_regular_expression(cls, v):
+
         if v is None:
             return v
         if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$""", v):
@@ -265,6 +280,7 @@ class Warehouse(BaseModel):
 
     @field_validator("enable_query_acceleration")
     def enable_query_acceleration_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("true", "false"):
@@ -376,6 +392,8 @@ class Warehouse(BaseModel):
                 "owner_role_type": obj.get("owner_role_type"),
                 "warehouse_credit_limit": obj.get("warehouse_credit_limit"),
                 "target_statement_size": obj.get("target_statement_size"),
+                "query_throughput_multiplier": obj.get("query_throughput_multiplier"),
+                "max_query_performance_level": obj.get("max_query_performance_level"),
             }
         )
 
@@ -424,6 +442,8 @@ class WarehouseModel:
         owner_role_type: Optional[str] = None,
         warehouse_credit_limit: Optional[int] = None,
         target_statement_size: Optional[str] = None,
+        query_throughput_multiplier: Optional[int] = None,
+        max_query_performance_level: Optional[str] = None,
     ):
         """A model object representing the Warehouse resource.
 
@@ -504,9 +524,13 @@ class WarehouseModel:
         owner_role_type : str, optional
             The type of role that owns the object.
         warehouse_credit_limit : int, optional
-            Credit limit that are can be executed by the warehouse.
+            This property is deprecated and will be removed in a future major release.
         target_statement_size : str, optional
-            Names of size: X-Small, Small, Medium, Large, X-Large, 2X-Large, 3X-Large, 4X-Large, 5X-Large, 6X-Large
+            This property is deprecated and will be removed in a future major release.
+        query_throughput_multiplier : int, optional
+            Multiplier used to compute the maximum throughput at any given time, expressed as a non-negative integer scale factor over the system-computed minimum. This property can only be set on an adaptive warehouse.
+        max_query_performance_level : str, optional
+            Upper bound on the performance level for a single statement. This property can only be set on an adaptive warehouse. Possible values: XSMALL, SMALL, MEDIUM, LARGE, XLARGE, XXLARGE, XXXLARGE, X4LARGE.
         """
         self.name = name
         self.warehouse_type = warehouse_type
@@ -546,6 +570,8 @@ class WarehouseModel:
         self.owner_role_type = owner_role_type
         self.warehouse_credit_limit = warehouse_credit_limit
         self.target_statement_size = target_statement_size
+        self.query_throughput_multiplier = query_throughput_multiplier
+        self.max_query_performance_level = max_query_performance_level
 
     __properties = [
         "name",
@@ -586,6 +612,8 @@ class WarehouseModel:
         "owner_role_type",
         "warehouse_credit_limit",
         "target_statement_size",
+        "query_throughput_multiplier",
+        "max_query_performance_level",
     ]
 
     def __repr__(self) -> str:
@@ -631,6 +659,8 @@ class WarehouseModel:
             owner_role_type=self.owner_role_type,
             warehouse_credit_limit=self.warehouse_credit_limit,
             target_statement_size=self.target_statement_size,
+            query_throughput_multiplier=self.query_throughput_multiplier,
+            max_query_performance_level=self.max_query_performance_level,
         )
 
     @classmethod
@@ -674,6 +704,8 @@ class WarehouseModel:
             owner_role_type=model.owner_role_type,
             warehouse_credit_limit=model.warehouse_credit_limit,
             target_statement_size=model.target_statement_size,
+            query_throughput_multiplier=model.query_throughput_multiplier,
+            max_query_performance_level=model.max_query_performance_level,
         )
 
     def to_dict(self):

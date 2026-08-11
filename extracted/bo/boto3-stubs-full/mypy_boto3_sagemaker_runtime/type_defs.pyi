@@ -87,6 +87,7 @@ class InvokeEndpointInputTypeDef(TypedDict):
     EnableExplanations: NotRequired[str]
     InferenceComponentName: NotRequired[str]
     SessionId: NotRequired[str]
+    PrefixAwareId: NotRequired[str]
 
 class InvokeEndpointWithResponseStreamInputTypeDef(TypedDict):
     EndpointName: str
@@ -99,6 +100,7 @@ class InvokeEndpointWithResponseStreamInputTypeDef(TypedDict):
     InferenceId: NotRequired[str]
     InferenceComponentName: NotRequired[str]
     SessionId: NotRequired[str]
+    PrefixAwareId: NotRequired[str]
 
 class InvokeEndpointAsyncOutputTypeDef(TypedDict):
     InferenceId: str

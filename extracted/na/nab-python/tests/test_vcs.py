@@ -16,6 +16,7 @@ from nab_index.client import SdistFile, WheelFile  # noqa: F401 - re-exported by
 from nab_index.httpx_async_transport import HttpxAsyncTransport
 from nab_index.vcs import (
     _COMPLETE_MARKER,
+    _REPO_SELECTION_VARS,
     VcsCloneError,
     VcsRequest,
     _clone_complete,
@@ -605,6 +606,88 @@ class TestPrepareClone:
         assert payload.read_text() == "kept"
 
 
+class TestAmbientGitEnvironment:
+    """git's repo-selection variables must not reach nab's git calls."""
+
+    def _set_ambient_vars(self, monkeypatch: pytest.MonkeyPatch, home: Path) -> None:
+        for name in _REPO_SELECTION_VARS:
+            monkeypatch.setenv(name, str(home / name.lower()))
+        monkeypatch.setenv("GIT_SSH_COMMAND", "ssh -i /keys/id_ed25519")
+
+    def _assert_scrubbed(self, names: list[str]) -> None:
+        assert [name for name in _REPO_SELECTION_VARS if name in names] == []
+        # The scrub stays narrow: git+ssh reaches credentials through this one.
+        assert "GIT_SSH_COMMAND" in names
+
+    def test_clone_drops_inherited_repo_selection_vars(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        self._set_ambient_vars(monkeypatch, tmp_path / "elsewhere")
+        sha = "a" * 40
+        seen: list[list[str]] = []
+
+        def fake_run(cmd: list[str], **kwargs: object) -> object:
+            env = kwargs["env"]
+            assert isinstance(env, dict)
+            seen.append([name for name in env if name.startswith("GIT_")])
+            cwd = Path(str(kwargs["cwd"]))
+            if cmd[:2] == ["git", "init"]:
+                (cwd / ".git").mkdir(exist_ok=True)
+            return type("P", (), {"returncode": 0})()
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+        req = VcsRequest("git", "https://example/repo.git", sha, "")
+        prepare_clone(tmp_path, req, require_pin=True)
+
+        assert len(seen) == 3
+        for names in seen:
+            self._assert_scrubbed(names)
+            assert "GIT_TERMINAL_PROMPT" in names
+
+    def test_ls_remote_drops_inherited_repo_selection_vars(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        self._set_ambient_vars(monkeypatch, tmp_path / "elsewhere")
+        sha = "b" * 40
+        seen: list[str] = []
+
+        def fake_run(cmd: list[str], **kwargs: object) -> object:
+            env = kwargs["env"]
+            assert isinstance(env, dict)
+            seen.extend(name for name in env if name.startswith("GIT_"))
+            return type("P", (), {"stdout": f"{sha}\trefs/heads/main\n"})()
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+        req = VcsRequest("git", "https://example/repo.git", "main", "")
+        assert _resolve_sha(req, require_pin=False) == sha
+        self._assert_scrubbed(seen)
+
+    def test_marker_write_failure_does_not_blame_the_remote(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A marker write that fails is local state, not an unreachable remote."""
+        sha = "c" * 40
+
+        def fake_run(cmd: list[str], **_kwargs: object) -> object:
+            return type("P", (), {"returncode": 0})()
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+        req = VcsRequest("git", "https://example/repo.git", sha, "")
+        with pytest.raises(VcsCloneError) as caught:
+            prepare_clone(tmp_path, req, require_pin=True)
+
+        message = str(caught.value)
+        assert "could not be marked complete" in message
+        assert "failed to clone" not in message
+        assert list((tmp_path / "vcs").rglob("*.tmp")) == []
+
+
 class TestOfflineClone:
     """``offline`` withholds every git call that would reach the remote."""
 
@@ -790,6 +873,44 @@ class TestProviderVcsIntegration:
         # Unknown package returns None.
         assert provider.vcs_pin_for("missing") is None
 
+    def test_relative_cache_dir_yields_an_absolute_clone_uri(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A cwd-relative cache dir still yields an absolute ``file:`` URI.
+
+        ``cache-dir`` is cwd-relative, so the provider can be handed a
+        relative clone root.
+        """
+        sha = "a" * 40
+        monkeypatch.chdir(tmp_path)
+        clone_dir = tmp_path / "cache" / "vcs" / "k" / sha
+        _mark_complete(clone_dir)
+        (clone_dir / "pyproject.toml").write_text(
+            '[project]\nname = "foo"\nversion = "1.0.0"\n',
+            encoding="utf-8",
+        )
+        monkeypatch.setattr("nab_index.vcs._repo_key", lambda _url: "k")
+
+        provider = Provider(
+            self.coordinator(),
+            vcs_config=VcsConfig(
+                policy=VcsPolicy.ALLOW,
+                allowed_schemes=frozenset({"git+https"}),
+                allowed_repos=("https://example.com/",),
+                require_pin=True,
+            ),
+            vcs_sources=[
+                VcsSource(name="foo", url=f"git+https://example.com/foo.git@{sha}"),
+            ],
+            vcs_cache_dir=Path("cache"),
+            build_policy=BuildPolicy.NEVER,
+        )
+        versions = provider.fetch_versions("foo")
+        assert len(versions) == 1
+        assert versions[0][1].url == clone_dir.resolve().as_uri()
+
     def test_floating_ref_lock_records_resolved_sha(
         self,
         tmp_path: Path,
@@ -970,7 +1091,7 @@ class TestProviderVcsIntegration:
             vcs_cache_dir=tmp_path / "cache",
             build_policy=BuildPolicy.BUILD_LOCAL,
         )
-        with pytest.raises(UnsupportedSdistError, match="BUILD_REMOTE"):
+        with pytest.raises(UnsupportedSdistError, match="build-policy 'build-remote'"):
             provider.fetch_versions("foo")
 
     def test_duplicate_source_across_local_vcs_raises(self, tmp_path: Path) -> None:

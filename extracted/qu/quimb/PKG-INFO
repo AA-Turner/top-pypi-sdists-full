@@ -1,22 +1,24 @@
 Metadata-Version: 2.4
 Name: quimb
-Version: 1.14.0
+Version: 1.15.0
 Summary: Quantum information and many-body library.
 Project-URL: Documentation, https://quimb.readthedocs.io/
 Project-URL: Repository, https://github.com/jcmgray/quimb/
 Project-URL: Issues, https://github.com/jcmgray/quimb/issues
 Project-URL: Changelog, https://quimb.readthedocs.io/en/latest/changelog.html
 Author-email: Johnnie Gray <johnniemcgray@gmail.com>
-License: Apache-2.0
-License-File: LICENSE.txt
+License-Expression: Apache-2.0
 Keywords: dmrg,mera,networks,peps,physics,quantum,tebd,tensor,tensors
-Classifier: Development Status :: 3 - Alpha
-Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Physics
 Requires-Python: >=3.11
 Requires-Dist: autoray>=0.8
 Requires-Dist: cotengra>=0.7.1

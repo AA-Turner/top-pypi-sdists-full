@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nab-index
-Version: 0.0.12
+Version: 0.0.13
 Summary: PyPI Simple-API client and on-disk cache for nab
 Project-URL: Homepage, https://github.com/notatallshaw/nab
 Project-URL: Documentation, https://nab.readthedocs.io/

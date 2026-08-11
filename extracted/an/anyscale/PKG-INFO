@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anyscale
-Version: 0.26.106
+Version: 0.26.107
 Summary: Command Line Interface for Anyscale
 Author: Anyscale Inc.
 License: AS License
@@ -94,5 +94,28 @@ This package contains the command line interface and the sdk for the Anyscale pl
 View Anyscale docs [here](https://docs.anyscale.com)
 View CLI docs [here](https://docs.anyscale.com/reference#cli)
 View SDK docs [here](https://docs.anyscale.com/reference#sdk)
+
+## Environment variables
+
+### `ANYSCALE_LOG_STREAM`
+
+Selects the stream used for informational CLI and SDK output — progress messages,
+block headings and spinners. Accepts `stderr` (the default) or `stdout`;
+unrecognized values are treated as `stderr`. Warnings, errors and
+`ANYSCALE_DEBUG` output always go to stderr, whatever this is set to.
+
+Set `ANYSCALE_LOG_STREAM=stdout` when a log collector classifies everything on
+stderr as an error — the GKE logging agent, for example — so that a normal
+deployment stops showing up as a failure.
+
+Commands asked for a machine-readable payload (`--json`, `--yaml`, `-o json`,
+`-o yaml`) ignore this setting and keep informational output on stderr, so the
+payload on stdout stays parseable.
+
+One thing to know before turning it on: informational output can contain
+sensitive values — tokens the CLI prints on purpose (`anyscale service token
+add`, `anyscale service-account create`) and anything echoed back from a config
+you pass in, including a workload's `env_vars`. Treat stdout as no less
+sensitive than stderr wherever the two are collected or retained differently.
 
 After making any changes to the CLI, be sure to run `pip install -U -e .` from within the `frontend/cli` directory to update your environment with the latest modifications.

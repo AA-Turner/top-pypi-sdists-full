@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake._legacy
-Version: 1.0.2
+Version: 1.0.3
 Summary: You should switch to the snowflake-uuid package
 Author-email: "Snowflake, Inc." <snowflake-python-libraries-dl@snowflake.com>
 License: Apache-2.0
@@ -22,7 +22,7 @@ Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: <3.14,>=3.9
+Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 
 # The snowflake._legacy package

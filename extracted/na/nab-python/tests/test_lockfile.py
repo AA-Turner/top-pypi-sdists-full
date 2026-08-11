@@ -9,6 +9,7 @@ import re
 import sys
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import AbstractContextManager
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import ClassVar
@@ -23,6 +24,10 @@ else:
 from nab_index.client import SdistFile, WheelFile
 from nab_index.multi_index import IndexConfig
 from nab_python._lockfile.builder import _common_requires_python
+from nab_python._lockfile.coverage import (
+    CoverageError,
+    validate_marker_coverage,
+)
 from nab_python._lockfile.disjointness import (
     validate_marker_disjointness,
 )
@@ -45,11 +50,13 @@ from nab_python.config import (
     ConflictMember,
     ConflictPolicy,
     ConflictSet,
+    IndexOverride,
     NabProjectConfig,
     conflict_exclusion_groups,
     conflict_member_groups,
 )
 from nab_python.lockfile import (
+    BASE_MEMBER,
     LOCK_VERSION,
     ArchivePin,
     DisjointnessError,
@@ -93,7 +100,12 @@ from nab_python.resolve import (
     resolve_with_coordinator,
 )
 from nab_python.tags import PlatformSpec
-from nab_python.target import ResolveTarget
+from nab_python.target import (
+    ResolveTarget,
+    environment_declaration,
+    micro_boundary_points,
+    slices_from_points,
+)
 
 
 def _target(
@@ -858,6 +870,120 @@ class TestConflictForkBaseDepMarkers:
         pylock = build_pylock(self._lock_input())
         universal = next(p for p in pylock.packages if str(p.name) == "universal")
         assert universal.marker is None
+
+    def test_base_dep_of_a_fork_gates_on_the_base_group(self) -> None:
+        """A fork's base deps take the base group, and only it.
+
+        The conflict members stay out of the clause: the package installs
+        whichever of them the installer picks, and when it picks none.
+        """
+        base = self._lock_input()
+        lock_input = replace(
+            base,
+            targets={
+                label: replace(
+                    lock,
+                    package_gates=dict.fromkeys(lock.pins, (BASE_MEMBER,)),
+                )
+                for label, lock in base.targets.items()
+            },
+            dependency_groups=("dev",),
+            base_group="default",
+        )
+        pylock = build_pylock(lock_input)
+        base_marker = next(
+            p.marker for p in pylock.packages if str(p.name) == "basepkg"
+        )
+
+        assert base_marker is not None
+        assert "in extras" not in str(base_marker)
+
+        linux = self._LINUX.env_with_membership()
+        assert not base_marker.evaluate(linux)
+        assert base_marker.evaluate({**linux, "dependency_groups": {"default"}})
+
+    def test_a_fork_reaching_a_base_dep_by_extra_keeps_the_shared_gate(self) -> None:
+        """One fork also reaching it through an extra must not narrow it.
+
+        The forks then disagree on the gate, but both still name the main
+        group, and a base dep is in every fork, so it installs under that
+        group with no member selected.
+        """
+        base = self._lock_input()
+        extra_reaches = {(("extra", "cpu"),): (("extra", "cli"), BASE_MEMBER)}
+        lock_input = replace(
+            base,
+            targets={
+                label: replace(
+                    lock,
+                    package_gates={
+                        pin: extra_reaches.get(lock.target.selection, (BASE_MEMBER,))
+                        for pin in lock.pins
+                    },
+                )
+                for label, lock in base.targets.items()
+            },
+            extras=("cpu", "gpu", "cli"),
+            base_group="default",
+        )
+        pylock = build_pylock(lock_input)
+        base_marker = next(
+            p.marker for p in pylock.packages if str(p.name) == "basepkg"
+        )
+
+        assert base_marker is not None
+        linux = self._LINUX.env_with_membership()
+        assert base_marker.evaluate({**linux, "dependency_groups": {"default"}})
+        assert base_marker.evaluate(
+            {**linux, "extras": {"cli", "cpu"}, "dependency_groups": set()}
+        )
+        assert not base_marker.evaluate(
+            {**linux, "extras": {"cli", "gpu"}, "dependency_groups": set()}
+        )
+
+    def test_forks_sharing_no_gate_member_stay_fork_conditional(self) -> None:
+        """Nothing holds across every fork, so there is no shared part.
+
+        Each fork reaches the package through a selection of its own, and
+        an install context that picks no member reaches it through
+        neither.
+        """
+        base = self._lock_input()
+        by_fork = {
+            self._CPU: (("extra", "cli"),),
+            self._GPU: (("group", "dev"),),
+        }
+        lock_input = replace(
+            base,
+            targets={
+                label: replace(
+                    lock,
+                    package_gates=dict.fromkeys(
+                        lock.pins, by_fork[lock.target.selection]
+                    ),
+                )
+                for label, lock in base.targets.items()
+            },
+            extras=("cpu", "gpu", "cli"),
+            dependency_groups=("dev",),
+            base_group="default",
+        )
+        pylock = build_pylock(lock_input)
+        base_marker = next(
+            p.marker for p in pylock.packages if str(p.name) == "basepkg"
+        )
+
+        assert base_marker is not None
+        linux = self._LINUX.env_with_membership()
+        assert base_marker.evaluate(
+            {**linux, "extras": {"cli", "cpu"}, "dependency_groups": set()}
+        )
+        assert base_marker.evaluate(
+            {**linux, "extras": {"gpu"}, "dependency_groups": {"dev"}}
+        )
+        assert not base_marker.evaluate(
+            {**linux, "extras": {"cli"}, "dependency_groups": {"dev", "default"}}
+        )
 
 
 class TestConflictForkGateMerge:
@@ -1664,8 +1790,20 @@ class TestReadLockfileAnchor:
         assert read_lockfile_anchor(tmp_path / "missing.toml") is None
 
     def test_returns_none_when_file_is_directory(self, tmp_path: Path) -> None:
-        # ``is_file`` returns False for directories; the helper skips.
+        # A directory is not a readable file; the helper skips.
         assert read_lockfile_anchor(tmp_path) is None
+
+    def test_returns_none_when_unsearchable_parent(
+        self,
+        tmp_path: Path,
+        deny_access: Callable[[Path], AbstractContextManager[None]],
+    ) -> None:
+        # EACCES on the presence check's stat leaves the anchor unknown,
+        # which is a no-op for the caller, not a crash.
+        path = tmp_path / "pylock.toml"
+        path.write_text("[tool.nab]\ncreated-at = 2026-05-01T00:00:00+00:00\n")
+        with deny_access(path):
+            assert read_lockfile_anchor(path) is None
 
     def test_returns_none_when_toml_invalid(self, tmp_path: Path) -> None:
         path = tmp_path / "broken.toml"
@@ -1753,6 +1891,18 @@ class TestReadLockfilePackages:
     def test_returns_none_when_file_is_directory(self, tmp_path: Path) -> None:
         assert read_lockfile_packages(tmp_path) is None
 
+    def test_returns_none_when_unsearchable_parent(
+        self,
+        tmp_path: Path,
+        deny_access: Callable[[Path], AbstractContextManager[None]],
+    ) -> None:
+        # EACCES on the presence check's stat leaves the prior pins
+        # unknown, so the caller falls back to a no-diff summary.
+        path = tmp_path / "pylock.toml"
+        path.write_text('lock-version = "1.0"\n')
+        with deny_access(path):
+            assert read_lockfile_packages(path) is None
+
     def test_returns_none_when_toml_invalid(self, tmp_path: Path) -> None:
         path = tmp_path / "pylock.toml"
         path.write_text("this is not [[[ valid TOML")
@@ -1812,6 +1962,54 @@ class TestDependencyGroups:
         assert data["dependency-groups"] == ["dev", "docs"]
         assert data["default-groups"] == ["dev"]
 
+    def test_a_declared_default_groups_is_not_extended(self) -> None:
+        """The base name joins ``default-groups`` only when none is declared.
+
+        A declared ``default-groups`` replaces the default selection, so
+        a project that wants its own dependencies installed alongside a
+        group names them there itself.
+        """
+        text = write_lock(
+            LockInput(
+                targets=_one({"foo": _index_pin()}),
+                default_groups=("dev",),
+                base_group="base",
+            )
+        )
+        data = tomllib.loads(text)
+        assert data["dependency-groups"] == ["base"]
+        assert data["default-groups"] == ["dev"]
+
+    def test_naming_it_in_default_groups_installs_it_by_default(self) -> None:
+        """Named there, it is back in the default selection."""
+        text = write_lock(
+            LockInput(
+                targets=_one({"foo": _index_pin()}),
+                default_groups=("dev", "base"),
+                base_group="base",
+            )
+        )
+        data = tomllib.loads(text)
+        assert tomllib.loads(text)["default-groups"] == ["dev", "base"]
+        assert data["dependency-groups"] == ["base"]
+
+    def test_base_group_joins_both_arrays(self) -> None:
+        """An installer may read the offered groups from either array.
+
+        Naming it in ``default-groups`` alone leaves one that reads
+        ``dependency-groups`` with nothing to activate.
+        """
+        text = write_lock(
+            LockInput(
+                targets=_one({"foo": _index_pin()}),
+                dependency_groups=("dev",),
+                base_group="default",
+            )
+        )
+        data = tomllib.loads(text)
+        assert data["dependency-groups"] == ["dev", "default"]
+        assert data["default-groups"] == ["default"]
+
     def test_omits_arrays_when_empty(self) -> None:
         text = write_lock(LockInput(targets=_one({"foo": _index_pin()})))
         data = tomllib.loads(text)
@@ -1825,6 +2023,23 @@ class TestDependencyGroups:
             default_groups=("dev", "lint"),
         )
         assert lock_input.active_groups == ("docs", "dev", "lint")
+
+    def test_active_groups_includes_the_base_group(self) -> None:
+        lock_input = LockInput(
+            targets=_one({"foo": _index_pin()}),
+            dependency_groups=("docs",),
+            base_group="default",
+        )
+        assert lock_input.active_groups == ("docs", "default")
+
+    def test_active_groups_includes_the_build_group(self) -> None:
+        lock_input = LockInput(
+            targets=_one({"foo": _index_pin()}),
+            dependency_groups=("docs",),
+            base_group="default",
+            build_group="build",
+        )
+        assert lock_input.active_groups == ("docs", "default", "build")
 
     def test_group_names_normalized(self) -> None:
         text = write_lock(
@@ -2732,8 +2947,8 @@ class _FakeProvider:
         archive_sources: dict[str, ArchiveSource] | None = None,
         vcs_pins: dict[str, str] | None = None,
         listing_indexes: dict[str, str] | None = None,
-        dist_policy_overrides: dict[str, DistPolicy] | None = None,
-        requires_python_overrides: dict[str, str] | None = None,
+        dist_policies: dict[tuple[str, str, Version], DistPolicy] | None = None,
+        requires_python_overrides: dict[tuple[str, Version], str] | None = None,
         deps_cache: dict[tuple[str, Version], dict[str, object]] | None = None,
         extra_deps_map: (
             dict[tuple[str, Version], dict[str, dict[str, object]]] | None
@@ -2745,7 +2960,7 @@ class _FakeProvider:
         self._vcs = vcs_sources or {}
         self._archive = archive_sources or {}
         self._vcs_pins = vcs_pins or {}
-        self._dist_policy_overrides = dist_policy_overrides or {}
+        self._dist_policies = dist_policies or {}
         self._requires_python_overrides = requires_python_overrides or {}
         self.coordinator = _FakeCoordinator(listing_indexes)
         self.deps_cache = deps_cache or {}
@@ -2772,10 +2987,14 @@ class _FakeProvider:
     def effective_dist_policy(
         self, canonical: str, version: Version, index_name: str | None = None
     ) -> DistPolicy:
-        return self._dist_policy_overrides.get(canonical, DistPolicy.WHEEL_OR_SDIST)
+        if index_name is None:
+            return DistPolicy.WHEEL_OR_SDIST
+        return self._dist_policies.get(
+            (canonical, index_name, version), DistPolicy.WHEEL_OR_SDIST
+        )
 
     def effective_requires_python(self, canonical: str, version: Version) -> str | None:
-        return self._requires_python_overrides.get(canonical)
+        return self._requires_python_overrides.get((canonical, version))
 
     def tag_excluded_wheel_count(self, canonical: str, version: Version) -> int:
         return self._tag_excluded_counts.get((canonical, version), 0)
@@ -2815,6 +3034,32 @@ def _sdist_file(name: str = "foo", version: str = "1.0") -> SdistFile:
     )
 
 
+def _range_override_provider(**body: object) -> Provider:
+    """Provider over ``foo`` 1.0 and 3.0 with ``body`` overriding ``foo <= 2``.
+
+    Both versions publish a wheel and an sdist declaring ``>=3.10``, so the
+    pins differ only where the override reaches.
+    """
+    coordinator = make_coordinator(
+        listings={
+            "foo": [
+                _wheel_file(version="1.0"),
+                _sdist_file(version="1.0"),
+                _wheel_file(version="3.0"),
+                _sdist_file(version="3.0"),
+            ]
+        }
+    )
+
+    provider = Provider(
+        coordinator,
+        target=_HOST,
+        package_overrides=(pkg_override("foo <= 2", **body),),
+    )
+    provider.fetch_versions("foo")
+    return provider
+
+
 class TestBuildTargetLock:
     def test_index_pin_from_listing(self) -> None:
         provider = _FakeProvider(
@@ -2837,27 +3082,51 @@ class TestBuildTargetLock:
         assert pin.wheels[0].hashes == (("sha256", "a" * 64),)
         assert lock.target is _HOST
 
-    def test_index_pin_prefers_requires_python_override(self) -> None:
-        """A widened requires-python override is what the pin records.
+    def test_index_pin_requires_python_override_scoped_to_selected_versions(
+        self,
+    ) -> None:
+        """A widened requires-python override reaches only the versions it selects.
 
-        The Simple-API files say ``>=3.10``; the user widened the package
-        to ``>=3.9``.  The pin must carry the overridden specifier so a
+        The Simple-API files say ``>=3.10``; the user widened ``foo <= 2`` to
+        ``>=3.9``.  The 1.0 pin must carry the overridden specifier so a
         conforming PEP 751 installer does not reject a pin the resolver
-        admitted against the wider floor.
+        admitted against the wider floor.  3.0 keeps the floor its own
+        artefacts declare.
         """
-        provider = _FakeProvider(
-            listings={
-                "foo": [
-                    (Version("1.0"), _wheel_file(requires_python=">=3.10")),
-                    (Version("1.0"), _sdist_file()),
-                ]
-            },
-            requires_python_overrides={"foo": ">=3.9"},
-        )
-        lock = build_target_lock(provider, _HOST, {"foo": Version("1.0")})
-        pin = lock.pins["foo"]
-        assert isinstance(pin, IndexPin)
-        assert pin.requires_python == ">=3.9"
+        provider = _range_override_provider(requires_python=">=3.9")
+
+        selected = build_target_lock(provider, _HOST, {"foo": Version("1.0")})
+        unselected = build_target_lock(provider, _HOST, {"foo": Version("3.0")})
+
+        selected_pin = selected.pins["foo"]
+        unselected_pin = unselected.pins["foo"]
+        assert isinstance(selected_pin, IndexPin)
+        assert isinstance(unselected_pin, IndexPin)
+
+        assert selected_pin.requires_python == ">=3.9"
+        assert unselected_pin.requires_python == ">=3.10"
+
+    def test_index_pin_dist_policy_override_scoped_to_selected_versions(self) -> None:
+        """An sdist-install override strips wheels only from the versions it selects.
+
+        Both versions ship a wheel and an sdist.  ``foo <= 2`` is pinned to its
+        sdist so an installer builds that archive; 3.0 keeps its wheel.
+        """
+        provider = _range_override_provider(dist_policy=DistPolicy.SDIST_INSTALL)
+
+        selected = build_target_lock(provider, _HOST, {"foo": Version("1.0")})
+        unselected = build_target_lock(provider, _HOST, {"foo": Version("3.0")})
+
+        selected_pin = selected.pins["foo"]
+        unselected_pin = unselected.pins["foo"]
+        assert isinstance(selected_pin, IndexPin)
+        assert isinstance(unselected_pin, IndexPin)
+
+        assert selected_pin.wheels == ()
+        assert selected_pin.sdist is not None
+        assert [w.filename for w in unselected_pin.wheels] == [
+            "foo-3.0-py3-none-any.whl"
+        ]
 
     def test_unconstrained_wheel_drops_requires_python(self) -> None:
         """A version that mixes a Requires-Python wheel with an
@@ -2892,23 +3161,24 @@ class TestBuildTargetLock:
         """An empty-string override records verbatim and drops the lock key.
 
         The files declare ``>=3.10``; the override clears the specifier to
-        ``""``.  The pin carries the empty string, and the writer's
-        truthiness check leaves ``requires-python`` out of the rendered lock.
+        ``""`` for ``foo <= 2``.  The 1.0 pin carries the empty string and the
+        writer's truthiness check leaves ``requires-python`` out of the
+        rendered lock.  3.0 still renders the floor it declares.
         """
-        provider = _FakeProvider(
-            listings={
-                "foo": [
-                    (Version("1.0"), _wheel_file(requires_python=">=3.10")),
-                    (Version("1.0"), _sdist_file()),
-                ]
-            },
-            requires_python_overrides={"foo": ""},
-        )
-        lock = build_target_lock(provider, _HOST, {"foo": Version("1.0")})
-        pin = lock.pins["foo"]
-        assert isinstance(pin, IndexPin)
-        assert pin.requires_python == ""
-        assert "requires-python" not in write_lock(_lock_from(lock))
+        provider = _range_override_provider(requires_python="")
+
+        selected = build_target_lock(provider, _HOST, {"foo": Version("1.0")})
+        unselected = build_target_lock(provider, _HOST, {"foo": Version("3.0")})
+
+        selected_pin = selected.pins["foo"]
+        assert isinstance(selected_pin, IndexPin)
+        assert selected_pin.requires_python == ""
+        assert "requires-python" not in write_lock(_lock_from(selected))
+
+        unselected_pin = unselected.pins["foo"]
+        assert isinstance(unselected_pin, IndexPin)
+        assert unselected_pin.requires_python == ">=3.10"
+        assert 'requires-python = ">=3.10"' in write_lock(_lock_from(unselected))
 
     def test_malformed_requires_python_dropped_and_emittable(self) -> None:
         """A malformed listing Requires-Python is dropped, so the lock still emits.
@@ -2926,6 +3196,43 @@ class TestBuildTargetLock:
         assert pin.requires_python is None
         text = write_lock(_lock_from(lock))
         assert ">=3.6.*" not in text
+
+    def test_oversized_requires_python_dropped_and_emittable(self) -> None:
+        """A digit run past int()'s limit is dropped like a malformed value.
+
+        ``SpecifierSet`` converts a clause version only when something compares
+        against it, so this one constructs and ``excluded_by_python`` admits the
+        artefact on every Python.
+        """
+        oversized = ">=" + "9" * (sys.get_int_max_str_digits() + 1)
+        provider = _FakeProvider(
+            listings={"foo": [(Version("1.0"), _wheel_file(requires_python=oversized))]}
+        )
+
+        lock = build_target_lock(provider, _HOST, {"foo": Version("1.0")})
+        pin = lock.pins["foo"]
+        assert isinstance(pin, IndexPin)
+        assert pin.requires_python is None
+
+        text = write_lock(_lock_from(lock))
+        assert "999" not in text
+        package = Pylock.from_dict(tomllib.loads(text)).packages[0]
+        assert package.requires_python is None
+
+    def test_at_limit_requires_python_is_recorded(self) -> None:
+        """A digit run of exactly int()'s limit converts, so the pin keeps it.
+
+        The check is a conversion, not a length cap.
+        """
+        at_limit = ">=" + "9" * sys.get_int_max_str_digits()
+        provider = _FakeProvider(
+            listings={"foo": [(Version("1.0"), _wheel_file(requires_python=at_limit))]}
+        )
+
+        lock = build_target_lock(provider, _HOST, {"foo": Version("1.0")})
+        pin = lock.pins["foo"]
+        assert isinstance(pin, IndexPin)
+        assert pin.requires_python == at_limit
 
     def test_common_requires_python_malformed_with_valid_stays_unconstrained(
         self,
@@ -3018,28 +3325,58 @@ class TestBuildTargetLock:
         only the sdist so an installer downloads (and builds) that
         archive.  Mirrors what
         :attr:`nab_python.provider.DistPolicy.SDIST_INSTALL` is for.
+
+        The policy comes from the index that served the listing, so
+        ``foo`` loses its wheel under ``internal`` while ``bar`` keeps
+        its own under the default index.
         """
-        provider = _FakeProvider(
+        coordinator = make_coordinator(
             listings={
-                "foo": [
-                    (Version("1.0"), _wheel_file()),
-                    (Version("1.0"), _sdist_file()),
-                ]
-            },
-            dist_policy_overrides={"foo": DistPolicy.SDIST_INSTALL},
+                "foo": [_wheel_file(), _sdist_file()],
+                "bar": [_wheel_file("bar"), _sdist_file("bar")],
+            }
         )
-        lock = build_target_lock(provider, _HOST, {"foo": Version("1.0")})
+        coordinator.index.store_listing_index("foo", "internal")
+
+        provider = Provider(
+            coordinator,
+            target=_HOST,
+            index_overrides={
+                "internal": IndexOverride(dist_policy=DistPolicy.SDIST_INSTALL)
+            },
+        )
+        provider.fetch_versions("foo")
+        provider.fetch_versions("bar")
+
+        lock = build_target_lock(
+            provider,
+            _HOST,
+            {"foo": Version("1.0"), "bar": Version("1.0")},
+            indexes=(
+                *coordinator.indexes,
+                IndexConfig("internal", "https://internal.example/simple/"),
+            ),
+        )
+
         pin = lock.pins["foo"]
         assert isinstance(pin, IndexPin)
+        assert pin.index == "https://internal.example/simple/"
         assert pin.wheels == ()
         assert pin.sdist is not None
         assert pin.sdist.hashes == (("sha256", "b" * 64),)
+
+        bar_pin = lock.pins["bar"]
+        assert isinstance(bar_pin, IndexPin)
+        assert [w.filename for w in bar_pin.wheels] == ["bar-1.0-py3-none-any.whl"]
 
     def test_index_pin_sdist_install_without_sdist_raises(self) -> None:
         """A wheel-only version under sdist-install has nothing to pin."""
         provider = _FakeProvider(
             listings={"foo": [(Version("1.0"), _wheel_file())]},
-            dist_policy_overrides={"foo": DistPolicy.SDIST_INSTALL},
+            listing_indexes={"foo": "internal"},
+            dist_policies={
+                ("foo", "internal", Version("1.0")): DistPolicy.SDIST_INSTALL
+            },
         )
         with pytest.raises(MissingSdistError, match="foo==1.0 has no sdist"):
             build_target_lock(provider, _HOST, {"foo": Version("1.0")})
@@ -4555,6 +4892,94 @@ class TestDependencyGraph:
         assert by_name["foo"]["dependencies"] == [{"name": "bar"}, {"name": "baz"}]
 
 
+class TestMainGroupAcrossTargets:
+    """One package, reached by the project on one target and a group on another.
+
+    The gate is per target, so each environment contributes its own
+    clause.  Pairing every environment with every gate instead would
+    install the package on Windows for a default install.
+    """
+
+    _LINUX: ClassVar[ResolveTarget] = _target(platform="linux_x86_64")
+    _WINDOWS: ClassVar[ResolveTarget] = _target(platform="windows_amd64")
+
+    def test_each_target_carries_its_own_gate(self) -> None:
+        pin = {"iniconfig": _index_pin(name="iniconfig")}
+        targets = {
+            self._LINUX.label: TargetLock(
+                target=self._LINUX,
+                pins=pin,
+                package_gates={"iniconfig": (BASE_MEMBER,)},
+            ),
+            self._WINDOWS.label: TargetLock(
+                target=self._WINDOWS,
+                pins=pin,
+                package_gates={"iniconfig": (("group", "dev"),)},
+            ),
+        }
+        pylock = build_pylock(
+            LockInput(targets=targets, dependency_groups=("dev",), base_group="default")
+        )
+        (package,) = pylock.packages
+        assert package.marker is not None
+
+        def installs(target: ResolveTarget, group: str) -> bool:
+            assert package.marker is not None
+            return package.marker.evaluate(
+                {
+                    **target.marker_env,
+                    "extras": frozenset(),
+                    "dependency_groups": frozenset({group}),
+                }
+            )
+
+        assert installs(self._LINUX, "default")
+        assert installs(self._WINDOWS, "dev")
+
+        assert not installs(self._LINUX, "dev")
+        assert not installs(self._WINDOWS, "default")
+
+    def test_one_gate_over_several_environments_binds_them_all(self) -> None:
+        """The gate holds over the disjunction, not over its first clause.
+
+        Two targets share a gate and two more lock nothing, so the gate's
+        environments come out as an ``or``.  Conjoining the gate without
+        parenthesising them would leave the second environment ungated.
+        """
+        gated = (_target(), _target(python_version="3.12", platform="windows_amd64"))
+        ungated = (
+            _target(platform="windows_amd64"),
+            _target(python_version="3.12"),
+        )
+        pin = {"iniconfig": _index_pin(name="iniconfig")}
+        targets = {
+            **{
+                target.label: TargetLock(
+                    target=target,
+                    pins=pin,
+                    package_gates={"iniconfig": (BASE_MEMBER,)},
+                )
+                for target in gated
+            },
+            **{
+                target.label: TargetLock(target=target, pins={}, package_gates={})
+                for target in ungated
+            },
+        }
+        pylock = build_pylock(LockInput(targets=targets, base_group="default"))
+        (package,) = pylock.packages
+        assert package.marker is not None
+
+        for target in gated:
+            env = {**target.marker_env, "extras": frozenset()}
+            assert package.marker.evaluate(
+                {**env, "dependency_groups": frozenset({"default"})}
+            )
+            assert not package.marker.evaluate(
+                {**env, "dependency_groups": frozenset()}
+            )
+
+
 class TestMembershipGates:
     """Only-an-extra / only-a-group packages carry a membership marker.
 
@@ -4594,6 +5019,7 @@ class TestMembershipGates:
             selector_roots={("extra", "cli"): frozenset({"mytool"})},
         )
         assert lock.package_gates == {
+            "core": (BASE_MEMBER,),
             "mytool": (("extra", "cli"),),
             "subtool": (("extra", "cli"),),
         }
@@ -4641,8 +5067,9 @@ class TestMembershipGates:
     def test_extras_proxy_gates_only_what_the_extra_adds(self) -> None:
         """The project requires ``foo``; the extra requires ``foo[fancy]``.
 
-        ``foo`` itself installs unconditionally; only what ``fancy``
-        adds on top of it is gated.
+        ``foo`` is the project's own, so it carries the base member the
+        extra's proxy adds to; only what ``fancy`` brings is the extra's
+        alone.
         """
         provider = self._provider(
             ("foo", "fancy-lib"),
@@ -4661,9 +5088,12 @@ class TestMembershipGates:
             base_roots=frozenset({"foo"}),
             selector_roots={("extra", "cli"): frozenset({"foo", "foo[fancy]"})},
         )
-        assert lock.package_gates == {"fancy-lib": (("extra", "cli"),)}
+        assert lock.package_gates == {
+            "foo": (("extra", "cli"), BASE_MEMBER),
+            "fancy-lib": (("extra", "cli"),),
+        }
 
-    def test_base_dependency_reached_through_a_cycle_is_not_gated(self) -> None:
+    def test_base_dependency_reached_through_a_cycle_is_gated_as_base(self) -> None:
         """A dependency cycle in the base closure terminates the walk."""
         provider = self._provider(
             ("core", "loop", "mytool"),
@@ -4680,7 +5110,11 @@ class TestMembershipGates:
             base_roots=frozenset({"core"}),
             selector_roots={("extra", "cli"): frozenset({"mytool"})},
         )
-        assert lock.package_gates == {"mytool": (("extra", "cli"),)}
+        assert lock.package_gates == {
+            "core": (("extra", "cli"), BASE_MEMBER),
+            "loop": (("extra", "cli"), BASE_MEMBER),
+            "mytool": (("extra", "cli"),),
+        }
 
     def test_unpinned_dependency_is_skipped(self) -> None:
         """A dep name the resolve did not pin cannot be gated."""
@@ -4697,11 +5131,21 @@ class TestMembershipGates:
         )
         assert set(lock.package_gates) == {"mytool"}
 
-    def test_no_selection_leaves_the_map_empty(self) -> None:
+    def test_base_roots_alone_still_record_the_base_member(self) -> None:
+        """Given base roots and no selector, the base reach is still recorded.
+
+        The writer needs it whenever the lock names the project's own
+        dependencies, which it can do with no group selected at all.
+        """
         provider = self._provider(("core",), deps_cache={("core", Version("1.0")): {}})
         lock = build_target_lock(
             provider, _HOST, {"core": Version("1.0")}, base_roots=frozenset({"core"})
         )
+        assert lock.package_gates == {"core": (BASE_MEMBER,)}
+
+    def test_no_roots_at_all_leave_the_map_empty(self) -> None:
+        provider = self._provider(("core",), deps_cache={("core", Version("1.0")): {}})
+        lock = build_target_lock(provider, _HOST, {"core": Version("1.0")})
         assert lock.package_gates == {}
 
     def test_selector_roots_without_base_roots_are_refused(self) -> None:
@@ -5298,28 +5742,24 @@ class TestConflictForkNegatedEmission:
         assert self._select(pylock, ["cpu", "mkl"]) == {"onnxruntime"}
 
     def test_three_large_sets_write_lock_within_budget(self) -> None:
-        # Three declared 5-member at-most-one sets, each fork drawing one
-        # member per set, so every per-package marker negates 12
-        # co-members.  The disjointness gate binds them through the
-        # selection instead of the full membership powerset, so the lock
-        # is written rather than raising IntractableMarkerSet.
+        # Three declared 5-member at-most-one sets, one fork per member
+        # index, so every per-package marker negates 12 co-members.  The
+        # disjointness gate binds them through the selection instead of
+        # the full membership powerset, so the lock is written rather
+        # than raising IntractableMarkerSet.
         sets = [tuple(f"{letter}{i}" for i in range(5)) for letter in ("a", "b", "c")]
         all_names = tuple(name for members in sets for name in members)
+        drawn = [tuple(members[i] for members in sets) for i in range(5)]
 
-        fork_one = self._BASE.with_selection(
-            (("extra", "a0"), ("extra", "b0"), ("extra", "c0"))
-        )
-        fork_two = self._BASE.with_selection(
-            (("extra", "a1"), ("extra", "b1"), ("extra", "c1"))
-        )
-
+        forks = [
+            self._BASE.with_selection(tuple(("extra", name) for name in names))
+            for names in drawn
+        ]
         targets = {
-            fork_one.label: TargetLock(
-                target=fork_one, pins={"torch": _selection_pin("torch", "2.5.0")}
-            ),
-            fork_two.label: TargetLock(
-                target=fork_two, pins={"torch": _selection_pin("torch", "2.6.0")}
-            ),
+            fork.label: TargetLock(
+                target=fork, pins={"torch": _selection_pin("torch", f"2.{5 + i}.0")}
+            )
+            for i, fork in enumerate(forks)
         }
 
         conflicts = tuple(
@@ -5335,7 +5775,7 @@ class TestConflictForkNegatedEmission:
         text = write_lock(
             LockInput(
                 targets=targets,
-                env_base_names={_env_signature(fork_one): frozenset()},
+                env_base_names={_env_signature(forks[0]): frozenset()},
                 extras=all_names,
                 conflicts=conflicts,
             )
@@ -5347,7 +5787,7 @@ class TestConflictForkNegatedEmission:
             for p in pylock.packages
             if str(p.name) == "torch"
         }
-        assert set(torch_markers) == {"2.5.0", "2.6.0"}
+        assert set(torch_markers) == {f"2.{5 + i}.0" for i in range(len(drawn))}
 
         # simplify overruns the cell budget on this fork, so the emitter
         # passes the raw marker through unchanged: base env, the fork's three
@@ -5358,18 +5798,18 @@ class TestConflictForkNegatedEmission:
             ' and platform_machine == "x86_64"'
         )
 
-        def raw_marker(drawn: tuple[str, str, str]) -> str:
-            positives = " and ".join(f'"{name}" in extras' for name in drawn)
+        def raw_marker(names: tuple[str, ...]) -> str:
+            positives = " and ".join(f'"{name}" in extras' for name in names)
             negatives = " and ".join(
                 f'"{name}" not in extras'
                 for members in sets
                 for name in members
-                if name not in drawn
+                if name not in names
             )
             return f"{base} and {positives} and {negatives}"
 
-        assert torch_markers["2.5.0"] == raw_marker(("a0", "b0", "c0"))
-        assert torch_markers["2.6.0"] == raw_marker(("a1", "b1", "c1"))
+        for i, names in enumerate(drawn):
+            assert torch_markers[f"2.{5 + i}.0"] == raw_marker(names)
 
 
 class TestConflictSetCrossGating:
@@ -5673,3 +6113,260 @@ class TestConflictSetCrossGating:
         assert self._select(pylock, ["a1", "b1"]) == {"attrs 24.0"}
         assert self._select(pylock, ["b1"]) == set()
         assert self._select(pylock, ["a1"]) == set()
+
+
+class TestConflictSetDeclaredMemberWithNoFork:
+    """A declared member the selection omits has no fork to swap it for.
+
+    ``conflicts`` names ``b1``/``b2``/``b3`` while the lock ran with only
+    ``b1`` and ``b2`` selected, so nothing forked over ``b3`` and the
+    lock's ``dependency-groups`` array does not offer it.  The b-set is
+    still flat through ``six``, so ``six`` names the a-set alone and
+    selecting ``a1`` on its own installs it.
+    """
+
+    _BASE: ClassVar[ResolveTarget] = _target(python_version="3.12")
+    _ENV: ClassVar[dict[str, str]] = dict(_target(python_version="3.12").marker_env)
+    _A: ClassVar[dict[str, str]] = {"a1": "1.16.0", "a2": "1.15.0"}
+    _B: ClassVar[dict[str, str]] = {"b1": "3.7", "b2": "3.6"}
+    _UNSELECTED: ClassVar[str] = "b3"
+
+    def _lock(self) -> Pylock:
+        """Emit the 2x2 product of the selected members, with b3 declared only."""
+        targets: dict[str, TargetLock] = {}
+        for a, b in itertools.product(self._A, self._B):
+            fork = self._BASE.with_selection((("group", a), ("group", b)))
+            targets[fork.label] = TargetLock(
+                target=fork,
+                pins={
+                    "packaging": _selection_pin("packaging", "24.0"),
+                    "six": _selection_pin("six", self._A[a]),
+                    "idna": _selection_pin("idna", self._B[b]),
+                },
+                package_gates={"six": (("group", a),), "idna": (("group", b),)},
+            )
+        conflicts = tuple(
+            ConflictSet(
+                members=tuple(ConflictMember(ConflictKind.GROUP, m) for m in members),
+                policy=ConflictPolicy.AT_MOST_ONE,
+            )
+            for members in (tuple(self._A), (*self._B, self._UNSELECTED))
+        )
+        text = write_lock(
+            LockInput(
+                targets=targets,
+                env_base_names={_env_signature(self._BASE): frozenset({"packaging"})},
+                dependency_groups=(*self._A, *self._B),
+                conflicts=conflicts,
+            )
+        )
+        return Pylock.from_dict(tomllib.loads(text))
+
+    def _select(self, pylock: Pylock, groups: Sequence[str]) -> set[str]:
+        return {
+            f"{pkg.name} {pkg.version}"
+            for pkg, _ in pylock.select(
+                environment=self._ENV,  # type: ignore[arg-type]
+                extras=(),
+                dependency_groups=groups,
+            )
+        }
+
+    def test_marker_names_only_the_set_the_package_varies_over(self) -> None:
+        six = next(
+            str(p.marker)
+            for p in self._lock().packages
+            if str(p.name) == "six" and str(p.version) == "1.16.0"
+        )
+        assert '"a1" in dependency_groups' in six
+        assert '"a2" not in dependency_groups' in six
+        for member in (*self._B, self._UNSELECTED):
+            assert member not in six
+
+    def test_marker_does_not_name_a_member_the_lock_cannot_offer(self) -> None:
+        idna = next(
+            str(p.marker)
+            for p in self._lock().packages
+            if str(p.name) == "idna" and str(p.version) == "3.7"
+        )
+        assert '"b1" in dependency_groups' in idna
+        assert '"b2" not in dependency_groups' in idna
+        assert self._UNSELECTED not in idna
+
+    @pytest.mark.parametrize("a", [None, "a1", "a2"])
+    @pytest.mark.parametrize("b", [None, "b1", "b2"])
+    def test_every_legal_selection_installs_what_it_asked_for(
+        self, a: str | None, b: str | None
+    ) -> None:
+        groups = [name for name in (a, b) if name is not None]
+        expected = {"packaging 24.0"}
+        if a is not None:
+            expected.add(f"six {self._A[a]}")
+        if b is not None:
+            expected.add(f"idna {self._B[b]}")
+        assert self._select(self._lock(), groups) == expected
+
+
+class TestMarkerCoverage:
+    def _minor(
+        self, python_version: str = "3.13", platform: str = "linux_x86_64"
+    ) -> ResolveTarget:
+        """A bare-minor target resolved as a micro interval."""
+        return ResolveTarget.for_declared(
+            python_version=python_version, spec=PlatformSpec(platform)
+        )
+
+    def _row(self, target: ResolveTarget, consulted: Sequence[str] = ()) -> Marker:
+        """The environments row the emitter renders for ``target``."""
+        markers = [Marker(text) for text in consulted]
+        return Marker(environment_declaration(target, markers))
+
+    def _split(
+        self, target: ResolveTarget, consulted: str
+    ) -> tuple[list[ResolveTarget], list[Marker]]:
+        """Split ``target``'s minor at ``consulted`` into slices and their rows."""
+        markers = [Marker(consulted)]
+        points = micro_boundary_points(target, markers)
+        slices = slices_from_points(target, points)
+        rows = [Marker(environment_declaration(s, markers)) for s in slices]
+        return slices, rows
+
+    def _full_version(self, exc: CoverageError) -> Version:
+        """The python_full_version the witness message names."""
+        match = re.search(r'python_full_version == "([^"]+)"', str(exc))
+        assert match is not None
+        return Version(match.group(1))
+
+    def test_covering_unsplit_minor_passes(self) -> None:
+        target = self._minor("3.13")
+        validate_marker_coverage([target], environments=[self._row(target)])
+
+    def test_covering_split_minor_dedups_shared_reference(self) -> None:
+        target = self._minor("3.13")
+        slices, rows = self._split(target, 'python_full_version >= "3.13.2"')
+        assert len(slices) == 2
+        validate_marker_coverage(slices, environments=rows)
+
+    def test_empty_environments_returns_early(self) -> None:
+        validate_marker_coverage([self._minor("3.13")], environments=[])
+
+    def test_prerelease_floor_slice_passes(self) -> None:
+        target = self._minor("3.13")
+        slices, rows = self._split(target, 'python_full_version >= "3.13.5"')
+        validate_marker_coverage(slices, environments=rows)
+
+    def test_two_platform_lock_passes(self) -> None:
+        linux = self._minor("3.11", "linux_x86_64")
+        windows = self._minor("3.11", "windows_amd64")
+        validate_marker_coverage(
+            [linux, windows],
+            environments=[self._row(linux), self._row(windows)],
+        )
+
+    def test_whole_target_under_minor_row_passes(self) -> None:
+        whole = ResolveTarget.for_declared(
+            python_version="3.11",
+            spec=PlatformSpec("linux_x86_64"),
+            python_full_version="3.11.4",
+        )
+        validate_marker_coverage([whole], environments=[self._row(whole)])
+
+    def test_conflict_forks_covered_by_shared_row_pass(self) -> None:
+        base = self._minor("3.11")
+        cpu = base.with_selection((("extra", "cpu"),))
+        gpu = base.with_selection((("extra", "gpu"),))
+        validate_marker_coverage([cpu, gpu], environments=[self._row(base)])
+
+    def test_cpython_iv_mirror_split_minor_passes(self) -> None:
+        target = self._minor("3.13")
+        slices, rows = self._split(target, 'implementation_version >= "3.13.2"')
+        assert len(slices) == 2
+        assert any("implementation_version" in str(row) for row in rows)
+        validate_marker_coverage(slices, environments=rows)
+
+    def test_cpython_iv_mirror_genuine_gap_fires(self) -> None:
+        target = self._minor("3.13")
+        slices = slices_from_points(target, [Version("3.13.2"), Version("3.13.5")])
+        consulted = [Marker('implementation_version >= "3.13.0"')]
+        rows = [Marker(environment_declaration(s, consulted)) for s in slices]
+        del rows[1]
+        with pytest.raises(CoverageError) as excinfo:
+            validate_marker_coverage(slices, environments=rows)
+        found = self._full_version(excinfo.value)
+        assert Version("3.13.2") <= found < Version("3.13.5")
+
+    def test_micro_narrowing_reconstruction_fires(self) -> None:
+        target = self._minor("3.13")
+        row = Marker(
+            'python_version == "3.13" and sys_platform == "linux"'
+            ' and platform_machine == "x86_64"'
+            ' and python_full_version >= "3.13.2"'
+        )
+        with pytest.raises(CoverageError) as excinfo:
+            validate_marker_coverage([target], environments=[row])
+        found = self._full_version(excinfo.value)
+        assert found.release[:2] == (3, 13)
+        assert found < Version("3.13.2")
+
+    def test_interior_slice_gap_fires(self) -> None:
+        target = self._minor("3.13")
+        rows = [
+            Marker(
+                'python_version == "3.13" and sys_platform == "linux"'
+                ' and platform_machine == "x86_64"'
+                ' and python_full_version < "3.13.2"'
+            ),
+            Marker(
+                'python_version == "3.13" and sys_platform == "linux"'
+                ' and platform_machine == "x86_64"'
+                ' and python_full_version >= "3.13.5"'
+            ),
+        ]
+        with pytest.raises(CoverageError) as excinfo:
+            validate_marker_coverage([target], environments=rows)
+        found = self._full_version(excinfo.value)
+        assert Version("3.13.2") <= found < Version("3.13.5")
+
+    def test_dropped_target_row_fires(self) -> None:
+        linux = self._minor("3.13", "linux_x86_64")
+        windows = self._minor("3.11", "windows_amd64")
+        with pytest.raises(CoverageError, match="win32"):
+            validate_marker_coverage([linux, windows], environments=[self._row(linux)])
+
+    def test_intractable_propagates(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        def boom(self: MarkerSet, *, store: object | None = None) -> None:
+            raise IntractableMarkerSet("patched")
+
+        monkeypatch.setattr(MarkerSet, "witness", boom)
+        target = self._minor("3.13")
+        with pytest.raises(IntractableMarkerSet, match="patched"):
+            validate_marker_coverage([target], environments=[self._row(target)])
+
+    def test_build_pylock_non_covering_raises(self) -> None:
+        target = self._minor("3.13")
+        lock_input = LockInput(
+            targets={
+                target.label: TargetLock(target=target, pins={"foo": _index_pin()})
+            },
+            environments=[
+                Marker(
+                    'python_version == "3.13" and sys_platform == "linux"'
+                    ' and platform_machine == "x86_64"'
+                    ' and python_full_version >= "3.13.2"'
+                )
+            ],
+        )
+        with pytest.raises(CoverageError) as excinfo:
+            build_pylock(lock_input)
+        assert self._full_version(excinfo.value) < Version("3.13.2")
+
+    def test_build_pylock_covering_emits_cleanly(self) -> None:
+        target = self._minor("3.11")
+        lock_input = LockInput(
+            targets={
+                target.label: TargetLock(target=target, pins={"foo": _index_pin()})
+            },
+            environments=[self._row(target)],
+        )
+        pylock = build_pylock(lock_input)
+        assert pylock.environments is not None

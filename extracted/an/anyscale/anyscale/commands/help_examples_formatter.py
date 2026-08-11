@@ -13,7 +13,31 @@ from anyscale.commands.output_format import (
 _HELP_FORMAT_PRIORITY = (OutputFormat.JSON, OutputFormat.YAML, OutputFormat.TABLE)
 
 
-def render_examples_for_help(doc_metadata: Optional[Dict[str, Any]]) -> str:
+# The flag most commands use to select an output format (-o json).
+_OUTPUT_FORMAT_FLAG = OUTPUT_FLAG
+# Commands that reserve -o/--output for an output *file* expose this option to
+# select the format instead; appending -o to their examples would write a file.
+_OUTPUT_FORMAT_OPTION = "--output-format"
+
+
+def format_flag_for_command(command: Any) -> str:
+    """Return the flag that selects the output format for a Click command.
+
+    Most commands use -o/--output; the few that reserve -o/--output for an
+    output file expose a separate --output-format option, so structured
+    examples for those must be shown with --output-format instead.
+    """
+    for param in getattr(command, "params", None) or []:
+        opts = list(getattr(param, "opts", []) or [])
+        opts += list(getattr(param, "secondary_opts", []) or [])
+        if _OUTPUT_FORMAT_OPTION in opts:
+            return _OUTPUT_FORMAT_OPTION
+    return _OUTPUT_FORMAT_FLAG
+
+
+def render_examples_for_help(
+    doc_metadata: Optional[Dict[str, Any]], output_flag: str = _OUTPUT_FORMAT_FLAG,
+) -> str:
     """Render the --help Examples block from a command's doc_metadata."""
     meta = doc_metadata or {}
     examples = meta.get("examples")
@@ -24,17 +48,22 @@ def render_examples_for_help(doc_metadata: Optional[Dict[str, Any]]) -> str:
         (fmt.value for fmt in _HELP_FORMAT_PRIORITY if fmt in formats),
         OutputFormat.TEXT.value,
     )
-    return format_structured_examples_for_help(examples, output_format)
+    return format_structured_examples_for_help(examples, output_format, output_flag)
 
 
 def format_structured_examples_for_help(
-    examples: Iterable[Any], output_format: str = OutputFormat.TEXT.value
+    examples: Iterable[Any],
+    output_format: str = OutputFormat.TEXT.value,
+    output_flag: str = _OUTPUT_FORMAT_FLAG,
 ) -> str:
     """Render structured CommandExample entries for --help.
 
-    1. Text output: output_raw is shown as-is to provide backward compatibility.
+    1. Text output: the command is shown as `$ <command>`, followed by
+        output_raw (console output only) when present.
     2. Structured output (json, yaml or table): the command is shown with
-        -o <format> followed by output_instance rendered in that format.
+        `<output_flag> <format>` followed by output_instance rendered in that
+        format. output_flag is -o for most commands and --output-format for
+        commands whose -o/--output selects an output file.
     """
     blocks: List[str] = []
     for example in examples:
@@ -52,25 +81,29 @@ def format_structured_examples_for_help(
         )
         if structured_output is not None:
             command = command.strip()
-            if not _has_output_flag(command):
-                command += f" {OUTPUT_FLAG} {output_format}"
+            if not _has_output_flag(command, output_flag):
+                command += f" {output_flag} {output_format}"
             lines.append(f"$ {command}")
             lines.append(structured_output.rstrip("\n"))
         else:
+            lines.append(f"$ {command.strip()}")
             output_raw = getattr(example, "output_raw", None)
-            lines.append(
-                output_raw.rstrip("\n") if output_raw else f"$ {command.strip()}"
-            )
+            if output_raw:
+                lines.append(output_raw.rstrip("\n"))
         blocks.append("\n".join(lines))
     return "\n\n".join(blocks)
 
 
-def _has_output_flag(command: str) -> bool:
-    """True if the command already passes -o/--output as its own argument."""
+def _has_output_flag(command: str, output_flag: str = _OUTPUT_FORMAT_FLAG) -> bool:
+    """True if the command already passes its output-format flag as an argument."""
+    aliases = {output_flag}
+    if output_flag == OUTPUT_FLAG:
+        aliases.add(OUTPUT_FLAG_LONG)
+    tokens = command.split()
     return any(
-        token in (OUTPUT_FLAG, OUTPUT_FLAG_LONG)
-        or token.startswith(f"{OUTPUT_FLAG_LONG}=")
-        for token in command.split()
+        token == alias or token.startswith(f"{alias}=")
+        for token in tokens
+        for alias in aliases
     )
 
 

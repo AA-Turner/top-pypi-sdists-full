@@ -77,7 +77,7 @@ class State(StateModel):
         }
 
         if isinstance(kvs, dict) and "AnomaloTables" in kvs:
-            for table_ref, table_data in kvs["AnomaloTables"].items():
+            for table_data in kvs["AnomaloTables"].values():
                 if isinstance(table_data, dict) and "configuration" in table_data:
                     config = table_data["configuration"]
                     if isinstance(config, dict) and "check_cadence_type" in config:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inscriptis
-Version: 2.7.3
+Version: 2.7.4
 Summary: inscriptis - HTML to text converter.
 Project-URL: Homepage, https://github.com/weblyzard/inscriptis
 Project-URL: Repository, https://github.com/weblyzard/inscriptis
@@ -185,6 +185,9 @@ The inscript command line client supports the following parameters::
                             How to handle indentation (extended or strict; default: extended).
       --table-cell-separator TABLE_CELL_SEPARATOR
                             Separator to use between table cells (default: three spaces).
+      --user-agent USER_AGENT
+                            User agent string (default: Inscriptis/{version}
+                            (+https://inscriptis.readthedocs.io/)).
       -v, --version         display version information
 
    

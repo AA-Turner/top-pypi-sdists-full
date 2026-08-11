@@ -11,6 +11,7 @@ from pydantic_core._pydantic_core import ValidationError
 
 from snowflake.core import CreateMode
 from snowflake.core.exceptions import APIError, ConflictError, NotFoundError
+from snowflake.core.task import OverlapPolicy, TaskCollection
 
 from ..utils import random_object_name
 
@@ -181,17 +182,33 @@ def test_create_task_schedule_timedelta(tasks):
             tasks.create(
                 Task(name=task_name1, definition="select current_version()", schedule=timedelta(microseconds=1))
             )
-        assert ex_info.match("The schedule time delta must be")
-
-        with pytest.raises(ValueError) as ex_info:
-            tasks.create(Task(name=task_name1, definition="select current_version()", schedule=timedelta(weeks=2)))
-        assert ex_info.match("The schedule time delta must be")
+        assert ex_info.match("whole number of seconds")
 
         task = tasks.create(
             Task(name=task_name1, definition="select current_version()", schedule=timedelta(minutes=11))
         )
-        assert task.fetch().schedule.total_seconds() == 660
+        assert task.fetch().schedule == timedelta(minutes=11)
 
+    finally:
+        with suppress(NotFoundError):
+            tasks[task_name1].drop()
+
+
+@pytest.mark.parametrize(
+    "schedule",
+    (
+        timedelta(seconds=30),
+        timedelta(minutes=2, seconds=15),
+        timedelta(hours=2),
+        timedelta(days=7),
+    ),
+)
+def test_create_task_schedule_sub_minute_and_long_intervals(tasks, schedule):
+    from snowflake.core.task import Task
+
+    try:
+        task = tasks.create(Task(name=task_name1, definition="select current_version()", schedule=schedule))
+        assert task.fetch().schedule == schedule
     finally:
         with suppress(NotFoundError):
             tasks[task_name1].drop()
@@ -205,6 +222,63 @@ def test_create_task_allow_overlapping_execution(tasks):
             Task(name=task_name1, definition="select current_version()", allow_overlapping_execution=True)
         ).fetch()
         assert task.allow_overlapping_execution
+    finally:
+        with suppress(NotFoundError):
+            tasks[task_name1].drop()
+
+
+@pytest.mark.parametrize("overlap_policy", OverlapPolicy)
+def test_create_task_overlap_policy(tasks: TaskCollection, overlap_policy: OverlapPolicy):
+    from snowflake.core.task import Task
+
+    try:
+        task = tasks.create(
+            Task(
+                name=task_name1,
+                definition="select current_version()",
+                schedule=timedelta(minutes=11),
+                overlap_policy=overlap_policy,
+            )
+        ).fetch()
+        assert task.overlap_policy is overlap_policy
+    finally:
+        with suppress(NotFoundError):
+            tasks[task_name1].drop()
+
+
+@pytest.mark.usefixtures("my_integration_exists")
+def test_create_task_success_integration(tasks: TaskCollection):
+    from snowflake.core.task import Task
+
+    try:
+        task = tasks.create(
+            Task(
+                name=task_name1,
+                definition="select current_version()",
+                schedule=timedelta(minutes=11),
+                success_integration="my_integration",
+            )
+        ).fetch()
+        assert task.success_integration == "my_integration"
+    finally:
+        with suppress(NotFoundError):
+            tasks[task_name1].drop()
+
+
+@pytest.mark.use_accountadmin
+def test_create_task_execute_as_user(tasks: TaskCollection, test_user_name: str, grant_test_user_impersonation):
+    from snowflake.core.task import Task
+
+    try:
+        task = tasks.create(
+            Task(
+                name=task_name1,
+                definition="select current_version()",
+                schedule=timedelta(minutes=11),
+                execute_as_user=test_user_name,
+            )
+        ).fetch()
+        assert task.execute_as_user.upper() == test_user_name.upper()
     finally:
         with suppress(NotFoundError):
             tasks[task_name1].drop()

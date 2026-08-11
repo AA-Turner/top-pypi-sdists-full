@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xpander-sdk
-Version: 2.0.453
+Version: 2.0.454
 Summary: xpander.ai Backend-as-a-service for AI Agents - SDK
 Home-page: https://www.xpander.ai
 Author: xpanderAI
@@ -23,6 +23,7 @@ Requires-Dist: nest-asyncio>=1.6.0
 Requires-Dist: strands-agents>=1.20.0
 Requires-Dist: openai-agents>=0.6.4
 Requires-Dist: headroom-ai>=0.26.0
+Requires-Dist: firecrawl-anydoc<0.2,>=0.1.7
 Requires-Dist: python-docx>=1.1.2
 Requires-Dist: openpyxl>=3.1.5
 Requires-Dist: python-pptx>=1.0.2

@@ -88,6 +88,7 @@ class GenerateVerifiedQuerySuggestionsRequest(BaseModel):
 
     @field_validator("mode")
     def mode_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("ca_requests_based", "query_history_based"):

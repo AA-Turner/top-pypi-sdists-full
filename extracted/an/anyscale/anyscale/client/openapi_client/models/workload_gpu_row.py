@@ -51,7 +51,11 @@ class WorkloadGpuRow(object):
         'mem_clock_mhz': 'int',
         'ecc_sbe_total': 'int',
         'ecc_dbe_total': 'int',
+        'ecc_sbe_aggregate_total': 'int',
+        'ecc_dbe_aggregate_total': 'int',
         'correctable_remapped_rows': 'int',
+        'uncorrectable_remapped_rows': 'int',
+        'nvlink_replay_count': 'int',
         'xids': 'list[GpuXid]',
         'workload': 'GpuWorkloadRef',
         'cluster_id': 'str',
@@ -84,7 +88,11 @@ class WorkloadGpuRow(object):
         'mem_clock_mhz': 'mem_clock_mhz',
         'ecc_sbe_total': 'ecc_sbe_total',
         'ecc_dbe_total': 'ecc_dbe_total',
+        'ecc_sbe_aggregate_total': 'ecc_sbe_aggregate_total',
+        'ecc_dbe_aggregate_total': 'ecc_dbe_aggregate_total',
         'correctable_remapped_rows': 'correctable_remapped_rows',
+        'uncorrectable_remapped_rows': 'uncorrectable_remapped_rows',
+        'nvlink_replay_count': 'nvlink_replay_count',
         'xids': 'xids',
         'workload': 'workload',
         'cluster_id': 'cluster_id',
@@ -98,7 +106,7 @@ class WorkloadGpuRow(object):
         'instance_type': 'instance_type'
     }
 
-    def __init__(self, gpu_index=None, uuid=None, gpu_model=None, pci_bus_id=None, driver_version=None, state=None, utilization_pct=None, fb_used_mib=None, fb_free_mib=None, fb_total_mib=None, gpu_temp_c=None, memory_temp_c=None, power_usage_w=None, power_limit_w=None, sm_clock_mhz=None, mem_clock_mhz=None, ecc_sbe_total=None, ecc_dbe_total=None, correctable_remapped_rows=None, xids=None, workload=None, cluster_id=None, service_replica_id=None, service_version_id=None, job_attempt_id=None, node_id=None, instance_id=None, hostname=None, node_ip=None, instance_type=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, gpu_index=None, uuid=None, gpu_model=None, pci_bus_id=None, driver_version=None, state=None, utilization_pct=None, fb_used_mib=None, fb_free_mib=None, fb_total_mib=None, gpu_temp_c=None, memory_temp_c=None, power_usage_w=None, power_limit_w=None, sm_clock_mhz=None, mem_clock_mhz=None, ecc_sbe_total=None, ecc_dbe_total=None, ecc_sbe_aggregate_total=None, ecc_dbe_aggregate_total=None, correctable_remapped_rows=None, uncorrectable_remapped_rows=None, nvlink_replay_count=None, xids=None, workload=None, cluster_id=None, service_replica_id=None, service_version_id=None, job_attempt_id=None, node_id=None, instance_id=None, hostname=None, node_ip=None, instance_type=None, local_vars_configuration=None):  # noqa: E501
         """WorkloadGpuRow - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -122,7 +130,11 @@ class WorkloadGpuRow(object):
         self._mem_clock_mhz = None
         self._ecc_sbe_total = None
         self._ecc_dbe_total = None
+        self._ecc_sbe_aggregate_total = None
+        self._ecc_dbe_aggregate_total = None
         self._correctable_remapped_rows = None
+        self._uncorrectable_remapped_rows = None
+        self._nvlink_replay_count = None
         self._xids = None
         self._workload = None
         self._cluster_id = None
@@ -169,8 +181,16 @@ class WorkloadGpuRow(object):
             self.ecc_sbe_total = ecc_sbe_total
         if ecc_dbe_total is not None:
             self.ecc_dbe_total = ecc_dbe_total
+        if ecc_sbe_aggregate_total is not None:
+            self.ecc_sbe_aggregate_total = ecc_sbe_aggregate_total
+        if ecc_dbe_aggregate_total is not None:
+            self.ecc_dbe_aggregate_total = ecc_dbe_aggregate_total
         if correctable_remapped_rows is not None:
             self.correctable_remapped_rows = correctable_remapped_rows
+        if uncorrectable_remapped_rows is not None:
+            self.uncorrectable_remapped_rows = uncorrectable_remapped_rows
+        if nvlink_replay_count is not None:
+            self.nvlink_replay_count = nvlink_replay_count
         if xids is not None:
             self.xids = xids
         if workload is not None:
@@ -571,7 +591,7 @@ class WorkloadGpuRow(object):
     def ecc_sbe_total(self):
         """Gets the ecc_sbe_total of this WorkloadGpuRow.  # noqa: E501
 
-        Total volatile single-bit ECC errors.  # noqa: E501
+        Total volatile single-bit ECC errors. Volatile counters reset on a driver reload or GPU reset, so a zero here does not mean the GPU has never seen one -- compare `ecc_sbe_aggregate_total` for that.  # noqa: E501
 
         :return: The ecc_sbe_total of this WorkloadGpuRow.  # noqa: E501
         :rtype: int
@@ -582,7 +602,7 @@ class WorkloadGpuRow(object):
     def ecc_sbe_total(self, ecc_sbe_total):
         """Sets the ecc_sbe_total of this WorkloadGpuRow.
 
-        Total volatile single-bit ECC errors.  # noqa: E501
+        Total volatile single-bit ECC errors. Volatile counters reset on a driver reload or GPU reset, so a zero here does not mean the GPU has never seen one -- compare `ecc_sbe_aggregate_total` for that.  # noqa: E501
 
         :param ecc_sbe_total: The ecc_sbe_total of this WorkloadGpuRow.  # noqa: E501
         :type: int
@@ -594,7 +614,7 @@ class WorkloadGpuRow(object):
     def ecc_dbe_total(self):
         """Gets the ecc_dbe_total of this WorkloadGpuRow.  # noqa: E501
 
-        Total volatile double-bit ECC errors.  # noqa: E501
+        Total volatile double-bit ECC errors. Volatile counters reset on a driver reload or GPU reset, so a zero here does not mean the GPU has never seen one -- compare `ecc_dbe_aggregate_total` for that.  # noqa: E501
 
         :return: The ecc_dbe_total of this WorkloadGpuRow.  # noqa: E501
         :rtype: int
@@ -605,13 +625,59 @@ class WorkloadGpuRow(object):
     def ecc_dbe_total(self, ecc_dbe_total):
         """Sets the ecc_dbe_total of this WorkloadGpuRow.
 
-        Total volatile double-bit ECC errors.  # noqa: E501
+        Total volatile double-bit ECC errors. Volatile counters reset on a driver reload or GPU reset, so a zero here does not mean the GPU has never seen one -- compare `ecc_dbe_aggregate_total` for that.  # noqa: E501
 
         :param ecc_dbe_total: The ecc_dbe_total of this WorkloadGpuRow.  # noqa: E501
         :type: int
         """
 
         self._ecc_dbe_total = ecc_dbe_total
+
+    @property
+    def ecc_sbe_aggregate_total(self):
+        """Gets the ecc_sbe_aggregate_total of this WorkloadGpuRow.  # noqa: E501
+
+        Total persistent (aggregate) single-bit ECC errors, retained across driver reloads and GPU resets for the life of the board.  # noqa: E501
+
+        :return: The ecc_sbe_aggregate_total of this WorkloadGpuRow.  # noqa: E501
+        :rtype: int
+        """
+        return self._ecc_sbe_aggregate_total
+
+    @ecc_sbe_aggregate_total.setter
+    def ecc_sbe_aggregate_total(self, ecc_sbe_aggregate_total):
+        """Sets the ecc_sbe_aggregate_total of this WorkloadGpuRow.
+
+        Total persistent (aggregate) single-bit ECC errors, retained across driver reloads and GPU resets for the life of the board.  # noqa: E501
+
+        :param ecc_sbe_aggregate_total: The ecc_sbe_aggregate_total of this WorkloadGpuRow.  # noqa: E501
+        :type: int
+        """
+
+        self._ecc_sbe_aggregate_total = ecc_sbe_aggregate_total
+
+    @property
+    def ecc_dbe_aggregate_total(self):
+        """Gets the ecc_dbe_aggregate_total of this WorkloadGpuRow.  # noqa: E501
+
+        Total persistent (aggregate) double-bit ECC errors, retained across driver reloads and GPU resets for the life of the board.  # noqa: E501
+
+        :return: The ecc_dbe_aggregate_total of this WorkloadGpuRow.  # noqa: E501
+        :rtype: int
+        """
+        return self._ecc_dbe_aggregate_total
+
+    @ecc_dbe_aggregate_total.setter
+    def ecc_dbe_aggregate_total(self, ecc_dbe_aggregate_total):
+        """Sets the ecc_dbe_aggregate_total of this WorkloadGpuRow.
+
+        Total persistent (aggregate) double-bit ECC errors, retained across driver reloads and GPU resets for the life of the board.  # noqa: E501
+
+        :param ecc_dbe_aggregate_total: The ecc_dbe_aggregate_total of this WorkloadGpuRow.  # noqa: E501
+        :type: int
+        """
+
+        self._ecc_dbe_aggregate_total = ecc_dbe_aggregate_total
 
     @property
     def correctable_remapped_rows(self):
@@ -635,6 +701,52 @@ class WorkloadGpuRow(object):
         """
 
         self._correctable_remapped_rows = correctable_remapped_rows
+
+    @property
+    def uncorrectable_remapped_rows(self):
+        """Gets the uncorrectable_remapped_rows of this WorkloadGpuRow.  # noqa: E501
+
+        Memory rows remapped for uncorrectable errors. Unlike the correctable count, a non-zero value here means data was lost.  # noqa: E501
+
+        :return: The uncorrectable_remapped_rows of this WorkloadGpuRow.  # noqa: E501
+        :rtype: int
+        """
+        return self._uncorrectable_remapped_rows
+
+    @uncorrectable_remapped_rows.setter
+    def uncorrectable_remapped_rows(self, uncorrectable_remapped_rows):
+        """Sets the uncorrectable_remapped_rows of this WorkloadGpuRow.
+
+        Memory rows remapped for uncorrectable errors. Unlike the correctable count, a non-zero value here means data was lost.  # noqa: E501
+
+        :param uncorrectable_remapped_rows: The uncorrectable_remapped_rows of this WorkloadGpuRow.  # noqa: E501
+        :type: int
+        """
+
+        self._uncorrectable_remapped_rows = uncorrectable_remapped_rows
+
+    @property
+    def nvlink_replay_count(self):
+        """Gets the nvlink_replay_count of this WorkloadGpuRow.  # noqa: E501
+
+        Total NVLink retries (replays) across all lanes. Elevated on a multi-GPU node this points at an NVLink fabric problem rather than at the GPU itself.  # noqa: E501
+
+        :return: The nvlink_replay_count of this WorkloadGpuRow.  # noqa: E501
+        :rtype: int
+        """
+        return self._nvlink_replay_count
+
+    @nvlink_replay_count.setter
+    def nvlink_replay_count(self, nvlink_replay_count):
+        """Sets the nvlink_replay_count of this WorkloadGpuRow.
+
+        Total NVLink retries (replays) across all lanes. Elevated on a multi-GPU node this points at an NVLink fabric problem rather than at the GPU itself.  # noqa: E501
+
+        :param nvlink_replay_count: The nvlink_replay_count of this WorkloadGpuRow.  # noqa: E501
+        :type: int
+        """
+
+        self._nvlink_replay_count = nvlink_replay_count
 
     @property
     def xids(self):

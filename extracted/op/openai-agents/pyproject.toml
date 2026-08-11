@@ -1,6 +1,6 @@
 [project]
 name = "openai-agents"
-version = "0.19.4"
+version = "0.20.0"
 description = "OpenAI Agents SDK"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,7 +13,7 @@ dependencies = [
     "typing-extensions>=4.12.2, <5",
     "requests>=2.0, <3",
     "websockets>=15.0, <17",
-    "mcp>=1.19.0, <2; python_version >= '3.10'",
+    "mcp>=1.19.0, <3; python_version >= '3.10'",
 ]
 classifiers = [
     "Typing :: Typed",
@@ -221,7 +221,8 @@ filterwarnings = [
 ]
 markers = [
   "allow_call_model_methods: mark test as allowing calls to real model implementations",
-  "serial: mark test as requiring serial execution",
+  "review_optional: mark a slow subsystem-specific test that an unrelated iterative review check may omit",
+  "serial: mark test as requiring exclusive execution after all xdist workers exit",
 ]
 
 [tool.inline-snapshot]

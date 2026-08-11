@@ -5564,6 +5564,340 @@ class CfnReplicationGroupProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticache_452416cc.IReservedCacheNodeRef)
+class CfnReservedCacheNode(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_elasticache.CfnReservedCacheNode",
+):
+    '''Represents an Amazon ElastiCache Reserved Cache Node.
+
+    Reserved Cache Nodes provide a discounted hourly rate compared to on-demand cache node pricing.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-reservedcachenode.html
+    :cloudformationResource: AWS::ElastiCache::ReservedCacheNode
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_elasticache as elasticache
+        
+        cfn_reserved_cache_node = elasticache.CfnReservedCacheNode(self, "MyCfnReservedCacheNode")
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::ElastiCache::ReservedCacheNode``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e5a52ae994175750d77a1922b35f66ed844c53274d2e62486e22b687c898460a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnReservedCacheNodeProps()
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnReservedCacheNode")
+    @builtins.classmethod
+    def is_cfn_reserved_cache_node(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnReservedCacheNode.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__da3245e5a5befc6d553996391ddf17a54e703e48e684f26090e2235d512485cb)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReservedCacheNode", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__15bd051d88ec43357eaa70bd554c0fdd73cd2cc03b37db8280f91588f9f8e48a)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__257f8a2b9f55c001c475450ea75da81bb5f771d3e903c4e1460ae6c8049e33f6)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCacheNodeCount")
+    def attr_cache_node_count(self) -> jsii.Number:
+        '''The number of cache nodes that have been reserved.
+
+        :cloudformationAttribute: CacheNodeCount
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrCacheNodeCount"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCacheNodeType")
+    def attr_cache_node_type(self) -> builtins.str:
+        '''The cache node type for the reserved cache nodes.
+
+        :cloudformationAttribute: CacheNodeType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCacheNodeType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDuration")
+    def attr_duration(self) -> jsii.Number:
+        '''The duration of the reservation in seconds.
+
+        :cloudformationAttribute: Duration
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrDuration"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFixedPrice")
+    def attr_fixed_price(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The fixed price charged for this reserved cache node.
+
+        :cloudformationAttribute: FixedPrice
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrFixedPrice"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOfferingType")
+    def attr_offering_type(self) -> builtins.str:
+        '''The offering type of this reserved cache node.
+
+        :cloudformationAttribute: OfferingType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOfferingType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProductDescription")
+    def attr_product_description(self) -> builtins.str:
+        '''The description of the reserved cache node.
+
+        :cloudformationAttribute: ProductDescription
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrProductDescription"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRecurringCharges")
+    def attr_recurring_charges(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The recurring price charged to run this reserved cache node.
+
+        :cloudformationAttribute: RecurringCharges
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrRecurringCharges"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrReservationArn")
+    def attr_reservation_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the reserved cache node.
+
+        :cloudformationAttribute: ReservationARN
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrReservationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrReservedCacheNodeId")
+    def attr_reserved_cache_node_id(self) -> builtins.str:
+        '''The unique identifier for the reservation.
+
+        :cloudformationAttribute: ReservedCacheNodeId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrReservedCacheNodeId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrReservedCacheNodesOfferingId")
+    def attr_reserved_cache_nodes_offering_id(self) -> builtins.str:
+        '''The offering identifier.
+
+        :cloudformationAttribute: ReservedCacheNodesOfferingId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrReservedCacheNodesOfferingId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStartTime")
+    def attr_start_time(self) -> builtins.str:
+        '''The time the reservation started.
+
+        :cloudformationAttribute: StartTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStartTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The state of the reserved cache node.
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTags")
+    def attr_tags(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''A list of tags.
+
+        :cloudformationAttribute: Tags
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrTags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUsagePrice")
+    def attr_usage_price(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The hourly price charged for this reserved cache node.
+
+        :cloudformationAttribute: UsagePrice
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrUsagePrice"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="reservedCacheNodeRef")
+    def reserved_cache_node_ref(
+        self,
+    ) -> "_aws_elasticache_452416cc.ReservedCacheNodeReference":
+        '''A reference to a ReservedCacheNode resource.'''
+        return typing.cast("_aws_elasticache_452416cc.ReservedCacheNodeReference", jsii.get(self, "reservedCacheNodeRef"))
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticache.CfnReservedCacheNode.RecurringChargeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "recurring_charge_amount": "recurringChargeAmount",
+            "recurring_charge_frequency": "recurringChargeFrequency",
+        },
+    )
+    class RecurringChargeProperty:
+        def __init__(
+            self,
+            *,
+            recurring_charge_amount: typing.Optional[jsii.Number] = None,
+            recurring_charge_frequency: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param recurring_charge_amount: The monetary amount of the recurring charge.
+            :param recurring_charge_frequency: The frequency of the recurring charge.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-reservedcachenode-recurringcharge.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticache as elasticache
+                
+                recurring_charge_property = elasticache.CfnReservedCacheNode.RecurringChargeProperty(
+                    recurring_charge_amount=123,
+                    recurring_charge_frequency="recurringChargeFrequency"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1aa0805044a94de11c2c11d1fdac593329d46916e7a901ab5638a768218fc8a0)
+                check_type(argname="argument recurring_charge_amount", value=recurring_charge_amount, expected_type=type_hints["recurring_charge_amount"])
+                check_type(argname="argument recurring_charge_frequency", value=recurring_charge_frequency, expected_type=type_hints["recurring_charge_frequency"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if recurring_charge_amount is not None:
+                self._values["recurring_charge_amount"] = recurring_charge_amount
+            if recurring_charge_frequency is not None:
+                self._values["recurring_charge_frequency"] = recurring_charge_frequency
+
+        @builtins.property
+        def recurring_charge_amount(self) -> typing.Optional[jsii.Number]:
+            '''The monetary amount of the recurring charge.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-reservedcachenode-recurringcharge.html#cfn-elasticache-reservedcachenode-recurringcharge-recurringchargeamount
+            '''
+            result = self._values.get("recurring_charge_amount")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def recurring_charge_frequency(self) -> typing.Optional[builtins.str]:
+            '''The frequency of the recurring charge.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-reservedcachenode-recurringcharge.html#cfn-elasticache-reservedcachenode-recurringcharge-recurringchargefrequency
+            '''
+            result = self._values.get("recurring_charge_frequency")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RecurringChargeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_elasticache.CfnReservedCacheNodeProps",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class CfnReservedCacheNodeProps:
+    def __init__(self) -> None:
+        '''Properties for defining a ``CfnReservedCacheNode``.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-reservedcachenode.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_elasticache as elasticache
+            
+            cfn_reserved_cache_node_props = elasticache.CfnReservedCacheNodeProps()
+        '''
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnReservedCacheNodeProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticache_452416cc.ISecurityGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnSecurityGroup(
     _aws_cdk_0cae9daa.CfnResource,
@@ -8611,6 +8945,8 @@ __all__ = [
     "CfnParameterGroupProps",
     "CfnReplicationGroup",
     "CfnReplicationGroupProps",
+    "CfnReservedCacheNode",
+    "CfnReservedCacheNodeProps",
     "CfnSecurityGroup",
     "CfnSecurityGroupIngress",
     "CfnSecurityGroupIngressProps",
@@ -9552,6 +9888,39 @@ def _typecheckingstub__c8dbf3d422d5fea6e04cfbc10e81904d384dc2c210952911caaa5ab7e
     transit_encryption_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     transit_encryption_mode: typing.Optional[builtins.str] = None,
     user_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5a52ae994175750d77a1922b35f66ed844c53274d2e62486e22b687c898460a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__da3245e5a5befc6d553996391ddf17a54e703e48e684f26090e2235d512485cb(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__15bd051d88ec43357eaa70bd554c0fdd73cd2cc03b37db8280f91588f9f8e48a(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__257f8a2b9f55c001c475450ea75da81bb5f771d3e903c4e1460ae6c8049e33f6(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1aa0805044a94de11c2c11d1fdac593329d46916e7a901ab5638a768218fc8a0(
+    *,
+    recurring_charge_amount: typing.Optional[jsii.Number] = None,
+    recurring_charge_frequency: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

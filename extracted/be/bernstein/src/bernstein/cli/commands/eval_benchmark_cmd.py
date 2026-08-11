@@ -336,10 +336,10 @@ def benchmark_programbench(
     """Run Bernstein against ProgramBench tasks with partial-credit scoring.
 
     \b
-      bernstein benchmark programbench --adapter claude
-      bernstein benchmark programbench --adapter mock --tasks 5
-      bernstein benchmark programbench --adapter claude --task programbench-001
-      bernstein benchmark programbench --adapter claude --out report.json
+      bernstein eval programbench --adapter claude
+      bernstein eval programbench --adapter mock --tasks 5
+      bernstein eval programbench --adapter claude --task programbench-001
+      bernstein eval programbench --adapter claude --out report.json
     """
     _run_programbench_command(
         adapter=adapter,
@@ -454,9 +454,9 @@ def benchmark_compare(tasks_dir: str, modes: tuple[str, ...]) -> None:
     """Run comparative benchmark: single-agent vs orchestrated.
 
     \b
-      bernstein benchmark compare                                   # default tasks
-      bernstein benchmark compare --tasks-dir path/to/tasks         # custom tasks
-      bernstein benchmark compare --mode single --mode orchestrated # explicit modes
+      bernstein eval compare                                   # default tasks
+      bernstein eval compare --tasks-dir path/to/tasks         # custom tasks
+      bernstein eval compare --mode single --mode orchestrated # explicit modes
     """
     from bernstein.benchmark.comparative import ComparativeBenchmark, load_benchmark_tasks
 
@@ -527,10 +527,10 @@ def benchmark_simulate(
     comparable across runs with the same seed.
 
     \b
-      bernstein benchmark simulate                             # all tasks, seed=42
-      bernstein benchmark simulate --seed 1                   # different seed
-      bernstein benchmark simulate --task-id bugfix-1         # single task
-      bernstein benchmark simulate --baseline prior.jsonl     # detect regressions
+      bernstein eval simulate                             # all tasks, seed=42
+      bernstein eval simulate --seed 1                   # different seed
+      bernstein eval simulate --task-id bugfix-1         # single task
+      bernstein eval simulate --baseline prior.jsonl     # detect regressions
     """
     from pathlib import Path as _Path
 
@@ -630,7 +630,7 @@ def benchmark_receipt_emit(run_id: str, workdir: str) -> None:
 
     Example:
 
-        bernstein benchmark receipt emit run-2025-07-26-001
+        bernstein eval receipt emit run-2025-07-26-001
     """
     import json
     import math
@@ -761,7 +761,7 @@ def benchmark_receipt_verify(receipt_hash: str, workdir: str) -> None:
 
     Example:
 
-        bernstein benchmark receipt verify sha256:abc123...
+        bernstein eval receipt verify sha256:abc123...
     """
     from pathlib import Path
 
@@ -797,9 +797,94 @@ def benchmark_receipt_verify(receipt_hash: str, workdir: str) -> None:
         raise SystemExit(1)
 
 
-@click.group("eval")
-def eval_group() -> None:
-    """Evaluation harness with multiplicative scoring."""
+@click.group("eval", invoke_without_command=True)
+@click.option(
+    "--reliability",
+    "reliability_k",
+    type=click.IntRange(min=1),
+    default=None,
+    metavar="K",
+    help=(
+        "Run each suite task K times under fixed coordination and emit a signed "
+        "pass^k reliability receipt — an alias for 'bernstein bench run "
+        "--reliability K'. Verify the receipt with 'bernstein bench "
+        "reliability-verify'; probe coordination byte-identity with 'bernstein "
+        "bench reliability-check'."
+    ),
+)
+@click.option(
+    "--suite",
+    "reliability_suite",
+    default="golden-v1",
+    show_default=True,
+    help="Suite name or .json path (--reliability mode only).",
+)
+@click.option(
+    "--out",
+    "reliability_out",
+    default="reliability.json",
+    show_default=True,
+    help="Output path for the reliability receipt (--reliability mode only).",
+)
+@click.option(
+    "--scheduler",
+    "reliability_scheduler",
+    default="default",
+    show_default=True,
+    help="Scheduler name to embed in the receipt (--reliability mode only).",
+)
+@click.option(
+    "--stub-signer",
+    "reliability_stub_signer",
+    is_flag=True,
+    default=False,
+    help="Use the stub signer instead of the install identity (--reliability mode only, for testing).",
+)
+@click.pass_context
+def eval_group(
+    ctx: click.Context,
+    reliability_k: int | None,
+    reliability_suite: str,
+    reliability_out: str,
+    reliability_scheduler: str,
+    reliability_stub_signer: bool,
+) -> None:
+    """Evaluation harness with multiplicative scoring.
+
+    \b
+      bernstein eval --reliability 5        # pass^k reliability floor
+      bernstein eval run                    # golden suite run
+
+    --reliability K is a thin alias for 'bernstein bench run --reliability K'
+    (issue #2933): same runner, same signed reliability receipt. Verify with
+    'bernstein bench reliability-verify' and probe coordination byte-identity
+    with 'bernstein bench reliability-check'.
+    """
+    if ctx.invoked_subcommand is not None:
+        if reliability_k is not None:
+            raise click.UsageError(
+                "--reliability runs the pass^k reliability floor directly; "
+                "it cannot be combined with an eval subcommand."
+            )
+        return
+    if reliability_k is None:
+        # Preserve the pre-alias behaviour of a bare `bernstein eval`:
+        # show help and exit 2 (Click's no-args-is-help path).
+        click.echo(ctx.get_help())
+        ctx.exit(2)
+    # Delegate to the exact code path `bernstein bench run --reliability K`
+    # uses: same ReliabilityRunner, same signed ReliabilityReceipt, same
+    # verification story. No reliability logic lives on the eval surface.
+    from bernstein.eval.bench.bench_cli import bench_run
+
+    ctx.invoke(
+        bench_run,
+        suite=reliability_suite,
+        out=reliability_out,
+        scheduler=reliability_scheduler,
+        stub_signer=reliability_stub_signer,
+        reliability_k=reliability_k,
+    )
 
 
 @eval_group.command("golden")
@@ -2218,6 +2303,98 @@ def eval_gate_verify_cmd(receipt_hash: str, workdir: str, as_json: bool) -> None
         return
     console.print(f"[red]Verdict receipt verification failed:[/red] {result.reason}")
     raise SystemExit(1)
+
+
+@eval_group.group("clean-run")
+def eval_clean_run_group() -> None:
+    """Clean-run attestation surface (#2930)."""
+
+
+@eval_clean_run_group.command("verify")
+@click.argument("attestation_hash")
+@click.option(
+    "--workdir",
+    "workdir",
+    type=click.Path(file_okay=False),
+    default=".",
+    show_default=True,
+    help=("Project root holding .sdd/eval/clean_run attestations, .sdd/runs/<run-id>/journal.jsonl, and .sdd/lineage."),
+)
+@click.option("--json", "as_json", is_flag=True, default=False, help="Output raw JSON.")
+def eval_clean_run_verify_cmd(attestation_hash: str, workdir: str, as_json: bool) -> None:
+    """Verify a clean-run attestation offline (#2930).
+
+    Re-derives the verdict from the embedded activity digests and contraband
+    commitment (the stored verdict is never trusted), re-checks that the
+    scanned activity set chains to the recorded journal head, and re-checks
+    the eval-clean-run lineage-spine anchor.
+
+    \b
+      bernstein eval clean-run verify sha256:<hash>
+    """
+    import json as _json
+
+    from bernstein.core.security.audit import load_or_create_audit_key
+    from bernstein.eval.clean_run import verify_clean_run_attestation
+
+    root = Path(workdir)
+    result = verify_clean_run_attestation(
+        workdir=root,
+        lineage_root=root / ".sdd" / "lineage",
+        hmac_key=load_or_create_audit_key(),
+        attestation_hash=attestation_hash,
+    )
+    verdict = result.attestation.verdict if result.attestation is not None else ""
+    if as_json:
+        click.echo(
+            _json.dumps(
+                {
+                    "ok": result.ok,
+                    "reason": result.reason,
+                    "attestation_hash": attestation_hash,
+                    "verdict": verdict,
+                }
+            )
+        )
+        raise SystemExit(0 if result.ok else 1)
+    if result.ok:
+        console.print(f"[green]Clean-run attestation verified:[/green] {attestation_hash} (verdict: {verdict})")
+        return
+    console.print(f"[red]Clean-run attestation verification failed:[/red] {result.reason}")
+    raise SystemExit(1)
+
+
+# Every subcommand the deprecated ``benchmark`` group carries needs a home on
+# ``eval`` before the group is unregistered in v4.0.0, otherwise the removal
+# deletes a capability rather than a spelling.  ``run`` and ``swe-bench``
+# already existed on ``eval``; the remaining four are registered here as the
+# *same* Command objects, so the two spellings cannot drift.
+#
+# ``simulate`` is not the top-level ``bernstein simulate``: that command is a
+# digital-twin simulation of a plan against historical traces (#1374), while
+# this one replays the standard benchmark task set for throughput/cost/quality
+# (disjoint options, disjoint inputs, disjoint outputs).  They share a verb and
+# nothing else, so the top-level command is not a migration target for it.
+eval_group.add_command(benchmark_programbench, "programbench")
+eval_group.add_command(benchmark_compare, "compare")
+eval_group.add_command(benchmark_simulate, "simulate")
+eval_group.add_command(benchmark_receipt_group, "receipt")
+
+
+@click.group("benchmark", help="[Deprecated] Use 'bernstein eval' instead.")
+@click.pass_context
+def benchmark_alias_group(ctx: click.Context) -> None:
+    """[Deprecated] Use 'bernstein eval' instead."""
+    if ctx.invoked_subcommand is not None:
+        click.echo(
+            "WARNING: 'bernstein benchmark' is deprecated and will be removed in v4.0.0 (#3143): "
+            "use 'bernstein eval' instead.",
+            err=True,
+        )
+
+
+for _cmd_name, _cmd_obj in benchmark_group.commands.items():
+    benchmark_alias_group.add_command(_cmd_obj, _cmd_name)
 
 
 # ---------------------------------------------------------------------------

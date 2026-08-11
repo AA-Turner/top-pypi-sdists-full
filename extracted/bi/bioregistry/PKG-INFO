@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bioregistry
-Version: 0.13.67
+Version: 0.14.0
 Summary: Integrated registry of biological databases and nomenclatures
 Keywords: snekpack,cookiecutter,databases,biological databases,biomedical databases,persistent identifiers
 Author: Charles Tapley Hoyt
@@ -15,7 +15,6 @@ Classifier: Framework :: Pytest
 Classifier: Framework :: tox
 Classifier: Framework :: Sphinx
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -23,11 +22,11 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Dist: requests
 Requires-Dist: tqdm
-Requires-Dist: pystow>=0.8.2
+Requires-Dist: pystow>=0.9.0
 Requires-Dist: click
 Requires-Dist: more-click>=0.1.2
 Requires-Dist: pydantic[email]>=2.0
-Requires-Dist: curies>=0.13.9
+Requires-Dist: curies>=0.15.0
 Requires-Dist: sssom-pydantic>=0.5.10
 Requires-Dist: urllib3>=2.7.0
 Requires-Dist: python-multipart>=0.0.27
@@ -84,7 +83,7 @@ Requires-Dist: a2wsgi ; extra == 'web'
 Requires-Dist: api-analytics[fastapi] ; extra == 'web'
 Maintainer: Charles Tapley Hoyt
 Maintainer-email: Charles Tapley Hoyt <cthoyt@gmail.com>
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Project-URL: Bug Tracker, https://github.com/biopragmatics/bioregistry/issues
 Project-URL: Homepage, https://github.com/biopragmatics/bioregistry
 Project-URL: Repository, https://github.com/biopragmatics/bioregistry.git

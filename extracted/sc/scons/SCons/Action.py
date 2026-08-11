@@ -117,6 +117,7 @@ import SCons.Debug
 import SCons.Errors
 import SCons.Subst
 import SCons.Util
+from SCons.Util.sctypes import _null
 
 # we use these a lot, so try to optimize them
 from SCons.Debug import logInstanceCreation
@@ -125,9 +126,6 @@ from SCons.Util import is_String, is_List
 
 if TYPE_CHECKING:
     from SCons.Executor import Executor
-
-class _null:
-    pass
 
 print_actions = True
 execute_actions = True
@@ -334,11 +332,11 @@ def _object_instance_content(obj):
     """
     Returns consistant content for a action class or an instance thereof
 
-    :Parameters:
-      - `obj` Should be either and action class or an instance thereof
+    Args:
+        obj: Should be either an action class or an instance thereof
 
-    :Returns:
-      bytearray or bytes representing the obj suitable for generating a signature from.
+    Returns:
+        bytearray or bytes representing the obj suitable for generating a signature from.
     """
     retval = bytearray()
 
@@ -1002,6 +1000,9 @@ class CommandAction(_ActionAction):
             return ' '.join(map(str, self.cmd_list))
         return str(self.cmd_list)
 
+    def __hash__(self) -> int:
+        """ Added so CommandAction can be used as a key in a dict and/or cached. """
+        return id(self)
 
     def process(self, target, source, env, executor: Executor | None = None, overrides: dict | None = None) -> tuple[list, bool, bool]:
         if executor:
@@ -1423,6 +1424,10 @@ class FunctionAction(_ActionAction):
             return str(self.execfunction)
         return "%s(target, source, env)" % name
 
+    def __hash__(self) -> int:
+        """ Added so FunctionAction can be used as a key in a dict and/or cached. """
+        return id(self)
+
     def execute(self, target, source, env, executor: Executor | None = None):
         exc_info = (None,None,None)
         try:
@@ -1483,6 +1488,10 @@ class ListAction(ActionBase):
 
     def __str__(self) -> str:
         return '\n'.join(map(str, self.list))
+
+    def __hash__(self) -> int:
+        """ Added so ListAction can be used as a key in a dict and/or cached. """
+        return id(self)
 
     def presub_lines(self, env):
         return SCons.Util.flatten_sequence(
@@ -1611,9 +1620,3 @@ class ActionFactory:
         ac = ActionCaller(self, args, kw)
         action = Action(ac, strfunction=ac.strfunction)
         return action
-
-# Local Variables:
-# tab-width:4
-# indent-tabs-mode:nil
-# End:
-# vim: set expandtab tabstop=4 shiftwidth=4:

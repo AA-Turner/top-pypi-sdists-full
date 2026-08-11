@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Sequence, Tuple
 
 from . import aot_flatten
-from .aot_serve import SOURCE_LITERAL, SOURCE_STATE_DICT
+from .aot_serve import SOURCE_COMPUTED, SOURCE_LITERAL, SOURCE_STATE_DICT
 import hashlib
 
 logger = logging.getLogger(__name__)
@@ -74,6 +74,11 @@ _MODEL_BASE = "AOTInductorModelBase("
 #: in ``aot_serve.LITERALS_NAME`` or it can never be bound.
 _STATE_DICT_TYPES = ("Parameter", "Buffer")
 
+#: ``ConstantType`` values AOTInductor COMPUTES at load from the constants that
+#: were bound — the runtime constant-folding pass's outputs. They are in the
+#: package's table and in no exported program, by construction.
+_COMPUTED_TYPES = ("FoldedConstant",)
+
 
 @dataclass(frozen=True)
 class DeclaredConstant:
@@ -97,7 +102,9 @@ class DeclaredConstant:
     @property
     def source(self) -> str:
         """``aot_serve`` source class: from the state_dict, or a packed literal."""
-        return SOURCE_STATE_DICT if self.kind in _STATE_DICT_TYPES \
+        if self.kind in _STATE_DICT_TYPES:
+            return SOURCE_STATE_DICT
+        return SOURCE_COMPUTED if self.kind in _COMPUTED_TYPES \
             else SOURCE_LITERAL
 
     def as_manifest_row(self) -> Dict[str, Any]:
@@ -548,7 +555,12 @@ def program_package_drift(
     the package would want constants the recorded program never lifted.
     """
     want = set(program_constant_fqns(program))
-    have = {c.fqn for c in declared_constants(Path(package), entry)}
+    have = {c.fqn for c in declared_constants(Path(package), entry)
+            if c.source != SOURCE_COMPUTED}
+    # pgw#1080: a COMPUTED constant is package-only by design — the runtime
+    # fold produces it from the bound constants at load, so "the program never
+    # lifted it" is the expected state and not the segfault precondition this
+    # gate exists for.
     package_only = sorted(have - want)
     if not package_only:
         return []
@@ -565,13 +577,67 @@ def eliminated_constants(
 ) -> List[str]:
     """Constants the program lifted that the compiled artifact does not want.
 
-    Routine compiler fusion (conv+bias, folded scalars). Recorded as
+    Anonymous graph literals the compiler folded away. Recorded as
     observability so a surprising JUMP in the count is visible, rather than
     silently discarded — the count is stable for a given recipe.
+
+    **A WEIGHT here is never routine** — that is :func:`folded_weights`, which
+    refuses. This docstring used to call the sdxl case ("program 2423, package
+    2422, the difference being ``unet.conv_out.bias``") *routine compiler
+    fusion into the convolution epilogue*. It is not fusion (pgw#1097): a 1-D
+    constant of 4 elements meets ``GraphLowering.can_inline_constant``, so
+    inductor rendered that checkpoint's four floats into the kernel source.
     """
     want = set(program_constant_fqns(program))
     have = {c.fqn for c in declared_constants(Path(package), entry)}
     return sorted(want - have)
+
+
+def folded_weights(
+    program: Any, package: Path, state_dict_keys: Iterable[str],
+    entry: str = "",
+) -> List[str]:
+    """Weights the program lifted that the artifact will NOT let anyone bind.
+
+    THE folding fence (pgw#1097, pgw#1056's guard, enforcing pgw#857's
+    tensor-binding contract). One cell serves every fine-tune of a family
+    because weights rebind BY NAME at load — which is sound only while the
+    compiled code holds no weight VALUE. Where a lifted weight is missing
+    from the artifact's own constant table, its value is not missing: it was
+    rendered into the kernel source, and it is the MINTING checkpoint's.
+    Every other fine-tune then adopts a cell carrying somebody else's tensor.
+
+    That failure is caught downstream by the adopt-side parity floor, so
+    nothing corrupt serves — but the cell is refused per checkpoint, which
+    turns fleet-wide cell sharing into a per-checkpoint compile without
+    anything saying why. So it is refused HERE, once, on the mint pod.
+
+    Mechanism, read off torch 2.13.0 and MEASURED (pgw#1097): with
+    ``aot_inductor.use_runtime_constant_folding`` and
+    ``always_keep_tensor_constants`` both off, ``GraphLowering.get_attr``
+    inlines a constant whose SHAPE meets either rule — 0-dim (rendered via
+    ``.item()``) or ``len(shape) == 1 and shape[0] <= 8``
+    (``can_inline_constant``). The selection is by shape alone, so it is
+    deterministic and enumerable; whether it BITES is whether two fine-tunes
+    differ in one of those tensors. ``aot_mint.CONSTANT_BINDING_CONFIGS``
+    turns it off — and this gate is what makes that a proof rather than a
+    setting, so a future inlining route fails closed instead of shipping.
+    """
+    available = set(state_dict_keys)
+    if not available:
+        return []
+    lifted = set(program_constant_fqns(program))
+    have = {c.fqn for c in declared_constants(Path(package), entry)}
+    folded = sorted((lifted & available) - have)
+    if not folded:
+        return []
+    return [
+        f"{len(folded)} weight(s) the exported program lifted are ABSENT from "
+        f"the compiled artifact's constant table: {folded[:6]!r} — their "
+        f"values were compiled into the kernel, so this cell carries THIS "
+        f"checkpoint's copy and no other fine-tune could rebind them "
+        f"(pgw#1097 folding fence; pgw#857 tensor-binding contract)"
+    ]
 
 
 def unbindable_constants(
@@ -862,7 +928,7 @@ def _symbol_ranges(program: Any) -> Dict[str, Tuple[int, int]]:
                 f"exported program symbol {symbol} has an unbounded range "
                 f"({getattr(interval, 'lower', None)}.."
                 f"{getattr(interval, 'upper', None)}); an artifact must declare "
-                f"finite admissible traffic (pgw#704 B2)")
+                f"a finite declared envelope (pgw#704 B2)")
         out[str(symbol)] = (lower, upper)
     return out
 
@@ -908,6 +974,7 @@ __all__ = [
     "input_contract",
     "literal_constants",
     "eliminated_constants",
+    "folded_weights",
     "package_entry_names",
     "program_constant_fqns",
     "program_package_drift",

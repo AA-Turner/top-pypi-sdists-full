@@ -18,7 +18,6 @@ import packaging.version
 import hist
 
 from . import interop
-from ._compat.typing import ArrayLike, Self
 from .axestuple import NamedAxesTuple
 from .axis import AxisProtocol
 from .quick_construct import MetaConstructor
@@ -31,11 +30,12 @@ if typing.TYPE_CHECKING:
     import matplotlib.axes
     from mplhep.plot import Hist1DArtists, Hist2DArtists
 
+    from ._compat.typing import ArrayLike, Self
     from .plot import FitResultArtists, MainAxisArtists, RatiolikeArtists
 
 
 class SupportsLessThan(Protocol):
-    def __lt__(self, __other: Any) -> bool: ...
+    def __lt__(self, other: Any, /) -> bool: ...
 
 
 InnerIndexing = Union[
@@ -59,7 +59,7 @@ def _proc_kw_for_lw(kwargs: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def process_mistaken_quick_construct(
-    axes: Sequence[AxisTypes | hist.quick_construct.ConstructProxy],
+    axes: Sequence[AxisTypes | hist.quick_construct.ConstructProxy[Any]],
 ) -> Generator[AxisTypes, None, None]:
     for ax in axes:
         if isinstance(ax, hist.quick_construct.ConstructProxy):
@@ -187,9 +187,8 @@ class BaseHist(_Histogram[S], Generic[S], metaclass=MetaConstructor, family=hist
 
         valid_names = [ax.name for ax in self.axes if ax.name]
         if len(valid_names) != len(set(valid_names)):
-            raise KeyError(
-                f"{self.__class__.__name__} instance cannot contain axes with duplicated names"
-            )
+            msg_0 = f"{self.__class__.__name__} instance cannot contain axes with duplicated names"
+            raise KeyError(msg_0)
         for i, ax in enumerate(self.axes):
             # label will return name if label is not set, so this is safe
             if not ax.label:
@@ -243,7 +242,8 @@ class BaseHist(_Histogram[S], Generic[S], metaclass=MetaConstructor, family=hist
             if name == axis.name:
                 return index
 
-        raise ValueError(f"The axis name {name} could not be found")
+        msg = f"The axis name {name} could not be found"
+        raise ValueError(msg)
 
     def _to_uhi_(self) -> dict[str, Any]:
         from .serialization import to_uhi
@@ -257,8 +257,10 @@ class BaseHist(_Histogram[S], Generic[S], metaclass=MetaConstructor, family=hist
         axes: Sequence[str | AxisProtocol],
         *,
         weight: str | None = None,
-        storage: hist.storage.Storage = hist.storage.Double(),  # noqa: B008
+        storage: hist.storage.Storage | None = None,
     ) -> Self:
+        if storage is None:
+            storage = hist.storage.Double()
         axes_list: list[Any] = []
         for ax in axes:
             if isinstance(ax, str):
@@ -269,11 +271,11 @@ class BaseHist(_Histogram[S], Generic[S], metaclass=MetaConstructor, family=hist
                 elif all(isinstance(a, int) for a in cats):
                     axes_list.append(hist.axis.IntCategory(sorted(cats), name=ax))  # type: ignore[arg-type]
                 else:
-                    raise TypeError(
-                        f"{ax} must be all int or strings if axis not given"
-                    )
+                    msg = f"{ax} must be all int or strings if axis not given"
+                    raise TypeError(msg)
             elif not ax.name or ax.name not in data:
-                raise TypeError("All axes must have names present in the data")
+                msg = "All axes must have names present in the data"
+                raise TypeError(msg)
             else:
                 axes_list.append(ax)
 
@@ -284,12 +286,15 @@ class BaseHist(_Histogram[S], Generic[S], metaclass=MetaConstructor, family=hist
         self.fill(**data_list, weight=weight_arr)  # type: ignore[arg-type]
         return self
 
-    def project(self, *args: int | str) -> Self:
+    def project(self, *args: int | str, flow: bool = True) -> Self:
         """
         Projection of axis idx.
         """
         int_args = [self._name_to_index(a) if isinstance(a, str) else a for a in args]
-        return super().project(*int_args)
+        if flow:
+            return super().project(*int_args)
+        # flow=False requires boost-histogram 1.8+
+        return super().project(*int_args, flow=False)
 
     @property
     def T(self) -> Self:
@@ -327,10 +332,11 @@ class BaseHist(_Histogram[S], Generic[S], metaclass=MetaConstructor, family=hist
             missing = expected - provided
             missing_values = [self.axes[i].name for i in missing]
 
-            raise TypeError(
+            msg_0 = (
                 f"Missing values for single/multiple axis : {missing_values}."
                 f"Expected axes : {[ax.name for ax in self.axes]}"
             )
+            raise TypeError(msg_0)
 
         data = (data_dict[i] for i in range(len(args), self.ndim))
 
@@ -436,16 +442,15 @@ class BaseHist(_Histogram[S], Generic[S], metaclass=MetaConstructor, family=hist
             return x
         if any(any(special in pattern for special in ["*", "?"]) for pattern in _x):
             available = [n for n in self.axes[ax_id] if isinstance(n, str)]
-            all_matches = []
-            for pattern in _x:
-                all_matches.append(
-                    [k for k in available if fnmatch.fnmatch(k, pattern)]
-                )
+            all_matches = [
+                [k for k in available if fnmatch.fnmatch(k, pattern)] for pattern in _x
+            ]
             matches = list(
                 dict.fromkeys(list(itertools.chain.from_iterable(all_matches)))
             )
             if len(matches) == 0:
-                raise ValueError(f"No matches found for {x}")
+                msg = f"No matches found for {x}"
+                raise ValueError(msg)
             return matches
         return x
 
@@ -464,7 +469,8 @@ class BaseHist(_Histogram[S], Generic[S], metaclass=MetaConstructor, family=hist
             )
         if isinstance(x, complex):
             if x.real % 1 != 0:
-                raise ValueError("The real part should be an integer")
+                msg = "The real part should be an integer"
+                raise ValueError(msg)
             return bh.loc(x.imag, int(x.real))
         if isinstance(x, str):
             return bh.loc(x)
@@ -480,9 +486,11 @@ class BaseHist(_Histogram[S], Generic[S], metaclass=MetaConstructor, family=hist
             return x
 
         if x.real != 0:
-            raise ValueError("The step should not have real part")
+            msg = "The step should not have real part"
+            raise ValueError(msg)
         if x.imag % 1 != 0:
-            raise ValueError("The imaginary part should be an integer")
+            msg = "The imaginary part should be an integer"
+            raise ValueError(msg)
         return bh.rebin(int(x.imag))
 
     def _index_transform(self, index: list[IndexingExpr] | IndexingExpr) -> Any:
@@ -498,9 +506,8 @@ class BaseHist(_Histogram[S], Generic[S], metaclass=MetaConstructor, family=hist
                 for k, v in index.items()
             }
             if len(new_indices) != len(index):
-                raise ValueError(
-                    "Duplicate index keys, numbers and names cannot overlap"
-                )
+                msg = "Duplicate index keys, numbers and names cannot overlap"
+                raise ValueError(msg)
             return new_indices
 
         if not isinstance(index, tuple):
@@ -565,7 +572,8 @@ class BaseHist(_Histogram[S], Generic[S], metaclass=MetaConstructor, family=hist
         """
 
         if self.kind != bh.Kind.COUNT:
-            raise TypeError("Profile requires a COUNT histogram")
+            msg = "Profile requires a COUNT histogram"
+            raise TypeError(msg)
 
         axes = list(self.axes)
         iaxis = axis if isinstance(axis, int) else self._name_to_index(axis)
@@ -581,12 +589,12 @@ class BaseHist(_Histogram[S], Generic[S], metaclass=MetaConstructor, family=hist
         num = np.tensordot(values, centers, ([iaxis], [0]))
         num_err = np.sqrt(np.tensordot(variances, centers**2, ([iaxis], [0])))
 
-        den = np.sum(values, axis=iaxis)
+        # The denominator is the same sum of weights as ``count``.
         den_err = np.sqrt(np.sum(variances, axis=iaxis))
 
         with np.errstate(invalid="ignore"):
-            new_values = num / den
-            new_variances = (num_err / den) ** 2 - (den_err * num / den**2) ** 2
+            new_values = num / count
+            new_variances = (num_err / count) ** 2 - (den_err * num / count**2) ** 2
 
         retval = self.__class__(*axes, storage=hist.storage.Mean())
         retval[...] = np.stack([count, new_values, count * new_variances], axis=-1)
@@ -624,7 +632,8 @@ class BaseHist(_Histogram[S], Generic[S], metaclass=MetaConstructor, family=hist
         if self.ndim == 2:
             return self.plot2d(*args, **kwargs)
 
-        raise NotImplementedError("Please project to 1D or 2D before calling plot")
+        msg = "Please project to 1D or 2D before calling plot"
+        raise NotImplementedError(msg)
 
     def plot1d(
         self,
@@ -677,9 +686,8 @@ class BaseHist(_Histogram[S], Generic[S], metaclass=MetaConstructor, family=hist
                 cats = [kwargs["label"]] * len(cats)
                 kwargs.pop("label")
             else:
-                raise ValueError(
-                    f"label ``{kwargs['label']}`` not understood for {len(cats)} categories"
-                )
+                msg = f"label ``{kwargs['label']}`` not understood for {len(cats)} categories"
+                raise ValueError(msg)
         artists = plot.histplot(d1hists, ax=ax, label=cats, **_proc_kw_for_lw(kwargs))
         if legend:
             # Try to set legend title from axis label if available
@@ -691,7 +699,7 @@ class BaseHist(_Histogram[S], Generic[S], metaclass=MetaConstructor, family=hist
             handles, _ = ax.get_legend_handles_labels()
             if handles:
                 title = getattr(cat_ax, "label", None)
-                ax.legend(title=title if title else None)
+                ax.legend(title=title or None)
         return artists
 
     def plot2d(
@@ -780,7 +788,8 @@ class BaseHist(_Histogram[S], Generic[S], metaclass=MetaConstructor, family=hist
         Returns a stack from a normal histogram axes.
         """
         if self.ndim < 2:
-            raise RuntimeError("Cannot stack with less than two axis")
+            msg = "Cannot stack with less than two axis"
+            raise RuntimeError(msg)
         stack_histograms: Iterator[BaseHist[S]] = [  # type: ignore[assignment]
             self[{axis: i}] for i in range(len(self.axes[axis]))
         ]

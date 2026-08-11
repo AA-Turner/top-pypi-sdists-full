@@ -4,8 +4,8 @@ build-backend = 'hatchling.build'
 
 [project]
 name = 'typing-inspection'
-version = '0.4.2'
-license = "MIT"
+version = '0.4.3'
+license = 'MIT'
 license-files = ['LICENSE']
 description = 'Runtime typing introspection tools'
 authors = [
@@ -18,19 +18,19 @@ classifiers = [
     'Programming Language :: Python :: Implementation :: CPython',
     'Programming Language :: Python :: 3',
     'Programming Language :: Python :: 3 :: Only',
-    'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
     'Programming Language :: Python :: 3.14',
+    'Programming Language :: Python :: 3.15',
     'Typing :: Typed',
     'Intended Audience :: Developers',
     'Topic :: Software Development :: Libraries :: Python Modules',
 ]
-requires-python = '>=3.9'
+requires-python = '>=3.10'
 dependencies = [
-    'typing-extensions>=4.12.0',
+    'typing-extensions>=4.15.0',
 ]
 
 [project.urls]
@@ -58,6 +58,9 @@ lint = [
     'pyright>=1.1.394',
     'ruff>=0.9.6',
 ]
+build = [
+    'build',
+]
 
 
 [tool.uv]
@@ -65,7 +68,7 @@ required-version = '>=0.7.2'
 
 [tool.ruff]
 line-length = 120
-target-version = 'py39'
+target-version = 'py310'
 include = [
     'src/**/*.py',
     'tests/**/*.py',
@@ -109,7 +112,7 @@ known-first-party = ['typing_inspection']
 
 [tool.pyright]
 typeCheckingMode = 'strict'
-pythonVersion = '3.13'
+pythonVersion = '3.14'
 include = ['src']
 
 [tool.pytest.ini_options]

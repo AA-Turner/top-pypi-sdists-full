@@ -39,7 +39,8 @@ class ProductionJobStateTransition(object):
         'goal_state': 'HaJobGoalStates',
         'error': 'str',
         'operation_message': 'str',
-        'cluster_id': 'str'
+        'cluster_id': 'str',
+        'kuberay_cr_id': 'str'
     }
 
     attribute_map = {
@@ -49,10 +50,11 @@ class ProductionJobStateTransition(object):
         'goal_state': 'goal_state',
         'error': 'error',
         'operation_message': 'operation_message',
-        'cluster_id': 'cluster_id'
+        'cluster_id': 'cluster_id',
+        'kuberay_cr_id': 'kuberay_cr_id'
     }
 
-    def __init__(self, id=None, state_transitioned_at=None, current_state=None, goal_state=None, error=None, operation_message=None, cluster_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, state_transitioned_at=None, current_state=None, goal_state=None, error=None, operation_message=None, cluster_id=None, kuberay_cr_id=None, local_vars_configuration=None):  # noqa: E501
         """ProductionJobStateTransition - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -65,6 +67,7 @@ class ProductionJobStateTransition(object):
         self._error = None
         self._operation_message = None
         self._cluster_id = None
+        self._kuberay_cr_id = None
         self.discriminator = None
 
         self.id = id
@@ -78,6 +81,8 @@ class ProductionJobStateTransition(object):
             self.operation_message = operation_message
         if cluster_id is not None:
             self.cluster_id = cluster_id
+        if kuberay_cr_id is not None:
+            self.kuberay_cr_id = kuberay_cr_id
 
     @property
     def id(self):
@@ -245,6 +250,29 @@ class ProductionJobStateTransition(object):
         """
 
         self._cluster_id = cluster_id
+
+    @property
+    def kuberay_cr_id(self):
+        """Gets the kuberay_cr_id of this ProductionJobStateTransition.  # noqa: E501
+
+        The id of the KubeRay CR backing this job  # noqa: E501
+
+        :return: The kuberay_cr_id of this ProductionJobStateTransition.  # noqa: E501
+        :rtype: str
+        """
+        return self._kuberay_cr_id
+
+    @kuberay_cr_id.setter
+    def kuberay_cr_id(self, kuberay_cr_id):
+        """Sets the kuberay_cr_id of this ProductionJobStateTransition.
+
+        The id of the KubeRay CR backing this job  # noqa: E501
+
+        :param kuberay_cr_id: The kuberay_cr_id of this ProductionJobStateTransition.  # noqa: E501
+        :type: str
+        """
+
+        self._kuberay_cr_id = kuberay_cr_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

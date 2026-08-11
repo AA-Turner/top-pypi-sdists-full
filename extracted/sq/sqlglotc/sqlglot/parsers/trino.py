@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import typing as t
 
 from sqlglot import exp, parser
 from sqlglot.helper import ensure_list
@@ -26,7 +27,7 @@ class TrinoParser(PrestoParser):
         "LISTAGG": lambda self: self._parse_string_agg(),
     }
 
-    JSON_QUERY_OPTIONS: parser.OPTIONS_TYPE = {
+    JSON_QUERY_OPTIONS: t.ClassVar[parser.OPTIONS_TYPE] = {
         **dict.fromkeys(
             ("WITH", "WITHOUT"),
             (
@@ -116,14 +117,14 @@ class TrinoParser(PrestoParser):
             )
         )
 
-    def _parse_routine_block(self) -> exp.Block:
-        # The body spans semicolon-delimited chunks like _parse_block(), but unlike it,
-        # closes on END even when tokens follow; Trino's enclosing query always does
-        # and is left for the caller (`... END SELECT f(1)`).
-        self._match(TokenType.BEGIN)
+    def _parse_routine_statements(self, *terminators: str) -> list[exp.Expr]:
+        # Unlike _parse_block(), stops on any of `terminators` even when tokens
+        # follow (Trino's own END is always followed by the enclosing query, left
+        # for the caller), matching them as text rather than just TokenType.END, so
+        # this same chunk-continuation loop also serves IF/ELSEIF/ELSE.
         statements: list[exp.Expr] = []
 
-        while not self._match(TokenType.END):
+        while not self._match_texts(terminators):
             if not self._curr:
                 if self._chunk_index >= len(self._chunks):
                     self.raise_error("Unexpected end of routine body")
@@ -136,10 +137,67 @@ class TrinoParser(PrestoParser):
                     break
 
                 statements.append(statement)
-        else:
-            statements.append(exp.EndStatement())
+
+        return statements
+
+    def _parse_routine_block(self) -> exp.Block:
+        self._match(TokenType.BEGIN)
+        statements = self._parse_routine_statements("END")
+        statements.append(exp.EndStatement())
 
         return self.expression(exp.Block(expressions=statements, begin=True))
+
+    def _parse_routine_if(self) -> exp.IfBlock:
+        # https://trino.io/docs/current/udf/sql/if.html
+        # ELSEIF chains nest into `false` rather than a flat list, reusing the
+        # existing binary IfBlock instead of a new N-way expression; each loop
+        # iteration links the next branch into the previous one's `false` slot.
+        def parse_branch() -> exp.IfBlock:
+            condition = self._parse_disjunction()
+            self._match_text_seq("THEN")
+            true = self.expression(
+                exp.Block(expressions=self._parse_routine_statements("ELSEIF", "ELSE", "END"))
+            )
+            return self.expression(exp.IfBlock(this=condition, true=true))
+
+        this = tail = parse_branch()
+        while self._prev.text.upper() == "ELSEIF":
+            node = parse_branch()
+            tail.set("false", node)
+            tail = node
+
+        if self._prev.text.upper() == "ELSE":
+            tail.set(
+                "false",
+                self.expression(exp.Block(expressions=self._parse_routine_statements("END"))),
+            )
+
+        self._match_text_seq("IF")
+        return this
+
+    def _parse_routine_case(self) -> exp.CaseStatement:
+        # https://trino.io/docs/current/udf/sql/case.html
+        this = self._parse_disjunction()
+
+        def parse_branch() -> exp.If:
+            condition = self._parse_disjunction()
+            self._match_text_seq("THEN")
+            true = self.expression(
+                exp.Block(expressions=self._parse_routine_statements("WHEN", "ELSE", "END"))
+            )
+            return self.expression(exp.If(this=condition, true=true))
+
+        ifs = []
+        self._match_text_seq("WHEN")
+        while self._prev.text.upper() == "WHEN":
+            ifs.append(parse_branch())
+
+        default = None
+        if self._prev.text.upper() == "ELSE":
+            default = self.expression(exp.Block(expressions=self._parse_routine_statements("END")))
+
+        self._match_text_seq("CASE")
+        return self.expression(exp.CaseStatement(this=this, ifs=ifs, default=default))
 
     def _parse_routine_statement(self) -> exp.Expr | None:
         if self._match(TokenType.BEGIN, advance=False):
@@ -147,6 +205,12 @@ class TrinoParser(PrestoParser):
 
         if self._match_text_seq("RETURN"):
             return self.expression(exp.Return(this=self._parse_disjunction()))
+
+        if self._match_text_seq("IF"):
+            return self._parse_routine_if()
+
+        if self._match_text_seq("CASE"):
+            return self._parse_routine_case()
 
         if self._match(TokenType.DECLARE):
             return self._parse_declare()

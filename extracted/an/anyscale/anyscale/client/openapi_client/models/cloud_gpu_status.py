@@ -121,7 +121,7 @@ class CloudGpuStatus(object):
     def node_rollup(self):
         """Gets the node_rollup of this CloudGpuStatus.  # noqa: E501
 
-        Cloud-wide node counts by status, across all groups.  # noqa: E501
+        Cloud-wide node counts by state, across all groups. Reflects only the project, instance type and workload type filters.  # noqa: E501
 
         :return: The node_rollup of this CloudGpuStatus.  # noqa: E501
         :rtype: GpuNodeRollup
@@ -132,7 +132,7 @@ class CloudGpuStatus(object):
     def node_rollup(self, node_rollup):
         """Sets the node_rollup of this CloudGpuStatus.
 
-        Cloud-wide node counts by status, across all groups.  # noqa: E501
+        Cloud-wide node counts by state, across all groups. Reflects only the project, instance type and workload type filters.  # noqa: E501
 
         :param node_rollup: The node_rollup of this CloudGpuStatus.  # noqa: E501
         :type: GpuNodeRollup

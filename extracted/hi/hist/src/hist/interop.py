@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator, Sequence
-from typing import Any, Protocol, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast
 
 import numpy as np
 
-from ._compat.typing import ArrayLike
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator, Sequence
+
+    from ._compat.typing import ArrayLike
 
 T_contra = TypeVar("T_contra", contravariant=True)
 U = TypeVar("U")
@@ -47,12 +49,12 @@ def find_histogram_modules(
         try:
             yield arg._histogram_module_
         except AttributeError:
-            # Find class exactly, or check subclasses
+            # Find class exactly, or check subclasses, stopping at the first
+            # registered base in the MRO.
             for cls in type(arg).__mro__:
-                try:
+                if cls in _histogram_modules:
                     yield _histogram_modules[cls]
-                except KeyError:
-                    continue
+                    break
 
 
 def destructure(obj: Any) -> dict[str, Any] | None:
@@ -64,7 +66,8 @@ def destructure(obj: Any) -> dict[str, Any] | None:
     """
     for module in find_histogram_modules(obj):
         return module.unpack(obj)
-    raise TypeError(f"No histogram module found for {obj!r}")
+    msg = f"No histogram module found for {obj!r}"
+    raise TypeError(msg)
 
 
 def broadcast_and_flatten(
@@ -84,7 +87,24 @@ def broadcast_and_flatten(
             it = iter(result)
             return tuple(next(it) if not isinstance(x, str) else x for x in args)
 
-    raise TypeError(f"No histogram module found for {args!r}")
+    msg = f"No histogram module found for {args!r}"
+    raise TypeError(msg)
+
+
+def _numpy_broadcast_and_flatten(
+    args: Sequence[Any],
+) -> tuple[np.typing.NDArray[Any], ...]:
+    """Broadcast and ravel args via NumPy, or ``NotImplemented`` if any arg
+    cannot be interpreted as a NumPy array."""
+    arrays = []
+    for arg in args:
+        # If we can't interpret this argument, it's not NumPy-friendly!
+        try:
+            arrays.append(np.asarray(arg))
+        except (TypeError, ValueError):
+            return NotImplemented  # type: ignore[no-any-return]
+
+    return tuple(np.ravel(x) for x in np.broadcast_arrays(*arrays))
 
 
 @histogram_module_for(np.ndarray)
@@ -100,15 +120,7 @@ class NumpyHistogramModule:
     def broadcast_and_flatten(
         args: Sequence[np.typing.NDArray[Any] | ArrayLike],
     ) -> tuple[np.typing.NDArray[Any], ...]:
-        arrays = []
-        for arg in args:
-            # If we can't interpret this argument, it's not NumPy-friendly!
-            try:
-                arrays.append(np.asarray(arg))
-            except (TypeError, ValueError):
-                return NotImplemented  # type: ignore[no-any-return]
-
-        return tuple(np.ravel(x) for x in np.broadcast_arrays(*arrays))
+        return _numpy_broadcast_and_flatten(args)
 
 
 try:
@@ -121,18 +133,10 @@ else:
     class PandasHistogramModule:
         @staticmethod
         def unpack(obj: pd.DataFrame) -> dict[str, pd.Series[Any]]:
-            return cast(dict[str, pd.Series[Any]], obj.to_dict("series"))
+            return cast("dict[str, pd.Series[Any]]", obj.to_dict("series"))
 
         @staticmethod
         def broadcast_and_flatten(
             args: Sequence[pd.Series[Any] | ArrayLike],
         ) -> tuple[np.typing.NDArray[Any], ...]:
-            arrays = []
-            for arg in args:
-                # If we can't interpret this argument, it's not NumPy-friendly!
-                try:
-                    arrays.append(np.asarray(arg))
-                except (TypeError, ValueError):
-                    return NotImplemented  # type: ignore[no-any-return]
-
-            return tuple(np.ravel(x) for x in np.broadcast_arrays(*arrays))
+            return _numpy_broadcast_and_flatten(args)

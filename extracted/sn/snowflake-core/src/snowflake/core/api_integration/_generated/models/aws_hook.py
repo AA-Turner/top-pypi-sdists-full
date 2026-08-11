@@ -48,6 +48,7 @@ class AwsHook(ApiHook):
 
     @field_validator("api_provider")
     def api_provider_validate_enum(cls, v):
+
         if v not in (
             "AWS_API_GATEWAY",
             "AWS_PRIVATE_API_GATEWAY",

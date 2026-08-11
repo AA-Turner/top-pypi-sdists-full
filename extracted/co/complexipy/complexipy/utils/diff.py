@@ -3,9 +3,9 @@ from __future__ import annotations
 import os
 import subprocess
 from dataclasses import dataclass
+from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
-import typer
 from rich.console import Console
 
 from complexipy._complexipy import (
@@ -15,11 +15,15 @@ from complexipy._complexipy import (
     code_complexity as _code_complexity,
 )
 
-_STATUS_REGRESSED = "REGRESSED"
-_STATUS_IMPROVED = "IMPROVED"
-_STATUS_UNCHANGED = "UNCHANGED"
-_STATUS_NEW = "NEW"
-_STATUS_REMOVED = "REMOVED"
+
+class DiffStatus(str, Enum):
+    """Comparison status of a function between two analyzed versions."""
+
+    REGRESSED = "REGRESSED"
+    IMPROVED = "IMPROVED"
+    UNCHANGED = "UNCHANGED"
+    NEW = "NEW"
+    REMOVED = "REMOVED"
 
 
 @dataclass
@@ -30,16 +34,16 @@ class DiffEntry:
     new_complexity: Optional[int]
 
     @property
-    def status(self) -> str:
+    def status(self) -> DiffStatus:
         if self.old_complexity is None:
-            return _STATUS_NEW
+            return DiffStatus.NEW
         if self.new_complexity is None:
-            return _STATUS_REMOVED
+            return DiffStatus.REMOVED
         if self.new_complexity > self.old_complexity:
-            return _STATUS_REGRESSED
+            return DiffStatus.REGRESSED
         if self.new_complexity < self.old_complexity:
-            return _STATUS_IMPROVED
-        return _STATUS_UNCHANGED
+            return DiffStatus.IMPROVED
+        return DiffStatus.UNCHANGED
 
     @property
     def delta(self) -> Optional[int]:
@@ -84,8 +88,74 @@ def _file_content_at_ref(
     return None
 
 
+def _file_content_at_index(path_from_root: str, cwd: str) -> Optional[str]:
+    """Return the file content in the git index, or None if unavailable."""
+    try:
+        result = subprocess.run(
+            ["git", "show", f":{path_from_root}"],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode == 0:
+            return result.stdout
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+    return None
+
+
+def _staged_python_files(git_ref: str, cwd: str) -> List[str]:
+    """Return repo-root-relative paths of Python files staged vs *git_ref*.
+
+    Rename detection is disabled so a staged rename surfaces as an added
+    path plus a deleted path instead of a single renamed entry.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "diff",
+                "--name-only",
+                "--cached",
+                "--no-renames",
+                "--diff-filter=ACMRD",
+                git_ref,
+                "--",
+                "*.py",
+            ],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode != 0:
+            return []
+    except (subprocess.TimeoutExpired, OSError):
+        return []
+
+    return [line for line in result.stdout.splitlines() if line.strip()]
+
+
 def _build_func_map(file: FileComplexity) -> Dict[str, int]:
     return {f.name: f.complexity for f in file.functions}
+
+
+def _git_tracked_paths(cwd: str) -> List[str]:
+    """Return repo-root-relative paths of tracked files, or [] on error."""
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "--full-name"],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode == 0:
+            return result.stdout.splitlines()
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+    return []
 
 
 def _resolve_git_path(
@@ -100,7 +170,10 @@ def _resolve_git_path(
     ``complexipy/main.py``.
 
     We fix this by trying the path as-is first, then progressively stripping
-    leading components until ``git show`` can locate the file.
+    leading components until ``git show`` can locate the file.  As a last
+    resort the basename is looked up among tracked files: a unique match is
+    returned, an ambiguous one keeps the original path (the file then
+    reports as NEW).
     """
     normalized = file_path.replace(os.sep, "/").replace("\\", "/")
     parts = normalized.split("/")
@@ -113,13 +186,22 @@ def _resolve_git_path(
         ):
             return candidate
 
+    basename = parts[-1]
+    matches = [
+        tracked
+        for tracked in _git_tracked_paths(invocation_path)
+        if tracked == basename or tracked.endswith("/" + basename)
+    ]
+    if len(matches) == 1:
+        return matches[0]
+
     return normalized
 
 
 def compute_diff(
     current_files: List[FileComplexity],
     git_ref: str,
-    invocation_path: str,
+    invocation_path: Optional[str] = None,
 ) -> List[DiffEntry]:
     """Compare the current complexity results against *git_ref*.
 
@@ -129,18 +211,18 @@ def compute_diff(
     only in the historical version are marked NEW / REMOVED respectively.
 
     The *invocation_path* is used as the ``cwd`` for git commands and to
-    resolve file paths relative to the repository root.
+    resolve file paths relative to the repository root.  It defaults to the
+    current working directory.
 
     Returns a list of :class:`DiffEntry` objects, one per function that
     either changed or is new/removed.  Unchanged functions are included so
     callers can choose how to filter.
     """
+    if invocation_path is None:
+        invocation_path = os.getcwd()
     entries: List[DiffEntry] = []
 
     for file in current_files:
-        # file.path is relative to the parent of invocation_path (the Rust
-        # runner's base_dir).  Resolve it to a git-root-relative path so
-        # ``git show`` can find the file at the reference.
         path_from_root = _resolve_git_path(file.path, git_ref, invocation_path)
 
         old_content = _file_content_at_ref(
@@ -171,50 +253,107 @@ def compute_diff(
     return entries
 
 
+def _analyse_content_to_map(content: Optional[str]) -> Optional[Dict[str, int]]:
+    """Analyse source text and return a ``{function_name: complexity}`` map.
+
+    Returns None when the content is missing or cannot be parsed.
+    """
+    if content is None:
+        return None
+    try:
+        result = _code_complexity(content)
+    except Exception:
+        return None
+    return {f.name: f.complexity for f in result.functions}
+
+
+def compute_staged_diff(
+    git_ref: str,
+    invocation_path: str,
+) -> Optional[List[DiffEntry]]:
+    """Compare the staged (index) content against *git_ref*.
+
+    Every Python file with staged changes is analysed at *git_ref* and at
+    the index, so the entries answer "what am I about to commit?"  Deleted
+    staged files produce REMOVED entries, newly added ones NEW entries.
+    Returns None when the invocation path is not inside a git repository.
+    """
+    root = _git_root(invocation_path)
+    if root is None:
+        return None
+
+    entries: List[DiffEntry] = []
+
+    for path_from_root in _staged_python_files(git_ref, root):
+        old_content = _file_content_at_ref(git_ref, path_from_root, root)
+        new_content = _file_content_at_index(path_from_root, root)
+
+        old_map = _analyse_content_to_map(old_content)
+        new_map = _analyse_content_to_map(new_content)
+
+        if old_map is None and new_map is None:
+            continue
+
+        old_map = old_map or {}
+        new_map = new_map or {}
+
+        for name in sorted(set(old_map) | set(new_map)):
+            entries.append(
+                DiffEntry(
+                    path_from_root,
+                    name,
+                    old_map.get(name),
+                    new_map.get(name),
+                )
+            )
+
+    return entries
+
+
 def _status_style(status: str) -> str:
     """Return Rich markup for a diff status label."""
-    if status == _STATUS_REGRESSED:
+    if status == DiffStatus.REGRESSED:
         return "[bold red]REGRESSED[/bold red]"
-    if status == _STATUS_IMPROVED:
+    if status == DiffStatus.IMPROVED:
         return "[bold green]IMPROVED[/bold green]"
-    if status == _STATUS_NEW:
+    if status == DiffStatus.NEW:
         return "[bold yellow]NEW[/bold yellow]"
-    if status == _STATUS_REMOVED:
+    if status == DiffStatus.REMOVED:
         return "[dim]REMOVED[/dim]"
     return status
 
 
 def _format_change(e: DiffEntry) -> str:
     """Return the change column value for a diff entry."""
-    if e.status == _STATUS_NEW:
+    if e.status == DiffStatus.NEW:
         return f"[bold yellow]{e.new_complexity}[/bold yellow]  (new)"
-    if e.status == _STATUS_REMOVED:
+    if e.status == DiffStatus.REMOVED:
         return f"[dim]{e.old_complexity}[/dim]  (removed)"
     delta = e.delta
     sign = "+" if delta and delta > 0 else ""
-    if e.status == _STATUS_REGRESSED:
+    if e.status == DiffStatus.REGRESSED:
         return f"[red]{e.old_complexity} → {e.new_complexity}  ({sign}{delta})[/red]"
-    if e.status == _STATUS_IMPROVED:
+    if e.status == DiffStatus.IMPROVED:
         return f"[green]{e.old_complexity} → {e.new_complexity}  ({sign}{delta})[/green]"
     return f"{e.old_complexity} → {e.new_complexity}  ({sign}{delta})"
 
 
 def _build_diff_summary(changed: List[DiffEntry]) -> str:
     counts = {
-        _STATUS_REGRESSED: 0,
-        _STATUS_IMPROVED: 0,
-        _STATUS_NEW: 0,
-        _STATUS_REMOVED: 0,
+        DiffStatus.REGRESSED: 0,
+        DiffStatus.IMPROVED: 0,
+        DiffStatus.NEW: 0,
+        DiffStatus.REMOVED: 0,
     }
     for e in changed:
         if e.status in counts:
             counts[e.status] += 1
 
     labels = [
-        (_STATUS_REGRESSED, "regressed", "red"),
-        (_STATUS_IMPROVED, "improved", "green"),
-        (_STATUS_NEW, "new", "yellow"),
-        (_STATUS_REMOVED, "removed", "dim"),
+        (DiffStatus.REGRESSED, "regressed", "red"),
+        (DiffStatus.IMPROVED, "improved", "green"),
+        (DiffStatus.NEW, "new", "yellow"),
+        (DiffStatus.REMOVED, "removed", "dim"),
     ]
     parts = [
         f"[{style}]{counts[s]} {label}[/{style}]"
@@ -239,13 +378,13 @@ def has_regressions(entries: List[DiffEntry], max_complexity: int) -> bool:
     """
     for e in entries:
         if (
-            e.status == _STATUS_REGRESSED
+            e.status == DiffStatus.REGRESSED
             and e.new_complexity is not None
             and e.new_complexity > max_complexity
         ):
             return True
         if (
-            e.status == _STATUS_NEW
+            e.status == DiffStatus.NEW
             and e.new_complexity is not None
             and e.new_complexity > max_complexity
         ):
@@ -265,7 +404,12 @@ def format_diff(
         e
         for e in entries
         if e.status
-        in (_STATUS_REGRESSED, _STATUS_IMPROVED, _STATUS_NEW, _STATUS_REMOVED)
+        in (
+            DiffStatus.REGRESSED,
+            DiffStatus.IMPROVED,
+            DiffStatus.NEW,
+            DiffStatus.REMOVED,
+        )
     ]
 
     if not changed:
@@ -304,14 +448,27 @@ def handle_diff_output(
     files_complexities: List[FileComplexity],
     quiet: bool,
     invocation_path: str,
+    staged: bool = False,
 ) -> Optional[List[DiffEntry]]:
-    if diff:
-        if files_complexities:
-            entries = compute_diff(files_complexities, diff, invocation_path)
+    if not diff:
+        return None
+    if staged:
+        entries = compute_staged_diff(diff, invocation_path)
+        if entries is None:
             if not quiet:
-                format_diff(console, entries, diff)
-            return entries
-        return []
+                console.print(
+                    "[yellow]Warning:[/yellow] --staged requires a git "
+                    "repository; skipping the staged diff."
+                )
+            return None
+        if not quiet:
+            format_diff(console, entries, f"{diff} (staged)")
+        return entries
+    if files_complexities:
+        entries = compute_diff(files_complexities, diff, invocation_path)
+        if not quiet:
+            format_diff(console, entries, diff)
+        return entries
     return None
 
 
@@ -319,16 +476,10 @@ def resolve_diff_flags(
     console: Console,
     diff: Optional[str],
     diff_only: Optional[str],
-    ratchet: bool,
+    staged: bool = False,
 ) -> Tuple[Optional[str], Optional[str]]:
-    if ratchet and diff:
-        console.print(
-            "[yellow]Deprecated:[/yellow] --ratchet is deprecated. "
-            "--diff now enforces by default. Remove --ratchet."
-        )
-    elif ratchet and not diff:
-        console.print("[bold red]Error:[/bold red] --ratchet requires --diff")
-        raise typer.Exit(code=2)
+    if staged and not diff and not diff_only:
+        diff = "HEAD"
 
     if diff_only and diff:
         console.print(

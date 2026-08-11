@@ -19,9 +19,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@aws-cdk/aws-kinesisanalytics-flink-alpha",
-    "2.263.0-alpha.0",
+    "2.264.0-alpha.0",
     __name__[0:-6],
-    "aws-kinesisanalytics-flink-alpha@2.263.0-alpha.0.jsii.tgz",
+    "aws-kinesisanalytics-flink-alpha@2.264.0-alpha.0.jsii.tgz",
 )
 
 __all__ = [

@@ -28,7 +28,7 @@ __license__ = "MIT"
 __date__ = "12/11/2018"
 
 import logging
-from typing import Literal
+from typing import Sequence
 
 import h5py
 import numpy
@@ -38,7 +38,7 @@ from silx.gui.colors import Colormap
 from silx.gui.data._RgbaImagePlot import BaseImagePlot
 from silx.gui.data._SignalSelector import SignalSelector
 from silx.gui.data.NumpyAxesSelector import NumpyAxesSelector
-from silx.gui.plot import Plot1D, ScatterView, StackView, items
+from silx.gui.plot import ScatterView, StackView
 from silx.gui.plot.actions.image import AggregationModeAction
 from silx.gui.plot.ComplexImageView import ComplexImageView
 from silx.gui.plot.items.image_aggregated import ImageDataAggregated
@@ -46,178 +46,24 @@ from silx.io.commonh5 import Dataset
 from silx.math.calibration import ArrayCalibration, LinearCalibration, NoCalibration
 
 from ._utils import getAxesCalib, setImageCoords
+from ..plot.items.types import AxisScaleType
 from ..utils import blockSignals
-from ...utils.deprecation import deprecated
+from ...utils.deprecation import deprecated, deprecated_warning
+from .ArrayCurvePlot import ArrayCurvePlot as _ArrayCurvePlot
 
 _logger = logging.getLogger(__name__)
 
 
-class ArrayCurvePlot(qt.QWidget):
-    """
-    Widget for plotting a curve from a multi-dimensional signal array
-    and a 1D axis array.
-
-    The signal array can have an arbitrary number of dimensions, the only
-    limitation being that the last dimension must have the same length as
-    the axis array.
-
-    The widget provides sliders to select indices on the first (n - 1)
-    dimensions of the signal array, and buttons to add/replace selected
-    curves to the plot.
-
-    This widget also handles simple 2D or 3D scatter plots (third dimension
-    displayed as colour of points).
-    """
-
-    def __init__(self, parent=None):
-        """
-
-        :param parent: Parent QWidget
-        """
-        super().__init__(parent)
-
-        self.__signals = None
-        self.__signals_names = None
-        self.__signal_errors = None
-        self.__axis = None
-        self.__axis_name = None
-        self.__x_axis_errors = None
-        self.__values = None
-
-        self._plot = Plot1D(self)
-        self._plot.setGraphGrid(True)
-
-        self._axesSelector = NumpyAxesSelector(self)
-        self._axesSelector.setNamedAxesSelectorVisibility(False)
-        self.__axes_selector_is_connected = False
-
-        self._plot.sigActiveCurveChanged.connect(self._setYLabelFromActiveLegend)
-
-        layout = qt.QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self._plot)
-        layout.addWidget(self._axesSelector)
-
-        self.setLayout(layout)
-
-    def getPlot(self):
-        """Returns the plot used for the display
-
-        :rtype: Plot1D
-        """
-        return self._plot
-
-    def setCurvesData(
-        self,
-        ys,
-        x=None,
-        yerror=None,
-        xerror=None,
-        ylabels=None,
-        xlabel=None,
-        title=None,
-        xscale=None,
-        yscale=None,
-    ):
-        """
-
-        :param List[ndarray] ys: List of arrays to be represented by the y (vertical) axis.
-            It can be multiple n-D array whose last dimension must
-            have the same length as x (and values must be None)
-        :param ndarray x: 1-D dataset used as the curve's x values. If provided,
-            its lengths must be equal to the length of the last dimension of
-            ``y`` (and equal to the length of ``value``, for a scatter plot).
-        :param ndarray yerror: Single array of errors for y (same shape), or None.
-            There can only be one array, and it applies to the first/main y
-            (no y errors for auxiliary_signals curves).
-        :param ndarray xerror: 1-D dataset of errors for x, or None
-        :param str ylabels: Labels for each curve's Y axis
-        :param str xlabel: Label for X axis
-        :param str title: Graph title
-        :param str xscale: Scale of X axis in (None, 'linear', 'log')
-        :param str yscale: Scale of Y axis in (None, 'linear', 'log')
-        """
-        self.__signals = ys
-        self.__signals_names = ylabels or (["Y"] * len(ys))
-        self.__signal_errors = yerror
-        self.__axis = x
-        self.__axis_name = xlabel
-        self.__x_axis_errors = xerror
-
-        if self.__axes_selector_is_connected:
-            self._axesSelector.selectionChanged.disconnect(self._updateCurve)
-            self.__axes_selector_is_connected = False
-        self._axesSelector.setData(ys[0])
-        self._axesSelector.setAxisNames(["Y"])
-
-        if len(ys[0].shape) < 2:
-            self._axesSelector.hide()
-        else:
-            self._axesSelector.show()
-
-        self._plot.setGraphTitle(title or "")
-        if xscale is not None:
-            self._plot.getXAxis().setScale("log" if xscale == "log" else "linear")
-        if yscale is not None:
-            self._plot.getYAxis().setScale("log" if yscale == "log" else "linear")
-        self._updateCurve()
-
-        if not self.__axes_selector_is_connected:
-            self._axesSelector.selectionChanged.connect(self._updateCurve)
-            self.__axes_selector_is_connected = True
-
-    def _updateCurve(self):
-        axes_selection = self._axesSelector.selection()
-        ys = [sig[axes_selection] for sig in self.__signals]
-        y0 = ys[0]
-        len_y = len(y0)
-        x = self.__axis
-        if x is None:
-            x = numpy.arange(len_y)
-        elif numpy.isscalar(x) or len(x) == 1:
-            # constant axis
-            x = x * numpy.ones_like(y0)
-        elif len(x) == 2 and len_y != 2:
-            # linear calibration a + b * x
-            x = x[0] + x[1] * numpy.arange(len_y)
-
-        # Only remove curves that will no longer belong to the plot
-        # So remaining curves keep their settings
-        for item in self._plot.getItems():
-            if (
-                isinstance(item, items.Curve)
-                and item.getName() not in self.__signals_names
-            ):
-                self._plot.remove(item)
-
-        for i in range(len(self.__signals)):
-            legend = self.__signals_names[i]
-
-            # errors only supported for primary signal in NXdata
-            y_errors = None
-            if i == 0 and self.__signal_errors is not None:
-                y_errors = self.__signal_errors[self._axesSelector.selection()]
-            self._plot.addCurve(
-                x, ys[i], legend=legend, xerror=self.__x_axis_errors, yerror=y_errors
-            )
-            if i == 0:
-                self._plot.setActiveCurve(legend)
-
-        self._plot.resetZoom()
-        self._plot.getXAxis().setLabel(self.__axis_name)
-        self._plot.getYAxis().setLabel(self.__signals_names[0])
-
-    def _setYLabelFromActiveLegend(self, previous_legend, new_legend):
-        for ylabel in self.__signals_names:
-            if new_legend is not None and new_legend == ylabel:
-                self._plot.getYAxis().setLabel(ylabel)
-                break
-
-    def clear(self):
-        old = self._axesSelector.blockSignals(True)
-        self._axesSelector.clear()
-        self._axesSelector.blockSignals(old)
-        self._plot.clear()
+class ArrayCurvePlot(_ArrayCurvePlot):
+    def __init__(self, *args, **kwargs):
+        deprecated_warning(
+            type_="Class",
+            name="ArrayCurvePlot",
+            reason="ArrayCurvePlot was moved to silx.gui.data.ArrayCurvePlot. Please import it from here.",
+            replacement="from silx.gui.data.ArrayCurvePlot import ArrayCurvePlot",
+            since_version="3.0.2",
+        )
+        super().__init__(*args, **kwargs)
 
 
 class XYVScatterPlot(qt.QWidget):
@@ -284,34 +130,34 @@ class XYVScatterPlot(qt.QWidget):
 
     def setScattersData(
         self,
-        y,
-        x,
-        values,
-        yerror=None,
-        xerror=None,
-        ylabel=None,
-        xlabel=None,
-        title="",
-        scatter_titles=None,
-        xscale=None,
-        yscale=None,
+        y: numpy.ndarray,
+        x: numpy.ndarray,
+        values: Sequence[numpy.ndarray],
+        yerror: numpy.ndarray | None = None,
+        xerror: numpy.ndarray | None = None,
+        ylabel: numpy.ndarray | None = None,
+        xlabel: numpy.ndarray | None = None,
+        title: str = "",
+        scatter_titles: Sequence[str] | None = None,
+        xscale: AxisScaleType | None = None,
+        yscale: AxisScaleType | None = None,
     ):
         """
 
-        :param ndarray y: 1D array for y (vertical) coordinates.
-        :param ndarray x: 1D array for x coordinates.
-        :param List[ndarray] values: List of 1D arrays of values.
+        :param y: 1D array for y (vertical) coordinates.
+        :param x: 1D array for x coordinates.
+        :param values: List of 1D arrays of values.
             This will be used to compute the color map and assign colors
             to the points. There should be as many arrays in the list as
             scatters to be represented.
-        :param ndarray yerror: 1D array of errors for y (same shape), or None.
-        :param ndarray xerror: 1D array of errors for x, or None
-        :param str ylabel: Label for Y axis
-        :param str xlabel: Label for X axis
-        :param str title: Main graph title
-        :param List[str] scatter_titles:  Subtitles (one per scatter)
-        :param str xscale: Scale of X axis in (None, 'linear', 'log')
-        :param str yscale: Scale of Y axis in (None, 'linear', 'log')
+        :param yerror: 1D array of errors for y (same shape), or None.
+        :param xerror: 1D array of errors for x, or None
+        :param ylabel: Label for Y axis
+        :param xlabel: Label for X axis
+        :param title: Main graph title
+        :param scatter_titles:  Subtitles (one per scatter)
+        :param xscale: Scale of X axis
+        :param yscale: Scale of Y axis
         """
         self.__y_axis = y
         self.__x_axis = x
@@ -334,9 +180,9 @@ class XYVScatterPlot(qt.QWidget):
         self._signalSelector.selectionChanged.connect(self._signalChanges)
 
         if xscale is not None:
-            self._plot.getXAxis().setScale("log" if xscale == "log" else "linear")
+            self._plot.getXAxis().setScale(xscale)
         if yscale is not None:
-            self._plot.getYAxis().setScale("log" if yscale == "log" else "linear")
+            self._plot.getYAxis().setScale(yscale)
 
         self._updateScatter()
 
@@ -428,7 +274,7 @@ class ArrayImagePlot(BaseImagePlot):
         axes: list[h5py.Dataset | Dataset] | None = None,
         signals_names: list[str] | None = None,
         axes_names: list[str] | None = None,
-        axes_scales: list[Literal["linear", "log"] | None] | None = None,
+        axes_scales: list[AxisScaleType | None] | None = None,
         title: str | None = None,
     ):
         """
@@ -438,7 +284,7 @@ class ArrayImagePlot(BaseImagePlot):
         :param axes: list of 1D datasets to be used as axes
         :param signals_names: Names for each image, used as subtitle and legend.
         :param axes_names: Names for each axis, used as graph label.
-        :param axes_scales: Scale of axes in (None, 'linear', 'log')
+        :param axes_scales: Scale of axes
         :param title: Graph title
         :param isRgba: True if data is a 3D RGBA image
         """
@@ -511,8 +357,8 @@ class ArrayImagePlot(BaseImagePlot):
                 xAxisScale = None
                 yAxisScale = None
 
-            self._plot.setXAxisLogarithmic(xAxisScale == "log")
-            self._plot.setYAxisLogarithmic(yAxisScale == "log")
+            self._plot.getXAxis().setScale(xAxisScale)
+            self._plot.getYAxis().setScale(yAxisScale)
 
             xScatter, yScatter = numpy.meshgrid(xAxis, yAxis)
             self._plot.addScatter(

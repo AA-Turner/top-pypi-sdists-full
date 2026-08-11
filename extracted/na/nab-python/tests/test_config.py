@@ -17,6 +17,7 @@ from nab_python._vendor.packaging.specifiers import SpecifierSet
 from nab_python._vendor.packaging.version import Version
 from nab_python.config import (
     _MATRIX_KEYS,
+    _PEP508_MARKER_VARIABLES,
     ConfigError,
     ConflictKind,
     ConflictMember,
@@ -30,6 +31,7 @@ from nab_python.config import (
     _check_requires_python_admits_target,
     conflict_exclusion_groups,
     conflict_forks,
+    index_cache_floors_from_config,
     index_routes_from_config,
     plan_targets,
     read_pyproject_config,
@@ -49,6 +51,7 @@ from nab_python.config_sources import (
 from nab_python.fetch import DEFAULT_INDEX_NAME, DEFAULT_INDEX_URL, IndexRoute
 from nab_python.provider import (
     BuildPolicy,
+    DecisionOrder,
     DistPolicy,
     LocalSource,
     ResolutionStrategy,
@@ -57,19 +60,39 @@ from nab_python.provider import (
     VcsSource,
 )
 from nab_python.tags import PlatformSpec
-from nab_python.target import ResolveTarget
+from nab_python.target import ResolveTarget, host_environment
 from nab_python.workspace import WorkspaceConfig
 
 
 def write(tmp_path: Path, body: str) -> Path:
     p = tmp_path / "pyproject.toml"
-    p.write_text(body)
+    # TOML is UTF-8 by spec and nab reads the file in binary, so the fixture
+    # must not pick up the platform default (cp1252 on Windows).
+    p.write_text(body, encoding="utf-8")
     return p
 
 
 DOCS_CONFIGURATION = (
     Path(__file__).resolve().parents[2] / "docs" / "reference" / "configuration.md"
 )
+
+DOCS_CONFLICTS = (
+    Path(__file__).resolve().parents[2] / "docs" / "explanation" / "conflicts.md"
+)
+
+
+def conflicts_doc_examples() -> list[str]:
+    """Return every ``[tool.nab]`` fenced TOML block in the conflicts page."""
+    text = DOCS_CONFLICTS.read_text(encoding="utf-8")
+    blocks = [
+        block
+        for block in re.findall(r"```toml\n(.*?)```", text, re.DOTALL)
+        if block.lstrip().startswith("[tool.nab]")
+    ]
+
+    if not blocks:
+        raise AssertionError("no [tool.nab] example block in conflicts.md")
+    return blocks
 
 
 def first_tool_nab_example() -> str:
@@ -139,12 +162,12 @@ class TestCliOverridesFold:
         )
         assert plain == explicit_none
 
-    def test_cli_array_appends_after_files(self, tmp_path: Path) -> None:
+    def test_cli_list_replaces_the_file_list(self, tmp_path: Path) -> None:
         path = write(tmp_path, '[tool.nab]\nconstraints = ["a<1"]\n')
         config = read_pyproject_config(
             path, discover_workspace=False, cli_overrides={"constraints": ["b<2"]}
         )
-        assert config.constraints == ("a<1", "b<2")
+        assert config.constraints == ("b<2",)
 
     def test_cli_mode_universal_requires_matrix(self, tmp_path: Path) -> None:
         path = write(tmp_path, '[project]\nname = "x"\nversion = "0"\n')
@@ -567,6 +590,10 @@ class TestConflicts:
         with pytest.raises(ConfigError, match="more than one set"):
             read_pyproject_config(path)
 
+    def test_doc_states_member_uniqueness_rule(self) -> None:
+        page = " ".join(DOCS_CONFLICTS.read_text(encoding="utf-8").lower().split())
+        assert "one conflict set" in page
+
     def test_same_name_extra_and_group_in_two_sets_allowed(
         self, tmp_path: Path
     ) -> None:
@@ -637,6 +664,34 @@ class TestConflicts:
         )
         config = read_pyproject_config(path, discover_workspace=False)
         assert config.default_groups == ("a", "b")
+
+
+class TestConflictsDocExamples:
+    """The conflicts page teaches the syntax, so nab must accept its examples."""
+
+    def _parse_examples(
+        self, tmp_path: Path
+    ) -> list[tuple[str, tuple[ConflictSet, ...]]]:
+        parsed: list[tuple[str, tuple[ConflictSet, ...]]] = []
+        for i, block in enumerate(conflicts_doc_examples()):
+            project = tmp_path / f"example{i}"
+            project.mkdir()
+            path = write(project, block)
+            config = read_pyproject_config(path, discover_workspace=False)
+            parsed.append((block, config.conflicts))
+        return parsed
+
+    def test_every_example_declares_a_conflict(self, tmp_path: Path) -> None:
+        for block, conflicts in self._parse_examples(tmp_path):
+            assert conflicts, block
+
+    def test_examples_show_every_policy(self, tmp_path: Path) -> None:
+        policies = {
+            conflict_set.policy
+            for _, conflicts in self._parse_examples(tmp_path)
+            for conflict_set in conflicts
+        }
+        assert policies == set(ConflictPolicy)
 
 
 def _extras_set(policy: ConflictPolicy, *names: str) -> ConflictSet:
@@ -831,6 +886,178 @@ class TestDefaultGroups:
         # them in the lockfile, so the reference has to say so.
         comment = default_groups_doc_comment().lower()
         assert any(word in comment for word in ("resolve", "activat")), comment
+
+    def test_doc_notes_the_conflict_fork(self) -> None:
+        # A default that --groups joins to another member of its conflict
+        # set forks rather than unions, so "every resolve" needs the caveat.
+        comment = default_groups_doc_comment()
+        assert "forks" in comment, comment
+
+
+class TestMainGroup:
+    """``base-group`` names the project's own dependencies in a lock."""
+
+    def test_base_group_is_normalised(self, tmp_path: Path) -> None:
+        path = write(tmp_path, '[tool.nab]\nbase-group = "Runtime_Deps"\n')
+        assert read_pyproject_config(path).base_group == "runtime-deps"
+
+    def test_base_group_names_every_declaration_it_collides_with(
+        self, tmp_path: Path
+    ) -> None:
+        """Two spellings of one group name, so the message reads in order."""
+        path = write(
+            tmp_path,
+            "[dependency-groups]\nDefault = []\nDEFAULT = []\n"
+            '[tool.nab]\nbase-group = "default"\n',
+        )
+        with pytest.raises(ConfigError, match="'DEFAULT', 'Default' are the same"):
+            read_pyproject_config(path)
+
+    def test_base_group_rejects_a_non_name(self, tmp_path: Path) -> None:
+        path = write(tmp_path, '[tool.nab]\nbase-group = "-nope-"\n')
+        with pytest.raises(ConfigError, match="not a valid group name"):
+            read_pyproject_config(path)
+
+    def test_build_group_is_normalised(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path, '[tool.nab]\nbase-group = "main"\nbuild-group = "Build_Deps"\n'
+        )
+        assert read_pyproject_config(path).build_group == "build-deps"
+
+    def test_build_group_rejects_a_non_name(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path, '[tool.nab]\nbase-group = "main"\nbuild-group = "-nope-"\n'
+        )
+        with pytest.raises(ConfigError, match="build-group '-nope-'"):
+            read_pyproject_config(path)
+
+    def test_build_group_without_a_base_group_is_refused(self, tmp_path: Path) -> None:
+        """Unnamed, the project's own dependencies come with every group."""
+        path = write(tmp_path, '[tool.nab]\nbuild-group = "build"\n')
+        with pytest.raises(ConfigError, match="but base-group is unset"):
+            read_pyproject_config(path)
+
+    def test_a_base_group_alone_is_fine(self, tmp_path: Path) -> None:
+        """The dependency runs one way: naming the rest needs no build group."""
+        path = write(tmp_path, '[tool.nab]\nbase-group = "main"\n')
+        assert read_pyproject_config(path).base_group == "main"
+
+    def test_build_group_rejects_a_declared_group_name(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path,
+            '[dependency-groups]\nbuild = ["pytest"]\n'
+            '[tool.nab]\nbase-group = "main"\nbuild-group = "build"\n',
+        )
+        with pytest.raises(ConfigError, match="build-group 'build' and"):
+            read_pyproject_config(path)
+
+    def test_a_base_group_conflicting_with_a_default_group_is_refused(
+        self, tmp_path: Path
+    ) -> None:
+        """An install given no selection would otherwise get neither side."""
+        path = write(
+            tmp_path,
+            "[dependency-groups]\ndev = []\n"
+            "[tool.nab]\n"
+            'base-group = "main"\n'
+            'default-groups = ["dev"]\n'
+            'conflicts = [[{ group = "main" }, { group = "dev" }]]\n',
+        )
+        with pytest.raises(ConfigError, match="would install neither"):
+            read_pyproject_config(path)
+
+    def test_two_default_groups_still_report_themselves(self, tmp_path: Path) -> None:
+        """base-group being set does not make every clash its fault."""
+        path = write(
+            tmp_path,
+            "[dependency-groups]\na = []\nb = []\n"
+            "[tool.nab]\n"
+            'base-group = "main"\n'
+            'default-groups = ["a", "b"]\n'
+            'conflicts = [[{ group = "a" }, { group = "b" }]]\n',
+        )
+        with pytest.raises(ConfigError, match="which are declared") as info:
+            read_pyproject_config(path)
+        assert "base-group" not in str(info.value)
+
+    def test_an_exclusive_set_of_configured_names_is_allowed(
+        self, tmp_path: Path
+    ) -> None:
+        """Only at-least-one is refused; the exclusive policies are the point."""
+        for policy in ("at-most-one", "exactly-one"):
+            path = write(
+                tmp_path,
+                "[build-system]\nrequires = []\n"
+                "[tool.nab]\n"
+                'base-group = "main"\n'
+                'build-group = "build"\n'
+                "conflicts = [{ members = ["
+                '{ group = "main" }, { group = "build" }],'
+                f' policy = "{policy}" }}]\n',
+            )
+            assert read_pyproject_config(path).build_group == "build"
+
+    def test_a_main_build_conflict_is_not_a_default_clash(self, tmp_path: Path) -> None:
+        """build-group is never a default, so the pair can be declared."""
+        path = write(
+            tmp_path,
+            "[build-system]\nrequires = []\n"
+            "[tool.nab]\n"
+            'base-group = "main"\n'
+            'build-group = "build"\n'
+            'conflicts = [[{ group = "main" }, { group = "build" }]]\n',
+        )
+        assert read_pyproject_config(path).base_group == "main"
+
+    def test_an_at_least_one_set_naming_a_configured_group_is_refused(
+        self, tmp_path: Path
+    ) -> None:
+        """A configured member cannot be deselected, so the minimum is free."""
+        path = write(
+            tmp_path,
+            "[dependency-groups]\ndev = []\n"
+            "[tool.nab]\n"
+            'base-group = "main"\n'
+            'conflicts = [{ members = [{ group = "main" }, { group = "dev" }],'
+            ' policy = "at-least-one" }]\n',
+        )
+        with pytest.raises(ConfigError, match="decides nothing"):
+            read_pyproject_config(path)
+
+    def test_a_base_group_conflicting_with_an_extra_is_refused(
+        self, tmp_path: Path
+    ) -> None:
+        """An extra installs on top of the project's own dependencies."""
+        path = write(
+            tmp_path,
+            '[project.optional-dependencies]\ncli = ["clitool"]\n'
+            "[tool.nab]\n"
+            'base-group = "main"\n'
+            'conflicts = [[{ group = "main" }, { extra = "cli" }]]\n',
+        )
+        with pytest.raises(ConfigError, match="nothing could install that extra"):
+            read_pyproject_config(path)
+
+    def test_a_build_group_may_conflict_with_an_extra(self, tmp_path: Path) -> None:
+        """The project's dependencies stay in every fork of that set."""
+        path = write(
+            tmp_path,
+            '[project.optional-dependencies]\ncli = ["clitool"]\n'
+            "[build-system]\nrequires = []\n"
+            "[tool.nab]\n"
+            'base-group = "main"\n'
+            'build-group = "build"\n'
+            'conflicts = [[{ group = "build" }, { extra = "cli" }]]\n',
+        )
+        assert read_pyproject_config(path).build_group == "build"
+
+    def test_build_group_rejects_the_base_group_name(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path,
+            '[tool.nab]\nbase-group = "shared"\nbuild-group = "Shared"\n',
+        )
+        with pytest.raises(ConfigError, match="build-group and base-group"):
+            read_pyproject_config(path)
 
 
 class TestRequiresPython:
@@ -1315,6 +1542,30 @@ class TestPolicies:
         with pytest.raises(ConfigError, match="dist-policy must be a string"):
             read_pyproject_config(path)
 
+    @pytest.mark.parametrize("value", ["-1", "true", '"1"'])
+    def test_invalid_build_requires_depth(self, tmp_path: Path, value: str) -> None:
+        """A count of nested builds: not negative, not a bool, not a string."""
+        path = write(tmp_path, f"[tool.nab]\nbuild-requires-depth = {value}\n")
+        with pytest.raises(ConfigError, match="must be a non-negative integer"):
+            read_pyproject_config(path)
+
+    def test_build_requires_depth_reaches_the_config(self, tmp_path: Path) -> None:
+        path = write(tmp_path, "[tool.nab]\nbuild-requires-depth = 2\n")
+        assert read_pyproject_config(path).build_requires_depth == 2
+
+    def test_invalid_decision_order(self, tmp_path: Path) -> None:
+        path = write(tmp_path, '[tool.nab]\ndecision-order = "eventually"\n')
+        with pytest.raises(ConfigError, match="decision-order must be one of"):
+            read_pyproject_config(path)
+
+    def test_decision_order_reaches_the_config(self, tmp_path: Path) -> None:
+        path = write(tmp_path, '[tool.nab]\ndecision-order = "stable"\n')
+        assert read_pyproject_config(path).decision_order is DecisionOrder.STABLE
+
+    def test_decision_order_defaults_to_arrival(self, tmp_path: Path) -> None:
+        path = write(tmp_path, "[tool.nab]\n")
+        assert read_pyproject_config(path).decision_order is DecisionOrder.ARRIVAL
+
 
 _UNIVERSAL_MATRIX = (
     '[tool.nab.matrix]\npython = ">=3.11,<3.12"\nplatforms = ["linux_x86_64"]\n'
@@ -1427,6 +1678,19 @@ class TestResolution:
             read_pyproject_config(path)
 
 
+_FREE_THREADED_NO_PYTHON = (
+    "[tool.nab.environment]\n"
+    'platform = { id = "linux_x86_64", free-threaded = true }\n'
+    '[tool.nab]\nbuild-policy = "never"\n'
+)
+
+
+def _host_python(monkeypatch: pytest.MonkeyPatch, full_version: str) -> None:
+    """Report ``full_version`` as the running interpreter to the planner."""
+    env = {**host_environment(), "python_full_version": full_version}
+    monkeypatch.setattr("nab_python.config.host_environment", lambda: env)
+
+
 class TestEnvironment:
     """``[tool.nab.environment]``: the one environment to resolve for."""
 
@@ -1463,6 +1727,48 @@ class TestEnvironment:
         assert target.marker_env["sys_platform"] == "darwin"
         assert target.implementation == "pypy"
         assert target.platform_id == "macos_arm64"
+
+    def test_environment_zero_micro_pins_whole(self, tmp_path: Path) -> None:
+        """A ``python = "3.12.0"`` environment names one micro, resolved whole."""
+        path = write(
+            tmp_path,
+            '[tool.nab.environment]\npython = "3.12.0"\n'
+            'platform = "linux_x86_64"\n'
+            '[tool.nab]\nbuild-policy = "never"\n',
+        )
+        (target,) = plan_targets(read_pyproject_config(path))
+        assert not target.is_minor_interval
+        assert not target.admits_requires_python(SpecifierSet(">=3.12.5"))
+
+    def test_environment_bare_minor_is_an_interval(self, tmp_path: Path) -> None:
+        """A ``python = "3.12"`` environment is a bare minor, resolved as a range."""
+        path = write(
+            tmp_path,
+            '[tool.nab.environment]\npython = "3.12"\n'
+            'platform = "linux_x86_64"\n'
+            '[tool.nab]\nbuild-policy = "never"\n',
+        )
+        (target,) = plan_targets(read_pyproject_config(path))
+        assert target.is_minor_interval
+        assert target.admits_requires_python(SpecifierSet(">=3.12.5"))
+
+    def test_environment_no_platform_zero_micro_pins_whole(
+        self, tmp_path: Path
+    ) -> None:
+        """A ``python = "3.12.0"`` with no platform still names one whole micro."""
+        path = write(tmp_path, '[tool.nab.environment]\npython = "3.12.0"\n')
+        (target,) = plan_targets(read_pyproject_config(path))
+        assert not target.is_minor_interval
+        assert not target.admits_requires_python(SpecifierSet(">=3.12.5"))
+
+    def test_environment_no_platform_bare_minor_is_an_interval(
+        self, tmp_path: Path
+    ) -> None:
+        """A ``python = "3.12"`` with no platform is a bare-minor interval."""
+        path = write(tmp_path, '[tool.nab.environment]\npython = "3.12"\n')
+        (target,) = plan_targets(read_pyproject_config(path))
+        assert target.is_minor_interval
+        assert target.admits_requires_python(SpecifierSet(">=3.12.5"))
 
     def test_windows_arm64_bare_id_declares_a_target(self, tmp_path: Path) -> None:
         path = write(
@@ -1657,6 +1963,52 @@ class TestEnvironment:
         )
         with pytest.raises(ConfigError, match="needs CPython, not"):
             read_pyproject_config(path)
+
+    def test_free_threaded_rejects_pypy_without_a_python_axis(
+        self, tmp_path: Path
+    ) -> None:
+        """No flag moves the implementation axis, so the parse still checks it."""
+        path = write(
+            tmp_path,
+            "[tool.nab.environment]\n"
+            'implementation = "pypy"\n'
+            'platform = { id = "linux_x86_64", free-threaded = true }\n'
+            '[tool.nab]\nbuild-policy = "never"\n',
+        )
+        with pytest.raises(ConfigError, match="needs CPython, not"):
+            read_pyproject_config(path)
+
+    def test_free_threaded_without_python_accepts_a_newer_override(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The floor is checked against the python ``--python`` picked."""
+        _host_python(monkeypatch, "3.12.11")
+        path = write(tmp_path, _FREE_THREADED_NO_PYTHON)
+        config = read_pyproject_config(path)
+        (target,) = plan_targets(with_python_override(config, "3.14"))
+
+        assert target.python_version == "3.14"
+        assert target.tags.accepts("somepkg-1.0-cp314-cp314t-manylinux_2_28_x86_64.whl")
+
+    def test_free_threaded_without_python_still_rejects_an_old_host(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """With no ``--python`` the host is the target, and 3.12 is too old."""
+        _host_python(monkeypatch, "3.12.11")
+        path = write(tmp_path, _FREE_THREADED_NO_PYTHON)
+        config = read_pyproject_config(path)
+        with pytest.raises(ConfigError, match="needs CPython 3.13 or newer"):
+            plan_targets(config)
+
+    def test_free_threaded_rejects_an_old_python_override(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """``--python`` is held to the same floor a declared python is."""
+        _host_python(monkeypatch, "3.14.0")
+        path = write(tmp_path, _FREE_THREADED_NO_PYTHON)
+        config = read_pyproject_config(path)
+        with pytest.raises(ConfigError, match="needs CPython 3.13 or newer"):
+            with_python_override(config, "3.12")
 
     def test_must_be_table(self, tmp_path: Path) -> None:
         path = write(tmp_path, '[tool.nab]\nenvironment = "no"\n')
@@ -1904,6 +2256,14 @@ class TestMarkerEnvironmentDeprecation:
         )
         with pytest.raises(ConfigError, match="unknown marker-environment variable"):
             read_pyproject_config(path)
+
+    def test_accepted_variables_are_the_ones_packaging_defines(self) -> None:
+        """Every variable packaging defines is accepted, and nothing else is.
+
+        A variable packaging adds fails here rather than reading as a
+        misspelling in a user's config.
+        """
+        assert set(default_environment()) == _PEP508_MARKER_VARIABLES
 
     def test_python_version_must_be_pep440(self, tmp_path: Path) -> None:
         path = write(
@@ -2168,6 +2528,31 @@ class TestVcs:
         ):
             read_pyproject_config(path)
 
+    def test_unparseable_allowed_repo_rejected(self, tmp_path: Path) -> None:
+        """A malformed entry fails the read even behind a well-formed one."""
+        path = write(
+            tmp_path,
+            "[tool.nab.vcs]\n"
+            'policy = "allow"\n'
+            'allowed-schemes = ["git+https"]\n'
+            'allowed-repos = ["https://github.com/org/repo",'
+            ' "https://[2001:db8::1:7999/org/repo"]\n',
+        )
+        with pytest.raises(
+            ConfigError,
+            match=r"vcs\.allowed-repos entry"
+            r" 'https://\[2001:db8::1:7999/org/repo' does not parse",
+        ):
+            read_pyproject_config(path)
+
+    def test_bracketed_ipv6_allowed_repo_accepted(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path,
+            '[tool.nab.vcs]\nallowed-repos = ["https://[2001:db8::1]:7999/org/repo"]\n',
+        )
+        vcs = read_pyproject_config(path).vcs
+        assert vcs.allowed_repos == ("https://[2001:db8::1]:7999/org/repo",)
+
 
 class TestLocalSources:
     def test_relative_path_resolved_against_pyproject(self, tmp_path: Path) -> None:
@@ -2304,6 +2689,15 @@ class TestLocalSources:
             '[[tool.nab.local-sources]]\nname = "x"\npath = "../x"\nbogus = 1\n',
         )
         with pytest.raises(ConfigError, match="unknown local-sources"):
+            read_pyproject_config(path)
+
+    def test_path_with_nul_rejected(self, tmp_path: Path) -> None:
+        # An embedded NUL is valid TOML, so the parser hands it through.
+        path = write(
+            tmp_path,
+            '[[tool.nab.local-sources]]\nname = "x"\npath = "../\\u0000x"\n',
+        )
+        with pytest.raises(ConfigError, match="is not a usable filesystem path"):
             read_pyproject_config(path)
 
     def test_duplicate_canonical_name_rejected(self, tmp_path: Path) -> None:
@@ -2464,6 +2858,34 @@ class TestArchiveSources:
         )
         with pytest.raises(ConfigError, match="unknown archive URL fragment"):
             read_pyproject_config(path)
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://[::1/foo-1.0.tar.gz",
+            "https://ex.com]/foo-1.0.tar.gz",
+            "https://exa\N{ACCOUNT OF}mple.com/foo-1.0.tar.gz",
+        ],
+    )
+    def test_malformed_authority_rejected(self, tmp_path: Path, url: str) -> None:
+        path = write(
+            tmp_path,
+            '[[tool.nab.archive-sources]]\nname = "x"\n'
+            f'url = "{url}#sha256=' + "e" * 64 + '"\n',
+        )
+        with pytest.raises(
+            ConfigError, match=r"archive-sources\[0\] url .* does not parse"
+        ):
+            read_pyproject_config(path)
+
+    def test_bracketed_ipv6_authority_accepted(self, tmp_path: Path) -> None:
+        url = "https://[2001:db8::1]/foo-1.0.tar.gz#sha256=" + "e" * 64
+        path = write(
+            tmp_path,
+            f'[[tool.nab.archive-sources]]\nname = "x"\nurl = "{url}"\n',
+        )
+        (source,) = read_pyproject_config(path).archive_sources
+        assert source.url == url
 
     def test_duplicate_collides_with_vcs_source(self, tmp_path: Path) -> None:
         path = write(
@@ -3486,6 +3908,102 @@ class TestIndexOverrides:
             read_pyproject_config(path, discover_workspace=False)
         assert "flat body keys" not in str(excinfo.value)
 
+    def test_assume_fresh_seconds(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path,
+            self._two_indexes()
+            + "[tool.nab.index.internal]\nassume-fresh-seconds = 3600\n",
+        )
+        override = read_pyproject_config(
+            path, discover_workspace=False
+        ).index_overrides["internal"]
+        assert override.assume_fresh_seconds == 3600
+
+    def test_assume_fresh_seconds_zero_rejected(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path,
+            self._two_indexes()
+            + "[tool.nab.index.internal]\nassume-fresh-seconds = 0\n",
+        )
+        with pytest.raises(ConfigError, match=r"index\.internal\.assume-fresh-seconds"):
+            read_pyproject_config(path, discover_workspace=False)
+
+    def test_assume_fresh_seconds_negative_rejected(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path,
+            self._two_indexes()
+            + "[tool.nab.index.internal]\nassume-fresh-seconds = -5\n",
+        )
+        with pytest.raises(ConfigError, match=r"index\.internal\.assume-fresh-seconds"):
+            read_pyproject_config(path, discover_workspace=False)
+
+    def test_assume_fresh_seconds_string_rejected(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path,
+            self._two_indexes()
+            + '[tool.nab.index.internal]\nassume-fresh-seconds = "soon"\n',
+        )
+        with pytest.raises(ConfigError, match=r"index\.internal\.assume-fresh-seconds"):
+            read_pyproject_config(path, discover_workspace=False)
+
+    def test_assume_fresh_seconds_float_rejected(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path,
+            self._two_indexes()
+            + "[tool.nab.index.internal]\nassume-fresh-seconds = 3.5\n",
+        )
+        with pytest.raises(ConfigError, match=r"index\.internal\.assume-fresh-seconds"):
+            read_pyproject_config(path, discover_workspace=False)
+
+    def test_assume_fresh_seconds_boolean_rejected(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path,
+            self._two_indexes()
+            + "[tool.nab.index.internal]\nassume-fresh-seconds = true\n",
+        )
+        with pytest.raises(ConfigError, match=r"index\.internal\.assume-fresh-seconds"):
+            read_pyproject_config(path, discover_workspace=False)
+
+    def test_assume_fresh_seconds_rejected_on_package_surface(
+        self, tmp_path: Path
+    ) -> None:
+        path = write(
+            tmp_path,
+            "[tool.nab.packages.numpy]\nassume-fresh-seconds = 60\n",
+        )
+        with pytest.raises(ConfigError, match="unknown override key"):
+            read_pyproject_config(path, discover_workspace=False)
+
+
+class TestIndexCacheFloorsProjection:
+    def _two_indexes(self) -> str:
+        return (
+            "[[tool.nab.indexes]]\n"
+            'name = "pypi"\n'
+            'url = "https://pypi.org/simple/"\n'
+            "[[tool.nab.indexes]]\n"
+            'name = "internal"\n'
+            'url = "https://pkgs.example.com/simple/"\n'
+        )
+
+    def test_projects_only_setters(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path,
+            self._two_indexes()
+            + "[tool.nab.index.internal]\nassume-fresh-seconds = 120\n"
+            + '[tool.nab.index.pypi]\ndist-policy = "wheel-only"\n',
+        )
+        config = read_pyproject_config(path, discover_workspace=False)
+        assert index_cache_floors_from_config(config) == {"internal": 120}
+
+    def test_empty_when_none_set(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path,
+            self._two_indexes() + '[tool.nab.index.pypi]\ndist-policy = "wheel-only"\n',
+        )
+        config = read_pyproject_config(path, discover_workspace=False)
+        assert index_cache_floors_from_config(config) == {}
+
 
 class TestMatrixReferenceDocs:
     def test_reference_documents_every_matrix_key(self) -> None:
@@ -3938,6 +4456,28 @@ class TestMatrix:
         with pytest.raises(ConfigError, match="python-order must be 'asc' or 'desc'"):
             read_pyproject_config(path)
 
+    @pytest.mark.parametrize(
+        ("literal", "type_name"),
+        [('["desc"]', "list"), ("[]", "list"), ("{}", "dict")],
+    )
+    def test_non_string_python_order(
+        self, tmp_path: Path, literal: str, type_name: str
+    ) -> None:
+        """An unhashable value is rejected before the membership test."""
+        path = write(
+            tmp_path,
+            "[tool.nab]\n"
+            'mode = "universal"\n'
+            "[tool.nab.matrix]\n"
+            'python = ">=3.11"\n'
+            'platforms = ["linux_x86_64"]\n'
+            f"python-order = {literal}\n",
+        )
+        with pytest.raises(
+            ConfigError, match=f"matrix.python-order must be a string, got {type_name}"
+        ):
+            read_pyproject_config(path)
+
     def test_unknown_platform_rejected(self, tmp_path: Path) -> None:
         body = self._matrix_body()
         body = body.replace('["linux_x86_64", "macos_arm64"]', '["frobnicate"]')
@@ -4031,6 +4571,162 @@ class TestMatrix:
             '"3.11.0" = "3.11.9"\n',
         )
         with pytest.raises(ConfigError, match="python_patches"):
+            read_pyproject_config(path)
+
+
+# Longer than CPython's default 4300-digit limit on int-from-string conversion.
+_PAST_INT_LIMIT = "9" * 5000
+
+
+class TestDigitRunPastIntLimit:
+    """A digit run past CPython's int limit is a config error.
+
+    ``Version()`` raises a bare ``ValueError`` for one (not
+    ``InvalidVersion``), and a specifier defers the conversion to its first
+    comparison, so each version validator forces it and reports the key.
+    ``int()`` rejects the same run when it is a ``P<n>D`` day count.
+    """
+
+    def test_environment_python(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path, f'[tool.nab.environment]\npython = "3.{_PAST_INT_LIMIT}"\n'
+        )
+        with pytest.raises(
+            ConfigError, match="environment.python must be a version like"
+        ):
+            read_pyproject_config(path)
+
+    def test_environment_platform_runs_on_macos(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path,
+            "[tool.nab.environment]\nplatform ="
+            f' {{ id = "macos_arm64", runs-on-macos = "{_PAST_INT_LIMIT}.0" }}\n',
+        )
+        with pytest.raises(
+            ConfigError, match="runs-on-macos must be a 'major.minor' version"
+        ):
+            read_pyproject_config(path)
+
+    def test_marker_environment_version_variable(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path,
+            "[tool.nab.marker-environment]\n"
+            f'python_full_version = "3.{_PAST_INT_LIMIT}"\n',
+        )
+        with pytest.raises(
+            ConfigError, match="python_full_version must be a PEP 440 version"
+        ):
+            read_pyproject_config(path)
+
+    def test_python_override(self, tmp_path: Path) -> None:
+        config = read_pyproject_config(write(tmp_path, "[tool.nab]\n"))
+        with pytest.raises(ConfigError, match="--python must be a version like"):
+            with_python_override(config, f"3.{_PAST_INT_LIMIT}")
+
+    def test_matrix_python_clause(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path,
+            "[tool.nab]\n"
+            'mode = "universal"\n'
+            "[tool.nab.matrix]\n"
+            f'python = ">=3.{_PAST_INT_LIMIT}"\n'
+            'platforms = ["linux_x86_64"]\n',
+        )
+        with pytest.raises(ConfigError, match="is not a valid version"):
+            read_pyproject_config(path)
+
+    def test_matrix_python_patches(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path,
+            "[tool.nab]\n"
+            'mode = "universal"\n'
+            "[tool.nab.matrix]\n"
+            'python = ">=3.11,<3.12"\n'
+            'platforms = ["linux_x86_64"]\n'
+            "[tool.nab.matrix.python-patches]\n"
+            f'"3.11" = "3.11.{_PAST_INT_LIMIT}"\n',
+        )
+        with pytest.raises(ConfigError, match="python-patches expects version"):
+            read_pyproject_config(path)
+
+    def test_matrix_platform_runs_on_libc(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path,
+            "[tool.nab]\n"
+            'mode = "universal"\n'
+            "[tool.nab.matrix]\n"
+            'python = ">=3.11,<3.12"\n'
+            "platforms ="
+            f' [{{ id = "linux_x86_64", runs-on-libc = "2.{_PAST_INT_LIMIT}" }}]\n',
+        )
+        with pytest.raises(
+            ConfigError, match="runs-on-libc must be a 'major.minor' version"
+        ):
+            read_pyproject_config(path)
+
+    def test_requires_python(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path, f'[tool.nab]\nrequires-python = ">=3.{_PAST_INT_LIMIT}"\n'
+        )
+        with pytest.raises(
+            ConfigError, match="requires-python must be a PEP 440 specifier"
+        ):
+            read_pyproject_config(path)
+
+    def test_constraints(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path, f'[tool.nab]\nconstraints = ["widget >= {_PAST_INT_LIMIT}"]\n'
+        )
+        with pytest.raises(
+            ConfigError, match=r"constraints\[0\] is not a valid requirement"
+        ):
+            read_pyproject_config(path)
+
+    def test_packages_selector(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path,
+            f'[tool.nab.packages."widget >= {_PAST_INT_LIMIT}"]\n'
+            'dist-policy = "sdist-only"\n',
+        )
+        with pytest.raises(ConfigError, match="is not a valid PEP 508 requirement"):
+            read_pyproject_config(path, discover_workspace=False)
+
+    def test_package_rules_match(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path,
+            "[[tool.nab.package-rules]]\n"
+            f'match = ["widget >= {_PAST_INT_LIMIT}"]\n'
+            'dist-policy = "sdist-only"\n',
+        )
+        with pytest.raises(ConfigError, match="is not a valid PEP 508 requirement"):
+            read_pyproject_config(path, discover_workspace=False)
+
+    def test_package_override_requires_python(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path,
+            f'[tool.nab.packages.widget]\nrequires-python = ">={_PAST_INT_LIMIT}"\n',
+        )
+        with pytest.raises(
+            ConfigError, match="requires-python must be a PEP 440 specifier"
+        ):
+            read_pyproject_config(path, discover_workspace=False)
+
+    def test_package_override_dependencies(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path,
+            "[tool.nab.packages.widget]\n"
+            f'dependencies = ["gadget >= {_PAST_INT_LIMIT}"]\n',
+        )
+        with pytest.raises(
+            ConfigError, match=r"dependencies\[0\] is not a valid PEP 508 requirement"
+        ):
+            read_pyproject_config(path, discover_workspace=False)
+
+    def test_uploaded_prior_to_duration(self, tmp_path: Path) -> None:
+        path = write(
+            tmp_path, f'[tool.nab]\nuploaded-prior-to = "P{_PAST_INT_LIMIT}D"\n'
+        )
+        with pytest.raises(ConfigError, match="duration is too large"):
             read_pyproject_config(path)
 
 
@@ -4256,6 +4952,60 @@ class TestWorkspaceDiscoveryIntegration:
         config = read_pyproject_config(member)
         assert config.build_policy is BuildPolicy.BUILD_LOCAL
 
+    def test_discovery_carries_members_and_not_the_root_base_group(
+        self, tmp_path: Path
+    ) -> None:
+        """A member takes the root's sources, never the name it gives its own.
+
+        Discovery reads the root's ``members`` list and nothing else from
+        it, so the two files each name their own dependencies.
+        """
+        member = self._ws(tmp_path)
+        root = tmp_path / "pyproject.toml"
+        root.write_text(
+            root.read_text(encoding="utf-8") + '[tool.nab]\nbase-group = "root"\n',
+            encoding="utf-8",
+        )
+
+        assert read_pyproject_config(root).base_group == "root"
+
+        config = read_pyproject_config(member)
+        assert config.base_group is None
+        assert config.local_sources == (
+            LocalSource(name="alpha", path=str(member.parent), editable=True),
+        )
+
+    def test_a_member_group_may_take_the_root_base_group_name(
+        self, tmp_path: Path
+    ) -> None:
+        """A member's groups are not selectable in the root's lock.
+
+        They are in a different marker namespace, so the name the root
+        gives its own dependencies does not collide with them.  The same
+        name on the member's own file does.
+        """
+        member = self._ws(tmp_path)
+        member.write_text(
+            member.read_text(encoding="utf-8")
+            + '[dependency-groups]\nroot = ["iniconfig"]\n',
+            encoding="utf-8",
+        )
+        root = tmp_path / "pyproject.toml"
+        root.write_text(
+            root.read_text(encoding="utf-8") + '[tool.nab]\nbase-group = "root"\n',
+            encoding="utf-8",
+        )
+
+        assert read_pyproject_config(root).base_group == "root"
+        assert read_pyproject_config(member).base_group is None
+
+        member.write_text(
+            member.read_text(encoding="utf-8") + '[tool.nab]\nbase-group = "root"\n',
+            encoding="utf-8",
+        )
+        with pytest.raises(ConfigError, match=r"^base-group 'root' and"):
+            read_pyproject_config(member)
+
     def test_no_discovery_skips_walk(self, tmp_path: Path) -> None:
         member = self._ws(tmp_path)
         config = read_pyproject_config(member, discover_workspace=False)
@@ -4449,19 +5199,6 @@ class TestProjectNabTomlConfiguresResolve:
         assert config.constraints == ("foo<2",)
         assert _inspect(path, "constraints") == "foo<2"
 
-    def test_list_constraints_concat_across_files(self, tmp_path: Path) -> None:
-        # Array concat: a pyproject list and a project-nab.toml list merge
-        # additively, they do not conflict.
-        path = self._write(
-            tmp_path,
-            '[project]\nname = "x"\nversion = "0"\n'
-            '[tool.nab]\nconstraints = ["foo<2"]\n',
-            'constraints = ["bar<3"]\n',
-        )
-        config = read_pyproject_config(path, discover_workspace=False)
-        assert config.constraints == ("foo<2", "bar<3")
-        assert _inspect(path, "constraints") == "foo<2, bar<3"
-
     def test_array_of_tables_indexes(self, tmp_path: Path) -> None:
         path = self._write(
             tmp_path,
@@ -4581,19 +5318,27 @@ class TestProjectNabTomlGateAndConflict:
         with pytest.raises(SourceConfigError, match="conflicting values"):
             read_pyproject_config(path, discover_workspace=False)
 
-    def test_override_overlap_across_project_files_rejected(
-        self, tmp_path: Path
-    ) -> None:
-        # The per-package same-field overlap composes with the cross-file
-        # rule: an override in pyproject and an overlapping one in the project
-        # nab.toml is the hard overlap error, not a silent last-win.
+    def test_list_conflict_across_project_files_rejected(self, tmp_path: Path) -> None:
+        # A list is compared whole like a scalar, so two project files
+        # declaring different constraints is the same hard error.
         path = tmp_path / "pyproject.toml"
         path.write_text(
             '[project]\nname = "x"\nversion = "0"\n'
-            '[tool.nab.packages.numpy]\nbuild-policy = "never"\n'
+            '[tool.nab]\nconstraints = ["foo<2"]\n'
         )
-        (tmp_path / "nab.toml").write_text(
-            '[packages.numpy]\nbuild-policy = "build-local"\n'
+        (tmp_path / "nab.toml").write_text('constraints = ["bar<3"]\n')
+        with pytest.raises(SourceConfigError, match="conflicting values"):
+            read_pyproject_config(path, discover_workspace=False)
+
+    def test_table_conflict_across_project_files_rejected(self, tmp_path: Path) -> None:
+        # A table is compared whole too, so disjoint sub-keys across the two
+        # files conflict rather than folding into an environment neither
+        # file declares.
+        path = tmp_path / "pyproject.toml"
+        path.write_text(
+            '[project]\nname = "x"\nversion = "0"\n'
+            '[tool.nab.environment]\npython = "3.12"\n'
         )
-        with pytest.raises(SourceConfigError, match="overlapping versions"):
+        (tmp_path / "nab.toml").write_text('[environment]\nplatform = "linux_x86_64"\n')
+        with pytest.raises(SourceConfigError, match="conflicting values"):
             read_pyproject_config(path, discover_workspace=False)

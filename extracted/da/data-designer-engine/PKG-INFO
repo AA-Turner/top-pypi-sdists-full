@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: data-designer-engine
-Version: 0.8.0
+Version: 0.9.0
 Summary: Generation engine for DataDesigner synthetic data generation
 License-Expression: Apache-2.0
 Classifier: Development Status :: 4 - Beta
@@ -18,7 +18,7 @@ Requires-Dist: anyascii<1,>=0.3.3
 Requires-Dist: asciichartpy<2,>=1.5.25
 Requires-Dist: chardet<6,>=3.0.2
 Requires-Dist: cryptography<=49,>=48.0.1
-Requires-Dist: data-designer-config==0.8.0
+Requires-Dist: data-designer-config==0.9.0
 Requires-Dist: duckdb<2,>=1.5.0
 Requires-Dist: faker<21,>=20.1.0
 Requires-Dist: fsspec<2026,>=2025.3.0
@@ -31,7 +31,7 @@ Requires-Dist: jsonpath-rust-bindings<2,>=1.0
 Requires-Dist: jsonschema<5,>=4.0.0
 Requires-Dist: lxml<7,>=6.1.0
 Requires-Dist: marko<3,>=2.1.2
-Requires-Dist: mcp<2,>=1.26.0
+Requires-Dist: mcp<2,>=1.29.0
 Requires-Dist: networkx<4,>=3.0
 Requires-Dist: numpy<3,>=1.23.5
 Requires-Dist: pandas<3,>=2.3.3

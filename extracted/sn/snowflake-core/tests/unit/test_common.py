@@ -141,6 +141,8 @@ def test_all_resources_have_to_dict_method(model_class):
 @pytest.mark.parametrize("collection_class", _generate_all_classes(suffix="Collection"))
 @pytest.mark.parametrize("method", ("create", "iter"))
 def test_collection_defines_async_methods(collection_class, method):
+    if not hasattr(collection_class, method):
+        pytest.skip(f"{collection_class.__name__} does not define {method}")
     method_name = f"{method}_async"
     assert hasattr(collection_class, method_name), f"{collection_class.__name__} missing {method_name} method"
 

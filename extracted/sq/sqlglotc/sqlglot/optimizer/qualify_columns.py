@@ -89,6 +89,9 @@ def qualify_columns(
             allow_partial_qualification=allow_partial_qualification,
         )
 
+        # Refresh classification caches: a column just qualified in place may have been cached as external
+        scope.clear_column_cache()
+
         if not schema.empty and expand_alias_refs:
             _expand_alias_refs(scope, resolver, dialect)
 
@@ -408,6 +411,17 @@ def _expand_alias_refs(
                     simplified = simplify_parens(column, dialect)
                     if simplified is not column:
                         column.replace(simplified)
+                        column = simplified
+
+                    if resolve_table and resolver.schema.empty:
+                        # resolve alias spliced into QUALIFY/HAVING with unqualified columns
+                        for inner in walk_in_scope(column):
+                            if (
+                                isinstance(inner, exp.Column)
+                                and not inner.table
+                                and (inner_table := resolver.get_table(inner))
+                            ):
+                                inner.set("table", inner_table)
 
     for i, projection in enumerate(expression.selects):
         replace_columns(projection)

@@ -1816,6 +1816,43 @@ class CfnComputeNodeGroup(
             # the properties below are optional
             ami_id="amiId",
             name="name",
+            node_lifecycle_actions=pcs.CfnComputeNodeGroup.NodeLifecycleActionsProperty(
+                stages=pcs.CfnComputeNodeGroup.NodeLifecycleStagesProperty(
+                    node_bootstrapped=[pcs.CfnComputeNodeGroup.NodeLifecycleScriptProperty(
+                        name="name",
+                        script_source=pcs.CfnComputeNodeGroup.ScriptSourceProperty(
+                            script_location="scriptLocation",
+        
+                            # the properties below are optional
+                            checksum="checksum",
+                            s3_version_id="s3VersionId"
+                        ),
+        
+                        # the properties below are optional
+                        arguments=["arguments"],
+                        execution_policy="executionPolicy",
+                        on_error="onError"
+                    )],
+                    node_ready=[pcs.CfnComputeNodeGroup.NodeLifecycleScriptProperty(
+                        name="name",
+                        script_source=pcs.CfnComputeNodeGroup.ScriptSourceProperty(
+                            script_location="scriptLocation",
+        
+                            # the properties below are optional
+                            checksum="checksum",
+                            s3_version_id="s3VersionId"
+                        ),
+        
+                        # the properties below are optional
+                        arguments=["arguments"],
+                        execution_policy="executionPolicy",
+                        on_error="onError"
+                    )]
+                ),
+        
+                # the properties below are optional
+                script_caching_policy="scriptCachingPolicy"
+            ),
             purchase_option="purchaseOption",
             slurm_configuration=pcs.CfnComputeNodeGroup.SlurmConfigurationProperty(
                 scale_down_idle_time_in_seconds=123,
@@ -1846,6 +1883,7 @@ class CfnComputeNodeGroup(
         subnet_ids: typing.Sequence[builtins.str],
         ami_id: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        node_lifecycle_actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.NodeLifecycleActionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         purchase_option: typing.Optional[builtins.str] = None,
         slurm_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.SlurmConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         spot_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.SpotOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1863,6 +1901,7 @@ class CfnComputeNodeGroup(
         :param subnet_ids: The list of subnet IDs where instances are provisioned by the compute node group. The subnets must be in the same VPC as the cluster.
         :param ami_id: The ID of the Amazon Machine Image (AMI) that AWS PCS uses to launch instances. If not provided, AWS PCS uses the AMI ID specified in the custom launch template.
         :param name: The name that identifies the compute node group.
+        :param node_lifecycle_actions: Custom scripts that run at defined points in a compute node's lifecycle.
         :param purchase_option: Specifies how EC2 instances are purchased on your behalf. AWS PCS supports On-Demand Instances, Spot Instances, and Amazon EC2 Capacity Blocks for ML. For more information, see `Amazon EC2 billing and purchasing options <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-purchasing-options.html>`_ in the *Amazon Elastic Compute Cloud User Guide* . For more information about AWS PCS support for Capacity Blocks, see `Using Amazon EC2 Capacity Blocks for ML with AWS PCS <https://docs.aws.amazon.com/pcs/latest/userguide/capacity-blocks.html>`_ in the *AWS PCS User Guide* . If you don't provide this option, it defaults to On-Demand.
         :param slurm_configuration: Additional options related to the Slurm scheduler.
         :param spot_options: Additional configuration when you specify ``SPOT`` as the ``purchaseOption`` for the ``CreateComputeNodeGroup`` API action.
@@ -1881,6 +1920,7 @@ class CfnComputeNodeGroup(
             subnet_ids=subnet_ids,
             ami_id=ami_id,
             name=name,
+            node_lifecycle_actions=node_lifecycle_actions,
             purchase_option=purchase_option,
             slurm_configuration=slurm_configuration,
             spot_options=spot_options,
@@ -2125,6 +2165,24 @@ class CfnComputeNodeGroup(
             type_hints = cached_type_hints(_typecheckingstub__621c25d891dcaffc1e388ad783cc5d71aeffd2776b0166c92fce41e6d992d2d7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="nodeLifecycleActions")
+    def node_lifecycle_actions(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.NodeLifecycleActionsProperty"]]:
+        '''Custom scripts that run at defined points in a compute node's lifecycle.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.NodeLifecycleActionsProperty"]], jsii.get(self, "nodeLifecycleActions"))
+
+    @node_lifecycle_actions.setter
+    def node_lifecycle_actions(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.NodeLifecycleActionsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__aab942bbc20c1c58cb990810fb3f6eea449e08cf30ad4b574cc551c326ab371e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "nodeLifecycleActions", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="purchaseOption")
@@ -2392,6 +2450,358 @@ class CfnComputeNodeGroup(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_pcs.CfnComputeNodeGroup.NodeLifecycleActionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "stages": "stages",
+            "script_caching_policy": "scriptCachingPolicy",
+        },
+    )
+    class NodeLifecycleActionsProperty:
+        def __init__(
+            self,
+            *,
+            stages: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.NodeLifecycleStagesProperty", typing.Dict[builtins.str, typing.Any]]],
+            script_caching_policy: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Custom scripts that run at defined points in a compute node's lifecycle.
+
+            :param stages: The ordered scripts to run at each compute node lifecycle stage.
+            :param script_caching_policy: Controls whether lifecycle scripts are downloaded once at first boot (CACHE_ONCE) or re-downloaded on every reboot (REFRESH_ON_REBOOT). Defaults to CACHE_ONCE.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-nodelifecycleactions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_pcs as pcs
+                
+                node_lifecycle_actions_property = pcs.CfnComputeNodeGroup.NodeLifecycleActionsProperty(
+                    stages=pcs.CfnComputeNodeGroup.NodeLifecycleStagesProperty(
+                        node_bootstrapped=[pcs.CfnComputeNodeGroup.NodeLifecycleScriptProperty(
+                            name="name",
+                            script_source=pcs.CfnComputeNodeGroup.ScriptSourceProperty(
+                                script_location="scriptLocation",
+                
+                                # the properties below are optional
+                                checksum="checksum",
+                                s3_version_id="s3VersionId"
+                            ),
+                
+                            # the properties below are optional
+                            arguments=["arguments"],
+                            execution_policy="executionPolicy",
+                            on_error="onError"
+                        )],
+                        node_ready=[pcs.CfnComputeNodeGroup.NodeLifecycleScriptProperty(
+                            name="name",
+                            script_source=pcs.CfnComputeNodeGroup.ScriptSourceProperty(
+                                script_location="scriptLocation",
+                
+                                # the properties below are optional
+                                checksum="checksum",
+                                s3_version_id="s3VersionId"
+                            ),
+                
+                            # the properties below are optional
+                            arguments=["arguments"],
+                            execution_policy="executionPolicy",
+                            on_error="onError"
+                        )]
+                    ),
+                
+                    # the properties below are optional
+                    script_caching_policy="scriptCachingPolicy"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__924726fccce0974282f10811b6c21163a1a8232593011da995bf1264e41c83ee)
+                check_type(argname="argument stages", value=stages, expected_type=type_hints["stages"])
+                check_type(argname="argument script_caching_policy", value=script_caching_policy, expected_type=type_hints["script_caching_policy"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "stages": stages,
+            }
+            if script_caching_policy is not None:
+                self._values["script_caching_policy"] = script_caching_policy
+
+        @builtins.property
+        def stages(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.NodeLifecycleStagesProperty"]:
+            '''The ordered scripts to run at each compute node lifecycle stage.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-nodelifecycleactions.html#cfn-pcs-computenodegroup-nodelifecycleactions-stages
+            '''
+            result = self._values.get("stages")
+            assert result is not None, "Required property 'stages' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.NodeLifecycleStagesProperty"], result)
+
+        @builtins.property
+        def script_caching_policy(self) -> typing.Optional[builtins.str]:
+            '''Controls whether lifecycle scripts are downloaded once at first boot (CACHE_ONCE) or re-downloaded on every reboot (REFRESH_ON_REBOOT).
+
+            Defaults to CACHE_ONCE.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-nodelifecycleactions.html#cfn-pcs-computenodegroup-nodelifecycleactions-scriptcachingpolicy
+            '''
+            result = self._values.get("script_caching_policy")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NodeLifecycleActionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_pcs.CfnComputeNodeGroup.NodeLifecycleScriptProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "name": "name",
+            "script_source": "scriptSource",
+            "arguments": "arguments",
+            "execution_policy": "executionPolicy",
+            "on_error": "onError",
+        },
+    )
+    class NodeLifecycleScriptProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            script_source: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.ScriptSourceProperty", typing.Dict[builtins.str, typing.Any]]],
+            arguments: typing.Optional[typing.Sequence[builtins.str]] = None,
+            execution_policy: typing.Optional[builtins.str] = None,
+            on_error: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''A single lifecycle script with its source, arguments, and error behavior.
+
+            :param name: A human-readable name that identifies the script.
+            :param script_source: The external location of a lifecycle script.
+            :param arguments: An ordered list of arguments passed to the script.
+            :param execution_policy: Whether the script runs only on the node's first boot (FIRST_BOOT_ONLY) or on every boot including reboots (EVERY_BOOT). Defaults to FIRST_BOOT_ONLY.
+            :param on_error: The behavior when the script exits with an error. Defaults to TERMINATE.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-nodelifecyclescript.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_pcs as pcs
+                
+                node_lifecycle_script_property = pcs.CfnComputeNodeGroup.NodeLifecycleScriptProperty(
+                    name="name",
+                    script_source=pcs.CfnComputeNodeGroup.ScriptSourceProperty(
+                        script_location="scriptLocation",
+                
+                        # the properties below are optional
+                        checksum="checksum",
+                        s3_version_id="s3VersionId"
+                    ),
+                
+                    # the properties below are optional
+                    arguments=["arguments"],
+                    execution_policy="executionPolicy",
+                    on_error="onError"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b8dcd9a7d13430297bca7eac1d266a0f8bd9e46ccc73161cb4c2722fdd4044bf)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument script_source", value=script_source, expected_type=type_hints["script_source"])
+                check_type(argname="argument arguments", value=arguments, expected_type=type_hints["arguments"])
+                check_type(argname="argument execution_policy", value=execution_policy, expected_type=type_hints["execution_policy"])
+                check_type(argname="argument on_error", value=on_error, expected_type=type_hints["on_error"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+                "script_source": script_source,
+            }
+            if arguments is not None:
+                self._values["arguments"] = arguments
+            if execution_policy is not None:
+                self._values["execution_policy"] = execution_policy
+            if on_error is not None:
+                self._values["on_error"] = on_error
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''A human-readable name that identifies the script.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-nodelifecyclescript.html#cfn-pcs-computenodegroup-nodelifecyclescript-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def script_source(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.ScriptSourceProperty"]:
+            '''The external location of a lifecycle script.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-nodelifecyclescript.html#cfn-pcs-computenodegroup-nodelifecyclescript-scriptsource
+            '''
+            result = self._values.get("script_source")
+            assert result is not None, "Required property 'script_source' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.ScriptSourceProperty"], result)
+
+        @builtins.property
+        def arguments(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''An ordered list of arguments passed to the script.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-nodelifecyclescript.html#cfn-pcs-computenodegroup-nodelifecyclescript-arguments
+            '''
+            result = self._values.get("arguments")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def execution_policy(self) -> typing.Optional[builtins.str]:
+            '''Whether the script runs only on the node's first boot (FIRST_BOOT_ONLY) or on every boot including reboots (EVERY_BOOT).
+
+            Defaults to FIRST_BOOT_ONLY.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-nodelifecyclescript.html#cfn-pcs-computenodegroup-nodelifecyclescript-executionpolicy
+            '''
+            result = self._values.get("execution_policy")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def on_error(self) -> typing.Optional[builtins.str]:
+            '''The behavior when the script exits with an error.
+
+            Defaults to TERMINATE.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-nodelifecyclescript.html#cfn-pcs-computenodegroup-nodelifecyclescript-onerror
+            '''
+            result = self._values.get("on_error")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NodeLifecycleScriptProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_pcs.CfnComputeNodeGroup.NodeLifecycleStagesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "node_bootstrapped": "nodeBootstrapped",
+            "node_ready": "nodeReady",
+        },
+    )
+    class NodeLifecycleStagesProperty:
+        def __init__(
+            self,
+            *,
+            node_bootstrapped: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.NodeLifecycleScriptProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            node_ready: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.NodeLifecycleScriptProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''The ordered scripts to run at each compute node lifecycle stage.
+
+            :param node_bootstrapped: Scripts to run after the node is bootstrapped, once the PCS configuration phase completes and before slurmd starts.
+            :param node_ready: Scripts to execute when the node becomes ready (every boot).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-nodelifecyclestages.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_pcs as pcs
+                
+                node_lifecycle_stages_property = pcs.CfnComputeNodeGroup.NodeLifecycleStagesProperty(
+                    node_bootstrapped=[pcs.CfnComputeNodeGroup.NodeLifecycleScriptProperty(
+                        name="name",
+                        script_source=pcs.CfnComputeNodeGroup.ScriptSourceProperty(
+                            script_location="scriptLocation",
+                
+                            # the properties below are optional
+                            checksum="checksum",
+                            s3_version_id="s3VersionId"
+                        ),
+                
+                        # the properties below are optional
+                        arguments=["arguments"],
+                        execution_policy="executionPolicy",
+                        on_error="onError"
+                    )],
+                    node_ready=[pcs.CfnComputeNodeGroup.NodeLifecycleScriptProperty(
+                        name="name",
+                        script_source=pcs.CfnComputeNodeGroup.ScriptSourceProperty(
+                            script_location="scriptLocation",
+                
+                            # the properties below are optional
+                            checksum="checksum",
+                            s3_version_id="s3VersionId"
+                        ),
+                
+                        # the properties below are optional
+                        arguments=["arguments"],
+                        execution_policy="executionPolicy",
+                        on_error="onError"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__81a1a9d5c9a91c9aa52770049e6276f1cf4110b67f4437fe6950516d67620132)
+                check_type(argname="argument node_bootstrapped", value=node_bootstrapped, expected_type=type_hints["node_bootstrapped"])
+                check_type(argname="argument node_ready", value=node_ready, expected_type=type_hints["node_ready"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if node_bootstrapped is not None:
+                self._values["node_bootstrapped"] = node_bootstrapped
+            if node_ready is not None:
+                self._values["node_ready"] = node_ready
+
+        @builtins.property
+        def node_bootstrapped(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.NodeLifecycleScriptProperty"]]]]:
+            '''Scripts to run after the node is bootstrapped, once the PCS configuration phase completes and before slurmd starts.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-nodelifecyclestages.html#cfn-pcs-computenodegroup-nodelifecyclestages-nodebootstrapped
+            '''
+            result = self._values.get("node_bootstrapped")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.NodeLifecycleScriptProperty"]]]], result)
+
+        @builtins.property
+        def node_ready(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.NodeLifecycleScriptProperty"]]]]:
+            '''Scripts to execute when the node becomes ready (every boot).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-nodelifecyclestages.html#cfn-pcs-computenodegroup-nodelifecyclestages-nodeready
+            '''
+            result = self._values.get("node_ready")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.NodeLifecycleScriptProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NodeLifecycleStagesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_pcs.CfnComputeNodeGroup.ScalingConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -2462,6 +2872,98 @@ class CfnComputeNodeGroup(
 
         def __repr__(self) -> str:
             return "ScalingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_pcs.CfnComputeNodeGroup.ScriptSourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "script_location": "scriptLocation",
+            "checksum": "checksum",
+            "s3_version_id": "s3VersionId",
+        },
+    )
+    class ScriptSourceProperty:
+        def __init__(
+            self,
+            *,
+            script_location: builtins.str,
+            checksum: typing.Optional[builtins.str] = None,
+            s3_version_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The external location of a lifecycle script.
+
+            :param script_location: The S3 URI or HTTPS URL where the script is stored.
+            :param checksum: A 64-character hexadecimal SHA-256 digest used to verify script integrity.
+            :param s3_version_id: The S3 object version ID of the script, when stored in a versioned bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-scriptsource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_pcs as pcs
+                
+                script_source_property = pcs.CfnComputeNodeGroup.ScriptSourceProperty(
+                    script_location="scriptLocation",
+                
+                    # the properties below are optional
+                    checksum="checksum",
+                    s3_version_id="s3VersionId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__10a0b613063a66aec137ac196ed33210808edf1051b9b7e7511eee66b15f1573)
+                check_type(argname="argument script_location", value=script_location, expected_type=type_hints["script_location"])
+                check_type(argname="argument checksum", value=checksum, expected_type=type_hints["checksum"])
+                check_type(argname="argument s3_version_id", value=s3_version_id, expected_type=type_hints["s3_version_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "script_location": script_location,
+            }
+            if checksum is not None:
+                self._values["checksum"] = checksum
+            if s3_version_id is not None:
+                self._values["s3_version_id"] = s3_version_id
+
+        @builtins.property
+        def script_location(self) -> builtins.str:
+            '''The S3 URI or HTTPS URL where the script is stored.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-scriptsource.html#cfn-pcs-computenodegroup-scriptsource-scriptlocation
+            '''
+            result = self._values.get("script_location")
+            assert result is not None, "Required property 'script_location' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def checksum(self) -> typing.Optional[builtins.str]:
+            '''A 64-character hexadecimal SHA-256 digest used to verify script integrity.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-scriptsource.html#cfn-pcs-computenodegroup-scriptsource-checksum
+            '''
+            result = self._values.get("checksum")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_version_id(self) -> typing.Optional[builtins.str]:
+            '''The S3 object version ID of the script, when stored in a versioned bucket.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-computenodegroup-scriptsource.html#cfn-pcs-computenodegroup-scriptsource-s3versionid
+            '''
+            result = self._values.get("s3_version_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ScriptSourceProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2693,6 +3195,7 @@ class CfnComputeNodeGroup(
         "subnet_ids": "subnetIds",
         "ami_id": "amiId",
         "name": "name",
+        "node_lifecycle_actions": "nodeLifecycleActions",
         "purchase_option": "purchaseOption",
         "slurm_configuration": "slurmConfiguration",
         "spot_options": "spotOptions",
@@ -2711,6 +3214,7 @@ class CfnComputeNodeGroupProps:
         subnet_ids: typing.Sequence[builtins.str],
         ami_id: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        node_lifecycle_actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.NodeLifecycleActionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         purchase_option: typing.Optional[builtins.str] = None,
         slurm_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.SlurmConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         spot_options: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.SpotOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2726,6 +3230,7 @@ class CfnComputeNodeGroupProps:
         :param subnet_ids: The list of subnet IDs where instances are provisioned by the compute node group. The subnets must be in the same VPC as the cluster.
         :param ami_id: The ID of the Amazon Machine Image (AMI) that AWS PCS uses to launch instances. If not provided, AWS PCS uses the AMI ID specified in the custom launch template.
         :param name: The name that identifies the compute node group.
+        :param node_lifecycle_actions: Custom scripts that run at defined points in a compute node's lifecycle.
         :param purchase_option: Specifies how EC2 instances are purchased on your behalf. AWS PCS supports On-Demand Instances, Spot Instances, and Amazon EC2 Capacity Blocks for ML. For more information, see `Amazon EC2 billing and purchasing options <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-purchasing-options.html>`_ in the *Amazon Elastic Compute Cloud User Guide* . For more information about AWS PCS support for Capacity Blocks, see `Using Amazon EC2 Capacity Blocks for ML with AWS PCS <https://docs.aws.amazon.com/pcs/latest/userguide/capacity-blocks.html>`_ in the *AWS PCS User Guide* . If you don't provide this option, it defaults to On-Demand.
         :param slurm_configuration: Additional options related to the Slurm scheduler.
         :param spot_options: Additional configuration when you specify ``SPOT`` as the ``purchaseOption`` for the ``CreateComputeNodeGroup`` API action.
@@ -2761,6 +3266,43 @@ class CfnComputeNodeGroupProps:
                 # the properties below are optional
                 ami_id="amiId",
                 name="name",
+                node_lifecycle_actions=pcs.CfnComputeNodeGroup.NodeLifecycleActionsProperty(
+                    stages=pcs.CfnComputeNodeGroup.NodeLifecycleStagesProperty(
+                        node_bootstrapped=[pcs.CfnComputeNodeGroup.NodeLifecycleScriptProperty(
+                            name="name",
+                            script_source=pcs.CfnComputeNodeGroup.ScriptSourceProperty(
+                                script_location="scriptLocation",
+            
+                                # the properties below are optional
+                                checksum="checksum",
+                                s3_version_id="s3VersionId"
+                            ),
+            
+                            # the properties below are optional
+                            arguments=["arguments"],
+                            execution_policy="executionPolicy",
+                            on_error="onError"
+                        )],
+                        node_ready=[pcs.CfnComputeNodeGroup.NodeLifecycleScriptProperty(
+                            name="name",
+                            script_source=pcs.CfnComputeNodeGroup.ScriptSourceProperty(
+                                script_location="scriptLocation",
+            
+                                # the properties below are optional
+                                checksum="checksum",
+                                s3_version_id="s3VersionId"
+                            ),
+            
+                            # the properties below are optional
+                            arguments=["arguments"],
+                            execution_policy="executionPolicy",
+                            on_error="onError"
+                        )]
+                    ),
+            
+                    # the properties below are optional
+                    script_caching_policy="scriptCachingPolicy"
+                ),
                 purchase_option="purchaseOption",
                 slurm_configuration=pcs.CfnComputeNodeGroup.SlurmConfigurationProperty(
                     scale_down_idle_time_in_seconds=123,
@@ -2787,6 +3329,7 @@ class CfnComputeNodeGroupProps:
             check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             check_type(argname="argument ami_id", value=ami_id, expected_type=type_hints["ami_id"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument node_lifecycle_actions", value=node_lifecycle_actions, expected_type=type_hints["node_lifecycle_actions"])
             check_type(argname="argument purchase_option", value=purchase_option, expected_type=type_hints["purchase_option"])
             check_type(argname="argument slurm_configuration", value=slurm_configuration, expected_type=type_hints["slurm_configuration"])
             check_type(argname="argument spot_options", value=spot_options, expected_type=type_hints["spot_options"])
@@ -2803,6 +3346,8 @@ class CfnComputeNodeGroupProps:
             self._values["ami_id"] = ami_id
         if name is not None:
             self._values["name"] = name
+        if node_lifecycle_actions is not None:
+            self._values["node_lifecycle_actions"] = node_lifecycle_actions
         if purchase_option is not None:
             self._values["purchase_option"] = purchase_option
         if slurm_configuration is not None:
@@ -2901,6 +3446,17 @@ class CfnComputeNodeGroupProps:
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def node_lifecycle_actions(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.NodeLifecycleActionsProperty"]]:
+        '''Custom scripts that run at defined points in a compute node's lifecycle.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-nodelifecycleactions
+        '''
+        result = self._values.get("node_lifecycle_actions")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.NodeLifecycleActionsProperty"]], result)
 
     @builtins.property
     def purchase_option(self) -> typing.Optional[builtins.str]:
@@ -3849,6 +4405,7 @@ def _typecheckingstub__5d74625cecbce8d2048b29b24f3148123fb31c64b330ed51fd45d2b2c
     subnet_ids: typing.Sequence[builtins.str],
     ami_id: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
+    node_lifecycle_actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.NodeLifecycleActionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     purchase_option: typing.Optional[builtins.str] = None,
     slurm_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.SlurmConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     spot_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.SpotOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3929,6 +4486,12 @@ def _typecheckingstub__621c25d891dcaffc1e388ad783cc5d71aeffd2776b0166c92fce41e6d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__aab942bbc20c1c58cb990810fb3f6eea449e08cf30ad4b574cc551c326ab371e(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnComputeNodeGroup.NodeLifecycleActionsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__abf0b129d8eff2b9d98cc25ed6c3cbfebb7f706aa5948692e942f1a485c29a79(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -3976,10 +4539,46 @@ def _typecheckingstub__e94b232b9d47b7a1d244e32e3a5dc754392f55d51698be51f1a5de826
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__924726fccce0974282f10811b6c21163a1a8232593011da995bf1264e41c83ee(
+    *,
+    stages: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.NodeLifecycleStagesProperty, typing.Dict[builtins.str, typing.Any]]],
+    script_caching_policy: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b8dcd9a7d13430297bca7eac1d266a0f8bd9e46ccc73161cb4c2722fdd4044bf(
+    *,
+    name: builtins.str,
+    script_source: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.ScriptSourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    arguments: typing.Optional[typing.Sequence[builtins.str]] = None,
+    execution_policy: typing.Optional[builtins.str] = None,
+    on_error: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__81a1a9d5c9a91c9aa52770049e6276f1cf4110b67f4437fe6950516d67620132(
+    *,
+    node_bootstrapped: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.NodeLifecycleScriptProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    node_ready: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.NodeLifecycleScriptProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c591f6ad958f29b5e6c332ca3927c8ba0e76bc075461fbecdd513918b5d0bbcd(
     *,
     max_instance_count: jsii.Number,
     min_instance_count: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__10a0b613063a66aec137ac196ed33210808edf1051b9b7e7511eee66b15f1573(
+    *,
+    script_location: builtins.str,
+    checksum: typing.Optional[builtins.str] = None,
+    s3_version_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4017,6 +4616,7 @@ def _typecheckingstub__b89ff3536491b7ea531bd9d6ca00d7d32a25ce4c02b926c6d677abde1
     subnet_ids: typing.Sequence[builtins.str],
     ami_id: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
+    node_lifecycle_actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.NodeLifecycleActionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     purchase_option: typing.Optional[builtins.str] = None,
     slurm_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.SlurmConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     spot_options: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.SpotOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

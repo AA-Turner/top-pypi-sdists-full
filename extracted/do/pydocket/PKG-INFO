@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydocket
-Version: 0.23.1
+Version: 0.24.1
 Summary: A distributed background task system for Python functions
 Project-URL: Homepage, https://docket.lol/
 Project-URL: Documentation, https://docket.lol/en/latest/
@@ -42,7 +42,7 @@ Requires-Dist: taskgroup>=0.2.2; python_version < '3.11'
 Requires-Dist: typer>=0.15.1
 Requires-Dist: typing-extensions>=4.12.0
 Requires-Dist: tzdata>=2025.2; sys_platform == 'win32'
-Requires-Dist: uncalled-for>=0.3.2
+Requires-Dist: uncalled-for>=0.4.0
 Provides-Extra: metrics
 Requires-Dist: opentelemetry-sdk>=1.33.0; extra == 'metrics'
 Description-Content-Type: text/markdown

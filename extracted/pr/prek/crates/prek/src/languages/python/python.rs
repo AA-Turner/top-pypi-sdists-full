@@ -1,6 +1,5 @@
 use std::env::consts::EXE_EXTENSION;
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
 use std::sync::{Arc, LazyLock};
 
 use anyhow::{Context, Result};
@@ -12,17 +11,15 @@ use serde::Deserialize;
 use tracing::{debug, trace};
 
 use crate::cli::reporter::HookInstallReporter;
-use crate::cli::run::HookRunReporter;
 use crate::git::GitCommandExt;
 use crate::hook::InstalledHook;
 use crate::hook::{Hook, InstallInfo};
-use crate::languages::LanguageBackend;
 use crate::languages::python::PythonRequest;
 use crate::languages::python::uv::Uv;
 use crate::languages::version::LanguageRequest;
+use crate::languages::{ExecutionEnvironment, LanguageBackend};
 use crate::process;
 use crate::process::Cmd;
-use crate::run::run_by_batch;
 use crate::store::{Store, ToolBucket};
 
 #[derive(Debug, Copy, Clone)]
@@ -33,16 +30,15 @@ pub(crate) struct PythonInfo {
     pub(crate) python_exec: PathBuf,
 }
 
-#[derive(Debug, Clone, thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 pub(crate) enum PythonInfoError {
     #[error("Failed to parse Python info JSON: {0}")]
     Parse(String),
     #[error("Failed to query Python info: {0}")]
     Query(String),
-    #[error("{0}")]
-    Message(String),
 }
 
+// Canonical paths let virtual environments backed by the same interpreter share one query.
 static PYTHON_INFO_CACHE: LazyLock<OnceMap<PathBuf, Arc<PythonInfo>, FxBuildHasher>> =
     LazyLock::new(|| OnceMap::with_hasher(FxBuildHasher));
 
@@ -181,44 +177,20 @@ impl LanguageBackend for Python {
         Ok(())
     }
 
-    async fn run(
+    fn execution_environment(
         &self,
-        store: &Store,
+        _store: &Store,
         hook: &InstalledHook,
-        filenames: &[&Path],
-        reporter: &HookRunReporter,
-    ) -> Result<(i32, Vec<u8>)> {
-        let progress = reporter.on_run_start(hook, filenames.len());
-
+    ) -> Result<ExecutionEnvironment> {
         let env_dir = hook.env_path().expect("Python must have env path");
         let new_path = prepend_paths(&[&bin_dir(env_dir)]).context("Failed to join PATH")?;
-        let entry = hook.entry.resolve(Some(&new_path), store)?;
 
-        let run = async |batch: &[&Path]| {
-            let output = Cmd::new(&entry[0])
-                .current_dir(hook.work_dir())
-                .args(&entry[1..])
-                .env(EnvVars::VIRTUAL_ENV, env_dir)
-                .env(EnvVars::PATH, &new_path)
-                .env_remove(EnvVars::PYTHONHOME)
-                .envs(&hook.env)
-                .args(&hook.args)
-                .file_args(batch)
-                .check(false)
-                .stdin(Stdio::null())
-                .pty_output_with_sink(reporter.output_sink(progress))
-                .await?;
-
-            reporter.on_run_progress(progress, batch.len() as u64);
-
-            anyhow::Ok(output)
-        };
-
-        let output = run_by_batch(hook, filenames, entry.argv(), run).await?;
-
-        reporter.on_run_complete(progress);
-
-        Ok(output)
+        let mut environment = ExecutionEnvironment::new();
+        environment
+            .set_path(&new_path)
+            .env(EnvVars::VIRTUAL_ENV, env_dir)
+            .env_remove(EnvVars::PYTHONHOME);
+        Ok(environment)
     }
 }
 
@@ -259,7 +231,7 @@ impl Python {
         Self::remove_uv_python_override_envs(&mut cmd)
             // Remove GIT environment variables that may leak from git hooks (e.g., in worktrees).
             // These can break packages using setuptools_scm for file discovery.
-            .isolate_from_git_env()
+            .sanitize_git_repo_env()
             .check(true);
         cmd
     }
@@ -457,7 +429,7 @@ mod tests {
         uses_prek_managed_store: bool,
     ) {
         let (_temp, uv, store, info) = setup_test_install();
-        let request = LanguageRequest::default();
+        let request = LanguageRequest::parse(Language::Python, "").unwrap();
         let cmd = Python::create_venv_command(&uv, &store, &info, &request, attempt);
         let args = cmd
             .get_args()
@@ -482,7 +454,7 @@ mod tests {
     #[test]
     fn create_venv_command_removes_uv_system_python_override() {
         let (_temp, uv, store, info) = setup_test_install();
-        let request = LanguageRequest::default();
+        let request = LanguageRequest::parse(Language::Python, "").unwrap();
         let cmd = Python::create_venv_command(&uv, &store, &info, &request, VenvAttempt::External);
         let envs = env_map(&cmd);
 

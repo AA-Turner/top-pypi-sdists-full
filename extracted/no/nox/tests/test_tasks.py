@@ -39,19 +39,22 @@ if typing.TYPE_CHECKING:
 RESOURCES = os.path.join(os.path.dirname(__file__), "resources")
 
 
-def session_func_raw() -> None:
-    pass
+def _make_session_func(requires: list[str]) -> nox._decorators.Func:
+    def raw() -> None:
+        pass
+
+    func = typing.cast("nox._decorators.Func", raw)
+    func.python = None
+    func.venv_backend = None
+    func.should_warn = {}
+    func.tags = []
+    func.default = True
+    func.requires = requires
+    func.allow_parallel = False
+    return func
 
 
-session_func = typing.cast("nox._decorators.Func", session_func_raw)
-
-
-session_func.python = None
-session_func.venv_backend = None
-session_func.should_warn = {}
-session_func.tags = []
-session_func.default = True
-session_func.requires = []
+session_func = _make_session_func([])
 
 
 def session_func_with_python_raw() -> None:
@@ -137,7 +140,7 @@ def reset_needs_version() -> Generator[None, None, None]:
 
 @pytest.fixture
 def reset_global_nox_options() -> None:
-    nox.options = _options.options.noxfile_namespace()
+    nox.options = _options.NoxfileOptions()
 
 
 def test_load_nox_module_needs_version_static(tmp_path: Path) -> None:
@@ -193,7 +196,7 @@ def test_discover_session_functions_decorator() -> None:
             __name__=foo.__module__, foo=foo, bar=bar, notasession=notasession
         ),
     )
-    config = _options.options.namespace(sessions=(), keywords=(), posargs=[])
+    config = _options.options.namespace(sessions=(), keywords=None, posargs=[])
 
     # Get the manifest and establish that it looks like what we expect.
     manifest = tasks.discover_manifest(mock_module, config)
@@ -204,7 +207,7 @@ def test_discover_session_functions_decorator() -> None:
 
 def test_filter_manifest() -> None:
     config = _options.options.namespace(
-        sessions=None, pythons=(), keywords=(), posargs=[]
+        sessions=None, pythons=(), keywords=None, posargs=[]
     )
     manifest = Manifest({"foo": session_func, "bar": session_func}, config)
     return_value = tasks.filter_manifest(manifest, config)
@@ -212,9 +215,45 @@ def test_filter_manifest() -> None:
     assert len(manifest) == 2
 
 
+def test_filter_manifest_no_dependencies_skips_resolution() -> None:
+    config = _options.options.namespace(
+        sessions=None, pythons=(), keywords=None, posargs=[], no_dependencies=True
+    )
+    manifest = Manifest({"foo": session_func}, config)
+    with mock.patch.object(Manifest, "add_dependencies") as add_dependencies:
+        return_value = tasks.filter_manifest(manifest, config)
+    assert return_value is manifest
+    # --no-dependencies runs only the selected sessions; nothing is pulled in.
+    assert not add_dependencies.called
+
+
+def test_filter_manifest_no_dependencies_still_validates_requires() -> None:
+    # --no-dependencies skips queueing prerequisites, but a requires= entry
+    # naming a session that doesn't exist is still an error, not a silent run.
+    broken_requires = _make_session_func(requires=["no_such_session"])
+
+    config = _options.options.namespace(
+        sessions=None, pythons=(), keywords=None, posargs=[], no_dependencies=True
+    )
+    manifest = Manifest({"foo": broken_requires}, config)
+    assert tasks.filter_manifest(manifest, config) == 3
+
+
+def test_filter_manifest_no_dependencies_ignores_unselected_requires() -> None:
+    # Only selected sessions are validated: an unselected session with a bad
+    # requires= must not fail a --no-dependencies run.
+    broken_requires = _make_session_func(requires=["no_such_session"])
+
+    config = _options.options.namespace(
+        sessions=("foo",), pythons=(), keywords=None, posargs=[], no_dependencies=True
+    )
+    manifest = Manifest({"foo": session_func, "broken": broken_requires}, config)
+    assert tasks.filter_manifest(manifest, config) is manifest
+
+
 def test_filter_manifest_not_found() -> None:
     config = _options.options.namespace(
-        sessions=("baz",), pythons=(), keywords=(), posargs=[]
+        sessions=("baz",), pythons=(), keywords=None, posargs=[]
     )
     manifest = Manifest({"foo": session_func, "bar": session_func}, config)
     return_value = tasks.filter_manifest(manifest, config)
@@ -223,7 +262,7 @@ def test_filter_manifest_not_found() -> None:
 
 def test_filter_manifest_pythons() -> None:
     config = _options.options.namespace(
-        sessions=None, pythons=("3.8",), keywords=(), posargs=[]
+        sessions=None, pythons=("3.8",), keywords=None, posargs=[]
     )
     manifest = Manifest(
         {"foo": session_func_with_python, "bar": session_func, "baz": session_func},
@@ -236,7 +275,7 @@ def test_filter_manifest_pythons() -> None:
 
 def test_filter_manifest_pythons_not_found(caplog: pytest.LogCaptureFixture) -> None:
     config = _options.options.namespace(
-        sessions=None, pythons=("1.2",), keywords=(), posargs=[]
+        sessions=None, pythons=("1.2",), keywords=None, posargs=[]
     )
     manifest = Manifest(
         {"foo": session_func_with_python, "bar": session_func, "baz": session_func},
@@ -294,7 +333,7 @@ def test_filter_manifest_keywords_syntax_error() -> None:
     ],
 )
 def test_filter_manifest_tags(
-    tags: None | builtins.list[builtins.str],
+    tags: builtins.list[builtins.str] | None,
     session_count: builtins.int,
 ) -> None:
     @nox.session(tags=["foo"])
@@ -393,7 +432,7 @@ def test_merge_tags(generate_noxfile_options: Callable[..., str]) -> None:
 
 
 @pytest.mark.parametrize("selection", [None, ["qux"], ["quuz"], ["qux", "quuz"]])
-def test_default_false(selection: None | builtins.list[builtins.str]) -> None:
+def test_default_false(selection: builtins.list[builtins.str] | None) -> None:
     @nox.session()
     def qux() -> None:
         pass
@@ -443,7 +482,7 @@ def test_honor_list_request_noop() -> None:
     ],
 )
 def test_honor_list_request(
-    description: None | builtins.str, module_docstring: None | builtins.str
+    description: builtins.str | None, module_docstring: builtins.str | None
 ) -> None:
     config = _options.options.namespace(
         list_sessions=True, noxfile="noxfile.py", color=False
@@ -599,21 +638,21 @@ def test_empty_session_None_in_noxfile() -> None:
 
 
 def test_verify_manifest_empty() -> None:
-    config = _options.options.namespace(sessions=(), keywords=())
+    config = _options.options.namespace(sessions=(), keywords=None)
     manifest = Manifest({}, config)
     return_value = tasks.filter_manifest(manifest, global_config=config)
     assert return_value == 3
 
 
 def test_verify_manifest_nonempty() -> None:
-    config = _options.options.namespace(sessions=None, keywords=(), posargs=[])
+    config = _options.options.namespace(sessions=None, keywords=None, posargs=[])
     manifest = Manifest({"session": session_func}, config)
     return_value = tasks.filter_manifest(manifest, global_config=config)
     assert return_value == manifest
 
 
 def test_verify_manifest_list(capsys: pytest.CaptureFixture[builtins.str]) -> None:
-    config = _options.options.namespace(sessions=(), keywords=(), posargs=[])
+    config = _options.options.namespace(sessions=(), keywords=None, posargs=[])
     manifest = Manifest({"session": session_func}, config)
     return_value = tasks.filter_manifest(manifest, global_config=config)
     assert return_value == 0
@@ -655,6 +694,46 @@ def test_run_manifest(with_warnings: builtins.bool) -> None:
         assert result.status == sessions.Status.SUCCESS
 
 
+@pytest.mark.parametrize(
+    ("func_allow_parallel", "global_allow_parallel"),
+    [
+        pytest.param(False, False, id="explicit-false"),
+        pytest.param(None, False, id="unset-without-global"),
+        pytest.param(False, True, id="explicit-false-beats-global"),
+    ],
+)
+def test_run_manifest_sequential_without_allow_parallel(
+    monkeypatch: pytest.MonkeyPatch,
+    func_allow_parallel: bool | None,
+    global_allow_parallel: bool,
+) -> None:
+    # --parallel falls back to the ordinary sequential path (with a warning)
+    # when no selected session allows parallel execution.
+    fail_parallel = mock.Mock(side_effect=AssertionError("parallel runner used"))
+    monkeypatch.setattr("nox._parallel.run_manifest_parallel", fail_parallel)
+    config = _options.options.namespace(
+        stop_on_first_error=False, parallel=4, allow_parallel=global_allow_parallel
+    )
+    sessions_ = [
+        typing.cast("sessions.SessionRunner", mock.Mock(spec=sessions.SessionRunner)),
+        typing.cast("sessions.SessionRunner", mock.Mock(spec=sessions.SessionRunner)),
+    ]
+    manifest = Manifest({}, config)
+    manifest._queue = copy.copy(sessions_)
+    manifest._all_sessions = copy.copy(sessions_)
+    func = argparse.Namespace(should_warn={}, allow_parallel=func_allow_parallel)
+    for mock_session in sessions_:
+        mock_session.execute.return_value = sessions.Result(  # type: ignore[attr-defined]
+            session=mock_session, status=sessions.Status.SUCCESS
+        )
+        mock_session.func = func  # type: ignore[assignment]
+
+    results = tasks.run_manifest(manifest, global_config=config)
+
+    assert len(results) == 2
+    assert all(result.status == sessions.Status.SUCCESS for result in results)
+
+
 def test_run_manifest_abort_on_first_failure() -> None:
     # Set up a valid manifest.
     config = _options.options.namespace(stop_on_first_error=True)
@@ -690,7 +769,7 @@ def test_run_manifest_abort_on_first_failure() -> None:
 def test_print_summary_one_result() -> None:
     results = [mock.sentinel.RESULT]
     with mock.patch("nox.tasks.logger", autospec=True) as logger:
-        answer = tasks.print_summary(results, argparse.Namespace())
+        answer = tasks.print_summary(results, _options.options.namespace())
         assert not logger.warning.called
         assert not logger.success.called
         assert not logger.error.called
@@ -731,7 +810,7 @@ def test_print_summary() -> None:
             ),
         ]
 
-        answer = tasks.print_summary(results, argparse.Namespace())
+        answer = tasks.print_summary(results, _options.options.namespace())
 
         assert mock_log.call_count == 4
         calls = mock_log.call_args_list
@@ -741,6 +820,31 @@ def test_print_summary() -> None:
         assert calls[3][0][0] == "* qux: skipped (something reason)"
 
     assert answer is results
+
+
+def test_print_summary_uses_parallel_wall_time() -> None:
+    results = [
+        sessions.Result(
+            session=typing.cast(
+                "sessions.SessionRunner", argparse.Namespace(friendly_name="foo")
+            ),
+            status=sessions.Status.SUCCESS,
+        ),
+        sessions.Result(
+            session=typing.cast(
+                "sessions.SessionRunner", argparse.Namespace(friendly_name="bar")
+            ),
+            status=sessions.Status.SUCCESS,
+        ),
+    ]
+    config = _options.options.namespace(parallel_wall_time=120.0)
+    with (
+        mock.patch.object(sessions.Result, "log"),
+        mock.patch.object(tasks, "logger") as logger,
+    ):
+        tasks.print_summary(results, config)
+    # The summary reports wall-clock time, not the sum of session durations.
+    assert "Ran 2 sessions in 2 minutes" in logger.session_info.call_args[0][0]
 
 
 def test_create_report_noop() -> None:
@@ -775,6 +879,7 @@ def test_create_report() -> None:
                             "signatures": ["foosig"],
                             "result": "success",
                             "result_code": 1,
+                            "reason": None,
                             "args": {},
                             "duration": 0.0,
                         }
@@ -854,7 +959,7 @@ def test_honor_usage_request_session_not_found() -> None:
 
 
 def test_final_reduce() -> None:
-    config = argparse.Namespace()
+    config = _options.options.namespace()
     true = typing.cast("sessions.Result", True)  # noqa: FBT003
     false = typing.cast("sessions.Result", False)  # noqa: FBT003
     assert tasks.final_reduce([true, true], config) == 0

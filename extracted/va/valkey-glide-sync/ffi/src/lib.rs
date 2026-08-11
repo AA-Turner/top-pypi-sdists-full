@@ -39,7 +39,7 @@ use std::slice::from_raw_parts;
 use std::str;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::sync::{Condvar, OnceLock};
+use std::sync::Condvar;
 use std::{
     ffi::{CString, c_void},
     os::raw::{c_char, c_double, c_long, c_ulong},
@@ -562,7 +562,25 @@ struct SharedPipeWriter {
     #[allow(dead_code)]
     pipe_fd: i32,
 }
-static ASYNC_PIPE: OnceLock<SharedPipeWriter> = OnceLock::new();
+/// The process-wide async pipe state. Uses an atomic pointer so the read path
+/// is lock-free and cannot be inherited in a locked state after fork().
+/// Note: the `SharedPipeWriter` itself contains a `Mutex<Vec<u8>>` which is
+/// fork-unsafe; callers must swap in a fresh writer via `reinit_async_pipe`
+/// before any push touches the inherited instance.
+static ASYNC_PIPE: std::sync::atomic::AtomicPtr<SharedPipeWriter> =
+    std::sync::atomic::AtomicPtr::new(std::ptr::null_mut());
+
+/// Returns the current pipe writer, if one is installed. Lock-free read.
+#[inline]
+fn get_async_pipe() -> Option<&'static SharedPipeWriter> {
+    let p = ASYNC_PIPE.load(std::sync::atomic::Ordering::Acquire);
+    if p.is_null() {
+        None
+    } else {
+        // Safety: only leaked &'static SharedPipeWriter values are ever stored.
+        Some(unsafe { &*p })
+    }
+}
 impl SharedPipeWriter {
     fn push_success(&self, cid: u64, rid: usize, rp: usize, ap: usize) {
         let mut b = self.buffer.lock().unwrap();
@@ -691,77 +709,130 @@ pub unsafe extern "C" fn free_pipe_error_string(ptr: *mut c_char) {
 /// Initialize the process-wide shared pipe for async response delivery.
 /// Spawns a dedicated OS flush thread with adaptive batching.
 ///
+/// This function is idempotent within a single process — calling it multiple
+/// times with the same or different fd is safe (only the first call takes effect).
+/// After `fork()`, call [`reinit_async_pipe`] instead to create a fresh pipe
+/// and flush thread in the child process.
+///
 /// # Safety
-/// Must be called with a valid writable pipe file descriptor.
+///
+/// * `pipe_write_fd` must be a valid writable pipe file descriptor.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn init_async_pipe(pipe_write_fd: i32) {
-    ASYNC_PIPE.get_or_init(|| {
-        let w = SharedPipeWriter {
-            buffer: std::sync::Mutex::new(Vec::with_capacity(FRAME_SIZE * 64)),
-            condvar: Condvar::new(),
-            pipe_fd: pipe_write_fd,
-        };
-        let fd = pipe_write_fd;
-        std::thread::Builder::new()
-            .name("glide-async-pipe-flush".into())
-            .spawn(move || {
-                let flush_threshold: usize = std::env::var("GLIDE_PIPE_FLUSH_THRESHOLD")
-                    .ok()
-                    .and_then(|v| v.parse().ok())
-                    .unwrap_or(1);
-                while let Some(sw) = ASYNC_PIPE.get() {
-                    let data = {
-                        let mut buf = sw.buffer.lock().unwrap();
-                        while buf.is_empty() {
-                            buf = sw.condvar.wait(buf).unwrap();
-                        }
-                        // Flush threshold: if frames buffered <= threshold, flush immediately
-                        // to minimize latency. If more are queued, yield briefly to let more
-                        // accumulate for batch efficiency (amortizes syscall cost).
-                        // Configurable via GLIDE_PIPE_FLUSH_THRESHOLD (default: 1).
-                        let fc = buf.len() / FRAME_SIZE;
-                        if fc <= flush_threshold {
-                            let mut d = Vec::with_capacity(FRAME_SIZE * 4);
-                            std::mem::swap(&mut *buf, &mut d);
-                            d
-                        } else {
-                            drop(buf);
-                            std::thread::yield_now();
-                            let mut buf = sw.buffer.lock().unwrap();
-                            let mut d = Vec::with_capacity(FRAME_SIZE * 64);
-                            std::mem::swap(&mut *buf, &mut d);
-                            d
-                        }
-                    };
-                    if data.is_empty() {
-                        continue;
+    let w = create_pipe_writer(pipe_write_fd);
+    let ptr = w as *const SharedPipeWriter as *mut SharedPipeWriter;
+    // First-call-wins: only install if currently null.
+    if ASYNC_PIPE
+        .compare_exchange(
+            std::ptr::null_mut(),
+            ptr,
+            std::sync::atomic::Ordering::AcqRel,
+            std::sync::atomic::Ordering::Acquire,
+        )
+        .is_err()
+    {
+        // Another call already initialized — the leaked alloc is harmless.
+    }
+}
+
+/// Reinitialize the async pipe after `fork()`.
+///
+/// After `fork()`, the flush thread from the parent process is gone but the
+/// `ASYNC_PIPE` state is inherited. This function replaces the stale pipe
+/// writer with a fresh one backed by the new `pipe_write_fd`, and spawns a
+/// new flush thread.
+///
+/// The old `SharedPipeWriter` is intentionally leaked (not dropped) because
+/// the parent's Mutex/Condvar state is in an undefined state post-fork.
+///
+/// # Safety
+///
+/// * `pipe_write_fd` must be a valid writable pipe file descriptor.
+/// * Must only be called once per child process, before any commands are issued.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn reinit_async_pipe(pipe_write_fd: i32) {
+    let w = create_pipe_writer(pipe_write_fd);
+    let ptr = w as *const SharedPipeWriter as *mut SharedPipeWriter;
+    // Replace the stale writer. The old one is intentionally leaked —
+    // its mutex/condvar are in undefined state post-fork.
+    ASYNC_PIPE.store(ptr, std::sync::atomic::Ordering::Release);
+
+    // Also reinitialize the timeout watchdog — its thread is dead post-fork.
+    glide_core::timeout_watchdog::TimeoutWatchdog::reinit_global();
+}
+
+/// Create a new `SharedPipeWriter` and spawn its flush thread.
+/// Returns a `&'static` reference by leaking the allocation (lives for
+/// the lifetime of the process).
+fn create_pipe_writer(pipe_write_fd: i32) -> &'static SharedPipeWriter {
+    let w = Box::new(SharedPipeWriter {
+        buffer: std::sync::Mutex::new(Vec::with_capacity(FRAME_SIZE * 64)),
+        condvar: Condvar::new(),
+        pipe_fd: pipe_write_fd,
+    });
+    // Leak to get 'static lifetime — the pipe writer lives for the process lifetime.
+    let w_ref: &'static SharedPipeWriter = Box::leak(w);
+    let fd = pipe_write_fd;
+    // Spawn flush thread. `w_ref` is &'static and SharedPipeWriter is Sync,
+    // so sharing across threads is safe.
+    let sw_ref = w_ref;
+    std::thread::Builder::new()
+        .name("glide-async-pipe-flush".into())
+        .spawn(move || {
+            let flush_threshold: usize = std::env::var("GLIDE_PIPE_FLUSH_THRESHOLD")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(1);
+            let sw = sw_ref;
+            loop {
+                let data = {
+                    let mut buf = sw.buffer.lock().unwrap();
+                    while buf.is_empty() {
+                        buf = sw.condvar.wait(buf).unwrap();
                     }
-                    let mut off = 0;
-                    while off < data.len() {
-                        let w = unsafe {
-                            libc::write(
-                                fd,
-                                data[off..].as_ptr() as *const libc::c_void,
-                                data.len() - off,
-                            )
-                        };
-                        if w > 0 {
-                            off += w as usize;
-                        } else if w == 0 {
-                            break;
-                        } else {
-                            let e = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
-                            if e == libc::EINTR || e == libc::EAGAIN {
-                                continue;
-                            }
-                            break; // EPIPE/EBADF — fd is gone
+                    let fc = buf.len() / FRAME_SIZE;
+                    if fc <= flush_threshold {
+                        let mut d = Vec::with_capacity(FRAME_SIZE * 4);
+                        std::mem::swap(&mut *buf, &mut d);
+                        d
+                    } else {
+                        drop(buf);
+                        std::thread::yield_now();
+                        let mut buf = sw.buffer.lock().unwrap();
+                        let mut d = Vec::with_capacity(FRAME_SIZE * 64);
+                        std::mem::swap(&mut *buf, &mut d);
+                        d
+                    }
+                };
+                if data.is_empty() {
+                    continue;
+                }
+                let mut off = 0;
+                while off < data.len() {
+                    let w = unsafe {
+                        libc::write(
+                            fd,
+                            data[off..].as_ptr() as *const libc::c_void,
+                            data.len() - off,
+                        )
+                    };
+                    if w > 0 {
+                        off += w as usize;
+                    } else if w == 0 {
+                        break;
+                    } else {
+                        let e = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
+                        if e == libc::EINTR || e == libc::EAGAIN {
+                            continue;
                         }
+                        // EPIPE/EBADF — fd is gone, exit the flush thread.
+                        return;
                     }
                 }
-            })
-            .expect("flush thread");
-        w
-    });
+            }
+        })
+        .expect("flush thread");
+    w_ref
 }
 
 /// A `GlideClient` adapter.
@@ -813,14 +884,14 @@ impl ClientAdapter {
                 let cid = self
                     .pipe_client_id
                     .load(std::sync::atomic::Ordering::Relaxed);
-                if cid != 0 && ASYNC_PIPE.get().is_some() {
+                if cid != 0 && get_async_pipe().is_some() {
                     self.runtime.spawn(async move {
                         match request_future.await {
                             Ok(value) => {
                                 let buf = response_buf.map(|rb| (rb.0, rb.1));
                                 match valkey_value_to_arena_response(value, buf) {
                                     Ok((root_ptr, arena_ptr)) => {
-                                        if let Some(w) = ASYNC_PIPE.get() {
+                                        if let Some(w) = get_async_pipe() {
                                             w.push_success(
                                                 cid,
                                                 request_id,
@@ -830,7 +901,7 @@ impl ClientAdapter {
                                         }
                                     }
                                     Err(err) => {
-                                        if let Some(w) = ASYNC_PIPE.get() {
+                                        if let Some(w) = get_async_pipe() {
                                             w.push_error(
                                                 cid,
                                                 request_id,
@@ -842,7 +913,7 @@ impl ClientAdapter {
                                 }
                             }
                             Err(err) => {
-                                if let Some(w) = ASYNC_PIPE.get() {
+                                if let Some(w) = get_async_pipe() {
                                     w.push_error(
                                         cid,
                                         request_id,
@@ -1058,8 +1129,8 @@ impl ClientAdapter {
                 let cid = self
                     .pipe_client_id
                     .load(std::sync::atomic::Ordering::Relaxed);
-                if cid != 0 && ASYNC_PIPE.get().is_some() {
-                    if let Some(w) = ASYNC_PIPE.get() {
+                if cid != 0 && get_async_pipe().is_some() {
+                    if let Some(w) = get_async_pipe() {
                         w.push_error(cid, request_id, error_type, error_string);
                     }
                 } else {
@@ -1182,7 +1253,8 @@ impl From<redis::PushKind> for PushKind {
 /// # Safety
 /// Extract pubsub message/channel/pattern bytes from a PushInfo.
 /// Returns (message, channel, pattern) as owned byte vectors.
-fn extract_pubsub_data(push_msg: &redis::PushInfo) -> (Vec<u8>, Vec<u8>, Option<Vec<u8>>) {
+#[allow(clippy::type_complexity)]
+fn extract_pubsub_data(push_msg: &redis::PushInfo) -> Option<(Vec<u8>, Vec<u8>, Option<Vec<u8>>)> {
     let strings: Vec<&[u8]> = push_msg
         .data
         .iter()
@@ -1196,15 +1268,15 @@ fn extract_pubsub_data(push_msg: &redis::PushInfo) -> (Vec<u8>, Vec<u8>, Option<
         .collect();
 
     if strings.len() >= 3 {
-        (
+        Some((
             strings[2].to_vec(),
             strings[1].to_vec(),
             Some(strings[0].to_vec()),
-        )
+        ))
     } else if strings.len() == 2 {
-        (strings[1].to_vec(), strings[0].to_vec(), None)
+        Some((strings[1].to_vec(), strings[0].to_vec(), None))
     } else {
-        (vec![], vec![], None)
+        None
     }
 }
 
@@ -1221,45 +1293,39 @@ unsafe fn process_push_notification(
     pubsub_callback: PubSubCallback,
     client_adapter_ptr: usize,
 ) {
-    let strings: Vec<(*mut u8, i64)> = push_msg
-        .data
-        .iter()
-        .map(|v| {
-            let Value::BulkString(str) = v else {
-                unreachable!()
-            };
-            let (ptr, len) = convert_vec_to_pointer(str.clone());
-            (ptr, len)
-        })
-        .collect();
-
-    let ((pattern_ptr, pattern_len), (channel, channel_len), (message_ptr, message_len)) = {
-        if strings.len() == 3 {
-            (strings[0], strings[1], strings[2])
-        } else {
-            ((std::ptr::null_mut::<u8>(), 0), strings[0], strings[1])
-        }
+    let (message, channel, pattern) = if push_msg.kind == redis::PushKind::Disconnection {
+        (vec![], vec![], None)
+    } else {
+        let Some(data) = extract_pubsub_data(&push_msg) else {
+            return;
+        };
+        data
     };
 
-    // Call the pubsub callback with the push notification data
+    let (message_ptr, message_len) = convert_vec_to_pointer(message);
+    let (channel_ptr, channel_len) = convert_vec_to_pointer(channel);
+    let (pattern_ptr, pattern_len) = match pattern {
+        Some(p) => convert_vec_to_pointer(p),
+        None => (std::ptr::null_mut::<u8>(), 0),
+    };
+
     unsafe {
         pubsub_callback(
             client_adapter_ptr,
             push_msg.kind.into(),
             message_ptr,
             message_len,
-            channel,
+            channel_ptr,
             channel_len,
             pattern_ptr,
             pattern_len,
         );
-        // Free memory — allocated via Box::into_raw(vec.into_boxed_slice())
         let _ = Box::from_raw(std::ptr::slice_from_raw_parts_mut(
             message_ptr,
             message_len as usize,
         ));
         let _ = Box::from_raw(std::ptr::slice_from_raw_parts_mut(
-            channel,
+            channel_ptr,
             channel_len as usize,
         ));
         if !pattern_ptr.is_null() {
@@ -1404,17 +1470,19 @@ fn create_client_internal(
                 if pipe_cid != 0 {
                     // Wait for ASYNC_PIPE if not yet initialized (brief spin during startup)
                     let w = loop {
-                        if let Some(w) = ASYNC_PIPE.get() {
+                        if let Some(w) = get_async_pipe() {
                             break w;
                         }
                         std::hint::spin_loop();
                     };
-                    if push_msg.kind == redis::PushKind::Message
+                    if push_msg.kind == redis::PushKind::Disconnection {
+                        let kind: i32 = PushKind::from(push_msg.kind) as i32;
+                        w.push_pubsub_inline(pipe_cid, kind, &[], &[], &[]);
+                    } else if (push_msg.kind == redis::PushKind::Message
                         || push_msg.kind == redis::PushKind::PMessage
-                        || push_msg.kind == redis::PushKind::SMessage
-                        || push_msg.kind == redis::PushKind::Disconnection
+                        || push_msg.kind == redis::PushKind::SMessage)
+                        && let Some((message, channel, pattern)) = extract_pubsub_data(&push_msg)
                     {
-                        let (message, channel, pattern) = extract_pubsub_data(&push_msg);
                         let kind: i32 = PushKind::from(push_msg.kind) as i32;
                         let pat_slice = pattern.as_deref().unwrap_or(&[]);
                         let total_len = message.len() + channel.len() + pat_slice.len();
@@ -3552,7 +3620,7 @@ pub unsafe extern "C-unwind" fn get_cache_metrics(
     // Python pipe clients have cid != 0 AND ASYNC_PIPE initialized.
     // Go/other clients may have cid != 0 for address resolver but no pipe.
     let is_pipe_or_sync = matches!(client_adapter.core.client_type, ClientType::SyncClient)
-        || (cid != 0 && ASYNC_PIPE.get().is_some());
+        || (cid != 0 && get_async_pipe().is_some());
     if is_pipe_or_sync {
         match result {
             Ok(value) => match valkey_value_to_arena_response(value, None) {
@@ -5341,5 +5409,269 @@ pub unsafe extern "C-unwind" fn close_monitor_client(client_ptr: *const c_void) 
         // Drop calls runtime.block_on(client.stop_async()), ensuring the task
         // has fully exited before the adapter memory is freed.
         let _ = unsafe { Box::from_raw(client_ptr as *mut MonitorAdapter) };
+    }
+}
+#[cfg(test)]
+mod tests_push_notification_safety {
+    use super::*;
+    use std::sync::Mutex;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    static CALLBACK_INVOCATIONS: AtomicUsize = AtomicUsize::new(0);
+    static LAST_CALLBACK_DATA: Mutex<Option<CallbackCapture>> = Mutex::new(None);
+
+    struct CallbackCapture {
+        message: Vec<u8>,
+        channel: Vec<u8>,
+        pattern: Option<Vec<u8>>,
+    }
+
+    unsafe extern "C-unwind" fn counting_callback(
+        _client_ptr: usize,
+        _kind: PushKind,
+        message: *const u8,
+        message_len: i64,
+        channel: *const u8,
+        channel_len: i64,
+        pattern: *const u8,
+        pattern_len: i64,
+    ) {
+        CALLBACK_INVOCATIONS.fetch_add(1, Ordering::SeqCst);
+        unsafe {
+            let msg = std::slice::from_raw_parts(message, message_len as usize).to_vec();
+            let ch = std::slice::from_raw_parts(channel, channel_len as usize).to_vec();
+            let pat = if pattern.is_null() {
+                None
+            } else {
+                Some(std::slice::from_raw_parts(pattern, pattern_len as usize).to_vec())
+            };
+            *LAST_CALLBACK_DATA.lock().unwrap() = Some(CallbackCapture {
+                message: msg,
+                channel: ch,
+                pattern: pat,
+            });
+        }
+    }
+
+    fn reset_callback_count() {
+        CALLBACK_INVOCATIONS.store(0, Ordering::SeqCst);
+        *LAST_CALLBACK_DATA.lock().unwrap() = None;
+    }
+
+    #[test]
+    fn test_non_bulkstring_element_does_not_panic() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        reset_callback_count();
+        let push_msg = redis::PushInfo {
+            kind: redis::PushKind::Message,
+            data: vec![Value::BulkString(b"channel".to_vec()), Value::Int(42)],
+        };
+        unsafe {
+            process_push_notification(push_msg, counting_callback, 0);
+        }
+        // Only one BulkString element after filtering, so the frame is too short
+        // and is silently dropped (no callback invocation).
+        assert_eq!(CALLBACK_INVOCATIONS.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn test_non_bulkstring_with_enough_valid_elements_delivers() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        reset_callback_count();
+        let push_msg = redis::PushInfo {
+            kind: redis::PushKind::Message,
+            data: vec![
+                Value::BulkString(b"channel".to_vec()),
+                Value::Int(42),
+                Value::BulkString(b"message".to_vec()),
+            ],
+        };
+        unsafe {
+            process_push_notification(push_msg, counting_callback, 0);
+        }
+        // Two BulkString elements remain after filtering the Int, enough for delivery.
+        assert_eq!(CALLBACK_INVOCATIONS.load(Ordering::SeqCst), 1);
+        let data = LAST_CALLBACK_DATA.lock().unwrap();
+        let capture = data.as_ref().unwrap();
+        assert_eq!(capture.channel, b"channel");
+        assert_eq!(capture.message, b"message");
+        assert!(capture.pattern.is_none());
+    }
+
+    #[test]
+    fn test_too_few_elements_does_not_panic() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        reset_callback_count();
+        let push_msg = redis::PushInfo {
+            kind: redis::PushKind::Message,
+            data: vec![Value::BulkString(b"only_one".to_vec())],
+        };
+        unsafe {
+            process_push_notification(push_msg, counting_callback, 0);
+        }
+        assert_eq!(CALLBACK_INVOCATIONS.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn test_empty_data_does_not_panic() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        reset_callback_count();
+        let push_msg = redis::PushInfo {
+            kind: redis::PushKind::SMessage,
+            data: vec![],
+        };
+        unsafe {
+            process_push_notification(push_msg, counting_callback, 0);
+        }
+        assert_eq!(CALLBACK_INVOCATIONS.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn test_all_non_bulkstring_elements_does_not_panic() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        reset_callback_count();
+        let push_msg = redis::PushInfo {
+            kind: redis::PushKind::Message,
+            data: vec![Value::Int(1), Value::Int(2), Value::Int(3)],
+        };
+        unsafe {
+            process_push_notification(push_msg, counting_callback, 0);
+        }
+        assert_eq!(CALLBACK_INVOCATIONS.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn test_well_formed_two_element_message() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        reset_callback_count();
+        let push_msg = redis::PushInfo {
+            kind: redis::PushKind::Message,
+            data: vec![
+                Value::BulkString(b"my-channel".to_vec()),
+                Value::BulkString(b"hello world".to_vec()),
+            ],
+        };
+        unsafe {
+            process_push_notification(push_msg, counting_callback, 0);
+        }
+        assert_eq!(CALLBACK_INVOCATIONS.load(Ordering::SeqCst), 1);
+        let data = LAST_CALLBACK_DATA.lock().unwrap();
+        let capture = data.as_ref().unwrap();
+        assert_eq!(capture.channel, b"my-channel");
+        assert_eq!(capture.message, b"hello world");
+        assert!(capture.pattern.is_none());
+    }
+
+    #[test]
+    fn test_well_formed_three_element_pmessage() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        reset_callback_count();
+        let push_msg = redis::PushInfo {
+            kind: redis::PushKind::PMessage,
+            data: vec![
+                Value::BulkString(b"my-pattern*".to_vec()),
+                Value::BulkString(b"my-channel".to_vec()),
+                Value::BulkString(b"hello world".to_vec()),
+            ],
+        };
+        unsafe {
+            process_push_notification(push_msg, counting_callback, 0);
+        }
+        assert_eq!(CALLBACK_INVOCATIONS.load(Ordering::SeqCst), 1);
+        let data = LAST_CALLBACK_DATA.lock().unwrap();
+        let capture = data.as_ref().unwrap();
+        assert_eq!(capture.channel, b"my-channel");
+        assert_eq!(capture.message, b"hello world");
+        assert_eq!(capture.pattern.as_deref(), Some(b"my-pattern*".as_slice()));
+    }
+
+    #[test]
+    fn test_extra_elements_no_leak() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        reset_callback_count();
+        let push_msg = redis::PushInfo {
+            kind: redis::PushKind::PMessage,
+            data: vec![
+                Value::BulkString(b"pattern".to_vec()),
+                Value::BulkString(b"channel".to_vec()),
+                Value::BulkString(b"message".to_vec()),
+                Value::BulkString(b"extra1".to_vec()),
+                Value::BulkString(b"extra2".to_vec()),
+            ],
+        };
+        unsafe {
+            process_push_notification(push_msg, counting_callback, 0);
+        }
+        // Callback is invoked with the first 3 elements; extra elements are never
+        // allocated as pointers (no leak). We verify the callback received the
+        // correct data from positions 0, 1, 2.
+        assert_eq!(CALLBACK_INVOCATIONS.load(Ordering::SeqCst), 1);
+        let data = LAST_CALLBACK_DATA.lock().unwrap();
+        let capture = data.as_ref().unwrap();
+        assert_eq!(capture.pattern.as_deref(), Some(b"pattern".as_slice()));
+        assert_eq!(capture.channel, b"channel");
+        assert_eq!(capture.message, b"message");
+    }
+
+    #[test]
+    fn test_extract_pubsub_data_returns_none_for_malformed_frames() {
+        let one_bulk_one_int = redis::PushInfo {
+            kind: redis::PushKind::Message,
+            data: vec![Value::BulkString(b"channel".to_vec()), Value::Int(42)],
+        };
+        assert!(extract_pubsub_data(&one_bulk_one_int).is_none());
+
+        let single_bulk = redis::PushInfo {
+            kind: redis::PushKind::Message,
+            data: vec![Value::BulkString(b"only_one".to_vec())],
+        };
+        assert!(extract_pubsub_data(&single_bulk).is_none());
+
+        let empty = redis::PushInfo {
+            kind: redis::PushKind::Message,
+            data: vec![],
+        };
+        assert!(extract_pubsub_data(&empty).is_none());
+
+        let all_ints = redis::PushInfo {
+            kind: redis::PushKind::Message,
+            data: vec![Value::Int(1), Value::Int(2), Value::Int(3)],
+        };
+        assert!(extract_pubsub_data(&all_ints).is_none());
+    }
+
+    #[test]
+    fn test_disconnection_with_empty_data_reaches_callback() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        reset_callback_count();
+        let push_msg = redis::PushInfo {
+            kind: redis::PushKind::Disconnection,
+            data: vec![],
+        };
+        unsafe {
+            process_push_notification(push_msg, counting_callback, 0);
+        }
+        assert_eq!(CALLBACK_INVOCATIONS.load(Ordering::SeqCst), 1);
+        let data = LAST_CALLBACK_DATA.lock().unwrap();
+        let capture = data.as_ref().unwrap();
+        assert!(capture.message.is_empty());
+        assert!(capture.channel.is_empty());
+        assert!(capture.pattern.is_none());
+    }
+
+    #[test]
+    fn test_malformed_message_frame_still_dropped() {
+        let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        reset_callback_count();
+        let push_msg = redis::PushInfo {
+            kind: redis::PushKind::Message,
+            data: vec![Value::Int(99)],
+        };
+        unsafe {
+            process_push_notification(push_msg, counting_callback, 0);
+        }
+        assert_eq!(CALLBACK_INVOCATIONS.load(Ordering::SeqCst), 0);
     }
 }

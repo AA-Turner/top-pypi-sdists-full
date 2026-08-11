@@ -14,6 +14,7 @@ import traceback
 import subprocess
 import requests as rq
 import pathspec
+from enum import Enum
 from tqdm import tqdm
 
 from typing import Callable, Optional, Tuple
@@ -28,6 +29,7 @@ from fivetran_connector_sdk.helpers import (
     validate_and_load_state,
     validate_and_load_configuration,
     _validate_table_name,
+    PromptMode,
 )
 from fivetran_connector_sdk.constants import (
     OS_MAP,
@@ -45,6 +47,9 @@ from fivetran_connector_sdk.constants import (
     PYPROJECT_TOML,
     PYPROJECT_SKIP_VALIDATION_MESSAGE,
     CONFIGURATION_JSON,
+    FIVETRAN_API_KEY_ENV,
+    FIVETRAN_DESTINATION_NAME_ENV,
+    FIVETRAN_CONNECTION_NAME_ENV,
     PYPI_PACKAGE_DETAILS_URL,
     SIX_HOUR_IN_SEC,
     MAX_RETRIES,
@@ -74,6 +79,11 @@ SETUP_TESTS_RUNNING_MESSAGE = (
     "Running setup tests can take up to a few minutes; "
     "custom tests may take longer depending on your code and external APIs."
 )
+
+
+class NetworkingMethod(str, Enum):
+    PROXY_AGENT = "ProxyAgent"
+    DIRECTLY = "Directly"
 
 
 def log_setup_tests_running() -> None:
@@ -150,7 +160,7 @@ def _monitor_memory():
             )
             return
         print_library_log(
-            f"enforcing {constants.MEMORY_LIMIT_BYTES // (1024 ** 3)} GB memory limit on connector process to simulate production constraints",
+            f"enforcing a {constants.MEMORY_LIMIT_BYTES // (1024 ** 3)} GB memory limit for local testing. Connectors may be subject to memory limits in production as well",
             Logging.Level.INFO
         )
     except Exception:
@@ -233,48 +243,77 @@ def apply_memory_limit():
 
 def get_destination_group(args):
     ft_group = args.destination if args.destination else None
-    env_destination_name = os.getenv('FIVETRAN_DESTINATION_NAME', None)
     if not ft_group:
-        ft_group = get_input_from_cli("Provide the destination name (as displayed in your dashboard destination list)", env_destination_name)
+        ft_group = os.getenv('FIVETRAN_DESTINATION_NAME', None)
+        if ft_group:
+            print_library_log(
+                "reading destination name from FIVETRAN_DESTINATION_NAME environment variable",
+                Logging.Level.INFO, log_icon=Logging.LogIcon.INFO
+            )
+    if ft_group and ft_group.strip() == "":
+        return None
     return ft_group
 
-def get_connection_name(args, retrying=0):
+def get_connection_name(args):
     ft_connection = args.connection if args.connection else None
-    env_connection_name = os.getenv('FIVETRAN_CONNECTION_NAME', None)
     if not ft_connection:
-        ft_connection = get_input_from_cli("Provide the connection name", env_connection_name)
-    if not is_connection_name_valid(ft_connection):
+        ft_connection = os.getenv('FIVETRAN_CONNECTION_NAME', None)
+        if ft_connection:
+            print_library_log(
+                "reading connection name from FIVETRAN_CONNECTION_NAME environment variable",
+                Logging.Level.INFO, log_icon=Logging.LogIcon.INFO
+            )
+    if ft_connection and not is_connection_name_valid(ft_connection):
         print_library_log(
             f"invalid connection name: '{ft_connection}'", Logging.Level.SEVERE)
         print_library_log("connection names must use only [a-z0-9_] and begin with '_' or a lowercase letter", Logging.Level.SEVERE)
-        args.connection = None
-        if retrying >= MAX_RETRIES or args.non_interactive:
-            sys.exit(1)
-        else:
-            return get_connection_name(args, retrying + 1)
+        sys.exit(1)
     return ft_connection
 
 def get_api_key(args):
     ft_deploy_key = args.api_key if args.api_key else None
-    env_api_key = os.getenv('FIVETRAN_API_KEY', None)
     if not ft_deploy_key:
-        ft_deploy_key = get_input_from_cli("Provide your API Key (Base 64 Encoded)", env_api_key, True)
+        ft_deploy_key = os.getenv('FIVETRAN_API_KEY', None)
+        if ft_deploy_key:
+            print_library_log(
+                "reading api key from FIVETRAN_API_KEY environment variable",
+                Logging.Level.INFO, log_icon=Logging.LogIcon.INFO
+            )
+    if ft_deploy_key and ft_deploy_key.strip() == "":
+        return None
     return ft_deploy_key
 
-def get_python_version(args):
+def get_python_version(args, prompt_mode: PromptMode):
     python_version = args.python_version if args.python_version else None
     env_python_version = os.getenv('FIVETRAN_PYTHON_VERSION', None)
-    if env_python_version and not python_version and not args.non_interactive:
+    if env_python_version and not python_version and not prompt_mode.is_non_interactive_mode:
         python_version = get_input_from_cli("Provide your python version", env_python_version)
     return python_version
 
-def get_hd_agent_id(args):
+def get_hd_agent_id(args, prompt_mode: PromptMode):
     hd_agent_id = args.hybrid_deployment_agent_id if args.hybrid_deployment_agent_id else None
     env_hd_agent_id = os.getenv('FIVETRAN_HD_AGENT_ID', None)
 
-    if env_hd_agent_id and not hd_agent_id and not args.non_interactive:
+    if env_hd_agent_id and not hd_agent_id and not prompt_mode.is_non_interactive_mode:
         hd_agent_id = get_input_from_cli("Provide the Hybrid Deployment Agent ID", env_hd_agent_id)
     return hd_agent_id
+
+def get_proxy_id(args):
+    proxy_id = getattr(args, "proxy_id", None)
+    if proxy_id is None:
+        return None
+    if not proxy_id.strip():
+        print_library_log(
+            "--proxy-id was provided with an empty value; please provide a valid Proxy Agent ID.",
+            Logging.Level.SEVERE)
+        sys.exit(1)
+    return proxy_id.strip()
+
+def get_proxy_host_config_key(args):
+    proxy_host_config_key = getattr(args, "proxy_host_config_key", None)
+    if proxy_host_config_key is None:
+        return None
+    return proxy_host_config_key.strip() or None
 
 def get_state(args):
     if args.command.lower() == "deploy" and args.state:
@@ -324,21 +363,35 @@ def get_naming(args):
     return validated + UNDERSCORE_NAMING if validated else None
 
 
-def get_configuration(args, retrying = 0):
+def get_configuration(args):
     configuration = args.configuration if args.configuration else None
-    env_configuration = os.getenv('FIVETRAN_CONFIGURATION', None)
+
+    if not configuration:
+        env_configuration = os.getenv('FIVETRAN_CONFIGURATION', None)
+        if env_configuration:
+            print_library_log(
+                "reading configuration from FIVETRAN_CONFIGURATION environment variable",
+                Logging.Level.INFO, log_icon=Logging.LogIcon.INFO
+            )
+            configuration = env_configuration
+        else:
+            json_filepath = os.path.join(args.project_path, CONFIGURATION_JSON)
+            if os.path.exists(json_filepath):
+                print_library_log(
+                    "reading configuration from configuration.json found in project folder",
+                    Logging.Level.INFO, log_icon=Logging.LogIcon.INFO
+                )
+                configuration = CONFIGURATION_JSON
+            else:
+                print_library_log("no configuration provided", Logging.Level.INFO)
+                return None, None
+
     try:
-        if not configuration and not args.non_interactive and args.command.lower() == "deploy":
-            return _deploy_config_flow(args, env_configuration, retrying)
         config_values = validate_and_load_configuration(args.project_path, configuration)
         return config_values, configuration
     except ValueError as e:
-        args.configuration = None
-        if retrying >= MAX_RETRIES or args.non_interactive:
-            print_library_log(f"invalid configuration error: {e}", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
-            sys.exit(1)
-        else:
-            return get_configuration(args, retrying + 1)
+        print_library_log(f"invalid configuration error: {e}", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
+        sys.exit(1)
 
 
 def check_newer_version(version: str):
@@ -385,24 +438,6 @@ def tester_root_dir_helper() -> str:
     return os.path.join(os.path.expanduser("~"), ROOT_LOCATION)
 
 
-def _deploy_config_flow(args, env_configuration, retrying):
-    """Handles the configuration flow for the deploy command."""
-    confirm = 'y'
-    if not retrying:
-        json_filepath = os.path.join(args.project_path, CONFIGURATION_JSON)
-        if os.path.exists(json_filepath):
-            print_library_log("configuration.json found, "
-                              "but --configuration flag was not provided for 'deploy'", Logging.Level.WARNING)
-            env_configuration = env_configuration if env_configuration else CONFIGURATION_JSON
-        confirm = input("does this run require configuration? (y/N): ")
-    if confirm.lower() == 'y':
-        configuration = get_input_from_cli("Provide the configuration file path", env_configuration)
-        config_values = validate_and_load_configuration(args.project_path, configuration)
-        return config_values, configuration
-    else:
-        print_library_log("️no configuration provided; continuing without configuration", level=Logging.Level.INFO, log_icon=Logging.LogIcon.INFO)
-        return {}, None
-
 
 def _warn_exit_usage(filename, line_no, func):
     print_library_log(
@@ -442,11 +477,13 @@ def exit_check(project_path):
             print_library_log(f"SyntaxError in {ROOT_FILENAME}: {e}", Logging.Level.SEVERE)
 
 
-def check_dict(incoming: dict, string_only: bool = False) -> dict:
+def check_dict(incoming: dict, string_only: bool = False, exempt_keys: set = None) -> dict:
     """Validates the incoming dictionary.
     Args:
         incoming (dict): The dictionary to validate.
         string_only (bool): Whether to allow only string values.
+        exempt_keys (set): Keys whose values are exempt from the string-only check. Used for proxy
+            host key that may hold a list of endpoints instead of a plain string.
 
     Returns:
         dict: The validated dictionary.
@@ -460,13 +497,71 @@ def check_dict(incoming: dict, string_only: bool = False) -> dict:
             "invalid configuration file; must be a valid JSON object\nreference: https://fivetran.com/docs/connector-sdk/connector-development-and-configuration/configuration-json#workingwithconfigurationjson")
 
     if string_only:
+        exempt = exempt_keys or set()
         for k, v in incoming.items():
-            if not isinstance(v, str):
+            if k in exempt:
+                if not isinstance(v, (str, list)):
+                    print_library_log(
+                        f"invalid configuration file; value for '{k}' must be a string or a list of strings\n      reference: https://fivetran.com/docs/connector-sdk/connector-development-and-configuration/configuration-json#workingwithconfigurationjson", Logging.Level.SEVERE)
+                    sys.exit(1)
+            elif not isinstance(v, str):
                 print_library_log(
                     "invalid configuration file; all values must be strings\n      reference: https://fivetran.com/docs/connector-sdk/connector-development-and-configuration/configuration-json#workingwithconfigurationjson", Logging.Level.SEVERE)
                 sys.exit(1)
 
     return incoming
+
+
+
+def _fail_proxy_validation(message):
+    print_library_log(message, Logging.Level.SEVERE)
+    sys.exit(1)
+
+
+def _resolve_proxy_host_key(configuration, proxy_host_config_key):
+    proxy_host_key = proxy_host_config_key.strip()
+    if proxy_host_key not in configuration:
+        return _fail_proxy_validation(
+            "The specified --proxy-host-config-key does not exist in configuration.json.")
+    return proxy_host_key
+
+
+def _detect_default_proxy_host_key(configuration):
+    for key in ("host", "hosts"):
+        if key in configuration:
+            return key
+    return _fail_proxy_validation(
+        "Unable to determine the endpoint to proxy. "
+        "Please specify the configuration key containing the host details using --proxy-host-config-key "
+        "or add a 'host' or 'hosts' entry in configuration.json.")
+
+
+def validate_proxy_configuration(configuration, proxy_id, proxy_host_config_key, hd_agent_id=None):
+    """Validates deploy-time proxy configuration and resolves the proxy host config key.
+
+    Args:
+        configuration (dict): Parsed configuration.json contents.
+        proxy_id (str): Proxy Agent ID supplied via --proxy-id.
+        proxy_host_config_key (str): Optional key whose value holds host:port details.
+        hd_agent_id (str): Optional Hybrid Deployment Agent ID; incompatible with proxy_id.
+
+    Returns:
+        str | None: The resolved proxy host key when proxying is enabled, otherwise None.
+    """
+    if proxy_id and hd_agent_id:
+        return _fail_proxy_validation(
+            "Proxy Agent is not supported in Hybrid Deployment connections.")
+
+    if not proxy_id:
+        if proxy_host_config_key:
+            return _fail_proxy_validation(
+                "--proxy-host-config-key is only supported when --proxy-id is provided.")
+        return None
+
+    if proxy_host_config_key:
+        return _resolve_proxy_host_key(configuration, proxy_host_config_key)
+
+    return _detect_default_proxy_host_key(configuration)
 
 
 def is_connection_name_valid(connection: str):
@@ -555,6 +650,7 @@ def validate_requirements_file(project_path: str, is_deploy: bool, version: str)
 
     """
     requirements_file_path = os.path.join(project_path, REQUIREMENTS_TXT)
+    requirements_file_exists = os.path.exists(requirements_file_path)
     requirements = load_or_add_requirements_file(requirements_file_path)
 
     # copying packages of requirements file to tmp file to handle pipreqs fail use-case
@@ -573,6 +669,13 @@ def validate_requirements_file(project_path: str, is_deploy: bool, version: str)
     corrupt_requirements = [key for key in tmp_requirements if key.startswith("~")]
     for requirement in corrupt_requirements:
         del tmp_requirements[requirement]
+
+    if not requirements_file_exists:
+        if not tmp_requirements:
+            delete_file_if_exists(requirements_file_path)
+            return
+        else:
+            print_library_log("`requirements.txt` file not found in your project folder", Logging.Level.WARNING)
 
     update_version_requirements = verify_version_mismatch_deps(is_deploy, requirements, tmp_requirements)
     update_missing_requirements = verify_missing_deps(is_deploy, requirements, tmp_requirements)
@@ -706,7 +809,6 @@ def load_or_add_requirements_file(requirements_file_path):
             # Intentional empty block: Creating an empty requirements.txt file
             pass
         requirements = {}
-        print_library_log("`requirements.txt` file not found in your project folder", Logging.Level.WARNING)
     return requirements
 
 def copy_requirements_file_to_tmp_requirements_file(requirements_file_path: str, tmp_requirements_file_path):
@@ -942,7 +1044,8 @@ def handle_connection_response(
         cleanup_uploaded_project(deploy_key, package_id)
         sys.exit(1)
 
-def update_connection(id: str, name: str, group: str, config: dict, package_id: str, deploy_key: str, hd_agent_id: str):
+def update_connection(id: str, name: str, group: str, config: dict, package_id: str, deploy_key: str, hd_agent_id: str,
+                      proxy_agent_id: str = None):
     """Updates the connection with the given ID, name, group, configuration, and deployment key.
 
     Args:
@@ -953,6 +1056,7 @@ def update_connection(id: str, name: str, group: str, config: dict, package_id: 
         package_id (str): The package ID.
         deploy_key (str): The deployment key.
         hd_agent_id (str): The hybrid deployment agent ID within the Fivetran system.
+        proxy_agent_id (str): The Proxy Agent ID. Pass None to clear an existing proxy association.
 
     Returns:
         rq.Response: The response object.
@@ -963,13 +1067,21 @@ def update_connection(id: str, name: str, group: str, config: dict, package_id: 
     config["package_id"] = package_id
     json_payload = {
         "config": config,
-        "run_setup_tests": True
+        "run_setup_tests": True,
+        "proxy_agent_id": proxy_agent_id,
     }
 
     # hybrid_deployment_agent_id is optional when redeploying your connection.
     # Customer can use it to change existing hybrid_deployment_agent_id.
     if hd_agent_id:
         json_payload["hybrid_deployment_agent_id"] = hd_agent_id
+    if proxy_agent_id:
+        json_payload["networking_method"] = NetworkingMethod.PROXY_AGENT.value
+    else:
+        json_payload["networking_method"] = NetworkingMethod.DIRECTLY.value
+        # Clear any stale proxy_host_config_key on the server so the connection
+        # fully reverts to direct networking.
+        config["proxy_host_config_key"] = None
 
     log_setup_tests_running()
     response = rq.patch(f"{constants.PRODUCTION_BASE_URL}/v1/connectors/{id}",
@@ -1040,7 +1152,8 @@ def get_connection_details(name: str, group: str, group_id: str, deploy_key: str
 
     return None
 
-def create_connection(deploy_key: str, group_id: str, config: dict, hd_agent_id: str, package_id: str, naming: str) -> rq.Response:
+def create_connection(deploy_key: str, group_id: str, config: dict, hd_agent_id: str, package_id: str, naming: str,
+                      proxy_agent_id: str = None) -> rq.Response:
     """Creates a new connection with the given deployment key, group ID, and configuration.
 
     Args:
@@ -1050,6 +1163,7 @@ def create_connection(deploy_key: str, group_id: str, config: dict, hd_agent_id:
         hd_agent_id (str): The hybrid deployment agent ID within the Fivetran system.
         package_id (str): The package ID.
         naming (str): The formatted naming strategy (e.g., "FIVETRAN_NAMING" or "SOURCE_NAMING").
+        proxy_agent_id (str): The Proxy Agent ID used for proxy routing.
 
     Returns:
         rq.Response: The response object.
@@ -1057,21 +1171,26 @@ def create_connection(deploy_key: str, group_id: str, config: dict, hd_agent_id:
     print_library_log("creating connection", log_icon=Logging.LogIcon.STEP)
     config["package_id"] = package_id
     log_setup_tests_running()
+    json_payload = {
+        "group_id": group_id,
+        "service": "connector_sdk",
+        "config": config,
+        "paused": True,
+        "run_setup_tests": True,
+        "sync_frequency": "360",
+        "destination_schema_names": naming or (FIVETRAN_NAMING_VALUE + UNDERSCORE_NAMING),
+        "hybrid_deployment_agent_id": hd_agent_id
+    }
+    if proxy_agent_id:
+        json_payload["proxy_agent_id"] = proxy_agent_id
+        json_payload["networking_method"] = NetworkingMethod.PROXY_AGENT.value
+
     response = rq.post(f"{constants.PRODUCTION_BASE_URL}/v1/connectors",
                        headers={
                            "Authorization": f"Basic {deploy_key}",
                            "User-Agent": get_user_agent()
                        },
-                       json={
-                           "group_id": group_id,
-                           "service": "connector_sdk",
-                           "config": config,
-                           "paused": True,
-                           "run_setup_tests": True,
-                           "sync_frequency": "360",
-                           "destination_schema_names": naming or (FIVETRAN_NAMING_VALUE + UNDERSCORE_NAMING),
-                           "hybrid_deployment_agent_id": hd_agent_id
-                       })
+                       json=json_payload)
     return response
 
 
@@ -2029,3 +2148,48 @@ def remove_dir_if_empty(dir_path):
             os.rmdir(dir_path)
     except OSError:
         pass
+
+
+def _build_missing_param_msg(flag_name: str, env_var_name: str) -> str:
+    """Build error message for a missing required parameter.
+
+    Args:
+        flag_name (str): The CLI flag name (e.g., '--destination')
+        env_var_name (str): The environment variable name (e.g., 'FIVETRAN_DESTINATION_NAME')
+
+    Returns:
+        str: Formatted error message for the missing parameter
+    """
+    return f"{flag_name} is required; provide it via the {flag_name} flag or the {env_var_name} environment variable."
+
+
+def validate_required_deploy_params(ft_group: str, ft_connection: str, ft_deploy_key: str) -> None:
+    """Validate resolved deployment parameters and exit with errors if any are missing.
+
+    Collects all missing required parameters, logs each error message, then exits once if any are missing.
+
+    Args:
+        ft_group (str): Resolved destination group name
+        ft_connection (str): Resolved connection name
+        ft_deploy_key (str): Resolved API key
+    """
+    missing = []
+    if not ft_group:
+        missing.append(_build_missing_param_msg("--destination", FIVETRAN_DESTINATION_NAME_ENV))
+    if not ft_connection:
+        missing.append(_build_missing_param_msg("--connection", FIVETRAN_CONNECTION_NAME_ENV))
+    if not ft_deploy_key:
+        missing.append(_build_missing_param_msg("--api-key", FIVETRAN_API_KEY_ENV))
+    if missing:
+        for msg in missing:
+            print_library_log(msg, level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
+        sys.exit(1)
+
+def validate_configuration(configuration: dict | None):
+    if configuration is None:
+        print_library_log(
+            "configuration is required; provide it via the --configuration flag, the FIVETRAN_CONFIGURATION environment variable, or by placing configuration.json in the project folder."
+            "\n     If your connector does not require configuration, pass an empty configuration.json file."
+            "\n     For more information, see https://fivetran.com/docs/connector-sdk/connector-development-and-configuration/configuration-json.",
+            level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
+        sys.exit(1)

@@ -33,6 +33,8 @@ from snowflake.core.version import __version__ as VERSION
 if typing.TYPE_CHECKING:
     from snowflake.core._root import Root
 
+# All printable ASCII except the three query-string injection vectors (& = #).
+_QUERY_PARAM_SAFE = "".join(chr(i) for i in range(32, 127) if chr(i) not in "&=#")
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +150,7 @@ class ApiClient:
         _request_auth=None,
         _deserialize_response_fn=None,
     ):
+
         # header parameters
         header_params = header_params or {}
         user_agents = ["python_api/" + VERSION + ""]
@@ -438,6 +441,17 @@ class ApiClient:
             _request_timeout=_request_timeout,
         )
 
+        # Caller explicitly requested asynchronous execution (asyncExec=true). When enabled, honor that
+        # intent by returning the server's 202 accepted-response (which carries the job id) as-is,
+        # instead of polling the result endpoint to completion. Transient-error retries (429/503/504)
+        # are governed separately by should_retry_request and are unaffected.
+        if (
+            response_data.status == 202
+            and root.parameters().should_skip_async_exec_polling
+            and any(k == "asyncExec" and str(v).strip().lower() == "true" for (k, v) in (query_params or []))
+        ):
+            return response_data
+
         if not root.parameters().should_retry_request or response_data.status not in rest.RETRY_STATUS_CODES:
             return response_data
 
@@ -614,7 +628,7 @@ class ApiClient:
             if k in collection_formats:
                 collection_format = collection_formats[k]
                 if collection_format == "multi":
-                    new_params.extend((k, value) for value in v)
+                    new_params.extend((k, quote(str(value), safe=_QUERY_PARAM_SAFE)) for value in v)
                 else:
                     if collection_format == "ssv":
                         delimiter = " "
@@ -626,7 +640,7 @@ class ApiClient:
                         delimiter = ","
                     new_params.append((k, delimiter.join(quote(str(value)) for value in v)))
             else:
-                new_params.append((k, v))
+                new_params.append((k, quote(str(v), safe=_QUERY_PARAM_SAFE)))
 
         return "&".join(["=".join(map(str, item)) for item in new_params])
 

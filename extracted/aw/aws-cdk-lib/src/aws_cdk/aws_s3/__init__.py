@@ -19085,6 +19085,7 @@ class IBucket(
     def enable_event_bridge_notification(self) -> None:
         '''Enables event bridge notification, causing all events below to be sent to EventBridge:.
 
+        - Object Created
         - Object Deleted (DeleteObject)
         - Object Deleted (Lifecycle expiration)
         - Object Restore Initiated
@@ -19679,6 +19680,7 @@ class _IBucketProxy(
     def enable_event_bridge_notification(self) -> None:
         '''Enables event bridge notification, causing all events below to be sent to EventBridge:.
 
+        - Object Created
         - Object Deleted (DeleteObject)
         - Object Deleted (Lifecycle expiration)
         - Object Restore Initiated

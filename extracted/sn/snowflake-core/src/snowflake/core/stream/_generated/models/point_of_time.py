@@ -42,6 +42,7 @@ class PointOfTime(BaseModel):
 
     @field_validator("reference")
     def reference_validate_enum(cls, v):
+
         if v not in ("at", "before"):
             raise ValueError("must validate the enum values ('at','before')")
         return v

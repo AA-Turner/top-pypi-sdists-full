@@ -149,6 +149,43 @@ _CANON_PRED = "Predicted Yield (tn per ha)"
 _CANON_OBS = "Observed Yield (tn per ha)"
 
 
+def _yield_display_for(parser, crop):
+    """Return (unit_label, factor_from_t_per_ha) for displaying this crop.
+
+    [ML] yield_display maps crop -> [label, factor], e.g.
+    ``{"maize": ["bu/ac", 15.9318], "rice": ["cwt/ac", 8.9218]}``.
+    Crops not listed (or no parser) fall back to ([ML] yield_units, 1.0),
+    preserving the old label-only behaviour. The DB always stays in tn/ha;
+    conversion is applied once at the query boundary in run().
+    """
+    base = (parser.get("ML", "yield_units", fallback="Mg/ha")
+            if parser is not None else "Mg/ha")
+    try:
+        disp = ast.literal_eval(
+            parser.get("ML", "yield_display", fallback="{}")
+        ) if parser is not None else {}
+    except (ValueError, SyntaxError):
+        disp = {}
+    if crop in disp:
+        return str(disp[crop][0]), float(disp[crop][1])
+    return base, 1.0
+
+
+def _convert_yield_columns(df, factor):
+    """Scale every yield-valued column by ``factor`` (display units).
+
+    Matches any column embedding the canonical "Yield (tn per ha)" text
+    (Observed/Predicted/Median variants keep their names — dozens of
+    hardcoded references) plus the CI bound columns.
+    """
+    if factor == 1.0 or df is None or df.empty:
+        return df
+    for c in df.columns:
+        if "Yield (tn per ha)" in c or c in ("lower CI", "upper CI"):
+            df[c] = pd.to_numeric(df[c], errors="coerce") * factor
+    return df
+
+
 def _resolve_yield_columns(table_cols):
     """Find the actual Predicted/Observed yield column names in the DB.
 
@@ -617,6 +654,8 @@ def _load_observed_baselines(countries, crop, parser, current_year=None):
         return {}
 
     df_all = pd.concat(frames, ignore_index=True).dropna(subset=["Yield (tn per ha)"])
+    # Match the display units of the (already converted) predictions
+    df_all = _convert_yield_columns(df_all, _yield_display_for(parser, crop)[1])
     max_year = int(df_all["Harvest Year"].max())
     # 10yr upper bound: exclude current forecast year (use current_year-1 if known,
     # otherwise fall back to max_year-1 which may exclude the last observed season)
@@ -2161,8 +2200,9 @@ def _generate_diagnostics(df_pred_store, dg, dir_outlook, current_year=None,
     """
     # Per-project yield-unit label for plots (Mg/ha default, QQ/ha for
     # wolayita, kg/ha for poppy). Threaded through to helpers that produce
-    # user-facing labels.
-    yield_units = (
+    # user-facing labels. Per-crop display overrides ([ML] yield_display)
+    # are resolved inside the combo loop below.
+    yield_units_base = (
         parser.get("ML", "yield_units", fallback="Mg/ha")
         if parser is not None else "Mg/ha"
     )
@@ -2182,6 +2222,11 @@ def _generate_diagnostics(df_pred_store, dg, dir_outlook, current_year=None,
     for (country, crop, model), df in df_pred_store.items():
         if df.empty:
             continue
+
+        # Per-crop display label (values were converted at the query
+        # boundary in run(); here only the label needs to follow).
+        yield_units = (_yield_display_for(parser, crop)[0]
+                       if parser is not None else yield_units_base)
 
         # Get admin_level for this country/crop
         admin_level = "admin_1"
@@ -2251,9 +2296,11 @@ def _generate_diagnostics(df_pred_store, dg, dir_outlook, current_year=None,
                 )
 
     # Model comparison plots (only when multiple models)
-    _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units=yield_units,
+    _generate_model_comparison(df_pred_store, dg, dir_outlook,
+                               yield_units=yield_units_base,
                                make_trigger_plot=make_trigger_plot,
-                               trigger_threshold=trigger_threshold)
+                               trigger_threshold=trigger_threshold,
+                               parser=parser)
 
     # Cross-country comparison plots (only when multiple countries)
     _generate_cross_country_comparison(df_pred_store, dir_outlook)
@@ -2644,7 +2691,8 @@ def _generate_cross_country_comparison(df_pred_store, dir_outlook):
 
 
 def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/ha",
-                                make_trigger_plot=False, trigger_threshold=18.9):
+                                make_trigger_plot=False, trigger_threshold=18.9,
+                                parser=None):
     """Compare model performance when multiple models are available.
 
     Produces grouped bar charts of MAPE, RMSE, and R² by region and by year,
@@ -2663,6 +2711,7 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/h
 
     obs_col = "Observed Yield (tn per ha)"
     pred_col = "Predicted Yield (tn per ha)"
+    _yield_units_base = yield_units
 
     # Group by (country, crop) across models
     country_crop_models = {}
@@ -2675,6 +2724,9 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/h
     for (country, crop), model_dfs in country_crop_models.items():
         if len(model_dfs) < 2:
             continue
+        # Per-crop display label (values already converted in run())
+        yield_units = (_yield_display_for(parser, crop)[0]
+                       if parser is not None else _yield_units_base)
 
         dir_comp = dir_outlook / "plots" / "model_comparison" / country
         dir_csvs_comp = dir_outlook / "csvs" / "model_comparison" / country
@@ -3551,6 +3603,9 @@ def _plot_observed_yields(parser, dir_outlook):
         if df.empty:
             continue
         df["Harvest Year"] = df["Harvest Year"].astype(int)
+        # Per-crop display units ([ML] yield_display)
+        _disp_label, _disp_factor = _yield_display_for(parser, crop)
+        df = _convert_yield_columns(df, _disp_factor)
 
         # Collapse duplicates (region, year) -> mean, then pivot wide.
         df_plot = (
@@ -3579,7 +3634,7 @@ def _plot_observed_yields(parser, dir_outlook):
                 ax=ax, marker="o", linewidth=1.2, markersize=3, alpha=0.85
             )
             ax.set_xlabel("Harvest Year")
-            ax.set_ylabel("Yield (tn per ha)")
+            ax.set_ylabel(f"Yield ({_disp_label})")
             ax.set_title(
                 f"Observed yields — "
                 f"{country.title().replace('_', ' ')} {crop.title()}",
@@ -3998,6 +4053,13 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
 
             map_countries = countries if is_pooled else [country]
 
+            # Convert yields to the crop's display units ([ML] yield_display,
+            # e.g. bu/ac for US crops) ONCE here — the store, maps,
+            # diagnostics and companion CSVs downstream all inherit. The
+            # outlook index is a ratio, so it is unaffected.
+            _, _disp_factor = _yield_display_for(parser, crop)
+            df = _convert_yield_columns(df, _disp_factor)
+
             # Store raw predictions for diagnostics (once per combo, not per year)
             df_pred_store[(country, crop, model)] = df
 
@@ -4122,7 +4184,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                             name_col="Predicted Yield (tn per ha)",
                             dir_out=dir_model,
                             fname=pred_fname,
-                            label=f"Predicted yield ({parser.get('ML', 'yield_units', fallback='Mg/ha')})\n{crop.title()}, {year_to_map}, {friendly_stage_label(stage_name)}{season_label}",
+                            label=f"Predicted yield ({_yield_display_for(parser, crop)[0]})\n{crop.title()}, {year_to_map}, {friendly_stage_label(stage_name)}{season_label}",
                             vmin=float(df_pred_map["Predicted Yield (tn per ha)"].min()),
                             vmax=float(df_pred_map["Predicted Yield (tn per ha)"].max()),
                             cmap=pal.scientific.sequential.Bamako_20_r,

@@ -27,6 +27,7 @@ from urllib.parse import urlsplit
 from pydantic import BaseModel, Field
 
 from ....logger import log_tool_action_debug
+from ....sandbox._mount_security import redact_mount_error_data
 from ....sandbox.entries import Mount
 from ....sandbox.errors import (
     ExecTimeoutError,
@@ -1195,7 +1196,9 @@ class DaytonaSandboxClient(BaseSandboxClient[DaytonaSandboxClientOptions]):
         AsyncDaytona, DaytonaConfig, _, _ = _import_daytona_sdk()
         config = DaytonaConfig(api_key=api_key, api_url=api_url) if (api_key or api_url) else None
         self._daytona = AsyncDaytona(config)
-        self._instrumentation = instrumentation or Instrumentation()
+        self._instrumentation = (
+            instrumentation if instrumentation is not None else Instrumentation()
+        )
         self._dependencies = dependencies
 
     async def _build_create_params(
@@ -1246,6 +1249,7 @@ class DaytonaSandboxClient(BaseSandboxClient[DaytonaSandboxClientOptions]):
             auto_stop_interval=auto_stop_interval,
         )
 
+    @redact_mount_error_data
     async def create(
         self,
         *,
@@ -1255,6 +1259,7 @@ class DaytonaSandboxClient(BaseSandboxClient[DaytonaSandboxClientOptions]):
     ) -> SandboxSession:
         if manifest is None:
             manifest = Manifest(root=DEFAULT_DAYTONA_WORKSPACE_ROOT)
+        self._validate_manifest_for_create(manifest)
 
         timeouts_in = options.timeouts
         if isinstance(timeouts_in, DaytonaSandboxTimeouts):
@@ -1320,6 +1325,7 @@ class DaytonaSandboxClient(BaseSandboxClient[DaytonaSandboxClientOptions]):
             pass
         return session
 
+    @redact_mount_error_data
     async def resume(
         self,
         state: SandboxSessionState,

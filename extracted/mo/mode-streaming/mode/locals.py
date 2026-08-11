@@ -152,6 +152,28 @@ __all__ = [
 PYPY = hasattr(sys, "pypy_version_info")
 SLOTS_ISSUE_PRESENT = sys.version_info < (3, 7)
 
+
+def _cooperative_init_subclass(cls: "type[Proxy[Any]]") -> None:
+    """Call the next ``__init_subclass__`` in ``Proxy``'s MRO.
+
+    This lives at module level, outside the class body, for one reason:
+    naming ``super`` inside a method of ``Proxy`` would make the compiler
+    add an implicit ``__class__`` closure cell to that class.  ``Proxy``
+    defines a ``__class__`` property, and on PyPy -- with a trace function
+    installed, i.e. under coverage -- a class body that has such a cell
+    resolves *every* mention of the name ``__class__`` to the cell rather
+    than to the class namespace.  Reading it then raises ``NameError:
+    name '__class__' is not defined`` at import time, and binding it
+    leaves no descriptor on the class at all, so proxies start reporting
+    themselves instead of the object they wrap.
+
+    Keeping the cell from existing keeps ``__class__`` an ordinary name in
+    that class body, which is what every interpreter has always handled.
+    Pinned by tests/unit/test_locals.py::test_Proxy_class_body_bytecode.
+    """
+    super(Proxy, cls).__init_subclass__()
+
+
 T = TypeVar("T")
 S = TypeVar("S")
 T_co = TypeVar("T_co", covariant=True)
@@ -199,7 +221,12 @@ class Proxy(Generic[T]):
         )
 
     def __init_subclass__(self, source: Optional[type[T]] = None) -> None:
-        super().__init_subclass__()
+        # NOTE: Delegated to a module-level helper on purpose -- do not
+        # inline this back to `super().__init_subclass__()`.  Naming `super`
+        # anywhere in this class body makes the compiler add an implicit
+        # `__class__` closure cell, which breaks the `__class__` property
+        # below on PyPy.  See `_cooperative_init_subclass`.
+        _cooperative_init_subclass(self)
         if source is not None:
             self._init_from_source(source)
         elif self.__proxy_source__ is not None:
@@ -283,6 +310,9 @@ class Proxy(Generic[T]):
     def _get_class(self) -> type[T]:
         return self._get_current_object().__class__
 
+    # NOTE: This ordinary property spelling is only safe while the class
+    # body has no implicit `__class__` closure cell -- see
+    # `_cooperative_init_subclass` before adding any use of `super` here.
     @property
     def __class__(self) -> Any:
         return self._get_class()

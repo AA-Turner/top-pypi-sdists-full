@@ -39,6 +39,55 @@ else:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_dynamodb.ExportReference",
+    jsii_struct_bases=[],
+    name_mapping={"export_arn": "exportArn"},
+)
+class ExportReference:
+    def __init__(self, *, export_arn: builtins.str) -> None:
+        '''A reference to a Export resource.
+
+        :param export_arn: The ExportArn of the Export resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_dynamodb as interfaces_dynamodb
+            
+            export_reference = interfaces_dynamodb.ExportReference(
+                export_arn="exportArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fa335ea5dff43bdf2895227ec678ed08007666aa4e9b8c32d6a32f996623659e)
+            check_type(argname="argument export_arn", value=export_arn, expected_type=type_hints["export_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "export_arn": export_arn,
+        }
+
+    @builtins.property
+    def export_arn(self) -> builtins.str:
+        '''The ExportArn of the Export resource.'''
+        result = self._values.get("export_arn")
+        assert result is not None, "Required property 'export_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ExportReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_dynamodb.GlobalTableReference",
     jsii_struct_bases=[],
     name_mapping={"global_table_arn": "globalTableArn", "table_name": "tableName"},
@@ -103,6 +152,51 @@ class GlobalTableReference:
         )
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_dynamodb.IExportRef")
+class IExportRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Export.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="exportRef")
+    def export_ref(self) -> "ExportReference":
+        '''(experimental) A reference to a Export resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IExportRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Export.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_dynamodb.IExportRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="exportRef")
+    def export_ref(self) -> "ExportReference":
+        '''(experimental) A reference to a Export resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ExportReference", jsii.get(self, "exportRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IExportRef).__jsii_proxy_class__ = lambda : _IExportRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_dynamodb.IGlobalTableRef")
 class IGlobalTableRef(
     _constructs_77d1e7e8.IConstruct,
@@ -148,51 +242,6 @@ class _IGlobalTableRefProxy(
 typing.cast(typing.Any, IGlobalTableRef).__jsii_proxy_class__ = lambda : _IGlobalTableRefProxy
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_dynamodb.IStreamRef")
-class IStreamRef(
-    _constructs_77d1e7e8.IConstruct,
-    _interfaces_8ca7e747.IEnvironmentAware,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a Stream.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="streamRef")
-    def stream_ref(self) -> "StreamReference":
-        '''(experimental) A reference to a Stream resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IStreamRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Stream.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_dynamodb.IStreamRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="streamRef")
-    def stream_ref(self) -> "StreamReference":
-        '''(experimental) A reference to a Stream resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("StreamReference", jsii.get(self, "streamRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IStreamRef).__jsii_proxy_class__ = lambda : _IStreamRefProxy
-
-
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_dynamodb.ITableRef")
 class ITableRef(
     _constructs_77d1e7e8.IConstruct,
@@ -236,66 +285,6 @@ class _ITableRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ITableRef).__jsii_proxy_class__ = lambda : _ITableRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_dynamodb.StreamReference",
-    jsii_struct_bases=[],
-    name_mapping={"stream_arn": "streamArn", "stream_id": "streamId"},
-)
-class StreamReference:
-    def __init__(self, *, stream_arn: builtins.str, stream_id: builtins.str) -> None:
-        '''A reference to a Stream resource.
-
-        :param stream_arn: The ARN of the Stream resource.
-        :param stream_id: The Id of the Stream resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk.interfaces import aws_dynamodb as interfaces_dynamodb
-            
-            stream_reference = interfaces_dynamodb.StreamReference(
-                stream_arn="streamArn",
-                stream_id="streamId"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__8adcbdc6758f54ea90b18c3b765692ca4b284b7c29d3b92f71691c653c33a138)
-            check_type(argname="argument stream_arn", value=stream_arn, expected_type=type_hints["stream_arn"])
-            check_type(argname="argument stream_id", value=stream_id, expected_type=type_hints["stream_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "stream_arn": stream_arn,
-            "stream_id": stream_id,
-        }
-
-    @builtins.property
-    def stream_arn(self) -> builtins.str:
-        '''The ARN of the Stream resource.'''
-        result = self._values.get("stream_arn")
-        assert result is not None, "Required property 'stream_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def stream_id(self) -> builtins.str:
-        '''The Id of the Stream resource.'''
-        result = self._values.get("stream_id")
-        assert result is not None, "Required property 'stream_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "StreamReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
 @jsii.data_type(
@@ -359,28 +348,27 @@ class TableReference:
 
 
 __all__ = [
+    "ExportReference",
     "GlobalTableReference",
+    "IExportRef",
     "IGlobalTableRef",
-    "IStreamRef",
     "ITableRef",
-    "StreamReference",
     "TableReference",
 ]
 
 publication.publish()
 
-def _typecheckingstub__d6270d28eb00f1c7aaa0618efc5efa6bde94ef3afc9af55397e196de36f008c1(
+def _typecheckingstub__fa335ea5dff43bdf2895227ec678ed08007666aa4e9b8c32d6a32f996623659e(
     *,
-    global_table_arn: builtins.str,
-    table_name: builtins.str,
+    export_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__8adcbdc6758f54ea90b18c3b765692ca4b284b7c29d3b92f71691c653c33a138(
+def _typecheckingstub__d6270d28eb00f1c7aaa0618efc5efa6bde94ef3afc9af55397e196de36f008c1(
     *,
-    stream_arn: builtins.str,
-    stream_id: builtins.str,
+    global_table_arn: builtins.str,
+    table_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -393,5 +381,5 @@ def _typecheckingstub__2c9915de6003c317a1c7befc808c20d44a9823a94b613f2c1a5353c8a
     """Type checking stubs"""
     pass
 
-for cls in [IGlobalTableRef, IStreamRef, ITableRef]:
+for cls in [IExportRef, IGlobalTableRef, ITableRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

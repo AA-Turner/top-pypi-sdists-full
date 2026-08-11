@@ -140,7 +140,11 @@ class CitationStylesElement(SomewhatObjectifiedElement):
                 continue
 
     def get_locale_option(self, name):
-        for locale in self.get_root().locales:
+        root = self.get_root()
+        if not hasattr(root, 'locales') or root.locales is None:
+            # root element is Locale, not an iterable of Locales
+            return root.get_option(name)
+        for locale in root.locales:
             try:
                 return locale.get_option(name)
             except IndexError:
@@ -727,7 +731,7 @@ class FormatNumber(object):
 
 class Text(CitationStylesElement, FormatNumber, Formatted, Affixed, Quoted,
            TextCased, StrippedPeriods):
-    generated_variables = ('year-suffix', 'citation-number')
+    generated_variables = ('year-suffix',)
 
     def calls_variable(self):
         if 'variable' in self.attrib:
@@ -1247,7 +1251,7 @@ class Name(CitationStylesElement, Formatted, Affixed, Delimited):
                 if (delimiter_precedes_last == 'always' or
                     (delimiter_precedes_last == 'contextual' and
                      len(output) > 2)):
-                        text = self.join([text, ''])
+                        text = self.join([text, ''], ', ')
                 else:
                     text += ' '
                 text += '{} '.format(and_term) + output[-1]

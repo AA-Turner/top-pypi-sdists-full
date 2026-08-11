@@ -91,7 +91,7 @@ from datamodel_code_generator.parser.generation import GenerationIndex, Generati
 from datamodel_code_generator.parser.schema_version import SchemaFeaturesT
 from datamodel_code_generator.reference import ModelResolver, ModelType, Reference, split_module_name
 from datamodel_code_generator.types import ANY, NONE, DataType, DataTypeManager
-from datamodel_code_generator.util import camel_to_snake
+from datamodel_code_generator.util import camel_to_snake, record_watch_dependency
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
@@ -1465,6 +1465,7 @@ class Source(BaseModel):
         encoding: str,
     ) -> Source:
         """Create a Source from a file path relative to base_path."""
+        record_watch_dependency(path)
         return cls(
             path=path.relative_to(base_path),
             text=path.read_text(encoding=encoding),
@@ -2160,6 +2161,8 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.http_query_parameters: Sequence[tuple[str, str]] | None = config.http_query_parameters
         self.http_ignore_tls: bool = config.http_ignore_tls
         self.http_timeout: float | None = config.http_timeout
+        remote_lock = getattr(config, "remote_lock", None)
+        self._remote_response_observer = remote_lock.record_response if remote_lock is not None else None
         self.use_annotated: bool = config.use_annotated
         if self.use_annotated and not self.field_constraints:  # pragma: no cover
             msg = "`use_annotated=True` has to be used with `field_constraints=True`"
@@ -2405,7 +2408,10 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             from datamodel_code_generator.http import DEFAULT_HTTP_TIMEOUT, _HTTPFetchSession  # noqa: PLC0415
 
             if (session := self._http_fetch_session) is None:
-                self._http_fetch_session = session = _HTTPFetchSession(self.http_backend)
+                self._http_fetch_session = session = _HTTPFetchSession(
+                    self.http_backend,
+                    response_observer=self._remote_response_observer,
+                )
             timeout = self.http_timeout if self.http_timeout is not None else DEFAULT_HTTP_TIMEOUT
             return session.get_body(
                 remote_url,
@@ -2414,6 +2420,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                 self.http_query_parameters,
                 timeout,
                 allow_private_network=self.allow_private_network,
+                encoding=self.encoding,
             )
 
         return self.remote_text_cache.get_or_put(

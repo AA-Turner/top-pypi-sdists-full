@@ -664,12 +664,21 @@ class DBShardGroupReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_rds.DBSubnetGroupReference",
     jsii_struct_bases=[],
-    name_mapping={"db_subnet_group_name": "dbSubnetGroupName"},
+    name_mapping={
+        "db_subnet_group_arn": "dbSubnetGroupArn",
+        "db_subnet_group_name": "dbSubnetGroupName",
+    },
 )
 class DBSubnetGroupReference:
-    def __init__(self, *, db_subnet_group_name: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        db_subnet_group_arn: builtins.str,
+        db_subnet_group_name: builtins.str,
+    ) -> None:
         '''A reference to a DBSubnetGroup resource.
 
+        :param db_subnet_group_arn: The ARN of the DBSubnetGroup resource.
         :param db_subnet_group_name: The DBSubnetGroupName of the DBSubnetGroup resource.
 
         :exampleMetadata: fixture=_generated
@@ -681,15 +690,25 @@ class DBSubnetGroupReference:
             from aws_cdk.interfaces import aws_rds as interfaces_rds
             
             d_b_subnet_group_reference = interfaces_rds.DBSubnetGroupReference(
+                db_subnet_group_arn="dbSubnetGroupArn",
                 db_subnet_group_name="dbSubnetGroupName"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5c64adbab12e5b7d86608b91a80802222b0c76775becee65732d46fa582990ae)
+            check_type(argname="argument db_subnet_group_arn", value=db_subnet_group_arn, expected_type=type_hints["db_subnet_group_arn"])
             check_type(argname="argument db_subnet_group_name", value=db_subnet_group_name, expected_type=type_hints["db_subnet_group_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
+            "db_subnet_group_arn": db_subnet_group_arn,
             "db_subnet_group_name": db_subnet_group_name,
         }
+
+    @builtins.property
+    def db_subnet_group_arn(self) -> builtins.str:
+        '''The ARN of the DBSubnetGroup resource.'''
+        result = self._values.get("db_subnet_group_arn")
+        assert result is not None, "Required property 'db_subnet_group_arn' is missing"
+        return typing.cast(builtins.str, result)
 
     @builtins.property
     def db_subnet_group_name(self) -> builtins.str:
@@ -1528,51 +1547,6 @@ class _IOptionGroupRefProxy(
 typing.cast(typing.Any, IOptionGroupRef).__jsii_proxy_class__ = lambda : _IOptionGroupRefProxy
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_rds.IReservedDBInstanceRef")
-class IReservedDBInstanceRef(
-    _constructs_77d1e7e8.IConstruct,
-    _interfaces_8ca7e747.IEnvironmentAware,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ReservedDBInstance.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="reservedDbInstanceRef")
-    def reserved_db_instance_ref(self) -> "ReservedDBInstanceReference":
-        '''(experimental) A reference to a ReservedDBInstance resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IReservedDBInstanceRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ReservedDBInstance.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_rds.IReservedDBInstanceRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="reservedDbInstanceRef")
-    def reserved_db_instance_ref(self) -> "ReservedDBInstanceReference":
-        '''(experimental) A reference to a ReservedDBInstance resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ReservedDBInstanceReference", jsii.get(self, "reservedDbInstanceRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IReservedDBInstanceRef).__jsii_proxy_class__ = lambda : _IReservedDBInstanceRefProxy
-
-
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_rds.IntegrationReference",
     jsii_struct_bases=[],
@@ -1671,74 +1645,6 @@ class OptionGroupReference:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_rds.ReservedDBInstanceReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "reserved_db_instance_arn": "reservedDbInstanceArn",
-        "reserved_db_instance_id": "reservedDbInstanceId",
-    },
-)
-class ReservedDBInstanceReference:
-    def __init__(
-        self,
-        *,
-        reserved_db_instance_arn: builtins.str,
-        reserved_db_instance_id: builtins.str,
-    ) -> None:
-        '''A reference to a ReservedDBInstance resource.
-
-        :param reserved_db_instance_arn: The ARN of the ReservedDBInstance resource.
-        :param reserved_db_instance_id: The ReservedDBInstanceId of the ReservedDBInstance resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk.interfaces import aws_rds as interfaces_rds
-            
-            reserved_db_instance_reference = interfaces_rds.ReservedDBInstanceReference(
-                reserved_db_instance_arn="reservedDbInstanceArn",
-                reserved_db_instance_id="reservedDbInstanceId"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__db8f79f5c5bd699a450d97a11dee3b0932c3c406f389cff7b2a557e6031fd170)
-            check_type(argname="argument reserved_db_instance_arn", value=reserved_db_instance_arn, expected_type=type_hints["reserved_db_instance_arn"])
-            check_type(argname="argument reserved_db_instance_id", value=reserved_db_instance_id, expected_type=type_hints["reserved_db_instance_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "reserved_db_instance_arn": reserved_db_instance_arn,
-            "reserved_db_instance_id": reserved_db_instance_id,
-        }
-
-    @builtins.property
-    def reserved_db_instance_arn(self) -> builtins.str:
-        '''The ARN of the ReservedDBInstance resource.'''
-        result = self._values.get("reserved_db_instance_arn")
-        assert result is not None, "Required property 'reserved_db_instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def reserved_db_instance_id(self) -> builtins.str:
-        '''The ReservedDBInstanceId of the ReservedDBInstance resource.'''
-        result = self._values.get("reserved_db_instance_id")
-        assert result is not None, "Required property 'reserved_db_instance_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ReservedDBInstanceReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 __all__ = [
     "CustomDBEngineVersionReference",
     "DBClusterParameterGroupReference",
@@ -1770,10 +1676,8 @@ __all__ = [
     "IGlobalClusterRef",
     "IIntegrationRef",
     "IOptionGroupRef",
-    "IReservedDBInstanceRef",
     "IntegrationReference",
     "OptionGroupReference",
-    "ReservedDBInstanceReference",
 ]
 
 publication.publish()
@@ -1862,6 +1766,7 @@ def _typecheckingstub__91d929c8e4d92f83b9c6cc71e3e5564785a42844226119589dcd306e9
 
 def _typecheckingstub__5c64adbab12e5b7d86608b91a80802222b0c76775becee65732d46fa582990ae(
     *,
+    db_subnet_group_arn: builtins.str,
     db_subnet_group_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -1895,13 +1800,5 @@ def _typecheckingstub__e07097ee5cec4d621b125e688e72d708a650095ae041c832d8307f3a2
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__db8f79f5c5bd699a450d97a11dee3b0932c3c406f389cff7b2a557e6031fd170(
-    *,
-    reserved_db_instance_arn: builtins.str,
-    reserved_db_instance_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-for cls in [ICustomDBEngineVersionRef, IDBClusterParameterGroupRef, IDBClusterRef, IDBInstanceRef, IDBParameterGroupRef, IDBProxyEndpointRef, IDBProxyRef, IDBProxyTargetGroupRef, IDBSecurityGroupIngressRef, IDBSecurityGroupRef, IDBShardGroupRef, IDBSubnetGroupRef, IEventSubscriptionRef, IGlobalClusterRef, IIntegrationRef, IOptionGroupRef, IReservedDBInstanceRef]:
+for cls in [ICustomDBEngineVersionRef, IDBClusterParameterGroupRef, IDBClusterRef, IDBInstanceRef, IDBParameterGroupRef, IDBProxyEndpointRef, IDBProxyRef, IDBProxyTargetGroupRef, IDBSecurityGroupIngressRef, IDBSecurityGroupRef, IDBShardGroupRef, IDBSubnetGroupRef, IEventSubscriptionRef, IGlobalClusterRef, IIntegrationRef, IOptionGroupRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

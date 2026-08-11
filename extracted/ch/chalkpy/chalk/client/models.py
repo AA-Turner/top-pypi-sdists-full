@@ -2179,6 +2179,11 @@ class ModelVersionResponse(abc.ABC):
         """Invoke the deployed model with one row of feature values, returning its output."""
         ...
 
+    @abc.abstractmethod
+    def defer(self, *args: Any, **kwargs: Any) -> Any:
+        """Enqueue the same call ``remote()`` would make, returning a handle immediately."""
+        ...
+
 
 @dataclasses.dataclass(frozen=True)
 class RegisteredModelVersion(ModelVersionResponse):
@@ -2203,6 +2208,14 @@ class RegisteredModelVersion(ModelVersionResponse):
         raise ModelNotDeployedError(
             f"Model {self.model_name!r} v{self.version} is not deployed to a scaling group. "
             + "Deploy it with `deploy_model_version_to_scaling_group()` before calling `.remote()`."
+        )
+
+    def defer(self, *args: Any, **kwargs: Any) -> Any:
+        from chalk.client._model_remote import ModelNotDeployedError
+
+        raise ModelNotDeployedError(
+            f"Model {self.model_name!r} v{self.version} is not deployed to a scaling group. "
+            + "Deploy it with `deploy_model_version_to_scaling_group()` before calling `.defer()`."
         )
 
 
@@ -2257,6 +2270,25 @@ class DeployedModelVersion(ModelVersionResponse):
             self._client, self.model_name, inputs, version=self.version, web_url=self._web_url or None
         )
         return out.column(0).to_pylist()[0]
+
+    def defer(self, *args: Any, **kwargs: Any) -> Any:
+        """Enqueue this call onto the function queue, returning a ``ModelCallHandle``.
+
+        ``handle.get()`` returns what ``remote()`` would have returned::
+
+            handle = model_version.defer(1.0, 2.0)
+            result = handle.get(timeout=30)
+
+        Note: If several versions of one model are deployed under different
+        scaling group names at once, any of them may serve the call.
+        Use ``remote()`` when the version must be pinned.
+        """
+        from chalk.client._model_remote import ModelCallHandle, bind_inputs, enqueue_model_call
+
+        inputs = bind_inputs(self.input_features, args, kwargs)
+        get_queue_client = self._client._get_queue_client
+        call_id, _ = enqueue_model_call(get_queue_client(), self.model_name, inputs)
+        return ModelCallHandle(get_queue_client, self.model_name, call_id)
 
 
 class CreateModelTrainingJobResponse(BaseModel):

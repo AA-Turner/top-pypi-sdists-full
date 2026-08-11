@@ -5,11 +5,10 @@ from __future__ import annotations
 from collections.abc import Callable, Collection, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, TypeAlias
+from typing import Literal, Self, TypeAlias
 
 import numpy as np
 from tqdm import tqdm
-from typing_extensions import Self
 
 from .utils import safe_open
 
@@ -151,7 +150,7 @@ def build_graph_cache(
     :returns: A graph cache object, which can access the written binaries quickly
     """
     if not callable(edges):
-        raise ValueError(
+        raise TypeError(
             "`edges` argument must be callable. This is because construction "
             "takes three passes, so it's better that a function that can iterate "
             "is given, to avoid needing to load into memory. If you already have "

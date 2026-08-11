@@ -5,6 +5,9 @@ around a real :class:`~nab_python.fetch.InMemoryIndex`.  The mock's
 request methods write to the index and return an already-set
 :class:`threading.Event`, so the synchronous provider code under test
 sees fetches resolve immediately.
+
+Unlike the real coordinator, the request methods take the published hashes
+as required arguments, so a caller that stops forwarding them fails.
 """
 
 from __future__ import annotations
@@ -87,7 +90,11 @@ def _wire_metadata_side_effects(
 ) -> None:
     """Attach ``request_listing``/``request_metadata``/batch side effects."""
 
-    def _request_listing(_pkg: str) -> threading.Event:
+    def _request_listing(
+        _pkg: str,
+        *,
+        speculative: bool = False,  # noqa: ARG001 (mirrors the real keyword)
+    ) -> threading.Event:
         return _done_event()
 
     def _fetch_metadata(pkg: str, ver: str, url: str) -> None:
@@ -100,7 +107,7 @@ def _wire_metadata_side_effects(
         index.store_metadata(pkg, ver, text, url)
 
     def _request_metadata(
-        pkg: str, ver: str, url: str, _hash: tuple[str, str] | None = None
+        pkg: str, ver: str, url: str, _hash: tuple[str, str] | None
     ) -> threading.Event:
         _fetch_metadata(pkg, ver, url)
         return _done_event()
@@ -133,7 +140,7 @@ def _wire_sdist_side_effects(
         pkg: str,
         ver: str,
         _url: str,
-        _hashes: tuple[tuple[str, str], ...] = (),
+        _hashes: tuple[tuple[str, str], ...],
     ) -> threading.Event:
         pkg_info = (
             sdist_pkg_info

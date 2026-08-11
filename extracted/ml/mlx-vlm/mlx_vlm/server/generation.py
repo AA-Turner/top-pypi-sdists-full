@@ -81,6 +81,18 @@ def get_prefill_step_size():
     return int(os.environ.get("PREFILL_STEP_SIZE", DEFAULT_PREFILL_STEP_SIZE))
 
 
+def get_max_num_seqs():
+    """Max sequences allowed in the running batch at once (None = unbounded)."""
+    raw = os.environ.get("MLX_VLM_MAX_NUM_SEQS", "")
+    if not raw:
+        return None
+    try:
+        n = int(raw)
+    except ValueError:
+        return None
+    return n if n > 0 else None
+
+
 def get_server_max_tokens():
     return int(os.environ.get("MLX_VLM_MAX_TOKENS", DEFAULT_MAX_TOKENS))
 
@@ -326,6 +338,18 @@ def get_quantized_kv_bits(model: str):
         )
         return None
     return kv_bits
+
+
+def get_quantized_kv_split_bits():
+    def _read(name):
+        raw = os.environ.get(name)
+        return float(raw) if raw else None
+
+    return _read("KV_KEY_BITS"), _read("KV_VALUE_BITS")
+
+
+def get_kv_split_schemes():
+    return os.environ.get("KV_KEY_SCHEME"), os.environ.get("KV_VALUE_SCHEME")
 
 
 def get_kv_group_size():
@@ -1049,6 +1073,10 @@ class ResponseGenerator:
         adapter_path: Optional[str] = None,
         vision_cache=None,
         kv_bits=None,
+        kv_key_bits=None,
+        kv_value_bits=None,
+        kv_key_scheme=None,
+        kv_value_scheme=None,
         kv_group_size=DEFAULT_KV_GROUP_SIZE,
         kv_quant_scheme=DEFAULT_KV_QUANT_SCHEME,
         quantized_kv_start=DEFAULT_QUANTIZED_KV_START,
@@ -1064,6 +1092,10 @@ class ResponseGenerator:
         self.vision_cache = vision_cache
         self.draft_model = None
         self.kv_bits = kv_bits
+        self.kv_key_bits = kv_key_bits
+        self.kv_value_bits = kv_value_bits
+        self.kv_key_scheme = kv_key_scheme
+        self.kv_value_scheme = kv_value_scheme
         self.kv_group_size = kv_group_size
         self.kv_quant_scheme = kv_quant_scheme
         self.quantized_kv_start = quantized_kv_start
@@ -1589,10 +1621,16 @@ class ResponseGenerator:
         self,
         *,
         active: bool,
+        capacity: Optional[int] = None,
         idle_timeout: float = 0.1,
         coalesce_s: float = 0.0,
     ):
-        """Collect the first queued request, then drain immediately available peers."""
+        """Collect the first queued request, then drain immediately available peers.
+
+        When ``capacity`` is set, admit at most ``capacity`` new requests and leave
+        the rest queued (backpressure), so the running batch never exceeds
+        ``--max-num-seqs`` concurrent sequences.
+        """
         pending = []
         should_stop = False
 
@@ -1604,9 +1642,13 @@ class ResponseGenerator:
                 return
             pending.append(item)
 
+        def _has_room():
+            return capacity is None or len(pending) < capacity
+
         try:
             if active:
-                append_item(self.requests.get_nowait())
+                if _has_room():
+                    append_item(self.requests.get_nowait())
             else:
                 append_item(self.requests.get(timeout=idle_timeout))
         except QueueEmpty:
@@ -1615,7 +1657,7 @@ class ResponseGenerator:
         if pending and coalesce_s > 0:
             time.sleep(coalesce_s)
 
-        while not should_stop:
+        while not should_stop and _has_room():
             try:
                 append_item(self.requests.get_nowait())
             except QueueEmpty:
@@ -1649,6 +1691,7 @@ class ResponseGenerator:
         batch_gen = None
         # uid -> {rqueue, tokens, gen_kwargs}
         active: dict = {}
+        max_num_seqs = get_max_num_seqs()
 
         while not self._stop:
             try:
@@ -1664,8 +1707,12 @@ class ResponseGenerator:
                     )
                     else 0.0
                 )
+                capacity = (
+                    None if max_num_seqs is None else max(0, max_num_seqs - len(active))
+                )
                 new_items, should_stop = self._collect_pending_requests(
                     active=active_batch,
+                    capacity=capacity,
                     coalesce_s=coalesce_s,
                 )
                 if should_stop:
@@ -1709,6 +1756,10 @@ class ResponseGenerator:
                             stop_tokens=self.stop_tokens,
                             sampler=self._make_sampler(args),
                             kv_bits=self.kv_bits,
+                            kv_key_bits=getattr(self, "kv_key_bits", None),
+                            kv_value_bits=getattr(self, "kv_value_bits", None),
+                            kv_key_scheme=getattr(self, "kv_key_scheme", None),
+                            kv_value_scheme=getattr(self, "kv_value_scheme", None),
                             kv_group_size=self.kv_group_size,
                             kv_quant_scheme=self.kv_quant_scheme,
                             quantized_kv_start=self.quantized_kv_start,

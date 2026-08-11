@@ -5,6 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
+from ....sandbox._mount_security import (
+    redact_mount_error_data,
+    validate_mount_activation_credential_boundary,
+)
 from ....sandbox.entries.mounts.base import InContainerMountStrategy, Mount, MountStrategyBase
 from ....sandbox.entries.mounts.patterns import RcloneMountPattern
 from ....sandbox.errors import MountConfigError
@@ -77,6 +81,7 @@ class E2BCloudBucketMountStrategy(MountStrategyBase):
     def validate_mount(self, mount: Mount) -> None:
         self._delegate().validate_mount(mount)
 
+    @redact_mount_error_data
     async def activate(
         self,
         mount: Mount,
@@ -84,6 +89,13 @@ class E2BCloudBucketMountStrategy(MountStrategyBase):
         dest: Path,
         base_dir: Path,
     ) -> list[MaterializedFile]:
+        validate_mount_activation_credential_boundary(
+            mount,
+            self,
+            manifest=getattr(getattr(session, "state", None), "manifest", None),
+            mount_path=lambda: mount._resolve_mount_path(session, dest),
+            provider_backend_id="e2b",
+        )
         _assert_e2b_session(session)
         if self.pattern.mode == "fuse":
             await _ensure_fuse_support(session)
@@ -91,6 +103,7 @@ class E2BCloudBucketMountStrategy(MountStrategyBase):
         delegate = await self._delegate_for_session(session)
         return await delegate.activate(mount, session, dest, base_dir)
 
+    @redact_mount_error_data
     async def deactivate(
         self,
         mount: Mount,
@@ -101,6 +114,7 @@ class E2BCloudBucketMountStrategy(MountStrategyBase):
         _assert_e2b_session(session)
         await self._delegate().deactivate(mount, session, dest, base_dir)
 
+    @redact_mount_error_data
     async def teardown_for_snapshot(
         self,
         mount: Mount,
@@ -110,12 +124,20 @@ class E2BCloudBucketMountStrategy(MountStrategyBase):
         _assert_e2b_session(session)
         await self._delegate().teardown_for_snapshot(mount, session, path)
 
+    @redact_mount_error_data
     async def restore_after_snapshot(
         self,
         mount: Mount,
         session: BaseSandboxSession,
         path: Path,
     ) -> None:
+        validate_mount_activation_credential_boundary(
+            mount,
+            self,
+            manifest=getattr(getattr(session, "state", None), "manifest", None),
+            mount_path=path,
+            provider_backend_id="e2b",
+        )
         _assert_e2b_session(session)
         if self.pattern.mode == "fuse":
             await _ensure_fuse_support(session)

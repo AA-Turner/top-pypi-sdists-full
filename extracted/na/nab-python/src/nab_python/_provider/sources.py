@@ -26,7 +26,10 @@ if TYPE_CHECKING:
     from ..metadata import WheelMetadata
     from ..provider import ArchiveSource, LocalSource, Provider, VcsSource
 
-_EXTRACTED_MARKER = ".nab-extracted"
+# The archive names everything under _TREE_DIR, so the cache's own bookkeeping
+# sits beside that directory rather than inside it.
+_TREE_DIR = "tree"
+_COMPLETE_MARKER = ".nab-complete"
 _HASHES_MARKER = ".nab-hashes"
 
 
@@ -93,15 +96,25 @@ def extract_source_metadata(
     for :class:`VcsSource` clones and ``"archive"`` for extracted
     :class:`ArchiveSource` trees both build only at
     :attr:`BuildPolicy.BUILD_REMOTE`, like a remote sdist.
+
+    An unreadable ``pyproject.toml`` is reported as a read failure at
+    every policy level: the build path cannot read it either, so calling
+    it dynamic metadata would blame the policy for a permission error.
     """
     # Imported in-function so tests can patch the module attribute.
     from .. import build_backend
     from ..build_backend import BuildBackendError, extract_static_metadata
     from ..provider import BuildPolicy, UnsupportedSdistError
 
-    metadata = extract_static_metadata(path)
+    try:
+        metadata = extract_static_metadata(path)
+    except BuildBackendError as exc:
+        msg = f"{descriptor}: {exc}"
+        raise UnsupportedSdistError(msg) from exc
+
     if metadata is not None:
         return metadata
+
     effective = provider.effective_build_policy_for_source(package)
     if kind == "local":
         allowed = {BuildPolicy.BUILD_LOCAL, BuildPolicy.BUILD_REMOTE}
@@ -113,8 +126,8 @@ def extract_source_metadata(
         provider.stats.excluded_by_build_policy += 1
         msg = (
             f"{descriptor} at {path} has dynamic metadata; building requires"
-            f" BuildPolicy.{minimum.name} but the effective policy is"
-            f" {effective.value}"
+            f" build-policy '{minimum.value}' but the effective policy is"
+            f" '{effective.value}'"
         )
         raise UnsupportedSdistError(msg)
     try:
@@ -238,7 +251,10 @@ def materialize_vcs_source(
         msg = f"vcs source {source.name!r}: {exc}"
         raise UnsupportedSdistError(msg) from exc
     provider.vcs_pins[canonicalize_name(source.name)] = clone.commit_sha
-    path = clone.path / clone.subdirectory if clone.subdirectory else clone.path
+
+    # The cache dir can be relative, and a file URI needs an absolute path.
+    root = clone.path.resolve()
+    path = root / clone.subdirectory if clone.subdirectory else root
     descriptor = f"vcs source {source.name!r}"
     metadata = extract_source_metadata(
         provider,
@@ -351,7 +367,7 @@ def _prepare_archive_tree(
     target = cache_dir / digest
 
     declared = set(request.hashes)
-    if (target / _EXTRACTED_MARKER).is_file() and declared <= _verified_hashes(target):
+    if (target / _COMPLETE_MARKER).is_file() and declared <= _verified_hashes(target):
         return _extracted_root(target), request
 
     data = _fetch_archive_bytes(provider, source, request)
@@ -422,6 +438,9 @@ def _extract_archive(
 ) -> Path:  # pragma: no cover (tar data filter; see materialize_archive_source)
     """Extract ``data`` under ``cache_dir`` keyed by ``digest``; return the root.
 
+    The archive's root is published at ``_TREE_DIR`` inside the entry, so no
+    name the archive chose reaches the entry's top level.
+
     ``verified`` names the hashes the caller checked ``data`` against, recorded
     beside the completion marker so a later resolve reuses the tree only for a
     declaration those hashes cover.
@@ -435,29 +454,33 @@ def _extract_archive(
     from ..provider import UnsupportedSdistError
 
     target = cache_dir / digest
-    marker = target / _EXTRACTED_MARKER
+    marker = target / _COMPLETE_MARKER
 
     if not marker.is_file():
         cache_dir.mkdir(parents=True, exist_ok=True)
         tmp = Path(tempfile.mkdtemp(dir=cache_dir, prefix=f"{digest}.", suffix=".tmp"))
 
         try:
+            unpacked = tmp / "unpacked"
+            unpacked.mkdir()
+
             try:
-                root = extract_sdist_archive(data, tmp)
+                root = extract_sdist_archive(data, unpacked)
             except ValueError as exc:
                 msg = f"archive could not be extracted: {exc}"
                 raise UnsupportedSdistError(msg) from exc
 
-            # An empty root name means a flat archive.  Compare against the
-            # resolved temp dir, since extract_sdist_archive resolves symlinks
-            # and relative cache dirs.
-            root_name = root.name if root != tmp.resolve() else ""
+            # A flat archive's root is the extraction dir itself, so the move
+            # takes that dir and leaves nothing behind to remove.
+            root.replace(tmp / _TREE_DIR)
+            with suppress(FileNotFoundError):
+                unpacked.rmdir()
 
             record = "\n".join(
                 f"{algorithm}={hex_digest}" for algorithm, hex_digest in verified
             )
             (tmp / _HASHES_MARKER).write_text(record, encoding="utf-8")
-            (tmp / _EXTRACTED_MARKER).write_text(root_name, encoding="utf-8")
+            (tmp / _COMPLETE_MARKER).touch()
 
             try:
                 tmp.rename(target)
@@ -481,12 +504,6 @@ def _extract_archive(
 
 
 def _extracted_root(target: Path) -> Path:
-    """Return the source root inside the extracted tree at ``target``.
-
-    An empty marker records a flat archive, whose root is the tree itself.
-    """
-    root_name = (target / _EXTRACTED_MARKER).read_text(encoding="utf-8").strip()
-
+    """Return the source root inside the extracted tree at ``target``."""
     # Resolve so the file URI works even for a relative cache dir.
-    base = target / root_name if root_name else target
-    return base.resolve()
+    return (target / _TREE_DIR).resolve()

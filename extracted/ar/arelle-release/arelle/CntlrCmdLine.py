@@ -238,7 +238,7 @@ def parseArgs(args: list[str]) -> tuple[RuntimeOptions, dict[str, Any]]:
             "testcase index file.  `FILENAME` may be "
             "a local file or a URI to a web located file.  "
             "For multiple instance filings may be `|` separated file names or JSON list "
-            "of file/parameter dicts [{\"file\":\"filepath\"}, {\"file\":\"file2path\"} ...]."
+            'of file/parameter dicts [{"file":"filepath"}, {"file":"file2path"} ...].'
             )
         )
     inputGroup.add_option(
@@ -773,7 +773,7 @@ def parseArgs(args: list[str]) -> tuple[RuntimeOptions, dict[str, Any]]:
         action="store",
         dest="logFormat",
         help=_(
-            "Logging format for messages capture, otherwise default is \"[%(messageCode)s] %(message)s - %(file)s\"."
+            'Logging format for messages capture, otherwise default is "[%(messageCode)s] %(message)s - %(file)s".'
             )
         )
     loggingGroup.add_option(
@@ -1361,12 +1361,12 @@ def parseArgs(args: list[str]) -> tuple[RuntimeOptions, dict[str, Any]]:
                 "An open source XBRL platform\n"
                 "{copyrightLabel}\n"
                 "http://www.arelle.org\nsupport@arelle.org\n\n"
-                "Licensed under the Apache License, Version 2.0 (the \"License\"); "
+                'Licensed under the Apache License, Version 2.0 (the "License"); '
                 "you may not \nuse this file except in compliance with the License.  "
                 "You may obtain a copy \nof the License at "
                 "'http://www.apache.org/licenses/LICENSE-2.0'\n\n"
                 "Unless required by applicable law or agreed to in writing, software \n"
-                "distributed under the License is distributed on an \"AS IS\" BASIS, \n"
+                'distributed under the License is distributed on an "AS IS" BASIS, \n'
                 "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  \n"
                 "See the License for the specific language governing permissions and \n"
                 "limitations under the License."
@@ -1381,8 +1381,8 @@ def parseArgs(args: list[str]) -> tuple[RuntimeOptions, dict[str, Any]]:
                 wordSize=getSystemWordSize(),
                 platform=platform.machine(),
                 copyrightLabel=Version.copyrightLabel,
-                pythonVersion=f'{sys.version_info[0]}.{sys.version_info[1]}.{sys.version_info[2]}',
-                lxmlVersion=f'{etree.LXML_VERSION[0]}.{etree.LXML_VERSION[1]}.{etree.LXML_VERSION[2]}',
+                pythonVersion=f"{sys.version_info[0]}.{sys.version_info[1]}.{sys.version_info[2]}",
+                lxmlVersion=f"{etree.LXML_VERSION[0]}.{etree.LXML_VERSION[1]}.{etree.LXML_VERSION[2]}",
                 )
             )
         parser.exit()  # Printing the message in parser.exit sends it to stderr NOT stdout
@@ -1438,7 +1438,7 @@ def parseArgs(args: list[str]) -> tuple[RuntimeOptions, dict[str, Any]]:
                                 "'--testcaseExpectedErrors=testcase-index.xml:v-1|errorCode1,errorCode2,...'"
                                 )
                             )
-                    expectedErrors[expectedErrorSplit[0]] = expectedErrorSplit[1].split(',')
+                    expectedErrors[expectedErrorSplit[0]] = expectedErrorSplit[1].split(",")
                 optionValue = expectedErrors
             if optionValue is not None or optionName not in finalOptions:
                 finalOptions[optionName] = optionValue
@@ -1713,7 +1713,7 @@ class CntlrCmdLine(Cntlr.Cntlr):
             savePluginChanges = True
             showPluginModules = False
             loadPluginOptions = False
-            for pluginCmd in options.plugins.split('|'):
+            for pluginCmd in options.plugins.split("|"):
                 cmd = pluginCmd.strip()
                 if cmd == "show":
                     showPluginModules = True
@@ -1755,7 +1755,7 @@ class CntlrCmdLine(Cntlr.Cntlr):
                         self.addToLog(_("Activation of plug-in {0} successful, version {1}.").format(moduleInfo.get("name"), moduleInfo.get("version")),
                                       messageCode="info", file=moduleInfo.get("moduleURL"))  # type: ignore[arg-type]
                     else:
-                        self.addToLog(_("Unable to load \"%(name)s\" as a plug-in or \"%(name)s\" is not recognized as a plugin command. "),
+                        self.addToLog(_('Unable to load "%(name)s" as a plug-in or "%(name)s" is not recognized as a plugin command. '),
                                       messageCode="arelle:pluginParameterError",
                                       messageArgs={"name": cmd, "file": cmd}, level=logging.ERROR)
                 if resetPlugins:
@@ -2198,21 +2198,21 @@ class CntlrCmdLine(Cntlr.Cntlr):
                         if options.conceptsFile:
                             ViewFileConcepts.viewConcepts(modelXbrl, options.conceptsFile, labelrole=options.labelRole, lang=options.labelLang)  # type: ignore[no-untyped-call]
                         if options.preFile:
-                            ViewFileRelationshipSet.viewRelationshipSet(modelXbrl, options.preFile, "Presentation Linkbase", XbrlConst.parentChild, labelrole=options.labelRole, lang=options.labelLang, cols=options.relationshipCols)  # type: ignore[no-untyped-call]
+                            ViewFileRelationshipSet.viewRelationshipSet(modelXbrl, options.preFile, "Presentation Linkbase", XbrlConst.parentChild, labelrole=options.labelRole, lang=options.labelLang, cols=options.relationshipCols)  # type: ignore[arg-type]
                         if options.tableFile:
-                            ViewFileRelationshipSet.viewRelationshipSet(modelXbrl, options.tableFile, "Table Linkbase", "Table-rendering", labelrole=options.labelRole, lang=options.labelLang)  # type: ignore[no-untyped-call]
+                            ViewFileRelationshipSet.viewRelationshipSet(modelXbrl, options.tableFile, "Table Linkbase", "Table-rendering", labelrole=options.labelRole, lang=options.labelLang)  # type: ignore[arg-type]
                         if options.renderedTableLinkbaseFile and modelXbrl is not None and modelXbrl.hasTableRendering:
-                            ViewFileRenderedGrid.viewRenderedGrid(modelXbrl, options.renderedTableLinkbaseFile, lang=options.labelLang)  # type: ignore[no-untyped-call]
+                            ViewFileRenderedGrid.viewRenderedGrid(modelXbrl, options.renderedTableLinkbaseFile, lang=options.labelLang)
                         if options.calFile:
-                            ViewFileRelationshipSet.viewRelationshipSet(modelXbrl, options.calFile, "Calculation Linkbase", XbrlConst.summationItems, labelrole=options.labelRole, lang=options.labelLang, cols=options.relationshipCols)  # type: ignore[no-untyped-call]
+                            ViewFileRelationshipSet.viewRelationshipSet(modelXbrl, options.calFile, "Calculation Linkbase", XbrlConst.summationItems, labelrole=options.labelRole, lang=options.labelLang, cols=options.relationshipCols)  # type: ignore[arg-type]
                         if options.dimFile:
-                            ViewFileRelationshipSet.viewRelationshipSet(modelXbrl, options.dimFile, "Dimensions", "XBRL-dimensions", labelrole=options.labelRole, lang=options.labelLang, cols=options.relationshipCols)  # type: ignore[no-untyped-call]
+                            ViewFileRelationshipSet.viewRelationshipSet(modelXbrl, options.dimFile, "Dimensions", "XBRL-dimensions", labelrole=options.labelRole, lang=options.labelLang, cols=options.relationshipCols)  # type: ignore[arg-type]
                         if options.anchFile:
-                            ViewFileRelationshipSet.viewRelationshipSet(modelXbrl, options.anchFile, "Anchoring", XbrlConst.widerNarrower, labelrole=options.labelRole, lang=options.labelLang, cols=options.relationshipCols)  # type: ignore[no-untyped-call]
+                            ViewFileRelationshipSet.viewRelationshipSet(modelXbrl, options.anchFile, "Anchoring", XbrlConst.widerNarrower, labelrole=options.labelRole, lang=options.labelLang, cols=options.relationshipCols)  # type: ignore[arg-type]
                         if options.formulaeFile:
                             ViewFileFormulae.viewFormulae(modelXbrl, options.formulaeFile, "Formulae", lang=options.labelLang)
                         if options.viewArcrole and options.viewFile:
-                            ViewFileRelationshipSet.viewRelationshipSet(modelXbrl, options.viewFile, os.path.basename(options.viewArcrole), options.viewArcrole, labelrole=options.labelRole, lang=options.labelLang, cols=options.relationshipCols)  # type: ignore[no-untyped-call]
+                            ViewFileRelationshipSet.viewRelationshipSet(modelXbrl, options.viewFile, os.path.basename(options.viewArcrole), options.viewArcrole, labelrole=options.labelRole, lang=options.labelLang, cols=options.relationshipCols)  # type: ignore[arg-type]
                         if options.roleTypesFile:
                             ViewFileRoleTypes.viewRoleTypes(modelXbrl, options.roleTypesFile, "Role Types", isArcrole=False, lang=options.labelLang)
                         if options.arcroleTypesFile:
@@ -2334,7 +2334,7 @@ class CntlrCmdLine(Cntlr.Cntlr):
             self.addToLog(_("Activation of package {0} successful.").format(packageMeta.name),
                           messageCode="info", file=packageMeta.url)
         else:
-            self.addToLog(_("Unable to load package \"%(name)s\". "),
+            self.addToLog(_('Unable to load package "%(name)s". '),
                           messageCode="arelle:packageLoadingError",
                           messageArgs={"name": package, "file": package}, level=logging.ERROR)
 
@@ -2394,6 +2394,6 @@ class CntlrCmdLine(Cntlr.Cntlr):
                     messageCode="info", file=packageMeta.url)
 
 if __name__ == "__main__":
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         multiprocessing.freeze_support()
     main()

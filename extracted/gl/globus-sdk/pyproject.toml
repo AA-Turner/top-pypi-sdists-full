@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "globus-sdk"
-version = "4.8.1"
+version = "4.9.0"
 authors = [
     { name = "Globus Team", email = "support@globus.org" },
 ]
@@ -180,6 +180,12 @@ strict = true
 sqlite_cache = true
 warn_unreachable = true
 warn_no_return = true
+
+[[tool.mypy.overrides]]
+module = "docs.*"
+allow_untyped_calls = true
+allow_untyped_defs = true
+ignore_missing_imports = true
 
 [tool.pylint]
 load-plugins = ["pylint.extensions.docparams"]

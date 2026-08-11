@@ -1098,6 +1098,559 @@ class CfnAssessment(
             )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_auditmanager_104d0a27.IAssessmentFrameworkRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnAssessmentFramework(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_auditmanager.CfnAssessmentFramework",
+):
+    '''Creates a custom framework in AWS Audit Manager.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessmentframework.html
+    :cloudformationResource: AWS::AuditManager::AssessmentFramework
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_auditmanager as auditmanager
+        
+        cfn_assessment_framework = auditmanager.CfnAssessmentFramework(self, "MyCfnAssessmentFramework",
+            control_sets=[auditmanager.CfnAssessmentFramework.ControlSetProperty(
+                controls=[auditmanager.CfnAssessmentFramework.ControlSetControlProperty(
+                    id="id"
+                )],
+                name="name"
+            )],
+            name="name",
+        
+            # the properties below are optional
+            compliance_type="complianceType",
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        control_sets: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssessmentFramework.ControlSetProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        name: builtins.str,
+        compliance_type: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::AuditManager::AssessmentFramework``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param control_sets: The control sets that are associated with the framework.
+        :param name: The name of the framework.
+        :param compliance_type: The compliance type that the framework supports, such as CIS or HIPAA.
+        :param description: The description of the framework.
+        :param tags: The tags associated with the framework.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1238a7c7f997fc97830516d2d0e575345411edc6eace16d37e76453e51eb6113)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAssessmentFrameworkProps(
+            control_sets=control_sets,
+            name=name,
+            compliance_type=compliance_type,
+            description=description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForAssessmentFramework")
+    @builtins.classmethod
+    def arn_for_assessment_framework(
+        cls,
+        resource: "_aws_auditmanager_104d0a27.IAssessmentFrameworkRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8a7418fea1c7c65bfb4a13254311609906ecc6b0de26699ce39621aa47c912a9)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAssessmentFramework", [resource]))
+
+    @jsii.member(jsii_name="isCfnAssessmentFramework")
+    @builtins.classmethod
+    def is_cfn_assessment_framework(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAssessmentFramework.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fc5c0a85fa3581033d83034e0c21866ff83f4f72c034b51e6ff7349a73e9cebc)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAssessmentFramework", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__41cecd75886781ba608b6e1ba28350af7a3119659c49c756a5cc27f398dbc2ef)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b741ddc3e6f0b8b8371d88e9af2f01105aec47284644d438ba8773f341a62a32)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="assessmentFrameworkRef")
+    def assessment_framework_ref(
+        self,
+    ) -> "_aws_auditmanager_104d0a27.AssessmentFrameworkReference":
+        '''A reference to a AssessmentFramework resource.'''
+        return typing.cast("_aws_auditmanager_104d0a27.AssessmentFrameworkReference", jsii.get(self, "assessmentFrameworkRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the framework.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The time when the framework was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedBy")
+    def attr_created_by(self) -> builtins.str:
+        '''The user or role that created the framework.
+
+        :cloudformationAttribute: CreatedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFrameworkId")
+    def attr_framework_id(self) -> builtins.str:
+        '''The unique identifier for the framework.
+
+        :cloudformationAttribute: FrameworkId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFrameworkId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedAt")
+    def attr_last_updated_at(self) -> builtins.str:
+        '''The time when the framework was most recently updated.
+
+        :cloudformationAttribute: LastUpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedBy")
+    def attr_last_updated_by(self) -> builtins.str:
+        '''The user or role that most recently updated the framework.
+
+        :cloudformationAttribute: LastUpdatedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrType")
+    def attr_type(self) -> builtins.str:
+        '''The framework type, such as a standard framework or a custom framework.
+
+        :cloudformationAttribute: Type
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="controlSets")
+    def control_sets(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssessmentFramework.ControlSetProperty"]]]:
+        '''The control sets that are associated with the framework.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssessmentFramework.ControlSetProperty"]]], jsii.get(self, "controlSets"))
+
+    @control_sets.setter
+    def control_sets(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssessmentFramework.ControlSetProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b012fe7006c2e4be392fe167796061f9c5fe30972564e1f0fd01039c3c98afe6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "controlSets", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the framework.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__08b095c3ba4a4d5a56a58b779a44cbede3a9436705695e691fc8a2c29e00b0b7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="complianceType")
+    def compliance_type(self) -> typing.Optional[builtins.str]:
+        '''The compliance type that the framework supports, such as CIS or HIPAA.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "complianceType"))
+
+    @compliance_type.setter
+    def compliance_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2ff254a9dfe767e44703ddf2aedde7c5ded65f5710a3dbb18c1fe931c14f1bb7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "complianceType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the framework.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__628b6b1c53ea797a988273286273c6b081736073253d75ce680ba8e38a1449d3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags associated with the framework.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a3426d895ed1da5fcd852aeb51db469aa99e2fbf9120c57efd6b7e2b6648e12e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_auditmanager.CfnAssessmentFramework.ControlSetControlProperty",
+        jsii_struct_bases=[],
+        name_mapping={"id": "id"},
+    )
+    class ControlSetControlProperty:
+        def __init__(self, *, id: builtins.str) -> None:
+            '''A reference to an existing control by ID.
+
+            :param id: The unique identifier of the control.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-auditmanager-assessmentframework-controlsetcontrol.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_auditmanager as auditmanager
+                
+                control_set_control_property = auditmanager.CfnAssessmentFramework.ControlSetControlProperty(
+                    id="id"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__fbc97ca4808d77aa0afd095af34642b4728425747c34d23e13c04fd90bd3f7ff)
+                check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "id": id,
+            }
+
+        @builtins.property
+        def id(self) -> builtins.str:
+            '''The unique identifier of the control.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-auditmanager-assessmentframework-controlsetcontrol.html#cfn-auditmanager-assessmentframework-controlsetcontrol-id
+            '''
+            result = self._values.get("id")
+            assert result is not None, "Required property 'id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ControlSetControlProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_auditmanager.CfnAssessmentFramework.ControlSetProperty",
+        jsii_struct_bases=[],
+        name_mapping={"controls": "controls", "name": "name"},
+    )
+    class ControlSetProperty:
+        def __init__(
+            self,
+            *,
+            controls: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssessmentFramework.ControlSetControlProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            name: builtins.str,
+        ) -> None:
+            '''A control set entity that represents a collection of controls in Audit Manager.
+
+            :param controls: The list of controls within the control set.
+            :param name: The name of the control set.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-auditmanager-assessmentframework-controlset.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_auditmanager as auditmanager
+                
+                control_set_property = auditmanager.CfnAssessmentFramework.ControlSetProperty(
+                    controls=[auditmanager.CfnAssessmentFramework.ControlSetControlProperty(
+                        id="id"
+                    )],
+                    name="name"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3e2d224aba0b37af95b037821f3b28b16980a6c7adcecffc4371cf11d2de6793)
+                check_type(argname="argument controls", value=controls, expected_type=type_hints["controls"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "controls": controls,
+                "name": name,
+            }
+
+        @builtins.property
+        def controls(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssessmentFramework.ControlSetControlProperty"]]]:
+            '''The list of controls within the control set.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-auditmanager-assessmentframework-controlset.html#cfn-auditmanager-assessmentframework-controlset-controls
+            '''
+            result = self._values.get("controls")
+            assert result is not None, "Required property 'controls' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssessmentFramework.ControlSetControlProperty"]]], result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the control set.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-auditmanager-assessmentframework-controlset.html#cfn-auditmanager-assessmentframework-controlset-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ControlSetProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_auditmanager.CfnAssessmentFrameworkProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "control_sets": "controlSets",
+        "name": "name",
+        "compliance_type": "complianceType",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnAssessmentFrameworkProps:
+    def __init__(
+        self,
+        *,
+        control_sets: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssessmentFramework.ControlSetProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        name: builtins.str,
+        compliance_type: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAssessmentFramework``.
+
+        :param control_sets: The control sets that are associated with the framework.
+        :param name: The name of the framework.
+        :param compliance_type: The compliance type that the framework supports, such as CIS or HIPAA.
+        :param description: The description of the framework.
+        :param tags: The tags associated with the framework.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessmentframework.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_auditmanager as auditmanager
+            
+            cfn_assessment_framework_props = auditmanager.CfnAssessmentFrameworkProps(
+                control_sets=[auditmanager.CfnAssessmentFramework.ControlSetProperty(
+                    controls=[auditmanager.CfnAssessmentFramework.ControlSetControlProperty(
+                        id="id"
+                    )],
+                    name="name"
+                )],
+                name="name",
+            
+                # the properties below are optional
+                compliance_type="complianceType",
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d5ec8716a5409f59c614fa67763a2ac1aab33d2d63771c02587c3b753a1caf16)
+            check_type(argname="argument control_sets", value=control_sets, expected_type=type_hints["control_sets"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument compliance_type", value=compliance_type, expected_type=type_hints["compliance_type"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "control_sets": control_sets,
+            "name": name,
+        }
+        if compliance_type is not None:
+            self._values["compliance_type"] = compliance_type
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def control_sets(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssessmentFramework.ControlSetProperty"]]]:
+        '''The control sets that are associated with the framework.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessmentframework.html#cfn-auditmanager-assessmentframework-controlsets
+        '''
+        result = self._values.get("control_sets")
+        assert result is not None, "Required property 'control_sets' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssessmentFramework.ControlSetProperty"]]], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the framework.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessmentframework.html#cfn-auditmanager-assessmentframework-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def compliance_type(self) -> typing.Optional[builtins.str]:
+        '''The compliance type that the framework supports, such as CIS or HIPAA.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessmentframework.html#cfn-auditmanager-assessmentframework-compliancetype
+        '''
+        result = self._values.get("compliance_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the framework.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessmentframework.html#cfn-auditmanager-assessmentframework-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags associated with the framework.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-auditmanager-assessmentframework.html#cfn-auditmanager-assessmentframework-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAssessmentFrameworkProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_auditmanager.CfnAssessmentProps",
     jsii_struct_bases=[],
@@ -1351,6 +1904,8 @@ class CfnAssessmentProps:
 
 __all__ = [
     "CfnAssessment",
+    "CfnAssessmentFramework",
+    "CfnAssessmentFrameworkProps",
     "CfnAssessmentProps",
 ]
 
@@ -1527,6 +2082,99 @@ def _typecheckingstub__05fcd83833b2ad06bd1bbfa294b9e1cfa8cbd4951ac7be53a73189186
     *,
     aws_accounts: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssessment.AWSAccountProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     aws_services: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssessment.AWSServiceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1238a7c7f997fc97830516d2d0e575345411edc6eace16d37e76453e51eb6113(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    control_sets: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssessmentFramework.ControlSetProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    name: builtins.str,
+    compliance_type: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8a7418fea1c7c65bfb4a13254311609906ecc6b0de26699ce39621aa47c912a9(
+    resource: _aws_auditmanager_104d0a27.IAssessmentFrameworkRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc5c0a85fa3581033d83034e0c21866ff83f4f72c034b51e6ff7349a73e9cebc(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__41cecd75886781ba608b6e1ba28350af7a3119659c49c756a5cc27f398dbc2ef(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b741ddc3e6f0b8b8371d88e9af2f01105aec47284644d438ba8773f341a62a32(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b012fe7006c2e4be392fe167796061f9c5fe30972564e1f0fd01039c3c98afe6(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAssessmentFramework.ControlSetProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__08b095c3ba4a4d5a56a58b779a44cbede3a9436705695e691fc8a2c29e00b0b7(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ff254a9dfe767e44703ddf2aedde7c5ded65f5710a3dbb18c1fe931c14f1bb7(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__628b6b1c53ea797a988273286273c6b081736073253d75ce680ba8e38a1449d3(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a3426d895ed1da5fcd852aeb51db469aa99e2fbf9120c57efd6b7e2b6648e12e(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fbc97ca4808d77aa0afd095af34642b4728425747c34d23e13c04fd90bd3f7ff(
+    *,
+    id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e2d224aba0b37af95b037821f3b28b16980a6c7adcecffc4371cf11d2de6793(
+    *,
+    controls: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssessmentFramework.ControlSetControlProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d5ec8716a5409f59c614fa67763a2ac1aab33d2d63771c02587c3b753a1caf16(
+    *,
+    control_sets: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssessmentFramework.ControlSetProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    name: builtins.str,
+    compliance_type: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

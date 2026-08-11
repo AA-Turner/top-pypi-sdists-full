@@ -97,6 +97,24 @@ async def _post_task_to_server(
     # Include upgrade_details if present
     if task.upgrade_details:
         body["upgrade_details"] = asdict(task.upgrade_details)
+    # Forward the declared artifact contract (issue #3110). Dropping it here
+    # would silently turn a declared report/dataset/action_log/ops_result task
+    # back into a code_diff task at the server boundary.
+    from bernstein.core.tasks.artifacts import ArtifactKind
+
+    if task.artifact_spec.kind is not ArtifactKind.CODE_DIFF:
+        body["artifact_spec"] = task.artifact_spec.to_dict()
+
+    # Forward declared context files (issue #3375). The plan loader stamps
+    # plan-level ``context_files`` onto ``task.metadata``, and the spawner
+    # reads the same key off the stored task at dispatch; this body is built
+    # field-by-field, so without an explicit forward the declaration dies at
+    # the server boundary. Scoped to the one key this wire carries rather
+    # than forwarding all metadata, so unrelated loader-internal metadata
+    # keys keep their current (server-absent) behaviour.
+    context_files = task.metadata.get("context_files") if isinstance(task.metadata, dict) else None
+    if isinstance(context_files, list) and context_files:
+        body["metadata"] = {"context_files": [str(p) for p in context_files]}
 
     # Plan mode: tasks start as PLANNED instead of OPEN
     if plan_mode:

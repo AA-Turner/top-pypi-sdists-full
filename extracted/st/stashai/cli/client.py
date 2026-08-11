@@ -750,6 +750,11 @@ class StashClient:
     def read_source_doc(self, source: str, ref: str) -> dict:
         return self._get(f"/api/v1/me/sources/{source}/doc", ref=ref)
 
+    def download_source_doc(self, source: str, ref: str) -> bytes:
+        return self._request(
+            "GET", f"/api/v1/me/sources/{source}/doc/raw", params={"ref": ref}, timeout=300
+        ).content
+
     def search_sources(
         self,
         query: str,
@@ -908,6 +913,7 @@ class StashClient:
     def publish(
         self,
         title: str,
+        description: str,
         content: str,
         content_type: str = "markdown",
         audience: str = "public",
@@ -915,6 +921,7 @@ class StashClient:
     ) -> dict:
         body: dict = {
             "title": title,
+            "description": description,
             "content": content,
             "content_type": content_type,
             "audience": audience,

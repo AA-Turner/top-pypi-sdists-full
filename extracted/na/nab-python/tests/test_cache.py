@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
 import stat
 import subprocess
+import time
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from nab_index.atomic import atomic_write_text
+from nab_index.atomic import atomic_write, atomic_write_text
 from nab_index.cache import (
     CACHE_VERSION_METADATA,
     CACHE_VERSION_SDIST,
@@ -203,13 +206,17 @@ class TestOnDiskCache:
 
     def test_simple_round_trip(self, tmp_path: Path) -> None:
         cache = self._make(tmp_path)
+        body = b'{"files": []}'
         policy = CachePolicy(fetched_at=1000, max_age=600, etag="abc")
-        cache.put_simple("foo", b'{"files": []}', policy)
+        cache.put_simple("foo", body, policy)
         result = cache.get_simple("foo")
         assert result is not None
-        body, got_policy = result
-        assert body == b'{"files": []}'
-        assert got_policy == policy
+        got_body, got_policy = result
+        assert got_body == body
+        # put_simple stamps the body digest into the stored policy.
+        assert got_policy == replace(
+            policy, body_digest=hashlib.sha256(body).hexdigest()
+        )
 
     def test_simple_layout_uses_pypi_dirname(self, tmp_path: Path) -> None:
         cache = self._make(tmp_path)
@@ -394,13 +401,138 @@ class TestOnDiskCache:
         assert list(tmp_path.rglob("*.neg")) == []
 
 
+class TestUnwritableRoot:
+    """A root the process cannot write to degrades to no caching."""
+
+    def _cache(self, tmp_path: Path) -> OnDiskCache:
+        """Return a cache whose root is a regular file, so every store fails."""
+        root = tmp_path / "cache"
+        root.write_bytes(b"not a directory")
+        return OnDiskCache(root, "https://pypi.org/simple/")
+
+    def test_put_simple_does_not_raise(self, tmp_path: Path) -> None:
+        cache = self._cache(tmp_path)
+        cache.put_simple("foo", b"{}", CachePolicy(fetched_at=1, max_age=1, etag=None))
+        assert cache.get_simple("foo") is None
+
+    def test_put_metadata_does_not_raise(self, tmp_path: Path) -> None:
+        cache = self._cache(tmp_path)
+        cache.put_metadata("foo", METADATA_URLS[0], "Name: foo\n")
+        assert cache.get_metadata("foo", METADATA_URLS[0]) is None
+
+    def test_put_sdist_files_does_not_raise(self, tmp_path: Path) -> None:
+        cache = self._cache(tmp_path)
+        cache.put_sdist_files("foo", "1.0", "Name: foo\n", None)
+        assert cache.get_sdist_files("foo", "1.0") is None
+
+    def test_refresh_simple_policy_does_not_raise(self, tmp_path: Path) -> None:
+        cache = self._cache(tmp_path)
+        cache.refresh_simple_policy(
+            "foo", CachePolicy(fetched_at=2, max_age=1, etag=None)
+        )
+        assert cache.get_simple("foo") is None
+
+    def test_permission_denied_does_not_raise(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def denied(_path: Path, _data: bytes) -> None:
+            raise PermissionError(13, "Permission denied")
+
+        monkeypatch.setattr("nab_index.cache.atomic_write", denied)
+        cache = OnDiskCache(tmp_path, "https://pypi.org/simple/")
+        cache.put_metadata("foo", METADATA_URLS[0], "Name: foo\n")
+        assert cache.get_metadata("foo", METADATA_URLS[0]) is None
+
+    def test_warns_once_per_cache(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        cache = self._cache(tmp_path)
+        policy = CachePolicy(fetched_at=1, max_age=1, etag=None)
+        with caplog.at_level(logging.WARNING, logger="nab_index.cache"):
+            cache.put_simple("foo", b"{}", policy)
+            cache.put_metadata("foo", METADATA_URLS[0], "Name: foo\n")
+            cache.put_sdist_files("foo", "1.0", "Name: foo\n", None)
+        assert len(caplog.records) == 1
+        assert str(tmp_path / "cache") in caplog.records[0].getMessage()
+
+    def test_writable_root_does_not_warn(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        cache = OnDiskCache(tmp_path, "https://pypi.org/simple/")
+        with caplog.at_level(logging.WARNING, logger="nab_index.cache"):
+            cache.put_simple(
+                "foo", b"{}", CachePolicy(fetched_at=1, max_age=1, etag=None)
+            )
+        assert caplog.records == []
+        assert cache.get_simple("foo") is not None
+
+    def test_dropped_body_write_keeps_the_old_policy(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A body lost to ENOSPC must not be stamped with the new policy.
+
+        The small sidecar can land when the much larger body does not,
+        which would leave the old listing looking fresh under the new
+        body's ETag.
+        """
+        cache = OnDiskCache(tmp_path, "https://pypi.org/simple/")
+        old_policy = CachePolicy(fetched_at=0, max_age=600, etag="E1")
+        old_digest = cache.put_simple("foo", b"OLD-LISTING", old_policy)
+
+        def fail_body(path: Path, data: bytes) -> None:
+            if path.suffix == ".json":
+                raise OSError(28, "No space left on device")
+            atomic_write(path, data)
+
+        monkeypatch.setattr("nab_index.cache.atomic_write", fail_body)
+        cache.put_simple(
+            "foo",
+            b"NEW-LISTING",
+            CachePolicy(fetched_at=int(time.time()), max_age=600, etag="E2"),
+        )
+
+        stored = replace(old_policy, body_digest=old_digest)
+        assert cache.get_simple("foo") == (b"OLD-LISTING", stored)
+
+    def test_dropped_policy_write_hands_back_no_digest(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A body that lands without its sidecar binds no parsed blob.
+
+        The caller keys its parsed blob on the returned digest, so a stored
+        body whose policy never landed has to come back as no digest at all.
+        """
+        cache = OnDiskCache(tmp_path, "https://pypi.org/simple/")
+
+        def fail_policy(path: Path, data: bytes) -> None:
+            if path.suffix == ".policy":
+                raise OSError(28, "No space left on device")
+            atomic_write(path, data)
+
+        monkeypatch.setattr("nab_index.cache.atomic_write", fail_policy)
+        digest = cache.put_simple(
+            "foo",
+            b"LISTING",
+            CachePolicy(fetched_at=int(time.time()), max_age=600, etag="E1"),
+        )
+
+        assert digest is None
+        assert cache.get_simple("foo") is None
+
+    def test_bad_key_still_raises(self, tmp_path: Path) -> None:
+        cache = self._cache(tmp_path)
+        with pytest.raises(ValueError, match="not a single path segment"):
+            cache.put_metadata("foo/../elsewhere", METADATA_URLS[0], "text")
+
+
 class TestNullCache:
     def test_get_returns_none_and_put_is_noop(self) -> None:
         cache = NullCache()
         assert cache.get_simple("foo") is None
         assert cache.get_metadata("foo", METADATA_URLS[0]) is None
         assert cache.get_sdist_files("foo", "1.0") is None
-        # Puts must be no-ops with no return value.
+        # Puts store nothing, so put_simple hands back no digest and the caller
+        # builds no parsed blob for a body this backend does not hold.
         policy = CachePolicy(fetched_at=0, max_age=0, etag=None)
         assert cache.put_simple("foo", b"", policy) is None
         assert cache.refresh_simple_policy("foo", policy) is None
@@ -532,14 +664,55 @@ class TestCorruptEntryLogging:
 
 class TestEncodePolicy:
     def test_round_trip_with_etag(self) -> None:
-        policy = CachePolicy(fetched_at=10, max_age=20, etag="x")
+        policy = CachePolicy(
+            fetched_at=10, max_age=20, etag="x", page_url="https://e.test/simple/foo/"
+        )
         decoded = json.loads(_encode_policy(policy))
-        assert decoded == {"fetched_at": 10, "max_age": 20, "etag": "x"}
+        assert decoded == {
+            "fetched_at": 10,
+            "max_age": 20,
+            "etag": "x",
+            "page_url": "https://e.test/simple/foo/",
+        }
 
     def test_round_trip_without_etag(self) -> None:
         policy = CachePolicy(fetched_at=10, max_age=20, etag=None)
         decoded = json.loads(_encode_policy(policy))
-        assert decoded == {"fetched_at": 10, "max_age": 20, "etag": None}
+        assert decoded == {
+            "fetched_at": 10,
+            "max_age": 20,
+            "etag": None,
+            "page_url": None,
+        }
+
+    def test_policy_without_a_page_url_decodes(self, tmp_path: Path) -> None:
+        cache = OnDiskCache(tmp_path, "https://pypi.org/simple")
+        cache.put_simple("foo", b"{}", _FRESH)
+        path = tmp_path / SIMPLE_BUCKET / "pypi" / "foo.policy"
+        path.write_bytes(b'{"fetched_at":1,"max_age":600,"etag":"x"}')
+
+        entry = cache.get_simple("foo")
+
+        assert entry is not None
+        assert entry[1].page_url is None
+
+    @pytest.mark.parametrize("page_url", [123, "", []])
+    def test_unusable_page_url_is_dropped(
+        self, tmp_path: Path, page_url: object
+    ) -> None:
+        cache = OnDiskCache(tmp_path, "https://pypi.org/simple")
+        cache.put_simple("foo", b"{}", _FRESH)
+        path = tmp_path / SIMPLE_BUCKET / "pypi" / "foo.policy"
+        path.write_bytes(
+            json.dumps(
+                {"fetched_at": 1, "max_age": 600, "etag": "x", "page_url": page_url}
+            ).encode()
+        )
+
+        entry = cache.get_simple("foo")
+
+        assert entry is not None
+        assert entry[1].page_url is None
 
 
 class TestReadCacheEntry:

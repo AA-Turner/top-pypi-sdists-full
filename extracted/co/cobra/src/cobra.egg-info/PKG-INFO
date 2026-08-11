@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cobra
-Version: 0.31.1
+Version: 0.32.0
 Summary: COBRApy is a package for constraint-based modeling of metabolic networks.
 Home-page: https://opencobra.github.io/cobrapy
 Download-URL: https://pypi.org/project/cobra
@@ -41,6 +41,8 @@ Requires-Dist: ruamel.yaml~=0.16
 Requires-Dist: swiglpk
 Provides-Extra: array
 Requires-Dist: scipy; extra == "array"
+Provides-Extra: chrr
+Requires-Dist: hopsy; extra == "chrr"
 Provides-Extra: development
 Requires-Dist: black; extra == "development"
 Requires-Dist: bumpversion; extra == "development"

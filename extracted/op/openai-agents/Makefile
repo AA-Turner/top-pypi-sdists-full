@@ -6,6 +6,30 @@ sync:
 update-rclone-pin:
 	uv run python .github/scripts/update_rclone_pin.py --cooldown-days $(or $(RCLONE_COOLDOWN_DAYS),7) $(if $(RCLONE_VERSION),--version $(RCLONE_VERSION))
 
+.PHONY: update-released-api-contract
+update-released-api-contract:
+	@test -n "$(VERSION)" || (echo "VERSION is required, for example VERSION=0.20.0" >&2; exit 2)
+	uv run python .github/scripts/update_released_api_contract.py --version "$(VERSION)"
+
+.PHONY: check-released-api-contract
+check-released-api-contract:
+	@test -n "$(VERSION)" || (echo "VERSION is required, for example VERSION=0.20.0" >&2; exit 2)
+	uv run python .github/scripts/update_released_api_contract.py --version "$(VERSION)" --check
+
+PROSPECTIVE_RELEASED_API_CONTRACT ?= .tmp/prospective_released_api_contract.json
+
+.PHONY: prepare-prospective-released-api-contract
+prepare-prospective-released-api-contract:
+	@version="$$(uv run python -c 'from importlib.metadata import version; print(version("openai-agents"))')"; \
+	uv run python .github/scripts/update_released_api_contract.py \
+		--version "$$version" \
+		--output "$(PROSPECTIVE_RELEASED_API_CONTRACT)"
+
+.PHONY: check-prospective-released-api-contract
+check-prospective-released-api-contract: prepare-prospective-released-api-contract
+	OPENAI_AGENTS_PROSPECTIVE_RELEASE_CONTRACT="$(abspath $(PROSPECTIVE_RELEASED_API_CONTRACT))" \
+		$(MAKE) integration-tests-prospective-contract
+
 .PHONY: format
 format: 
 	uv run ruff format
@@ -18,14 +42,15 @@ format-check:
 .PHONY: lint
 lint: 
 	uv run ruff check
+	uv run python .github/scripts/check_optional_truthiness.py src/agents
 
 .PHONY: mypy
 mypy: 
-	uv run mypy . --exclude site
+	uv run mypy src
 
 .PHONY: pyright
 pyright:
-	uv run pyright --project pyrightconfig.json
+	uv run pyright --project pyrightconfig.json --threads "$${PYRIGHT_THREADS:-4}"
 
 .PHONY: typecheck
 typecheck:
@@ -39,9 +64,13 @@ typecheck:
 	wait $$mypy_pid; \
 	wait $$pyright_pid; \
 	trap - EXIT
-
 .PHONY: tests
-tests: tests-parallel tests-serial
+tests: tests-parallel
+	$(MAKE) tests-serial
+
+.PHONY: tests-review
+tests-review: tests-parallel-review
+	$(MAKE) tests-serial-review
 
 .PHONY: tests-asyncio-stability
 tests-asyncio-stability:
@@ -49,11 +78,19 @@ tests-asyncio-stability:
 
 .PHONY: tests-parallel
 tests-parallel:
-	uv run pytest -n auto --dist worksteal -m "not serial"
+	uv run pytest -n "$${PYTEST_XDIST_AUTO_NUM_WORKERS:-auto}" $(if $(PYTEST_XDIST_AUTO_NUM_WORKERS),,--maxprocesses=9) --dist worksteal -m "not serial"
+
+.PHONY: tests-parallel-review
+tests-parallel-review:
+	uv run pytest -n "$${PYTEST_XDIST_AUTO_NUM_WORKERS:-auto}" $(if $(PYTEST_XDIST_AUTO_NUM_WORKERS),,--maxprocesses=9) --dist worksteal -m "not serial and not review_optional"
 
 .PHONY: tests-serial
 tests-serial:
-	uv run pytest -m serial
+	uv run python .github/scripts/run_serial_tests.py
+
+.PHONY: tests-serial-review
+tests-serial-review:
+	uv run python .github/scripts/run_serial_tests.py --exclude-review-optional
 
 .PHONY: integration-tests
 integration-tests:
@@ -74,6 +111,18 @@ integration-tests-manual:
 .PHONY: integration-tests-packaging
 integration-tests-packaging:
 	uv run python .github/scripts/run_integration_tests.py --profile packaging
+
+.PHONY: integration-tests-prospective-contract
+integration-tests-prospective-contract:
+	uv run python .github/scripts/run_integration_tests.py --profile prospective-contract
+
+.PHONY: integration-tests-security
+integration-tests-security:
+	uv run python .github/scripts/run_integration_tests.py --profile security
+
+.PHONY: integration-tests-mcp-v1
+integration-tests-mcp-v1:
+	uv run python .github/scripts/run_integration_tests.py --profile mcp-v1
 
 .PHONY: integration-tests-core
 integration-tests-core:

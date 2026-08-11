@@ -65,7 +65,7 @@ def _log(now: float, message: str) -> None:
     """Append one timestamped line to the primer log, self-trimming to the most recent half once
     it grows past ``_LOG_MAX_BYTES``. Never raises: a logging failure must not break a tick."""
     try:
-        LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        account.ensure_dir(LOG_PATH.parent)
         stamp = datetime.fromtimestamp(now).astimezone().isoformat(timespec="seconds")
         with LOG_PATH.open("a", encoding="utf-8") as fh:
             fh.write(f"{stamp} {message}\n")
@@ -87,7 +87,7 @@ def _read_last_primed() -> float | None:
 
 def _write_last_primed(ts: float) -> None:
     try:
-        STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        account.ensure_dir(STATE_PATH.parent)
         STATE_PATH.write_text(json.dumps({"last_primed_at": ts}), encoding="utf-8")
     except OSError:
         pass

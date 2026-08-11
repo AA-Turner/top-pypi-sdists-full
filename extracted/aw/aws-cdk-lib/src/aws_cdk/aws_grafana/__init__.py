@@ -69,7 +69,7 @@ else:
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_grafana_1ffb7640.IWorkspaceRef)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_grafana_1ffb7640.IWorkspaceRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnWorkspace(
     _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
@@ -132,6 +132,10 @@ class CfnWorkspace(
                 )
             ),
             stack_set_name="stackSetName",
+            tags=[grafana.CfnWorkspace.TagsItemsProperty(
+                key="key",
+                value="value"
+            )],
             vpc_configuration=grafana.CfnWorkspace.VpcConfigurationProperty(
                 security_group_ids=["securityGroupIds"],
                 subnet_ids=["subnetIds"]
@@ -160,6 +164,7 @@ class CfnWorkspace(
         role_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
         saml_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspace.SamlConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         stack_set_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnWorkspace.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspace.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Grafana::Workspace``.
@@ -182,6 +187,7 @@ class CfnWorkspace(
         :param role_arn: The IAM role that grants permissions to the AWS resources that the workspace will view data from. This role must already exist.
         :param saml_configuration: If the workspace uses SAML, use this structure to map SAML assertion attributes to workspace user information and define which groups in the assertion attribute are to have the ``Admin`` and ``Editor`` roles in the workspace.
         :param stack_set_name: The name of the AWS CloudFormation stack set that is used to generate IAM roles to be used for this workspace.
+        :param tags: The list of tags associated with the workspace.
         :param vpc_configuration: The configuration settings for an Amazon VPC that contains data sources for your Grafana workspace to connect to. .. epigraph:: Connecting to a private VPC is not yet available in the Asia Pacific (Seoul) Region (ap-northeast-2).
         '''
         if __debug__:
@@ -205,6 +211,7 @@ class CfnWorkspace(
             role_arn=role_arn,
             saml_configuration=saml_configuration,
             stack_set_name=stack_set_name,
+            tags=tags,
             vpc_configuration=vpc_configuration,
         )
 
@@ -343,6 +350,12 @@ class CfnWorkspace(
         :cloudformationAttribute: Status
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -588,6 +601,22 @@ class CfnWorkspace(
             type_hints = cached_type_hints(_typecheckingstub__61ab7cafff5a486f361d533b95f12ec0ab7499ff5e38660d0dcabb7a049a78e7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "stackSetName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["CfnWorkspace.TagsItemsProperty"]]:
+        '''The list of tags associated with the workspace.'''
+        return typing.cast(typing.Optional[typing.List["CfnWorkspace.TagsItemsProperty"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["CfnWorkspace.TagsItemsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__de04cae15ace77bd5706f563821bc10159e8533f5c953f33ea090a4a3c4b57aa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="vpcConfiguration")
@@ -1130,6 +1159,69 @@ class CfnWorkspace(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_grafana.CfnWorkspace.TagsItemsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class TagsItemsProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''
+            :param key: 
+            :param value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-grafana-workspace-tagsitems.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_grafana as grafana
+                
+                tags_items_property = grafana.CfnWorkspace.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1536dc93fad52150667e211b540571912e6634eae97dd797eba1e7a5b50a897e)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-grafana-workspace-tagsitems.html#cfn-grafana-workspace-tagsitems-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-grafana-workspace-tagsitems.html#cfn-grafana-workspace-tagsitems-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TagsItemsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_grafana.CfnWorkspace.VpcConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -1242,6 +1334,7 @@ class CfnWorkspace(
         "role_arn": "roleArn",
         "saml_configuration": "samlConfiguration",
         "stack_set_name": "stackSetName",
+        "tags": "tags",
         "vpc_configuration": "vpcConfiguration",
     },
 )
@@ -1265,6 +1358,7 @@ class CfnWorkspaceProps:
         role_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef"]] = None,
         saml_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspace.SamlConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         stack_set_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnWorkspace.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspace.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnWorkspace``.
@@ -1285,6 +1379,7 @@ class CfnWorkspaceProps:
         :param role_arn: The IAM role that grants permissions to the AWS resources that the workspace will view data from. This role must already exist.
         :param saml_configuration: If the workspace uses SAML, use this structure to map SAML assertion attributes to workspace user information and define which groups in the assertion attribute are to have the ``Admin`` and ``Editor`` roles in the workspace.
         :param stack_set_name: The name of the AWS CloudFormation stack set that is used to generate IAM roles to be used for this workspace.
+        :param tags: The list of tags associated with the workspace.
         :param vpc_configuration: The configuration settings for an Amazon VPC that contains data sources for your Grafana workspace to connect to. .. epigraph:: Connecting to a private VPC is not yet available in the Asia Pacific (Seoul) Region (ap-northeast-2).
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html
@@ -1339,6 +1434,10 @@ class CfnWorkspaceProps:
                     )
                 ),
                 stack_set_name="stackSetName",
+                tags=[grafana.CfnWorkspace.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )],
                 vpc_configuration=grafana.CfnWorkspace.VpcConfigurationProperty(
                     security_group_ids=["securityGroupIds"],
                     subnet_ids=["subnetIds"]
@@ -1363,6 +1462,7 @@ class CfnWorkspaceProps:
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument saml_configuration", value=saml_configuration, expected_type=type_hints["saml_configuration"])
             check_type(argname="argument stack_set_name", value=stack_set_name, expected_type=type_hints["stack_set_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument vpc_configuration", value=vpc_configuration, expected_type=type_hints["vpc_configuration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "account_access_type": account_access_type,
@@ -1395,6 +1495,8 @@ class CfnWorkspaceProps:
             self._values["saml_configuration"] = saml_configuration
         if stack_set_name is not None:
             self._values["stack_set_name"] = stack_set_name
+        if tags is not None:
+            self._values["tags"] = tags
         if vpc_configuration is not None:
             self._values["vpc_configuration"] = vpc_configuration
 
@@ -1581,6 +1683,15 @@ class CfnWorkspaceProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def tags(self) -> typing.Optional[typing.List["CfnWorkspace.TagsItemsProperty"]]:
+        '''The list of tags associated with the workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnWorkspace.TagsItemsProperty"]], result)
+
+    @builtins.property
     def vpc_configuration(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.VpcConfigurationProperty"]]:
@@ -1634,6 +1745,7 @@ def _typecheckingstub__972564e8260607f3980c99a1e9aecab41a9a45a486b896a29b3870ef3
     role_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
     saml_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspace.SamlConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     stack_set_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnWorkspace.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspace.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -1753,6 +1865,12 @@ def _typecheckingstub__61ab7cafff5a486f361d533b95f12ec0ab7499ff5e38660d0dcabb7a0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__de04cae15ace77bd5706f563821bc10159e8533f5c953f33ea090a4a3c4b57aa(
+    value: typing.Optional[typing.List[CfnWorkspace.TagsItemsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3586128c84bb5e8c9eb62049d7b06e9ab6ddb8d155288a89902a4fa5056539a0(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkspace.VpcConfigurationProperty]],
 ) -> None:
@@ -1806,6 +1924,14 @@ def _typecheckingstub__14277625e97dae304b4384016dde2bbc729157d1053eb0a76e4c512eb
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1536dc93fad52150667e211b540571912e6634eae97dd797eba1e7a5b50a897e(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__de315e4fbef1f0e0f6baf284e1253102bd4adaf752296040880b7f54c95b72e9(
     *,
     security_group_ids: typing.Sequence[builtins.str],
@@ -1832,6 +1958,7 @@ def _typecheckingstub__58b0ac807ec7944eb7226ae6fc02b338bc05594b2b8737ec34bf5dbde
     role_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef]] = None,
     saml_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspace.SamlConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     stack_set_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnWorkspace.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspace.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

@@ -15533,6 +15533,343 @@ class CfnDataSourceProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_bedrock_f1041ee4.IDefaultPromptRouterRef)
+class CfnDefaultPromptRouter(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnDefaultPromptRouter",
+):
+    '''Definition of AWS::Bedrock::DefaultPromptRouter Resource Type.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-defaultpromptrouter.html
+    :cloudformationResource: AWS::Bedrock::DefaultPromptRouter
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bedrock as bedrock
+        
+        cfn_default_prompt_router = bedrock.CfnDefaultPromptRouter(self, "MyCfnDefaultPromptRouter")
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::Bedrock::DefaultPromptRouter``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4cee1c4791e486b68bcee49b4dc3ef3aa356168b9d84c1f959874ed60266f803)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDefaultPromptRouterProps()
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnDefaultPromptRouter")
+    @builtins.classmethod
+    def is_cfn_default_prompt_router(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDefaultPromptRouter.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__caba6bab404372cce0608c4f25cd2e8432c4fadb55847be73a87e209ff27dc5a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDefaultPromptRouter", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0da498e1a4609e182c5bd1d513b607db1389c1c71aac925bbaace0431c9fec5f)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0a3605f917db933c0f617465f6a4391c3a8454eb5668639dfdf67d943382941c)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the default prompt router was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDescription")
+    def attr_description(self) -> builtins.str:
+        '''The description of the default prompt router.
+
+        :cloudformationAttribute: Description
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDescription"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFallbackModel")
+    def attr_fallback_model(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''A target model for the prompt router.
+
+        :cloudformationAttribute: FallbackModel
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrFallbackModel"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrModels")
+    def attr_models(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''A list of foundation models that the default prompt router can route requests to.
+
+        :cloudformationAttribute: Models
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrModels"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPromptRouterArn")
+    def attr_prompt_router_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the default prompt router.
+
+        :cloudformationAttribute: PromptRouterArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPromptRouterArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPromptRouterId")
+    def attr_prompt_router_id(self) -> builtins.str:
+        '''The unique identifier of the default prompt router, extracted from the ARN.
+
+        :cloudformationAttribute: PromptRouterId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPromptRouterId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPromptRouterName")
+    def attr_prompt_router_name(self) -> builtins.str:
+        '''The name of the default prompt router.
+
+        :cloudformationAttribute: PromptRouterName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPromptRouterName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRoutingCriteria")
+    def attr_routing_criteria(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Routing criteria for a prompt router.
+
+        :cloudformationAttribute: RoutingCriteria
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrRoutingCriteria"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the default prompt router.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrType")
+    def attr_type(self) -> builtins.str:
+        '''The type of the prompt router.
+
+        :cloudformationAttribute: Type
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the default prompt router was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="defaultPromptRouterRef")
+    def default_prompt_router_ref(
+        self,
+    ) -> "_aws_bedrock_f1041ee4.DefaultPromptRouterReference":
+        '''A reference to a DefaultPromptRouter resource.'''
+        return typing.cast("_aws_bedrock_f1041ee4.DefaultPromptRouterReference", jsii.get(self, "defaultPromptRouterRef"))
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnDefaultPromptRouter.PromptRouterTargetModelProperty",
+        jsii_struct_bases=[],
+        name_mapping={"model_arn": "modelArn"},
+    )
+    class PromptRouterTargetModelProperty:
+        def __init__(self, *, model_arn: builtins.str) -> None:
+            '''A target model for the prompt router.
+
+            :param model_arn: The target model's ARN.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-defaultpromptrouter-promptroutertargetmodel.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                prompt_router_target_model_property = bedrock.CfnDefaultPromptRouter.PromptRouterTargetModelProperty(
+                    model_arn="modelArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__58fd41f6448a9f0784b3da18b9fc205d1aa9609006f54399527abd6553e32611)
+                check_type(argname="argument model_arn", value=model_arn, expected_type=type_hints["model_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "model_arn": model_arn,
+            }
+
+        @builtins.property
+        def model_arn(self) -> builtins.str:
+            '''The target model's ARN.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-defaultpromptrouter-promptroutertargetmodel.html#cfn-bedrock-defaultpromptrouter-promptroutertargetmodel-modelarn
+            '''
+            result = self._values.get("model_arn")
+            assert result is not None, "Required property 'model_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PromptRouterTargetModelProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnDefaultPromptRouter.RoutingCriteriaProperty",
+        jsii_struct_bases=[],
+        name_mapping={"response_quality_difference": "responseQualityDifference"},
+    )
+    class RoutingCriteriaProperty:
+        def __init__(self, *, response_quality_difference: jsii.Number) -> None:
+            '''Routing criteria for a prompt router.
+
+            :param response_quality_difference: The response quality difference threshold for routing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-defaultpromptrouter-routingcriteria.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                routing_criteria_property = bedrock.CfnDefaultPromptRouter.RoutingCriteriaProperty(
+                    response_quality_difference=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f508a827b8cc47e6cabb74b1411c0af367ec41b3484db2bca73163c60f3dc9c9)
+                check_type(argname="argument response_quality_difference", value=response_quality_difference, expected_type=type_hints["response_quality_difference"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "response_quality_difference": response_quality_difference,
+            }
+
+        @builtins.property
+        def response_quality_difference(self) -> jsii.Number:
+            '''The response quality difference threshold for routing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-defaultpromptrouter-routingcriteria.html#cfn-bedrock-defaultpromptrouter-routingcriteria-responsequalitydifference
+            '''
+            result = self._values.get("response_quality_difference")
+            assert result is not None, "Required property 'response_quality_difference' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RoutingCriteriaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnDefaultPromptRouterProps",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class CfnDefaultPromptRouterProps:
+    def __init__(self) -> None:
+        '''Properties for defining a ``CfnDefaultPromptRouter``.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-defaultpromptrouter.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            cfn_default_prompt_router_props = bedrock.CfnDefaultPromptRouterProps()
+        '''
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDefaultPromptRouterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_bedrock_f1041ee4.IEnforcedGuardrailConfigurationRef)
 class CfnEnforcedGuardrailConfiguration(
     _aws_cdk_0cae9daa.CfnResource,
@@ -35664,6 +36001,230 @@ class CfnKnowledgeBase(
             )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_bedrock_f1041ee4.IKnowledgeBasePolicyRef)
+class CfnKnowledgeBasePolicy(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnKnowledgeBasePolicy",
+):
+    '''Definition of AWS::Bedrock::KnowledgeBasePolicy Resource Type.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-knowledgebasepolicy.html
+    :cloudformationResource: AWS::Bedrock::KnowledgeBasePolicy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bedrock as bedrock
+        
+        # policy_document: Any
+        
+        cfn_knowledge_base_policy = bedrock.CfnKnowledgeBasePolicy(self, "MyCfnKnowledgeBasePolicy",
+            knowledge_base_id="knowledgeBaseId",
+            policy_document=policy_document
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        knowledge_base_id: builtins.str,
+        policy_document: typing.Any,
+    ) -> None:
+        '''Create a new ``AWS::Bedrock::KnowledgeBasePolicy``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param knowledge_base_id: The unique identifier of the knowledge base.
+        :param policy_document: The IAM policy document defining access permissions for the knowledge base.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__73b04fca90a6fd728d2f436e84047cb46969b4455d3f74795f2642c630135d92)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnKnowledgeBasePolicyProps(
+            knowledge_base_id=knowledge_base_id, policy_document=policy_document
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnKnowledgeBasePolicy")
+    @builtins.classmethod
+    def is_cfn_knowledge_base_policy(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnKnowledgeBasePolicy.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3f4371e8049ea6cb79fa0775741f23ba92417670f45ceb544cb4a2e7a3b0a025)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnKnowledgeBasePolicy", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8dcb92570b5716af59d8ef00120f7ed9aaf36c41d015d7fc335ce166d5fef726)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a08b5c83c6843fdb0f5800e22d919537ed4a2e78ffcceb269646174e3c3822ee)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRevisionId")
+    def attr_revision_id(self) -> builtins.str:
+        '''The revision identifier for the policy, used for optimistic concurrency control.
+
+        :cloudformationAttribute: RevisionId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRevisionId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="knowledgeBasePolicyRef")
+    def knowledge_base_policy_ref(
+        self,
+    ) -> "_aws_bedrock_f1041ee4.KnowledgeBasePolicyReference":
+        '''A reference to a KnowledgeBasePolicy resource.'''
+        return typing.cast("_aws_bedrock_f1041ee4.KnowledgeBasePolicyReference", jsii.get(self, "knowledgeBasePolicyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="knowledgeBaseId")
+    def knowledge_base_id(self) -> builtins.str:
+        '''The unique identifier of the knowledge base.'''
+        return typing.cast(builtins.str, jsii.get(self, "knowledgeBaseId"))
+
+    @knowledge_base_id.setter
+    def knowledge_base_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__38f19d0f5797e23b8660883dc0112f4001bef670b458cada5ddaf0b5c351f468)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "knowledgeBaseId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policyDocument")
+    def policy_document(self) -> typing.Any:
+        '''The IAM policy document defining access permissions for the knowledge base.'''
+        return typing.cast(typing.Any, jsii.get(self, "policyDocument"))
+
+    @policy_document.setter
+    def policy_document(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b8848fa58953bcbec316e9df9407e53a424de9c08d9068cdf25cb3301348edc1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnKnowledgeBasePolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "knowledge_base_id": "knowledgeBaseId",
+        "policy_document": "policyDocument",
+    },
+)
+class CfnKnowledgeBasePolicyProps:
+    def __init__(
+        self,
+        *,
+        knowledge_base_id: builtins.str,
+        policy_document: typing.Any,
+    ) -> None:
+        '''Properties for defining a ``CfnKnowledgeBasePolicy``.
+
+        :param knowledge_base_id: The unique identifier of the knowledge base.
+        :param policy_document: The IAM policy document defining access permissions for the knowledge base.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-knowledgebasepolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            # policy_document: Any
+            
+            cfn_knowledge_base_policy_props = bedrock.CfnKnowledgeBasePolicyProps(
+                knowledge_base_id="knowledgeBaseId",
+                policy_document=policy_document
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4cb3444b8abe3804c37985ea2c3436d3b898b8f3432630758344f223ccf174fe)
+            check_type(argname="argument knowledge_base_id", value=knowledge_base_id, expected_type=type_hints["knowledge_base_id"])
+            check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "knowledge_base_id": knowledge_base_id,
+            "policy_document": policy_document,
+        }
+
+    @builtins.property
+    def knowledge_base_id(self) -> builtins.str:
+        '''The unique identifier of the knowledge base.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-knowledgebasepolicy.html#cfn-bedrock-knowledgebasepolicy-knowledgebaseid
+        '''
+        result = self._values.get("knowledge_base_id")
+        assert result is not None, "Required property 'knowledge_base_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy_document(self) -> typing.Any:
+        '''The IAM policy document defining access permissions for the knowledge base.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-knowledgebasepolicy.html#cfn-bedrock-knowledgebasepolicy-policydocument
+        '''
+        result = self._values.get("policy_document")
+        assert result is not None, "Required property 'policy_document' is missing"
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnKnowledgeBasePolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_bedrock.CfnKnowledgeBaseProps",
     jsii_struct_bases=[],
@@ -36013,6 +36574,623 @@ class CfnKnowledgeBaseProps:
 
     def __repr__(self) -> str:
         return "CfnKnowledgeBaseProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_bedrock_f1041ee4.IModelInvocationJobRef)
+class CfnModelInvocationJob(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnModelInvocationJob",
+):
+    '''Resource Type definition for AWS::Bedrock::ModelInvocationJob.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-modelinvocationjob.html
+    :cloudformationResource: AWS::Bedrock::ModelInvocationJob
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bedrock as bedrock
+        
+        cfn_model_invocation_job = bedrock.CfnModelInvocationJob(self, "MyCfnModelInvocationJob")
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::Bedrock::ModelInvocationJob``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__853f2aeb329ef255f9af2c0b49ffb65f9acb8b8c0c4d3203a33d2ce1e127a52f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnModelInvocationJobProps()
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnModelInvocationJob")
+    @builtins.classmethod
+    def is_cfn_model_invocation_job(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnModelInvocationJob.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8085755a57433a61e732de34cd1c54d0ae81064fc4ab0ad2794790b0aae23d80)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnModelInvocationJob", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d8ab92e9175486de152233784d5fc3fdb812ab02f54c2b1f10c97e82fced0ac1)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e4d8e5dc23cb28bf752ac75aa81a86cda18bb695e188d1ea4c60da6a5bc5fcfa)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrInputDataConfig")
+    def attr_input_data_config(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Details about the location of the input to the batch inference job.
+
+        :cloudformationAttribute: InputDataConfig
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrInputDataConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrJobArn")
+    def attr_job_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the batch inference job.
+
+        :cloudformationAttribute: JobArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrJobArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrJobExpirationTime")
+    def attr_job_expiration_time(self) -> builtins.str:
+        '''The time at which the batch inference job times or timed out.
+
+        :cloudformationAttribute: JobExpirationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrJobExpirationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrJobName")
+    def attr_job_name(self) -> builtins.str:
+        '''A name to give the batch inference job.
+
+        :cloudformationAttribute: JobName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrJobName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedTime")
+    def attr_last_modified_time(self) -> builtins.str:
+        '''The time at which the batch inference job was last modified.
+
+        :cloudformationAttribute: LastModifiedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrModelId")
+    def attr_model_id(self) -> builtins.str:
+        '''The unique identifier of the foundation model to use for the batch inference job.
+
+        :cloudformationAttribute: ModelId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrModelId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOutputDataConfig")
+    def attr_output_data_config(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Details about the location of the output of the batch inference job.
+
+        :cloudformationAttribute: OutputDataConfig
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrOutputDataConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRoleArn")
+    def attr_role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the service role with permissions to carry out and manage batch inference.
+
+        :cloudformationAttribute: RoleArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRoleArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the batch inference job.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSubmitTime")
+    def attr_submit_time(self) -> builtins.str:
+        '''The time at which the batch inference job was submitted.
+
+        :cloudformationAttribute: SubmitTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSubmitTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTags")
+    def attr_tags(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Any tags associated with the batch inference job.
+
+        :cloudformationAttribute: Tags
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrTags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTimeoutDurationInHours")
+    def attr_timeout_duration_in_hours(self) -> jsii.Number:
+        '''The number of hours after which to force the batch inference job to time out.
+
+        :cloudformationAttribute: TimeoutDurationInHours
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrTimeoutDurationInHours"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVpcConfig")
+    def attr_vpc_config(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The configuration of a virtual private cloud (VPC).
+
+        :cloudformationAttribute: VpcConfig
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrVpcConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="modelInvocationJobRef")
+    def model_invocation_job_ref(
+        self,
+    ) -> "_aws_bedrock_f1041ee4.ModelInvocationJobReference":
+        '''A reference to a ModelInvocationJob resource.'''
+        return typing.cast("_aws_bedrock_f1041ee4.ModelInvocationJobReference", jsii.get(self, "modelInvocationJobRef"))
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnModelInvocationJob.ModelInvocationJobInputDataConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"s3_input_data_config": "s3InputDataConfig"},
+    )
+    class ModelInvocationJobInputDataConfigProperty:
+        def __init__(
+            self,
+            *,
+            s3_input_data_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnModelInvocationJob.ModelInvocationJobS3InputDataConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Details about the location of the input to the batch inference job.
+
+            :param s3_input_data_config: Contains the configuration of the S3 location of the input data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-modelinvocationjob-modelinvocationjobinputdataconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                model_invocation_job_input_data_config_property = bedrock.CfnModelInvocationJob.ModelInvocationJobInputDataConfigProperty(
+                    s3_input_data_config=bedrock.CfnModelInvocationJob.ModelInvocationJobS3InputDataConfigProperty(
+                        s3_uri="s3Uri",
+                
+                        # the properties below are optional
+                        s3_bucket_owner="s3BucketOwner"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2f1c4d2aaeac90f1030ce92656d81f2cb50a6f36802a40a6f4829ed3349c79c4)
+                check_type(argname="argument s3_input_data_config", value=s3_input_data_config, expected_type=type_hints["s3_input_data_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "s3_input_data_config": s3_input_data_config,
+            }
+
+        @builtins.property
+        def s3_input_data_config(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnModelInvocationJob.ModelInvocationJobS3InputDataConfigProperty"]:
+            '''Contains the configuration of the S3 location of the input data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-modelinvocationjob-modelinvocationjobinputdataconfig.html#cfn-bedrock-modelinvocationjob-modelinvocationjobinputdataconfig-s3inputdataconfig
+            '''
+            result = self._values.get("s3_input_data_config")
+            assert result is not None, "Required property 's3_input_data_config' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnModelInvocationJob.ModelInvocationJobS3InputDataConfigProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ModelInvocationJobInputDataConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnModelInvocationJob.ModelInvocationJobOutputDataConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"s3_output_data_config": "s3OutputDataConfig"},
+    )
+    class ModelInvocationJobOutputDataConfigProperty:
+        def __init__(
+            self,
+            *,
+            s3_output_data_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnModelInvocationJob.ModelInvocationJobS3OutputDataConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Details about the location of the output of the batch inference job.
+
+            :param s3_output_data_config: Contains the configuration of the S3 location of the output data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-modelinvocationjob-modelinvocationjoboutputdataconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                model_invocation_job_output_data_config_property = bedrock.CfnModelInvocationJob.ModelInvocationJobOutputDataConfigProperty(
+                    s3_output_data_config=bedrock.CfnModelInvocationJob.ModelInvocationJobS3OutputDataConfigProperty(
+                        s3_uri="s3Uri",
+                
+                        # the properties below are optional
+                        s3_bucket_owner="s3BucketOwner",
+                        s3_encryption_key_id="s3EncryptionKeyId"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c260a2ff5e2f13a3f88bb799036126959558c235a8041263799cb25917fee5f3)
+                check_type(argname="argument s3_output_data_config", value=s3_output_data_config, expected_type=type_hints["s3_output_data_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "s3_output_data_config": s3_output_data_config,
+            }
+
+        @builtins.property
+        def s3_output_data_config(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnModelInvocationJob.ModelInvocationJobS3OutputDataConfigProperty"]:
+            '''Contains the configuration of the S3 location of the output data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-modelinvocationjob-modelinvocationjoboutputdataconfig.html#cfn-bedrock-modelinvocationjob-modelinvocationjoboutputdataconfig-s3outputdataconfig
+            '''
+            result = self._values.get("s3_output_data_config")
+            assert result is not None, "Required property 's3_output_data_config' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnModelInvocationJob.ModelInvocationJobS3OutputDataConfigProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ModelInvocationJobOutputDataConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnModelInvocationJob.ModelInvocationJobS3InputDataConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"s3_uri": "s3Uri", "s3_bucket_owner": "s3BucketOwner"},
+    )
+    class ModelInvocationJobS3InputDataConfigProperty:
+        def __init__(
+            self,
+            *,
+            s3_uri: builtins.str,
+            s3_bucket_owner: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Contains the configuration of the S3 location of the input data.
+
+            :param s3_uri: The S3 location of the input data.
+            :param s3_bucket_owner: The ID of the AWS account that owns the S3 bucket containing the input data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-modelinvocationjob-modelinvocationjobs3inputdataconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                model_invocation_job_s3_input_data_config_property = bedrock.CfnModelInvocationJob.ModelInvocationJobS3InputDataConfigProperty(
+                    s3_uri="s3Uri",
+                
+                    # the properties below are optional
+                    s3_bucket_owner="s3BucketOwner"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d83c5b589339ed2ba593e974b8de52aa170ffafea5cc0998d9abf1e9c9d03175)
+                check_type(argname="argument s3_uri", value=s3_uri, expected_type=type_hints["s3_uri"])
+                check_type(argname="argument s3_bucket_owner", value=s3_bucket_owner, expected_type=type_hints["s3_bucket_owner"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "s3_uri": s3_uri,
+            }
+            if s3_bucket_owner is not None:
+                self._values["s3_bucket_owner"] = s3_bucket_owner
+
+        @builtins.property
+        def s3_uri(self) -> builtins.str:
+            '''The S3 location of the input data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-modelinvocationjob-modelinvocationjobs3inputdataconfig.html#cfn-bedrock-modelinvocationjob-modelinvocationjobs3inputdataconfig-s3uri
+            '''
+            result = self._values.get("s3_uri")
+            assert result is not None, "Required property 's3_uri' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def s3_bucket_owner(self) -> typing.Optional[builtins.str]:
+            '''The ID of the AWS account that owns the S3 bucket containing the input data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-modelinvocationjob-modelinvocationjobs3inputdataconfig.html#cfn-bedrock-modelinvocationjob-modelinvocationjobs3inputdataconfig-s3bucketowner
+            '''
+            result = self._values.get("s3_bucket_owner")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ModelInvocationJobS3InputDataConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnModelInvocationJob.ModelInvocationJobS3OutputDataConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "s3_uri": "s3Uri",
+            "s3_bucket_owner": "s3BucketOwner",
+            "s3_encryption_key_id": "s3EncryptionKeyId",
+        },
+    )
+    class ModelInvocationJobS3OutputDataConfigProperty:
+        def __init__(
+            self,
+            *,
+            s3_uri: builtins.str,
+            s3_bucket_owner: typing.Optional[builtins.str] = None,
+            s3_encryption_key_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Contains the configuration of the S3 location of the output data.
+
+            :param s3_uri: The S3 location of the output data.
+            :param s3_bucket_owner: The ID of the AWS account that owns the S3 bucket containing the output data.
+            :param s3_encryption_key_id: The unique identifier of the key that encrypts the S3 location of the output data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-modelinvocationjob-modelinvocationjobs3outputdataconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                model_invocation_job_s3_output_data_config_property = bedrock.CfnModelInvocationJob.ModelInvocationJobS3OutputDataConfigProperty(
+                    s3_uri="s3Uri",
+                
+                    # the properties below are optional
+                    s3_bucket_owner="s3BucketOwner",
+                    s3_encryption_key_id="s3EncryptionKeyId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__49a25dae7fb17f485ca25ed35a06fb790f7a7720294b30d7625df1efa9775d96)
+                check_type(argname="argument s3_uri", value=s3_uri, expected_type=type_hints["s3_uri"])
+                check_type(argname="argument s3_bucket_owner", value=s3_bucket_owner, expected_type=type_hints["s3_bucket_owner"])
+                check_type(argname="argument s3_encryption_key_id", value=s3_encryption_key_id, expected_type=type_hints["s3_encryption_key_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "s3_uri": s3_uri,
+            }
+            if s3_bucket_owner is not None:
+                self._values["s3_bucket_owner"] = s3_bucket_owner
+            if s3_encryption_key_id is not None:
+                self._values["s3_encryption_key_id"] = s3_encryption_key_id
+
+        @builtins.property
+        def s3_uri(self) -> builtins.str:
+            '''The S3 location of the output data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-modelinvocationjob-modelinvocationjobs3outputdataconfig.html#cfn-bedrock-modelinvocationjob-modelinvocationjobs3outputdataconfig-s3uri
+            '''
+            result = self._values.get("s3_uri")
+            assert result is not None, "Required property 's3_uri' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def s3_bucket_owner(self) -> typing.Optional[builtins.str]:
+            '''The ID of the AWS account that owns the S3 bucket containing the output data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-modelinvocationjob-modelinvocationjobs3outputdataconfig.html#cfn-bedrock-modelinvocationjob-modelinvocationjobs3outputdataconfig-s3bucketowner
+            '''
+            result = self._values.get("s3_bucket_owner")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_encryption_key_id(self) -> typing.Optional[builtins.str]:
+            '''The unique identifier of the key that encrypts the S3 location of the output data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-modelinvocationjob-modelinvocationjobs3outputdataconfig.html#cfn-bedrock-modelinvocationjob-modelinvocationjobs3outputdataconfig-s3encryptionkeyid
+            '''
+            result = self._values.get("s3_encryption_key_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ModelInvocationJobS3OutputDataConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnModelInvocationJob.VpcConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "security_group_ids": "securityGroupIds",
+            "subnet_ids": "subnetIds",
+        },
+    )
+    class VpcConfigProperty:
+        def __init__(
+            self,
+            *,
+            security_group_ids: typing.Sequence[builtins.str],
+            subnet_ids: typing.Sequence[builtins.str],
+        ) -> None:
+            '''The configuration of a virtual private cloud (VPC).
+
+            :param security_group_ids: An array of IDs for each security group in the VPC to use.
+            :param subnet_ids: An array of IDs for each subnet in the VPC to use.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-modelinvocationjob-vpcconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                vpc_config_property = bedrock.CfnModelInvocationJob.VpcConfigProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__30cf8246ad337f54e3ea6cfc46143360fe29faba913dcf01eec98ad10c8b6b12)
+                check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+                check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "security_group_ids": security_group_ids,
+                "subnet_ids": subnet_ids,
+            }
+
+        @builtins.property
+        def security_group_ids(self) -> typing.List[builtins.str]:
+            '''An array of IDs for each security group in the VPC to use.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-modelinvocationjob-vpcconfig.html#cfn-bedrock-modelinvocationjob-vpcconfig-securitygroupids
+            '''
+            result = self._values.get("security_group_ids")
+            assert result is not None, "Required property 'security_group_ids' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def subnet_ids(self) -> typing.List[builtins.str]:
+            '''An array of IDs for each subnet in the VPC to use.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-modelinvocationjob-vpcconfig.html#cfn-bedrock-modelinvocationjob-vpcconfig-subnetids
+            '''
+            result = self._values.get("subnet_ids")
+            assert result is not None, "Required property 'subnet_ids' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VpcConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrock.CfnModelInvocationJobProps",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class CfnModelInvocationJobProps:
+    def __init__(self) -> None:
+        '''Properties for defining a ``CfnModelInvocationJob``.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-modelinvocationjob.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrock as bedrock
+            
+            cfn_model_invocation_job_props = bedrock.CfnModelInvocationJobProps()
+        '''
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnModelInvocationJobProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -42323,6 +43501,8 @@ __all__ = [
     "CfnDataAutomationProjectProps",
     "CfnDataSource",
     "CfnDataSourceProps",
+    "CfnDefaultPromptRouter",
+    "CfnDefaultPromptRouterProps",
     "CfnEnforcedGuardrailConfiguration",
     "CfnEnforcedGuardrailConfigurationProps",
     "CfnFlow",
@@ -42338,7 +43518,11 @@ __all__ = [
     "CfnIntelligentPromptRouter",
     "CfnIntelligentPromptRouterProps",
     "CfnKnowledgeBase",
+    "CfnKnowledgeBasePolicy",
+    "CfnKnowledgeBasePolicyProps",
     "CfnKnowledgeBaseProps",
+    "CfnModelInvocationJob",
+    "CfnModelInvocationJobProps",
     "CfnPrompt",
     "CfnPromptProps",
     "CfnPromptVersion",
@@ -44131,6 +45315,45 @@ def _typecheckingstub__4beca3e3b31c91619a3fa9da2bf185ffd738124b7965f1c90a191b43c
     description: typing.Optional[builtins.str] = None,
     server_side_encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataSource.ServerSideEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     vector_ingestion_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataSource.VectorIngestionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4cee1c4791e486b68bcee49b4dc3ef3aa356168b9d84c1f959874ed60266f803(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__caba6bab404372cce0608c4f25cd2e8432c4fadb55847be73a87e209ff27dc5a(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0da498e1a4609e182c5bd1d513b607db1389c1c71aac925bbaace0431c9fec5f(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a3605f917db933c0f617465f6a4391c3a8454eb5668639dfdf67d943382941c(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__58fd41f6448a9f0784b3da18b9fc205d1aa9609006f54399527abd6553e32611(
+    *,
+    model_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f508a827b8cc47e6cabb74b1411c0af367ec41b3484db2bca73163c60f3dc9c9(
+    *,
+    response_quality_difference: jsii.Number,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -46123,6 +47346,54 @@ def _typecheckingstub__380ff4f421f0471f8bb1346302165694c6929782b9e466ac1d34f0be1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__73b04fca90a6fd728d2f436e84047cb46969b4455d3f74795f2642c630135d92(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    knowledge_base_id: builtins.str,
+    policy_document: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f4371e8049ea6cb79fa0775741f23ba92417670f45ceb544cb4a2e7a3b0a025(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8dcb92570b5716af59d8ef00120f7ed9aaf36c41d015d7fc335ce166d5fef726(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a08b5c83c6843fdb0f5800e22d919537ed4a2e78ffcceb269646174e3c3822ee(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38f19d0f5797e23b8660883dc0112f4001bef670b458cada5ddaf0b5c351f468(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b8848fa58953bcbec316e9df9407e53a424de9c08d9068cdf25cb3301348edc1(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4cb3444b8abe3804c37985ea2c3436d3b898b8f3432630758344f223ccf174fe(
+    *,
+    knowledge_base_id: builtins.str,
+    policy_document: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a5f6560ff734e79a877ac4cd934408cd79b9c6a6c1dac195972f27ac455fce2f(
     *,
     knowledge_base_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnKnowledgeBase.KnowledgeBaseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -46131,6 +47402,70 @@ def _typecheckingstub__a5f6560ff734e79a877ac4cd934408cd79b9c6a6c1dac195972f27ac4
     description: typing.Optional[builtins.str] = None,
     storage_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnKnowledgeBase.StorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__853f2aeb329ef255f9af2c0b49ffb65f9acb8b8c0c4d3203a33d2ce1e127a52f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8085755a57433a61e732de34cd1c54d0ae81064fc4ab0ad2794790b0aae23d80(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d8ab92e9175486de152233784d5fc3fdb812ab02f54c2b1f10c97e82fced0ac1(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e4d8e5dc23cb28bf752ac75aa81a86cda18bb695e188d1ea4c60da6a5bc5fcfa(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f1c4d2aaeac90f1030ce92656d81f2cb50a6f36802a40a6f4829ed3349c79c4(
+    *,
+    s3_input_data_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnModelInvocationJob.ModelInvocationJobS3InputDataConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c260a2ff5e2f13a3f88bb799036126959558c235a8041263799cb25917fee5f3(
+    *,
+    s3_output_data_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnModelInvocationJob.ModelInvocationJobS3OutputDataConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d83c5b589339ed2ba593e974b8de52aa170ffafea5cc0998d9abf1e9c9d03175(
+    *,
+    s3_uri: builtins.str,
+    s3_bucket_owner: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__49a25dae7fb17f485ca25ed35a06fb790f7a7720294b30d7625df1efa9775d96(
+    *,
+    s3_uri: builtins.str,
+    s3_bucket_owner: typing.Optional[builtins.str] = None,
+    s3_encryption_key_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__30cf8246ad337f54e3ea6cfc46143360fe29faba913dcf01eec98ad10c8b6b12(
+    *,
+    security_group_ids: typing.Sequence[builtins.str],
+    subnet_ids: typing.Sequence[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass

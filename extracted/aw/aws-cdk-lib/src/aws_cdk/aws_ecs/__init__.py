@@ -4355,7 +4355,7 @@ class AsgCapacityProvider(
         :param id: -
         :param auto_scaling_group: The autoscaling group to add as a Capacity Provider. Warning: When passing an imported resource using ``AutoScalingGroup.fromAutoScalingGroupName`` along with ``enableManagedTerminationProtection: true``, the ``AsgCapacityProvider`` construct will not be able to enforce the option ``newInstancesProtectedFromScaleIn`` of the ``AutoScalingGroup``. In this case the constructor of ``AsgCapacityProvider`` will throw an exception.
         :param capacity_provider_name: The name of the capacity provider. If a name is specified, it cannot start with ``aws``, ``ecs``, or ``fargate``. If no name is specified, a default name in the CFNStackName-CFNResourceName-RandomString format is used. If the stack name starts with ``aws``, ``ecs``, or ``fargate``, a unique resource name is generated that starts with ``cp-``. Default: CloudFormation-generated name
-        :param enable_managed_draining: Managed instance draining facilitates graceful termination of Amazon ECS instances. This allows your service workloads to stop safely and be rescheduled to non-terminating instances. Infrastructure maintenance and updates are preformed without disruptions to workloads. To use managed instance draining, set enableManagedDraining to true. Default: true
+        :param enable_managed_draining: Managed instance draining facilitates graceful termination of Amazon ECS instances. This allows your service workloads to stop safely and be rescheduled to non-terminating instances. Infrastructure maintenance and updates are preformed without disruptions to workloads. To use managed instance draining, set enableManagedDraining to true. Default: - undefined, which means ECS will use its default behavior (ENABLED).
         :param enable_managed_scaling: When enabled the scale-in and scale-out actions of the cluster's Auto Scaling Group will be managed for you. This means your cluster will automatically scale instances based on the load your tasks put on the cluster. For more information, see `Using Managed Scaling <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/asg-capacity-providers.html#asg-capacity-providers-managed-scaling>`_ in the ECS Developer Guide. Default: true
         :param enable_managed_termination_protection: When enabled the Auto Scaling Group will only terminate EC2 instances that no longer have running non-daemon tasks. Scale-in protection will be automatically enabled on instances. When all non-daemon tasks are stopped on an instance, ECS initiates the scale-in process and turns off scale-in protection for the instance. The Auto Scaling Group can then terminate the instance. For more information see `Managed termination protection <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/cluster-auto-scaling.html#managed-termination-protection>`_ in the ECS Developer Guide. Managed scaling must also be enabled. Default: true
         :param instance_warmup_period: The period of time, in seconds, after a newly launched Amazon EC2 instance can contribute to CloudWatch metrics for Auto Scaling group. Must be between 0 and 10000. Default: 300
@@ -4469,7 +4469,7 @@ class AsgCapacityProviderProps(AddAutoScalingGroupCapacityOptions):
         :param topic_encryption_key: If ``AddAutoScalingGroupCapacityOptions.taskDrainTime`` is non-zero, then the ECS cluster creates an SNS Topic to as part of a system to drain instances of tasks when the instance is being shut down. If this property is provided, then this key will be used to encrypt the contents of that SNS Topic. See `SNS Data Encryption <https://docs.aws.amazon.com/sns/latest/dg/sns-data-encryption.html>`_ for more information. Default: The SNS Topic will not be encrypted.
         :param auto_scaling_group: The autoscaling group to add as a Capacity Provider. Warning: When passing an imported resource using ``AutoScalingGroup.fromAutoScalingGroupName`` along with ``enableManagedTerminationProtection: true``, the ``AsgCapacityProvider`` construct will not be able to enforce the option ``newInstancesProtectedFromScaleIn`` of the ``AutoScalingGroup``. In this case the constructor of ``AsgCapacityProvider`` will throw an exception.
         :param capacity_provider_name: The name of the capacity provider. If a name is specified, it cannot start with ``aws``, ``ecs``, or ``fargate``. If no name is specified, a default name in the CFNStackName-CFNResourceName-RandomString format is used. If the stack name starts with ``aws``, ``ecs``, or ``fargate``, a unique resource name is generated that starts with ``cp-``. Default: CloudFormation-generated name
-        :param enable_managed_draining: Managed instance draining facilitates graceful termination of Amazon ECS instances. This allows your service workloads to stop safely and be rescheduled to non-terminating instances. Infrastructure maintenance and updates are preformed without disruptions to workloads. To use managed instance draining, set enableManagedDraining to true. Default: true
+        :param enable_managed_draining: Managed instance draining facilitates graceful termination of Amazon ECS instances. This allows your service workloads to stop safely and be rescheduled to non-terminating instances. Infrastructure maintenance and updates are preformed without disruptions to workloads. To use managed instance draining, set enableManagedDraining to true. Default: - undefined, which means ECS will use its default behavior (ENABLED).
         :param enable_managed_scaling: When enabled the scale-in and scale-out actions of the cluster's Auto Scaling Group will be managed for you. This means your cluster will automatically scale instances based on the load your tasks put on the cluster. For more information, see `Using Managed Scaling <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/asg-capacity-providers.html#asg-capacity-providers-managed-scaling>`_ in the ECS Developer Guide. Default: true
         :param enable_managed_termination_protection: When enabled the Auto Scaling Group will only terminate EC2 instances that no longer have running non-daemon tasks. Scale-in protection will be automatically enabled on instances. When all non-daemon tasks are stopped on an instance, ECS initiates the scale-in process and turns off scale-in protection for the instance. The Auto Scaling Group can then terminate the instance. For more information see `Managed termination protection <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/cluster-auto-scaling.html#managed-termination-protection>`_ in the ECS Developer Guide. Managed scaling must also be enabled. Default: true
         :param instance_warmup_period: The period of time, in seconds, after a newly launched Amazon EC2 instance can contribute to CloudWatch metrics for Auto Scaling group. Must be between 0 and 10000. Default: 300
@@ -4620,7 +4620,7 @@ class AsgCapacityProviderProps(AddAutoScalingGroupCapacityOptions):
         Infrastructure maintenance and updates are preformed without disruptions to workloads.
         To use managed instance draining, set enableManagedDraining to true.
 
-        :default: true
+        :default: - undefined, which means ECS will use its default behavior (ENABLED).
         '''
         result = self._values.get("enable_managed_draining")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -19651,8 +19651,8 @@ class CfnService(
 
             :param enable: Determines whether to use the deployment circuit breaker logic for the service.
             :param rollback: Determines whether to configure Amazon ECS to roll back the service if a service deployment fails. If rollback is on, when a service deployment fails, the service is rolled back to the last deployment that completed successfully.
-            :param reset_on_healthy_task: 
-            :param threshold_configuration: 
+            :param reset_on_healthy_task: Specifies whether the deployment circuit breaker resets its failure count when a task reaches a healthy state. When set to ``true``, a task that reaches a healthy state resets the failure count to ``0``. When set to ``false``, Amazon ECS does not reset the failure count. The default is ``true``.
+            :param threshold_configuration: Defines the failure threshold that the deployment circuit breaker uses to monitor a deployment. The ``type`` and ``value`` together determine the number of task failures that are tolerated before the circuit breaker triggers. By default, the threshold configuration uses a ``type`` of ``BOUNDED_PERCENT`` with a ``value`` of ``50``.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentcircuitbreaker.html
             :exampleMetadata: fixture=_generated
@@ -19720,7 +19720,10 @@ class CfnService(
         def reset_on_healthy_task(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
-            '''
+            '''Specifies whether the deployment circuit breaker resets its failure count when a task reaches a healthy state.
+
+            When set to ``true``, a task that reaches a healthy state resets the failure count to ``0``. When set to ``false``, Amazon ECS does not reset the failure count. The default is ``true``.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentcircuitbreaker.html#cfn-ecs-service-deploymentcircuitbreaker-resetonhealthytask
             '''
             result = self._values.get("reset_on_healthy_task")
@@ -19730,7 +19733,11 @@ class CfnService(
         def threshold_configuration(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.ThresholdConfigurationProperty"]]:
-            '''
+            '''Defines the failure threshold that the deployment circuit breaker uses to monitor a deployment.
+
+            The ``type`` and ``value`` together determine the number of task failures that are tolerated before the circuit breaker triggers.
+            By default, the threshold configuration uses a ``type`` of ``BOUNDED_PERCENT`` with a ``value`` of ``50``.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentcircuitbreaker.html#cfn-ecs-service-deploymentcircuitbreaker-thresholdconfiguration
             '''
             result = self._values.get("threshold_configuration")
@@ -22977,9 +22984,13 @@ class CfnService(
     )
     class ThresholdConfigurationProperty:
         def __init__(self, *, type: builtins.str, value: jsii.Number) -> None:
-            '''
-            :param type: 
-            :param value: 
+            '''Defines the failure threshold that the deployment circuit breaker uses to monitor a deployment.
+
+            The ``type`` and ``value`` together determine the number of task failures that are tolerated before the circuit breaker triggers.
+            By default, the threshold configuration uses a ``type`` of ``BOUNDED_PERCENT`` with a ``value`` of ``50``.
+
+            :param type: Determines how Amazon ECS uses ``value`` to calculate the failure threshold. For the percentage types (``BOUNDED_PERCENT`` and ``UNBOUNDED_PERCENT``), Amazon ECS multiplies ``value`` by the latest service desired count. For ``COUNT``, Amazon ECS uses ``value`` directly as the threshold. The default is ``BOUNDED_PERCENT``.
+            :param value: Specifies the integer that Amazon ECS uses to calculate the failure threshold. When ``type`` is ``COUNT``, this value is the failure threshold itself. When ``type`` is a percentage type, Amazon ECS multiplies this value by the latest service desired count to produce the failure threshold. The default is ``50``.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-thresholdconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -23006,7 +23017,10 @@ class CfnService(
 
         @builtins.property
         def type(self) -> builtins.str:
-            '''
+            '''Determines how Amazon ECS uses ``value`` to calculate the failure threshold.
+
+            For the percentage types (``BOUNDED_PERCENT`` and ``UNBOUNDED_PERCENT``), Amazon ECS multiplies ``value`` by the latest service desired count. For ``COUNT``, Amazon ECS uses ``value`` directly as the threshold. The default is ``BOUNDED_PERCENT``.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-thresholdconfiguration.html#cfn-ecs-service-thresholdconfiguration-type
             '''
             result = self._values.get("type")
@@ -23015,7 +23029,10 @@ class CfnService(
 
         @builtins.property
         def value(self) -> jsii.Number:
-            '''
+            '''Specifies the integer that Amazon ECS uses to calculate the failure threshold.
+
+            When ``type`` is ``COUNT``, this value is the failure threshold itself. When ``type`` is a percentage type, Amazon ECS multiplies this value by the latest service desired count to produce the failure threshold. The default is ``50``.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-thresholdconfiguration.html#cfn-ecs-service-thresholdconfiguration-value
             '''
             result = self._values.get("value")

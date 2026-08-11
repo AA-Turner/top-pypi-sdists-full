@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import errno
 import io
 import struct
 import sys
@@ -15,10 +16,15 @@ from typing import TYPE_CHECKING, TypeVar
 import pytest
 
 from nab_index.client import SdistFile, WheelFile
+from nab_index.errors import IndexAccessError
 from nab_index.local_index import (
     LocalIndexClient,
+    LocalIndexError,
     MalformedLocalListingError,
+    NonLocalArtifactError,
+    UnreadableLocalIndexError,
     UnsupportedWheelError,
+    _is_zip_sdist,
     _make_record,
     _read_sdist_requires_python,
     parse_file_url,
@@ -35,6 +41,65 @@ _T = TypeVar("_T")
 
 def run(coro: Coroutine[Any, Any, _T]) -> _T:
     return asyncio.run(coro)
+
+
+def _fail_path_call(
+    monkeypatch: pytest.MonkeyPatch, method: str, target: Path, error: OSError
+) -> None:
+    """Make one ``Path`` call on ``target`` raise ``error``."""
+    original = getattr(Path, method)
+
+    def failing(self: Path, *args: Any, **kwargs: Any) -> Any:
+        if self == target:
+            raise error
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, method, failing)
+
+
+def _deny_access(monkeypatch: pytest.MonkeyPatch, method: str, target: Path) -> None:
+    """Make one ``Path`` call on ``target`` fail with EACCES.
+
+    A real chmod would not do: root ignores the mode bits and Windows has none.
+    """
+    denied = PermissionError(errno.EACCES, "Permission denied", str(target))
+    _fail_path_call(monkeypatch, method, target, denied)
+
+
+def _swallow_is_file_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Give ``Path.is_file`` Python 3.14's error handling on every version.
+
+    From 3.14 it answers False for any :class:`OSError`, so an entry the
+    process cannot stat reads as "not a file". The scan does not call it, so
+    the patch only bites if someone puts ``entry.is_file()`` back; that is what
+    keeps the tests below able to fail on an older interpreter.
+    """
+    original = Path.is_file
+
+    def is_file(self: Path, *args: Any, **kwargs: Any) -> bool:
+        try:
+            return original(self, *args, **kwargs)
+        except OSError:
+            return False
+
+    monkeypatch.setattr(Path, "is_file", is_file)
+
+
+def _deny_zip_open(monkeypatch: pytest.MonkeyPatch, target: Path) -> None:
+    """Make opening ``target`` as a zip fail with EACCES.
+
+    ``zipfile`` opens the path itself, so :func:`_deny_access` does not reach
+    it, and a real chmod would not do: root ignores the mode bits and Windows
+    has none.
+    """
+    original = zipfile.ZipFile
+
+    def denied(file: Any, *args: Any, **kwargs: Any) -> zipfile.ZipFile:
+        if file == target:
+            raise PermissionError(errno.EACCES, "Permission denied", str(target))
+        return original(file, *args, **kwargs)
+
+    monkeypatch.setattr(zipfile, "ZipFile", denied)
 
 
 def _write_wheel(
@@ -240,6 +305,35 @@ def _write_encrypted_metadata_wheel(path: Path, name: str, version: str) -> None
     _patch_wheel_member(path, member, encrypt=True)
 
 
+_LOCAL_ERRORS = [
+    UnreadableLocalIndexError,
+    MalformedLocalListingError,
+    NonLocalArtifactError,
+]
+
+
+class TestErrorHierarchy:
+    """What a caller catches for either index backend, and what it does not."""
+
+    @pytest.mark.parametrize("error", _LOCAL_ERRORS)
+    def test_local_errors_are_index_access_errors(
+        self, error: type[LocalIndexError]
+    ) -> None:
+        assert issubclass(error, LocalIndexError)
+        assert issubclass(error, IndexAccessError)
+
+    @pytest.mark.parametrize("error", _LOCAL_ERRORS)
+    def test_local_errors_are_not_http_errors(
+        self, error: type[LocalIndexError]
+    ) -> None:
+        # A file:// index makes no request, so naming one of these an HTTP
+        # failure would send a reader looking for a server that isn't there.
+        assert not issubclass(error, HttpError)
+
+    def test_http_errors_are_index_access_errors(self) -> None:
+        assert issubclass(HttpError, IndexAccessError)
+
+
 class TestParseFileUrl:
     def test_absolute_path(self, tmp_path: Path) -> None:
         url = tmp_path.as_uri()
@@ -327,6 +421,15 @@ class TestFlatWheelhouse:
         assert run(client.get_files("foo")) == []
         assert not client.served_unreadable_only("foo")
 
+    def test_zip_sdist_check_rejects_oversized_version(self) -> None:
+        """An oversized version answers False instead of raising.
+
+        Called directly because the filename is longer than any filesystem
+        allows, so it cannot arrive from a directory scan.
+        """
+        oversized = "1" * (sys.get_int_max_str_digits() + 1)
+        assert not _is_zip_sdist(f"foo-{oversized}.zip", "foo")
+
     def test_zip_beside_readable_wheel_is_not_unreadable_only(
         self, tmp_path: Path
     ) -> None:
@@ -370,6 +473,117 @@ class TestFlatWheelhouse:
         missing = tmp_path / "does-not-exist"
         client = LocalIndexClient(missing.as_uri())
         assert run(client.get_files("foo")) == []
+
+    def test_relative_root_lists_both_layouts(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A cwd-relative ``file:`` root names artefacts by absolute URI."""
+        root = tmp_path / "idx"
+        (root / "foo").mkdir(parents=True)
+        (root / "foo" / "index.html").write_text(
+            '<a href="foo-1.0-py3-none-any.whl">foo-1.0-py3-none-any.whl</a>',
+            encoding="utf-8",
+        )
+        listed = root / "foo" / "foo-1.0-py3-none-any.whl"
+        listed.write_bytes(b"")
+
+        flat = root / "bar-2.0-py3-none-any.whl"
+        flat.write_bytes(b"")
+
+        monkeypatch.chdir(tmp_path)
+        client = LocalIndexClient("file:idx")
+
+        pep503 = run(client.get_files("foo"))
+        assert [f.url for f in pep503] == [listed.as_uri()]
+        assert [f.local_path for f in pep503] == [listed]
+
+        wheelhouse = run(client.get_files("bar"))
+        assert [f.url for f in wheelhouse] == [flat.as_uri()]
+        assert [f.local_path for f in wheelhouse] == [flat]
+
+    def test_unreadable_root_raises_index_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A wheelhouse that cannot be listed must raise, not return an empty
+        # list: an empty result would read as "package absent".
+        (tmp_path / "foo-1.0-py3-none-any.whl").write_bytes(b"")
+        _deny_access(monkeypatch, "iterdir", tmp_path)
+        client = LocalIndexClient(tmp_path.as_uri())
+        with pytest.raises(UnreadableLocalIndexError) as caught:
+            run(client.get_files("foo"))
+        assert isinstance(caught.value, IndexAccessError)
+        assert not isinstance(caught.value, OSError)
+        assert "Permission denied" in str(caught.value)
+
+    def test_unreadable_entry_raises_index_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A release the process cannot stat must fail the listing rather than
+        # drop out of it, which would read as "1.0 is all there is".
+        (tmp_path / "foo-1.0-py3-none-any.whl").write_bytes(b"")
+        denied = tmp_path / "foo-2.0-py3-none-any.whl"
+        denied.write_bytes(b"")
+
+        _swallow_is_file_errors(monkeypatch)
+        _deny_access(monkeypatch, "stat", denied)
+
+        client = LocalIndexClient(tmp_path.as_uri())
+        with pytest.raises(UnreadableLocalIndexError) as caught:
+            run(client.get_files("foo"))
+
+        assert isinstance(caught.value, IndexAccessError)
+        assert not isinstance(caught.value, OSError)
+        assert "Permission denied" in str(caught.value)
+
+    def test_unreadable_entry_of_another_package_raises_index_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A wheelhouse serves every package from one directory, so an entry
+        # naming none of them still fails the listing.
+        (tmp_path / "foo-1.0-py3-none-any.whl").write_bytes(b"")
+        denied = tmp_path / "bar-2.0-py3-none-any.whl"
+        denied.write_bytes(b"")
+
+        _swallow_is_file_errors(monkeypatch)
+        _deny_access(monkeypatch, "stat", denied)
+
+        client = LocalIndexClient(tmp_path.as_uri())
+        with pytest.raises(UnreadableLocalIndexError):
+            run(client.get_files("foo"))
+
+    def test_symlink_cycle_entry_is_skipped(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A junk entry that stats as a symlink loop is not a wheelhouse fault.
+
+        Faked rather than made with :func:`os.symlink`, which needs a
+        privilege the Windows CI runner does not have.
+        """
+        (tmp_path / "foo-1.0-py3-none-any.whl").write_bytes(b"")
+        cycle = tmp_path / "cycle-link"
+        cycle.write_bytes(b"")
+
+        loop = OSError(errno.ELOOP, "Too many levels of symbolic links", str(cycle))
+        _fail_path_call(monkeypatch, "stat", cycle, loop)
+
+        client = LocalIndexClient(tmp_path.as_uri())
+        assert [f.version for f in run(client.get_files("foo"))] == ["1.0"]
+
+    def test_entry_gone_since_listing_is_skipped(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A name the directory no longer holds drops out of the listing."""
+        (tmp_path / "foo-1.0-py3-none-any.whl").write_bytes(b"")
+        original = Path.iterdir
+
+        def iterdir(self: Path) -> Iterator[Path]:
+            yield from original(self)
+            yield self / "foo-2.0-py3-none-any.whl"
+
+        monkeypatch.setattr(Path, "iterdir", iterdir)
+
+        client = LocalIndexClient(tmp_path.as_uri())
+        assert [f.version for f in run(client.get_files("foo"))] == ["1.0"]
 
     def test_listing_order_independent_of_readdir_order(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -752,7 +966,7 @@ class TestPep503Directory:
         result = run(client.get_files("foo"))
         assert result == []
 
-    def test_non_utf8_index_html_raises_http_error(self, tmp_path: Path) -> None:
+    def test_non_utf8_index_html_raises_index_error(self, tmp_path: Path) -> None:
         # A non-UTF-8 listing must raise, not return an empty list: an empty
         # result would read as "package absent".
         package_dir = tmp_path / "foo"
@@ -763,8 +977,38 @@ class TestPep503Directory:
         client = LocalIndexClient(tmp_path.as_uri())
         with pytest.raises(MalformedLocalListingError) as caught:
             run(client.get_files("foo"))
-        assert isinstance(caught.value, HttpError)
+        assert isinstance(caught.value, IndexAccessError)
         assert "not valid UTF-8" in str(caught.value)
+
+    def test_unreadable_index_html_raises_index_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        package_dir = self._make_index(
+            tmp_path, '<a href="foo-1.0-py3-none-any.whl">foo-1.0</a>'
+        )
+        _deny_access(monkeypatch, "read_text", package_dir / "index.html")
+        client = LocalIndexClient(tmp_path.as_uri())
+        with pytest.raises(UnreadableLocalIndexError) as caught:
+            run(client.get_files("foo"))
+        assert isinstance(caught.value, IndexAccessError)
+        assert not isinstance(caught.value, OSError)
+        assert "Permission denied" in str(caught.value)
+
+    def test_unreadable_package_dir_raises_index_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The layout probe stats <package>/index.html, so an unreadable package
+        # directory fails there.
+        package_dir = self._make_index(
+            tmp_path, '<a href="foo-1.0-py3-none-any.whl">foo-1.0</a>'
+        )
+        _deny_access(monkeypatch, "stat", package_dir / "index.html")
+        client = LocalIndexClient(tmp_path.as_uri())
+        with pytest.raises(UnreadableLocalIndexError) as caught:
+            run(client.get_files("foo"))
+        assert isinstance(caught.value, IndexAccessError)
+        assert not isinstance(caught.value, OSError)
+        assert "Permission denied" in str(caught.value)
 
     def test_pep503_non_local_file_href_dropped(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -920,6 +1164,46 @@ class TestPep503Directory:
         result = run(client.get_files("foo"))
         assert result[0].hashes == ()
 
+    def test_pep503_hash_fragment_beside_subdirectory(self, tmp_path: Path) -> None:
+        digest = "e" * 64
+        body = (
+            f'<a href="foo-1.0-py3-none-any.whl#sha256={digest}'
+            '&amp;subdirectory=pkg">foo</a>'
+        )
+        package_dir = self._make_index(tmp_path, body)
+        (package_dir / "foo-1.0-py3-none-any.whl").write_bytes(b"")
+        client = LocalIndexClient(tmp_path.as_uri())
+        result = run(client.get_files("foo"))
+        assert result[0].hashes == (("sha256", digest),)
+
+    def test_pep503_fragment_keeps_every_hash_part(self, tmp_path: Path) -> None:
+        sha256, sha512 = "e" * 64, "f" * 128
+        body = (
+            f'<a href="foo-1.0-py3-none-any.whl#sha256={sha256}'
+            f'&amp;sha512={sha512}">foo</a>'
+        )
+        package_dir = self._make_index(tmp_path, body)
+        (package_dir / "foo-1.0-py3-none-any.whl").write_bytes(b"")
+        client = LocalIndexClient(tmp_path.as_uri())
+        result = run(client.get_files("foo"))
+        assert result[0].hashes == (("sha256", sha256), ("sha512", sha512))
+
+    def test_pep503_egg_fragment_yields_no_hashes(self, tmp_path: Path) -> None:
+        body = '<a href="foo-1.0-py3-none-any.whl#egg=foo-1.0">foo</a>'
+        package_dir = self._make_index(tmp_path, body)
+        (package_dir / "foo-1.0-py3-none-any.whl").write_bytes(b"")
+        client = LocalIndexClient(tmp_path.as_uri())
+        result = run(client.get_files("foo"))
+        assert result[0].hashes == ()
+
+    def test_pep503_empty_digest_yields_no_hashes(self, tmp_path: Path) -> None:
+        body = '<a href="foo-1.0-py3-none-any.whl#sha256=&amp;egg=foo-1.0">foo</a>'
+        package_dir = self._make_index(tmp_path, body)
+        (package_dir / "foo-1.0-py3-none-any.whl").write_bytes(b"")
+        client = LocalIndexClient(tmp_path.as_uri())
+        result = run(client.get_files("foo"))
+        assert result[0].hashes == ()
+
     def test_pep503_sdist_hash_fragment(self, tmp_path: Path) -> None:
         digest = "d" * 64
         body = f'<a href="foo-1.0.tar.gz#sha256={digest}">foo</a>'
@@ -1039,25 +1323,25 @@ class TestMetadataAndSdist:
         text = run(client.get_metadata_text("foo", "1.0", meta_path.as_uri()))
         assert text.startswith("Name: foo")
 
-    def test_non_utf8_metadata_sidecar_raises_http_error(self, tmp_path: Path) -> None:
-        # A non-UTF-8 sidecar must fail through HttpError like the
+    def test_non_utf8_metadata_sidecar_raises_index_error(self, tmp_path: Path) -> None:
+        # A non-UTF-8 sidecar must fail through the index-error path like the
         # index.html reader, not a raw UnicodeDecodeError.
         meta_path = tmp_path / "foo-1.0.metadata"
         meta_path.write_bytes(b"Author: J\xe9an\n")
         client = LocalIndexClient(tmp_path.as_uri())
         with pytest.raises(MalformedLocalListingError) as caught:
             run(client.get_metadata_text("foo", "1.0", meta_path.as_uri()))
-        assert isinstance(caught.value, HttpError)
+        assert isinstance(caught.value, IndexAccessError)
         assert "not valid UTF-8" in str(caught.value)
 
-    def test_missing_metadata_sidecar_raises_http_error(self, tmp_path: Path) -> None:
-        # An advertised-but-absent sidecar must fail through HttpError, not a
-        # raw FileNotFoundError, matching a remote 404.
+    def test_missing_metadata_sidecar_raises_index_error(self, tmp_path: Path) -> None:
+        # An advertised-but-absent sidecar must fail through the index-error
+        # path, not a raw FileNotFoundError, matching a remote 404.
         meta_path = tmp_path / "foo-1.0.metadata"
         client = LocalIndexClient(tmp_path.as_uri())
-        with pytest.raises(MalformedLocalListingError) as caught:
+        with pytest.raises(UnreadableLocalIndexError) as caught:
             run(client.get_metadata_text("foo", "1.0", meta_path.as_uri()))
-        assert isinstance(caught.value, HttpError)
+        assert isinstance(caught.value, IndexAccessError)
         assert not isinstance(caught.value, OSError)
 
     def test_get_sdist_files(self, tmp_path: Path) -> None:
@@ -1082,27 +1366,27 @@ class TestMetadataAndSdist:
         assert pyproject is not None
         assert 'name = "foo"' in pyproject
 
-    def test_missing_sdist_files_raises_http_error(self, tmp_path: Path) -> None:
-        # An advertised-but-absent sdist must fail through HttpError, not a
-        # raw FileNotFoundError, matching a remote 404.
+    def test_missing_sdist_files_raises_index_error(self, tmp_path: Path) -> None:
+        # An advertised-but-absent sdist must fail through the index-error
+        # path, not a raw FileNotFoundError, matching a remote 404.
         sdist_path = tmp_path / "foo-1.0.tar.gz"
         client = LocalIndexClient(tmp_path.as_uri())
-        with pytest.raises(MalformedLocalListingError) as caught:
+        with pytest.raises(UnreadableLocalIndexError) as caught:
             run(client.get_sdist_files("foo", "1.0", sdist_path.as_uri()))
-        assert isinstance(caught.value, HttpError)
+        assert isinstance(caught.value, IndexAccessError)
         assert not isinstance(caught.value, OSError)
 
-    def test_missing_sdist_archive_raises_http_error(self, tmp_path: Path) -> None:
+    def test_missing_sdist_archive_raises_index_error(self, tmp_path: Path) -> None:
         sdist_path = tmp_path / "foo-1.0.tar.gz"
         client = LocalIndexClient(tmp_path.as_uri())
-        with pytest.raises(MalformedLocalListingError) as caught:
+        with pytest.raises(UnreadableLocalIndexError) as caught:
             run(client.get_sdist_archive("foo", "1.0", sdist_path.as_uri()))
-        assert isinstance(caught.value, HttpError)
+        assert isinstance(caught.value, IndexAccessError)
         assert not isinstance(caught.value, OSError)
 
-    def test_https_metadata_url_raises_http_error(self, tmp_path: Path) -> None:
-        # An absolute-href record admitted by get_files must fetch through
-        # HttpError, not a raw ValueError, when its sidecar is fetched.
+    def test_https_metadata_url_raises_index_error(self, tmp_path: Path) -> None:
+        # An absolute-href record admitted by get_files must fetch through the
+        # index-error path, not a raw ValueError, when its sidecar is fetched.
         package_dir = tmp_path / "foo"
         package_dir.mkdir()
         (package_dir / "index.html").write_text(
@@ -1118,10 +1402,10 @@ class TestMetadataAndSdist:
         assert metadata_url == (
             "https://files.example.com/foo-1.0-py3-none-any.whl.metadata"
         )
-        with pytest.raises(HttpError):
+        with pytest.raises(NonLocalArtifactError):
             run(client.get_metadata_text("foo", "1.0", metadata_url))
 
-    def test_https_sdist_url_raises_http_error(self, tmp_path: Path) -> None:
+    def test_https_sdist_url_raises_index_error(self, tmp_path: Path) -> None:
         package_dir = tmp_path / "foo"
         package_dir.mkdir()
         (package_dir / "index.html").write_text(
@@ -1133,9 +1417,9 @@ class TestMetadataAndSdist:
         assert isinstance(record, SdistFile)
         assert record.local_path is None
         assert record.url == "https://files.example.com/foo-1.0.tar.gz"
-        with pytest.raises(HttpError):
+        with pytest.raises(NonLocalArtifactError):
             run(client.get_sdist_files("foo", "1.0", record.url))
-        with pytest.raises(HttpError):
+        with pytest.raises(NonLocalArtifactError):
             run(client.get_sdist_archive("foo", "1.0", record.url))
 
 
@@ -1201,6 +1485,23 @@ class TestReadWheelMetadata:
 
     def test_returns_none_for_non_wheel_filename(self, tmp_path: Path) -> None:
         assert read_wheel_metadata(tmp_path / "notes.txt") is None
+
+    def test_unreadable_wheel_raises_index_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A wheel the process cannot open must raise, not read back as None.
+        wheel = tmp_path / "foo-1.0-py3-none-any.whl"
+        with zipfile.ZipFile(wheel, "w") as zf:
+            zf.writestr(
+                "foo-1.0.dist-info/METADATA",
+                "Metadata-Version: 2.1\nName: foo\nVersion: 1.0\n",
+            )
+        _deny_zip_open(monkeypatch, wheel)
+
+        with pytest.raises(UnreadableLocalIndexError) as caught:
+            read_wheel_metadata(wheel)
+        assert str(wheel) in str(caught.value)
+        assert "Permission denied" in str(caught.value)
 
     def test_rejects_multiple_dist_info_dirs(self, tmp_path: Path) -> None:
         wheel = tmp_path / "foo-1.0-py3-none-any.whl"

@@ -39,134 +39,6 @@ else:
 
 
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_codebuild.BuildBatchReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "build_batch_arn": "buildBatchArn",
-        "build_batch_id": "buildBatchId",
-    },
-)
-class BuildBatchReference:
-    def __init__(
-        self,
-        *,
-        build_batch_arn: builtins.str,
-        build_batch_id: builtins.str,
-    ) -> None:
-        '''A reference to a BuildBatch resource.
-
-        :param build_batch_arn: The ARN of the BuildBatch resource.
-        :param build_batch_id: The Id of the BuildBatch resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk.interfaces import aws_codebuild as interfaces_codebuild
-            
-            build_batch_reference = interfaces_codebuild.BuildBatchReference(
-                build_batch_arn="buildBatchArn",
-                build_batch_id="buildBatchId"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__c0f8f89b7bee3b8d8a65337ed27bfce7cb2481adb9bccbd4944ee93a49b341cb)
-            check_type(argname="argument build_batch_arn", value=build_batch_arn, expected_type=type_hints["build_batch_arn"])
-            check_type(argname="argument build_batch_id", value=build_batch_id, expected_type=type_hints["build_batch_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "build_batch_arn": build_batch_arn,
-            "build_batch_id": build_batch_id,
-        }
-
-    @builtins.property
-    def build_batch_arn(self) -> builtins.str:
-        '''The ARN of the BuildBatch resource.'''
-        result = self._values.get("build_batch_arn")
-        assert result is not None, "Required property 'build_batch_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def build_batch_id(self) -> builtins.str:
-        '''The Id of the BuildBatch resource.'''
-        result = self._values.get("build_batch_id")
-        assert result is not None, "Required property 'build_batch_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "BuildBatchReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.interfaces.aws_codebuild.BuildReference",
-    jsii_struct_bases=[],
-    name_mapping={"build_arn": "buildArn", "build_id": "buildId"},
-)
-class BuildReference:
-    def __init__(self, *, build_arn: builtins.str, build_id: builtins.str) -> None:
-        '''A reference to a Build resource.
-
-        :param build_arn: The ARN of the Build resource.
-        :param build_id: The Id of the Build resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk.interfaces import aws_codebuild as interfaces_codebuild
-            
-            build_reference = interfaces_codebuild.BuildReference(
-                build_arn="buildArn",
-                build_id="buildId"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__9ff0146471318239ef232ee6efb3ff810eea25751a723f2b5dbd267efa920750)
-            check_type(argname="argument build_arn", value=build_arn, expected_type=type_hints["build_arn"])
-            check_type(argname="argument build_id", value=build_id, expected_type=type_hints["build_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "build_arn": build_arn,
-            "build_id": build_id,
-        }
-
-    @builtins.property
-    def build_arn(self) -> builtins.str:
-        '''The ARN of the Build resource.'''
-        result = self._values.get("build_arn")
-        assert result is not None, "Required property 'build_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def build_id(self) -> builtins.str:
-        '''The Id of the Build resource.'''
-        result = self._values.get("build_id")
-        assert result is not None, "Required property 'build_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "BuildReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_codebuild.FleetReference",
     jsii_struct_bases=[],
     name_mapping={"fleet_arn": "fleetArn"},
@@ -213,96 +85,6 @@ class FleetReference:
         return "FleetReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_codebuild.IBuildBatchRef")
-class IBuildBatchRef(
-    _constructs_77d1e7e8.IConstruct,
-    _interfaces_8ca7e747.IEnvironmentAware,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a BuildBatch.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="buildBatchRef")
-    def build_batch_ref(self) -> "BuildBatchReference":
-        '''(experimental) A reference to a BuildBatch resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IBuildBatchRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a BuildBatch.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_codebuild.IBuildBatchRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="buildBatchRef")
-    def build_batch_ref(self) -> "BuildBatchReference":
-        '''(experimental) A reference to a BuildBatch resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("BuildBatchReference", jsii.get(self, "buildBatchRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IBuildBatchRef).__jsii_proxy_class__ = lambda : _IBuildBatchRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_codebuild.IBuildRef")
-class IBuildRef(
-    _constructs_77d1e7e8.IConstruct,
-    _interfaces_8ca7e747.IEnvironmentAware,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a Build.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="buildRef")
-    def build_ref(self) -> "BuildReference":
-        '''(experimental) A reference to a Build resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IBuildRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Build.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_codebuild.IBuildRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="buildRef")
-    def build_ref(self) -> "BuildReference":
-        '''(experimental) A reference to a Build resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("BuildReference", jsii.get(self, "buildRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IBuildRef).__jsii_proxy_class__ = lambda : _IBuildRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_codebuild.IFleetRef")
@@ -438,6 +220,51 @@ class _IReportGroupRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IReportGroupRef).__jsii_proxy_class__ = lambda : _IReportGroupRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_codebuild.ISandboxRef")
+class ISandboxRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Sandbox.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="sandboxRef")
+    def sandbox_ref(self) -> "SandboxReference":
+        '''(experimental) A reference to a Sandbox resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISandboxRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Sandbox.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_codebuild.ISandboxRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="sandboxRef")
+    def sandbox_ref(self) -> "SandboxReference":
+        '''(experimental) A reference to a Sandbox resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SandboxReference", jsii.get(self, "sandboxRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISandboxRef).__jsii_proxy_class__ = lambda : _ISandboxRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_codebuild.ISourceCredentialRef")
@@ -600,6 +427,55 @@ class ReportGroupReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_codebuild.SandboxReference",
+    jsii_struct_bases=[],
+    name_mapping={"sandbox_arn": "sandboxArn"},
+)
+class SandboxReference:
+    def __init__(self, *, sandbox_arn: builtins.str) -> None:
+        '''A reference to a Sandbox resource.
+
+        :param sandbox_arn: The Arn of the Sandbox resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_codebuild as interfaces_codebuild
+            
+            sandbox_reference = interfaces_codebuild.SandboxReference(
+                sandbox_arn="sandboxArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7b4f8a0943a06f04c7199270647555bcf7ce3788a376fea324075702ba30e480)
+            check_type(argname="argument sandbox_arn", value=sandbox_arn, expected_type=type_hints["sandbox_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "sandbox_arn": sandbox_arn,
+        }
+
+    @builtins.property
+    def sandbox_arn(self) -> builtins.str:
+        '''The Arn of the Sandbox resource.'''
+        result = self._values.get("sandbox_arn")
+        assert result is not None, "Required property 'sandbox_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SandboxReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_codebuild.SourceCredentialReference",
     jsii_struct_bases=[],
     name_mapping={"source_credential_id": "sourceCredentialId"},
@@ -649,37 +525,19 @@ class SourceCredentialReference:
 
 
 __all__ = [
-    "BuildBatchReference",
-    "BuildReference",
     "FleetReference",
-    "IBuildBatchRef",
-    "IBuildRef",
     "IFleetRef",
     "IProjectRef",
     "IReportGroupRef",
+    "ISandboxRef",
     "ISourceCredentialRef",
     "ProjectReference",
     "ReportGroupReference",
+    "SandboxReference",
     "SourceCredentialReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__c0f8f89b7bee3b8d8a65337ed27bfce7cb2481adb9bccbd4944ee93a49b341cb(
-    *,
-    build_batch_arn: builtins.str,
-    build_batch_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9ff0146471318239ef232ee6efb3ff810eea25751a723f2b5dbd267efa920750(
-    *,
-    build_arn: builtins.str,
-    build_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__b252b09ea2d7a037ef7eb8c132fdc4bf9af5d216a313e3c3b3a3847f4e0d380c(
     *,
@@ -703,6 +561,13 @@ def _typecheckingstub__7cd46ecb1a45984facc4fba5861d8c76e61cb467c28f418886f84499d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7b4f8a0943a06f04c7199270647555bcf7ce3788a376fea324075702ba30e480(
+    *,
+    sandbox_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1401c6ca94e02a490ee8ba6e38db6ee0841aa4f2e47c6995257d49aa5711a95c(
     *,
     source_credential_id: builtins.str,
@@ -710,5 +575,5 @@ def _typecheckingstub__1401c6ca94e02a490ee8ba6e38db6ee0841aa4f2e47c6995257d49aa5
     """Type checking stubs"""
     pass
 
-for cls in [IBuildBatchRef, IBuildRef, IFleetRef, IProjectRef, IReportGroupRef, ISourceCredentialRef]:
+for cls in [IFleetRef, IProjectRef, IReportGroupRef, ISandboxRef, ISourceCredentialRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

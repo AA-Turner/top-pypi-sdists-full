@@ -42,6 +42,7 @@ class ConvertToManagedIcebergTableRequest(BaseModel):
 
     @field_validator("storage_serialization_policy")
     def storage_serialization_policy_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("COMPATIBLE", "OPTIMIZED"):

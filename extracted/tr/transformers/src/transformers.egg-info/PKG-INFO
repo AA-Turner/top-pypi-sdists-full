@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: transformers
-Version: 5.14.1
+Version: 5.15.0
 Summary: Transformers: the model-definition framework for state-of-the-art machine learning models in text, vision, audio, and multimodal models, for both inference and training.
 Home-page: https://github.com/huggingface/transformers
 Author: The Hugging Face team (past and future) with the help of all our contributors (https://github.com/huggingface/transformers/graphs/contributors)
@@ -32,7 +32,7 @@ Requires-Dist: typer
 Requires-Dist: safetensors>=0.8.0
 Requires-Dist: tqdm>=4.60
 Provides-Extra: torch
-Requires-Dist: torch>=2.4; extra == "torch"
+Requires-Dist: torch>=2.5; extra == "torch"
 Requires-Dist: accelerate>=1.1.0; extra == "torch"
 Provides-Extra: vision
 Requires-Dist: torchvision; extra == "vision"
@@ -59,7 +59,7 @@ Requires-Dist: transformers-mlinter==0.1.2; extra == "quality"
 Provides-Extra: docs
 Requires-Dist: hf-doc-builder; extra == "docs"
 Provides-Extra: kernels
-Requires-Dist: kernels<0.16,>=0.15.2; extra == "kernels"
+Requires-Dist: kernels<0.17,>=0.16.0; extra == "kernels"
 Provides-Extra: sentencepiece
 Requires-Dist: sentencepiece!=0.1.92,>=0.1.91; extra == "sentencepiece"
 Requires-Dist: protobuf; extra == "sentencepiece"
@@ -67,7 +67,7 @@ Provides-Extra: tiktoken
 Requires-Dist: tiktoken; extra == "tiktoken"
 Requires-Dist: blobfile; extra == "tiktoken"
 Provides-Extra: mistral-common
-Requires-Dist: mistral-common[image]>=1.11.5; extra == "mistral-common"
+Requires-Dist: mistral-common[image]>=1.11.7; extra == "mistral-common"
 Provides-Extra: chat-template
 Requires-Dist: jinja2>=3.1.0; extra == "chat-template"
 Provides-Extra: sklearn
@@ -85,7 +85,7 @@ Requires-Dist: accelerate>=1.1.0; extra == "deepspeed"
 Provides-Extra: optuna
 Requires-Dist: optuna; extra == "optuna"
 Provides-Extra: integrations
-Requires-Dist: kernels<0.16,>=0.15.2; extra == "integrations"
+Requires-Dist: kernels<0.17,>=0.16.0; extra == "integrations"
 Requires-Dist: optuna; extra == "integrations"
 Requires-Dist: codecarbon>=2.8.1; extra == "integrations"
 Requires-Dist: ray[tune]>=2.7.0; extra == "integrations"
@@ -100,7 +100,7 @@ Requires-Dist: uvicorn; extra == "serving"
 Requires-Dist: fastapi; extra == "serving"
 Requires-Dist: starlette; extra == "serving"
 Requires-Dist: rich; extra == "serving"
-Requires-Dist: torch>=2.4; extra == "serving"
+Requires-Dist: torch>=2.5; extra == "serving"
 Requires-Dist: accelerate>=1.1.0; extra == "serving"
 Provides-Extra: num2words
 Requires-Dist: num2words; extra == "num2words"
@@ -157,9 +157,9 @@ Requires-Dist: uvicorn; extra == "testing"
 Requires-Dist: fastapi; extra == "testing"
 Requires-Dist: starlette; extra == "testing"
 Requires-Dist: rich; extra == "testing"
-Requires-Dist: torch>=2.4; extra == "testing"
+Requires-Dist: torch>=2.5; extra == "testing"
 Requires-Dist: accelerate>=1.1.0; extra == "testing"
-Requires-Dist: mistral-common[image]>=1.11.5; extra == "testing"
+Requires-Dist: mistral-common[image]>=1.11.7; extra == "testing"
 Provides-Extra: deepspeed-testing
 Requires-Dist: deepspeed>=0.9.3; extra == "deepspeed-testing"
 Requires-Dist: accelerate>=1.1.0; extra == "deepspeed-testing"
@@ -205,14 +205,14 @@ Requires-Dist: uvicorn; extra == "deepspeed-testing"
 Requires-Dist: fastapi; extra == "deepspeed-testing"
 Requires-Dist: starlette; extra == "deepspeed-testing"
 Requires-Dist: rich; extra == "deepspeed-testing"
-Requires-Dist: torch>=2.4; extra == "deepspeed-testing"
+Requires-Dist: torch>=2.5; extra == "deepspeed-testing"
 Requires-Dist: accelerate>=1.1.0; extra == "deepspeed-testing"
-Requires-Dist: mistral-common[image]>=1.11.5; extra == "deepspeed-testing"
+Requires-Dist: mistral-common[image]>=1.11.7; extra == "deepspeed-testing"
 Requires-Dist: optuna; extra == "deepspeed-testing"
 Requires-Dist: sentencepiece!=0.1.92,>=0.1.91; extra == "deepspeed-testing"
 Requires-Dist: protobuf; extra == "deepspeed-testing"
 Provides-Extra: all
-Requires-Dist: torch>=2.4; extra == "all"
+Requires-Dist: torch>=2.5; extra == "all"
 Requires-Dist: accelerate>=1.1.0; extra == "all"
 Requires-Dist: torchvision; extra == "all"
 Requires-Dist: Pillow<=15.0,>=10.0.1; extra == "all"
@@ -221,7 +221,7 @@ Requires-Dist: librosa; extra == "all"
 Requires-Dist: pyctcdecode>=0.4.0; extra == "all"
 Requires-Dist: phonemizer; extra == "all"
 Requires-Dist: av; extra == "all"
-Requires-Dist: kernels<0.16,>=0.15.2; extra == "all"
+Requires-Dist: kernels<0.17,>=0.16.0; extra == "all"
 Requires-Dist: timm>=1.0.23; extra == "all"
 Requires-Dist: sentencepiece!=0.1.92,>=0.1.91; extra == "all"
 Requires-Dist: protobuf; extra == "all"
@@ -229,9 +229,9 @@ Requires-Dist: tiktoken; extra == "all"
 Requires-Dist: blobfile; extra == "all"
 Requires-Dist: jinja2>=3.1.0; extra == "all"
 Requires-Dist: num2words; extra == "all"
-Requires-Dist: mistral-common[image]>=1.11.5; extra == "all"
+Requires-Dist: mistral-common[image]>=1.11.7; extra == "all"
 Provides-Extra: dev
-Requires-Dist: torch>=2.4; extra == "dev"
+Requires-Dist: torch>=2.5; extra == "dev"
 Requires-Dist: accelerate>=1.1.0; extra == "dev"
 Requires-Dist: torchvision; extra == "dev"
 Requires-Dist: Pillow<=15.0,>=10.0.1; extra == "dev"
@@ -240,7 +240,7 @@ Requires-Dist: librosa; extra == "dev"
 Requires-Dist: pyctcdecode>=0.4.0; extra == "dev"
 Requires-Dist: phonemizer; extra == "dev"
 Requires-Dist: av; extra == "dev"
-Requires-Dist: kernels<0.16,>=0.15.2; extra == "dev"
+Requires-Dist: kernels<0.17,>=0.16.0; extra == "dev"
 Requires-Dist: timm>=1.0.23; extra == "dev"
 Requires-Dist: sentencepiece!=0.1.92,>=0.1.91; extra == "dev"
 Requires-Dist: protobuf; extra == "dev"
@@ -248,7 +248,7 @@ Requires-Dist: tiktoken; extra == "dev"
 Requires-Dist: blobfile; extra == "dev"
 Requires-Dist: jinja2>=3.1.0; extra == "dev"
 Requires-Dist: num2words; extra == "dev"
-Requires-Dist: mistral-common[image]>=1.11.5; extra == "dev"
+Requires-Dist: mistral-common[image]>=1.11.7; extra == "dev"
 Requires-Dist: pytest<9.0.0,>=7.2.0; extra == "dev"
 Requires-Dist: pytest-asyncio>=1.2.0; extra == "dev"
 Requires-Dist: pytest-random-order; extra == "dev"
@@ -291,9 +291,9 @@ Requires-Dist: uvicorn; extra == "dev"
 Requires-Dist: fastapi; extra == "dev"
 Requires-Dist: starlette; extra == "dev"
 Requires-Dist: rich; extra == "dev"
-Requires-Dist: torch>=2.4; extra == "dev"
+Requires-Dist: torch>=2.5; extra == "dev"
 Requires-Dist: accelerate>=1.1.0; extra == "dev"
-Requires-Dist: mistral-common[image]>=1.11.5; extra == "dev"
+Requires-Dist: mistral-common[image]>=1.11.7; extra == "dev"
 Requires-Dist: fugashi>=1.0; extra == "dev"
 Requires-Dist: ipadic<2.0,>=1.0.0; extra == "dev"
 Requires-Dist: unidic_lite>=1.0.7; extra == "dev"
@@ -401,7 +401,7 @@ Explore the [Hub](https://huggingface.co/) today to find a model and use Transfo
 
 ## Installation
 
-Transformers works with Python 3.10+, and [PyTorch](https://pytorch.org/get-started/locally/) 2.4+.
+Transformers works with Python 3.10+, and [PyTorch](https://pytorch.org/get-started/locally/) 2.5+.
 
 Create and activate a virtual environment with [venv](https://docs.python.org/3/library/venv.html) or [uv](https://docs.astral.sh/uv/), a fast Rust-based Python package and project manager.
 

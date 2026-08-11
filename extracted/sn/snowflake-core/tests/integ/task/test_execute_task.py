@@ -15,9 +15,9 @@ def test_execute_basic(tasks, session):
     task_name = random_object_name()
     try:
         task = tasks.create(Task(name=task_name, definition="select 1"))
-        assert not get_task_history(session, task.name)
+        assert not get_task_history(session, task_name=task.name)
         task.execute()
-        assert len(get_task_history(session, task.name)) == 1
+        assert len(get_task_history(session, task_name=task.name)) == 1
         with pytest.raises(NotFoundError):
             tasks["not_exists"].execute()
     finally:

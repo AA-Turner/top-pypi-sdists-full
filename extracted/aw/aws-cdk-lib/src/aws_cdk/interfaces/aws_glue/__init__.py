@@ -39,6 +39,55 @@ else:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_glue.BlueprintReference",
+    jsii_struct_bases=[],
+    name_mapping={"blueprint_arn": "blueprintArn"},
+)
+class BlueprintReference:
+    def __init__(self, *, blueprint_arn: builtins.str) -> None:
+        '''A reference to a Blueprint resource.
+
+        :param blueprint_arn: The Arn of the Blueprint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_glue as interfaces_glue
+            
+            blueprint_reference = interfaces_glue.BlueprintReference(
+                blueprint_arn="blueprintArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__74f84cc3c6d0f263e9ddf1a55c7fdea806d5b8dc149e51187a6f8b187475d3c1)
+            check_type(argname="argument blueprint_arn", value=blueprint_arn, expected_type=type_hints["blueprint_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "blueprint_arn": blueprint_arn,
+        }
+
+    @builtins.property
+    def blueprint_arn(self) -> builtins.str:
+        '''The Arn of the Blueprint resource.'''
+        result = self._values.get("blueprint_arn")
+        assert result is not None, "Required property 'blueprint_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BlueprintReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_glue.CatalogReference",
     jsii_struct_bases=[],
     name_mapping={"resource_arn": "resourceArn"},
@@ -477,6 +526,51 @@ class DevEndpointReference:
         return "DevEndpointReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_glue.IBlueprintRef")
+class IBlueprintRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Blueprint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="blueprintRef")
+    def blueprint_ref(self) -> "BlueprintReference":
+        '''(experimental) A reference to a Blueprint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBlueprintRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Blueprint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_glue.IBlueprintRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="blueprintRef")
+    def blueprint_ref(self) -> "BlueprintReference":
+        '''(experimental) A reference to a Blueprint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("BlueprintReference", jsii.get(self, "blueprintRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBlueprintRef).__jsii_proxy_class__ = lambda : _IBlueprintRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_glue.ICatalogRef")
@@ -1577,6 +1671,51 @@ class _IUsageProfileRefProxy(
 typing.cast(typing.Any, IUsageProfileRef).__jsii_proxy_class__ = lambda : _IUsageProfileRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_glue.IUserDefinedFunctionRef")
+class IUserDefinedFunctionRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a UserDefinedFunction.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="userDefinedFunctionRef")
+    def user_defined_function_ref(self) -> "UserDefinedFunctionReference":
+        '''(experimental) A reference to a UserDefinedFunction resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IUserDefinedFunctionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a UserDefinedFunction.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_glue.IUserDefinedFunctionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="userDefinedFunctionRef")
+    def user_defined_function_ref(self) -> "UserDefinedFunctionReference":
+        '''(experimental) A reference to a UserDefinedFunction resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("UserDefinedFunctionReference", jsii.get(self, "userDefinedFunctionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IUserDefinedFunctionRef).__jsii_proxy_class__ = lambda : _IUserDefinedFunctionRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_glue.IWorkflowRef")
 class IWorkflowRef(
     _constructs_77d1e7e8.IConstruct,
@@ -2428,6 +2567,55 @@ class UsageProfileReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_glue.UserDefinedFunctionReference",
+    jsii_struct_bases=[],
+    name_mapping={"user_defined_function_arn": "userDefinedFunctionArn"},
+)
+class UserDefinedFunctionReference:
+    def __init__(self, *, user_defined_function_arn: builtins.str) -> None:
+        '''A reference to a UserDefinedFunction resource.
+
+        :param user_defined_function_arn: The Arn of the UserDefinedFunction resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_glue as interfaces_glue
+            
+            user_defined_function_reference = interfaces_glue.UserDefinedFunctionReference(
+                user_defined_function_arn="userDefinedFunctionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5e1ff3d4751c7ba1689180d09777a0d7407fc90ef06c219bedeb2047180cc973)
+            check_type(argname="argument user_defined_function_arn", value=user_defined_function_arn, expected_type=type_hints["user_defined_function_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "user_defined_function_arn": user_defined_function_arn,
+        }
+
+    @builtins.property
+    def user_defined_function_arn(self) -> builtins.str:
+        '''The Arn of the UserDefinedFunction resource.'''
+        result = self._values.get("user_defined_function_arn")
+        assert result is not None, "Required property 'user_defined_function_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "UserDefinedFunctionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_glue.WorkflowReference",
     jsii_struct_bases=[],
     name_mapping={"workflow_name": "workflowName"},
@@ -2477,6 +2665,7 @@ class WorkflowReference:
 
 
 __all__ = [
+    "BlueprintReference",
     "CatalogReference",
     "ClassifierReference",
     "ConnectionReference",
@@ -2486,6 +2675,7 @@ __all__ = [
     "DataQualityRulesetReference",
     "DatabaseReference",
     "DevEndpointReference",
+    "IBlueprintRef",
     "ICatalogRef",
     "IClassifierRef",
     "IConnectionRef",
@@ -2510,6 +2700,7 @@ __all__ = [
     "ITableRef",
     "ITriggerRef",
     "IUsageProfileRef",
+    "IUserDefinedFunctionRef",
     "IWorkflowRef",
     "IdentityCenterConfigurationReference",
     "IntegrationReference",
@@ -2526,10 +2717,18 @@ __all__ = [
     "TableReference",
     "TriggerReference",
     "UsageProfileReference",
+    "UserDefinedFunctionReference",
     "WorkflowReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__74f84cc3c6d0f263e9ddf1a55c7fdea806d5b8dc149e51187a6f8b187475d3c1(
+    *,
+    blueprint_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__f73a6ea26762ecbddcfac7ae43b16414e1d43933b3ed36504fa0600d7b87e382(
     *,
@@ -2703,6 +2902,13 @@ def _typecheckingstub__31cd7baf9c81bae2e0d29221ca6cf6bf1b06b730a8c9d8fedf8630e65
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5e1ff3d4751c7ba1689180d09777a0d7407fc90ef06c219bedeb2047180cc973(
+    *,
+    user_defined_function_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__05490662a534e7ac737a01a3e54258abf2c5d6dd3a563391b841bd656b5b6220(
     *,
     workflow_name: builtins.str,
@@ -2710,5 +2916,5 @@ def _typecheckingstub__05490662a534e7ac737a01a3e54258abf2c5d6dd3a563391b841bd656
     """Type checking stubs"""
     pass
 
-for cls in [ICatalogRef, IClassifierRef, IConnectionRef, ICrawlerRef, ICustomEntityTypeRef, IDataCatalogEncryptionSettingsRef, IDataQualityRulesetRef, IDatabaseRef, IDevEndpointRef, IIdentityCenterConfigurationRef, IIntegrationRef, IIntegrationResourcePropertyRef, IJobRef, IMLTransformRef, IPartitionRef, IRegistryRef, ISchemaRef, ISchemaVersionMetadataRef, ISchemaVersionRef, ISecurityConfigurationRef, ITableOptimizerRef, ITableRef, ITriggerRef, IUsageProfileRef, IWorkflowRef]:
+for cls in [IBlueprintRef, ICatalogRef, IClassifierRef, IConnectionRef, ICrawlerRef, ICustomEntityTypeRef, IDataCatalogEncryptionSettingsRef, IDataQualityRulesetRef, IDatabaseRef, IDevEndpointRef, IIdentityCenterConfigurationRef, IIntegrationRef, IIntegrationResourcePropertyRef, IJobRef, IMLTransformRef, IPartitionRef, IRegistryRef, ISchemaRef, ISchemaVersionMetadataRef, ISchemaVersionRef, ISecurityConfigurationRef, ITableOptimizerRef, ITableRef, ITriggerRef, IUsageProfileRef, IUserDefinedFunctionRef, IWorkflowRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

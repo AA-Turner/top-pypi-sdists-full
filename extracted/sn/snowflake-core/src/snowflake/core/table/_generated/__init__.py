@@ -22,6 +22,7 @@ __version__ = "1.0.0"
 from snowflake.core.table._generated.api.table_api import TableApi
 
 # import models into sdk package
+from snowflake.core.table._generated.models.check_constraint import CheckConstraint
 from snowflake.core.table._generated.models.constraint import Constraint
 from snowflake.core.table._generated.models.error_response import ErrorResponse
 from snowflake.core.table._generated.models.foreign_key import ForeignKey
@@ -30,6 +31,7 @@ from snowflake.core.table._generated.models.point_of_time_offset import PointOfT
 from snowflake.core.table._generated.models.point_of_time_statement import PointOfTimeStatement
 from snowflake.core.table._generated.models.point_of_time_timestamp import PointOfTimeTimestamp
 from snowflake.core.table._generated.models.primary_key import PrimaryKey
+from snowflake.core.table._generated.models.search_optimization_expression import SearchOptimizationExpression
 from snowflake.core.table._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.table._generated.models.success_response import SuccessResponse
 from snowflake.core.table._generated.models.table import Table

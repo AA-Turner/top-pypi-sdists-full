@@ -285,7 +285,7 @@ impl PyFIFOCache {
         let inner = self.0.get();
         let mut policy = inner.policy();
 
-        if let Some(x) = policy.get(py, &key)? {
+        if let Some(x) = policy.get(py, &key, inner.shared())? {
             return Ok(x.value().clone_ref(py));
         }
 
@@ -308,7 +308,7 @@ impl PyFIFOCache {
         let inner = self.0.get();
         let mut policy = inner.policy();
 
-        match policy.get(py, &key)? {
+        match policy.get(py, &key, inner.shared())? {
             Some(x) => Ok(x.value().clone_ref(py)),
             None => Err(new_py_error!(
                 PyKeyError,
@@ -340,7 +340,7 @@ impl PyFIFOCache {
         let shared = inner.shared();
         let mut policy = inner.policy();
 
-        if let Some(x) = policy.get(py, &key)? {
+        if let Some(x) = policy.get(py, &key, inner.shared())? {
             return Ok(x.value().clone_ref(py));
         }
 
@@ -389,7 +389,7 @@ impl PyFIFOCache {
         {
             let mut policy = inner.policy();
 
-            if let Some(x) = policy.get(py, &key)? {
+            if let Some(x) = policy.get(py, &key, inner.shared())? {
                 return Ok(x.value().clone_ref(py));
             }
         }
@@ -399,7 +399,7 @@ impl PyFIFOCache {
 
         let mut policy = inner.policy();
 
-        if let Some(x) = policy.get(py, &key)? {
+        if let Some(x) = policy.get(py, &key, inner.shared())? {
             return Ok(x.value().clone_ref(py));
         }
 
@@ -717,6 +717,8 @@ macro_rules! implement_iterator {
                 }
             }
 
+            implement_view_guard!($name);
+
             #[pyo3::pymethods]
             impl $name {
                 #[inline]
@@ -729,12 +731,7 @@ macro_rules! implement_iterator {
                 }
 
                 fn __next__(slf: pyo3::PyRef<'_, Self>) -> pyo3::PyResult<$rt_type> {
-                    if slf.initial_gv != slf.gv.get() {
-                        return Err(new_py_error!(
-                            PyRuntimeError,
-                            "cache size changed during iteration"
-                        ));
-                    }
+                    slf.check_generation()?;
 
                     let mut iter = slf.iter.lock();
 
@@ -746,6 +743,13 @@ macro_rules! implement_iterator {
                         }
                         None => return Err(new_py_error!(PyStopIteration, ())),
                     }
+                }
+
+                /// Returns how many items are left to yield.
+                fn __len__(slf: pyo3::PyRef<'_, Self>) -> pyo3::PyResult<usize> {
+                    slf.check_generation()?;
+
+                    Ok(slf.iter.lock().len())
                 }
             }
         )+

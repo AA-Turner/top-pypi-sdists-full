@@ -67,6 +67,7 @@ System_Runtime_InteropServices_TypeMapping_GetOrCreateProxyTypeMapping_TTypeMapG
 System_Runtime_InteropServices_MemoryMarshal_AsBytes_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_AsBytes_T")
 System_Runtime_InteropServices_MemoryMarshal_AsMemory_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_AsMemory_T")
 System_Runtime_InteropServices_MemoryMarshal_GetReference_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_GetReference_T")
+System_Runtime_InteropServices_MemoryMarshal_GetArrayDataReference_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_GetArrayDataReference_T")
 System_Runtime_InteropServices_MemoryMarshal_Cast_TFrom = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_Cast_TFrom")
 System_Runtime_InteropServices_MemoryMarshal_Cast_TTo = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_Cast_TTo")
 System_Runtime_InteropServices_MemoryMarshal_CreateSpan_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_CreateSpan_T")
@@ -81,7 +82,6 @@ System_Runtime_InteropServices_MemoryMarshal_Write_T = typing.TypeVar("System_Ru
 System_Runtime_InteropServices_MemoryMarshal_TryWrite_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_TryWrite_T")
 System_Runtime_InteropServices_MemoryMarshal_AsRef_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_AsRef_T")
 System_Runtime_InteropServices_MemoryMarshal_CreateFromPinnedArray_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_CreateFromPinnedArray_T")
-System_Runtime_InteropServices_MemoryMarshal_GetArrayDataReference_T = typing.TypeVar("System_Runtime_InteropServices_MemoryMarshal_GetArrayDataReference_T")
 System_Runtime_InteropServices_SafeBuffer_Initialize_T = typing.TypeVar("System_Runtime_InteropServices_SafeBuffer_Initialize_T")
 System_Runtime_InteropServices_SafeBuffer_Read_T = typing.TypeVar("System_Runtime_InteropServices_SafeBuffer_Read_T")
 System_Runtime_InteropServices_SafeBuffer_ReadArray_T = typing.TypeVar("System_Runtime_InteropServices_SafeBuffer_ReadArray_T")
@@ -3661,6 +3661,29 @@ class _MemoryMarshal_GetReference:
         ...
 
 
+class _Typed_MemoryMarshal_GetArrayDataReference(typing.Generic[System_Runtime_InteropServices_MemoryMarshal_GetArrayDataReference_T]):
+    """"""
+
+    @overload
+    def __call__(self, array: typing.List[System_Runtime_InteropServices_MemoryMarshal_GetArrayDataReference_T]) -> typing.Any:
+        ...
+
+    @overload
+    def __call__(self, array: typing.List[System_Runtime_InteropServices_MemoryMarshal_GetArrayDataReference_T]) -> typing.Any:
+        ...
+
+
+class _MemoryMarshal_GetArrayDataReference:
+    """"""
+
+    @overload
+    def __call__(self, array: System.Array) -> typing.Any:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_MemoryMarshal_GetArrayDataReference_T]) -> System.Runtime.InteropServices._Typed_MemoryMarshal_GetArrayDataReference[System_Runtime_InteropServices_MemoryMarshal_GetArrayDataReference_T]:
+        ...
+
+
 class _Typed_MemoryMarshal_Cast(typing.Generic[System_Runtime_InteropServices_MemoryMarshal_Cast_TFrom]):
     """"""
 
@@ -3853,25 +3876,6 @@ class _MemoryMarshal_CreateFromPinnedArray:
         ...
 
 
-class _Typed_MemoryMarshal_GetArrayDataReference(typing.Generic[System_Runtime_InteropServices_MemoryMarshal_GetArrayDataReference_T]):
-    """"""
-
-    @overload
-    def __call__(self, array: typing.List[System_Runtime_InteropServices_MemoryMarshal_GetArrayDataReference_T]) -> typing.Any:
-        ...
-
-
-class _MemoryMarshal_GetArrayDataReference:
-    """"""
-
-    @overload
-    def __call__(self, array: System.Array) -> typing.Any:
-        ...
-
-    def __getitem__(self, type: typing.Type[System_Runtime_InteropServices_MemoryMarshal_GetArrayDataReference_T]) -> System.Runtime.InteropServices._Typed_MemoryMarshal_GetArrayDataReference[System_Runtime_InteropServices_MemoryMarshal_GetArrayDataReference_T]:
-        ...
-
-
 class MemoryMarshal(System.Object):
     """This class has no documentation."""
 
@@ -3880,6 +3884,8 @@ class MemoryMarshal(System.Object):
     as_memory: System.Runtime.InteropServices._MemoryMarshal_AsMemory
 
     get_reference: System.Runtime.InteropServices._MemoryMarshal_GetReference
+
+    get_array_data_reference: System.Runtime.InteropServices._MemoryMarshal_GetArrayDataReference
 
     cast: System.Runtime.InteropServices._MemoryMarshal_Cast
 
@@ -3904,8 +3910,6 @@ class MemoryMarshal(System.Object):
     as_ref: System.Runtime.InteropServices._MemoryMarshal_AsRef
 
     create_from_pinned_array: System.Runtime.InteropServices._MemoryMarshal_CreateFromPinnedArray
-
-    get_array_data_reference: System.Runtime.InteropServices._MemoryMarshal_GetArrayDataReference
 
     @staticmethod
     def create_read_only_span_from_null_terminated(value: typing.Any) -> System.ReadOnlySpan[str]:

@@ -894,6 +894,427 @@ class CfnWorkspace(
             )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_workspaces_4620141e.IWorkspaceIpGroupRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnWorkspaceIpGroup(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_workspaces.CfnWorkspaceIpGroup",
+):
+    '''Resource type definition for an IP access control group for Amazon WorkSpaces.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-workspaceipgroup.html
+    :cloudformationResource: AWS::WorkSpaces::WorkspaceIpGroup
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_workspaces as workspaces
+        
+        cfn_workspace_ip_group = workspaces.CfnWorkspaceIpGroup(self, "MyCfnWorkspaceIpGroup",
+            group_name="groupName",
+        
+            # the properties below are optional
+            group_desc="groupDesc",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            user_rules=[workspaces.CfnWorkspaceIpGroup.IpRuleItemProperty(
+                ip_rule="ipRule",
+        
+                # the properties below are optional
+                rule_desc="ruleDesc"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        group_name: builtins.str,
+        group_desc: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        user_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspaceIpGroup.IpRuleItemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::WorkSpaces::WorkspaceIpGroup``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param group_name: The name of the group.
+        :param group_desc: The description of the group.
+        :param tags: The tags for the IP access control group.
+        :param user_rules: The rules for the IP access control group.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a4ad7b8ae0ab90e6cccba48331cf2278b942c4e2286ff003c7c5d3d01eb23328)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnWorkspaceIpGroupProps(
+            group_name=group_name,
+            group_desc=group_desc,
+            tags=tags,
+            user_rules=user_rules,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForWorkspaceIpGroup")
+    @builtins.classmethod
+    def arn_for_workspace_ip_group(
+        cls,
+        resource: "_aws_workspaces_4620141e.IWorkspaceIpGroupRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6173be321bf1f4583b718296cd816a36887510f673584b9755d887f8328a075b)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWorkspaceIpGroup", [resource]))
+
+    @jsii.member(jsii_name="isCfnWorkspaceIpGroup")
+    @builtins.classmethod
+    def is_cfn_workspace_ip_group(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnWorkspaceIpGroup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9132cdbc4b4e441b9b431185b1b82925c868d98f9de4a66ab2372c7dee556bb9)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWorkspaceIpGroup", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7a38c23726b5bd916d89720d7358c4e2dd6101aa955590a0d66b5ab633960c13)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bf0b5471f4e6c8a14b058cc3fccd30854f815a8bbe8e7da1a194ce1c392aecb6)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IP access control group.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrGroupId")
+    def attr_group_id(self) -> builtins.str:
+        '''The identifier of the IP access control group.
+
+        :cloudformationAttribute: GroupId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrGroupId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceIpGroupRef")
+    def workspace_ip_group_ref(
+        self,
+    ) -> "_aws_workspaces_4620141e.WorkspaceIpGroupReference":
+        '''A reference to a WorkspaceIpGroup resource.'''
+        return typing.cast("_aws_workspaces_4620141e.WorkspaceIpGroupReference", jsii.get(self, "workspaceIpGroupRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="groupName")
+    def group_name(self) -> builtins.str:
+        '''The name of the group.'''
+        return typing.cast(builtins.str, jsii.get(self, "groupName"))
+
+    @group_name.setter
+    def group_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__76e4d60d6ae5674582b5244ffdabad710288b71a02010f9b8622243f01194ff3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "groupName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="groupDesc")
+    def group_desc(self) -> typing.Optional[builtins.str]:
+        '''The description of the group.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "groupDesc"))
+
+    @group_desc.setter
+    def group_desc(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b48e0db76d8f4fa74fb3edf59e6f0ed00c82f7f491a236618982a4f0c084951a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "groupDesc", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags for the IP access control group.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e9a29bad2cf4dbccb24edf13ca2ba3777f254924581e693a9b2c1a384d3b6ca6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="userRules")
+    def user_rules(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspaceIpGroup.IpRuleItemProperty"]]]]:
+        '''The rules for the IP access control group.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspaceIpGroup.IpRuleItemProperty"]]]], jsii.get(self, "userRules"))
+
+    @user_rules.setter
+    def user_rules(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspaceIpGroup.IpRuleItemProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__523c626d42fae94b47c0403319513a730cd38c8b35b9fadd760de3c0007f0c03)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "userRules", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_workspaces.CfnWorkspaceIpGroup.IpRuleItemProperty",
+        jsii_struct_bases=[],
+        name_mapping={"ip_rule": "ipRule", "rule_desc": "ruleDesc"},
+    )
+    class IpRuleItemProperty:
+        def __init__(
+            self,
+            *,
+            ip_rule: builtins.str,
+            rule_desc: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Describes a rule for an IP access control group.
+
+            :param ip_rule: The IP address range, in CIDR notation.
+            :param rule_desc: The description of the rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-workspaceipgroup-ipruleitem.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_workspaces as workspaces
+                
+                ip_rule_item_property = workspaces.CfnWorkspaceIpGroup.IpRuleItemProperty(
+                    ip_rule="ipRule",
+                
+                    # the properties below are optional
+                    rule_desc="ruleDesc"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f873d26323a491ea3042f52973cfd827eb9aee1985f5153152030dd4dec84b61)
+                check_type(argname="argument ip_rule", value=ip_rule, expected_type=type_hints["ip_rule"])
+                check_type(argname="argument rule_desc", value=rule_desc, expected_type=type_hints["rule_desc"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "ip_rule": ip_rule,
+            }
+            if rule_desc is not None:
+                self._values["rule_desc"] = rule_desc
+
+        @builtins.property
+        def ip_rule(self) -> builtins.str:
+            '''The IP address range, in CIDR notation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-workspaceipgroup-ipruleitem.html#cfn-workspaces-workspaceipgroup-ipruleitem-iprule
+            '''
+            result = self._values.get("ip_rule")
+            assert result is not None, "Required property 'ip_rule' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def rule_desc(self) -> typing.Optional[builtins.str]:
+            '''The description of the rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-workspaceipgroup-ipruleitem.html#cfn-workspaces-workspaceipgroup-ipruleitem-ruledesc
+            '''
+            result = self._values.get("rule_desc")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IpRuleItemProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspaces.CfnWorkspaceIpGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "group_name": "groupName",
+        "group_desc": "groupDesc",
+        "tags": "tags",
+        "user_rules": "userRules",
+    },
+)
+class CfnWorkspaceIpGroupProps:
+    def __init__(
+        self,
+        *,
+        group_name: builtins.str,
+        group_desc: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        user_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspaceIpGroup.IpRuleItemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWorkspaceIpGroup``.
+
+        :param group_name: The name of the group.
+        :param group_desc: The description of the group.
+        :param tags: The tags for the IP access control group.
+        :param user_rules: The rules for the IP access control group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-workspaceipgroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspaces as workspaces
+            
+            cfn_workspace_ip_group_props = workspaces.CfnWorkspaceIpGroupProps(
+                group_name="groupName",
+            
+                # the properties below are optional
+                group_desc="groupDesc",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                user_rules=[workspaces.CfnWorkspaceIpGroup.IpRuleItemProperty(
+                    ip_rule="ipRule",
+            
+                    # the properties below are optional
+                    rule_desc="ruleDesc"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a067f55bd2dfbd47a99ad5bd1bd5de5846bb18a8d6b194cee5d30f8efa814bd8)
+            check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
+            check_type(argname="argument group_desc", value=group_desc, expected_type=type_hints["group_desc"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument user_rules", value=user_rules, expected_type=type_hints["user_rules"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "group_name": group_name,
+        }
+        if group_desc is not None:
+            self._values["group_desc"] = group_desc
+        if tags is not None:
+            self._values["tags"] = tags
+        if user_rules is not None:
+            self._values["user_rules"] = user_rules
+
+    @builtins.property
+    def group_name(self) -> builtins.str:
+        '''The name of the group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-workspaceipgroup.html#cfn-workspaces-workspaceipgroup-groupname
+        '''
+        result = self._values.get("group_name")
+        assert result is not None, "Required property 'group_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def group_desc(self) -> typing.Optional[builtins.str]:
+        '''The description of the group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-workspaceipgroup.html#cfn-workspaces-workspaceipgroup-groupdesc
+        '''
+        result = self._values.get("group_desc")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags for the IP access control group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-workspaceipgroup.html#cfn-workspaces-workspaceipgroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def user_rules(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspaceIpGroup.IpRuleItemProperty"]]]]:
+        '''The rules for the IP access control group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-workspaceipgroup.html#cfn-workspaces-workspaceipgroup-userrules
+        '''
+        result = self._values.get("user_rules")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspaceIpGroup.IpRuleItemProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWorkspaceIpGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_workspaces.CfnWorkspaceProps",
     jsii_struct_bases=[],
@@ -1905,6 +2326,8 @@ __all__ = [
     "CfnConnectionAlias",
     "CfnConnectionAliasProps",
     "CfnWorkspace",
+    "CfnWorkspaceIpGroup",
+    "CfnWorkspaceIpGroupProps",
     "CfnWorkspaceProps",
     "CfnWorkspacesPool",
     "CfnWorkspacesPoolProps",
@@ -2073,6 +2496,84 @@ def _typecheckingstub__2ba35df0c40a72c6300f0149e43d82fc399d7f07da77a68563d45ca05
     running_mode: typing.Optional[builtins.str] = None,
     running_mode_auto_stop_timeout_in_minutes: typing.Optional[jsii.Number] = None,
     user_volume_size_gib: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a4ad7b8ae0ab90e6cccba48331cf2278b942c4e2286ff003c7c5d3d01eb23328(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    group_name: builtins.str,
+    group_desc: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    user_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspaceIpGroup.IpRuleItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6173be321bf1f4583b718296cd816a36887510f673584b9755d887f8328a075b(
+    resource: _aws_workspaces_4620141e.IWorkspaceIpGroupRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9132cdbc4b4e441b9b431185b1b82925c868d98f9de4a66ab2372c7dee556bb9(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7a38c23726b5bd916d89720d7358c4e2dd6101aa955590a0d66b5ab633960c13(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bf0b5471f4e6c8a14b058cc3fccd30854f815a8bbe8e7da1a194ce1c392aecb6(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__76e4d60d6ae5674582b5244ffdabad710288b71a02010f9b8622243f01194ff3(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b48e0db76d8f4fa74fb3edf59e6f0ed00c82f7f491a236618982a4f0c084951a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e9a29bad2cf4dbccb24edf13ca2ba3777f254924581e693a9b2c1a384d3b6ca6(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__523c626d42fae94b47c0403319513a730cd38c8b35b9fadd760de3c0007f0c03(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkspaceIpGroup.IpRuleItemProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f873d26323a491ea3042f52973cfd827eb9aee1985f5153152030dd4dec84b61(
+    *,
+    ip_rule: builtins.str,
+    rule_desc: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a067f55bd2dfbd47a99ad5bd1bd5de5846bb18a8d6b194cee5d30f8efa814bd8(
+    *,
+    group_name: builtins.str,
+    group_desc: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    user_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspaceIpGroup.IpRuleItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

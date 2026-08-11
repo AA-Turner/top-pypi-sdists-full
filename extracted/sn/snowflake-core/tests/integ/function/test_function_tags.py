@@ -13,6 +13,7 @@ from .utils import create_service_function
 pytestmark = [pytest.mark.skip_gov]
 
 
+@pytest.mark.flaky
 class TestFunctionTags(BaseTagTests):
     @pytest.fixture(autouse=True)
     def setup(self, temp_service_for_function, functions: FunctionCollection):

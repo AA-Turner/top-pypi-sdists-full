@@ -113,7 +113,7 @@ def test_create_task_from_python_function(tasks, session):
         time_limit = 120
         task_name = task_name1
         while True:
-            result = get_task_history(session, task_name)
+            result = get_task_history(session, task_name=task_name)
             assert len(result) > 0
             state = result[0]["STATE"]
             if state in ["SCHEDULED", "EXECUTING"]:
@@ -197,7 +197,7 @@ def test_create_task_from_python_stored_proc(tasks, session):
         time_limit = 120
         task_name = task_name1
         while True:
-            result = get_task_history(session, task_name)
+            result = get_task_history(session, task_name=task_name)
             assert len(result) > 0
             state = result[0]["STATE"]
             if state in ["SCHEDULED", "EXECUTING"]:

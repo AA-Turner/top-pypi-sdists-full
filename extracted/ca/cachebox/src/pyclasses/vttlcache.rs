@@ -271,7 +271,7 @@ impl PyVTTLCache {
         let inner = self.0.get();
         let mut policy = inner.policy();
 
-        if let Some(x) = policy.get(py, &key)? {
+        if let Some(x) = policy.get(py, &key, inner.shared())? {
             return Ok(x.value().clone_ref(py));
         }
 
@@ -294,7 +294,7 @@ impl PyVTTLCache {
         let inner = self.0.get();
         let mut policy = inner.policy();
 
-        match policy.get(py, &key)? {
+        match policy.get(py, &key, inner.shared())? {
             Some(x) => Ok(x.value().clone_ref(py)),
             None => Err(new_py_error!(
                 PyKeyError,
@@ -324,7 +324,7 @@ impl PyVTTLCache {
         let shared = inner.shared();
         let mut policy = inner.policy();
 
-        if let Some(x) = policy.get(py, &key)? {
+        if let Some(x) = policy.get(py, &key, inner.shared())? {
             return Ok(x.value().clone_ref(py));
         }
 
@@ -370,7 +370,7 @@ impl PyVTTLCache {
         {
             let mut policy = inner.policy();
 
-            if let Some(x) = policy.get(py, &key)? {
+            if let Some(x) = policy.get(py, &key, inner.shared())? {
                 return Ok(x.value().clone_ref(py));
             }
         }
@@ -380,7 +380,7 @@ impl PyVTTLCache {
 
         let mut policy = inner.policy();
 
-        if let Some(x) = policy.get(py, &key)? {
+        if let Some(x) = policy.get(py, &key, inner.shared())? {
             return Ok(x.value().clone_ref(py));
         }
 
@@ -662,7 +662,7 @@ impl PyVTTLCache {
         let inner = self.0.get();
         let mut policy = inner.policy();
 
-        if let Some(handle) = policy.get(py, &key)? {
+        if let Some(handle) = policy.get(py, &key, inner.shared())? {
             let dur = match handle.expires_at() {
                 Some(x) => {
                     let secs = x
@@ -816,6 +816,8 @@ macro_rules! implement_iterator {
                 }
             }
 
+            implement_view_guard!($name);
+
             #[pyo3::pymethods]
             impl $name {
                 #[inline]
@@ -828,12 +830,7 @@ macro_rules! implement_iterator {
                 }
 
                 fn __next__(slf: pyo3::PyRef<'_, Self>) -> pyo3::PyResult<$rt_type> {
-                    if slf.initial_gv != slf.gv.get() {
-                        return Err(new_py_error!(
-                            PyRuntimeError,
-                            "cache size changed during iteration"
-                        ));
-                    }
+                    slf.check_generation()?;
 
                     let now = std::time::SystemTime::now();
                     let mut iter = slf.iter.lock();
@@ -849,6 +846,26 @@ macro_rules! implement_iterator {
                     }
 
                     Err(new_py_error!(PyStopIteration, ()))
+                }
+
+                /// Returns how many not-expired items are left to yield.
+                fn __len__(slf: pyo3::PyRef<'_, Self>) -> pyo3::PyResult<usize> {
+                    slf.check_generation()?;
+
+                    let now = std::time::SystemTime::now();
+                    let iter = slf.iter.lock().clone();
+
+                    Ok(iter.filter(|x| !unsafe { x.element() }.is_expired(now)).count())
+                }
+
+                /// Returns whether any not-expired item is left, without counting them all.
+                fn __bool__(slf: pyo3::PyRef<'_, Self>) -> pyo3::PyResult<bool> {
+                    slf.check_generation()?;
+
+                    let now = std::time::SystemTime::now();
+                    let mut iter = slf.iter.lock().clone();
+
+                    Ok(iter.any(|x| !unsafe { x.element() }.is_expired(now)))
                 }
             }
         )+

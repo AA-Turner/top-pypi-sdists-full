@@ -11,6 +11,7 @@ d_member/org_id:
 ws_viewer/org_id,ws_id:
     - agent_viewer/org_id,ws_id
     - connection_viewer/org_id,ws_id
+    - flow_viewer/org_id,ws_id,*
     - r:workspace/org_id,ws_id
     - r:workspace_data/org_id,ws_id
     - r:workspace_routing_sandbox/org_id,ws_id
@@ -22,6 +23,7 @@ ws_viewer/org_id,ws_id:
 ws_reviewer/org_id,ws_id:
     - agent_viewer/org_id,ws_id
     - case_reviewer/org_id,ws_id
+    - flow_viewer/org_id,ws_id,*
     - r:workspace/org_id,ws_id
     - r+w:workspace_data/org_id,ws_id
     - r+w:workspace_review_case/org_id,ws_id,{env=*}
@@ -30,6 +32,7 @@ ws_reviewer/org_id,ws_id:
 ws_editor/org_id,ws_id:
     - ws_viewer/org_id,ws_id
     - ws_reviewer/org_id,ws_id
+    - flow_editor/org_id,ws_id,*
     - agent_editor/org_id,ws_id
     - connection_user/org_id,ws_id
     - dh_viewer_sandbox/org_id,ws_id
@@ -54,6 +57,8 @@ ws_admin/org_id,ws_id:
     - agent_deployer/org_id,ws_id
     - agent_execute_live/org_id,ws_id
     - connection_editor/org_id,ws_id
+    - flow_deployer/org_id,ws_id,*
+    - flow_execute_live/org_id,ws_id,*
     - w:workspace_endpoint/org_id,ws_id
     - w:workspace_routing_production/org_id,ws_id
     - r:workspace_decision_history_api/org_id,ws_id
@@ -210,6 +215,7 @@ access_approver:
 api_key_sandbox/org_id,ws_id:
     - d_member/org_id
     - ws_viewer/org_id,ws_id
+    - flow_execute_sandbox/org_id,ws_id,*
     - w+r:workspace_sandbox_endpoint/org_id,ws_id
     - r+w:workspace_agent_execution/org_id,ws_id,{env=sandbox,type=agent}
     - w+d:workspace_connection_resource/org_id,ws_id
@@ -227,6 +233,7 @@ api_key_production/org_id,ws_id:
     - d_member/org_id
     - ws_viewer/org_id,ws_id
     - ws_reviewer/org_id,ws_id
+    - flow_execute_live/org_id,ws_id,*
     - w+r:workspace_endpoint/org_id,ws_id
     - r+w:workspace_agent_execution/org_id,ws_id,{env=live,type=agent}
     - w+d:workspace_connection_resource/org_id,ws_id
@@ -241,6 +248,8 @@ api_key_production/org_id,ws_id:
     - api_key_wizard/org_id,ws_id
 api_key_job_admin/org_id,ws_id:
     - ws_viewer/org_id,ws_id
+    - flow_execute_sandbox/org_id,ws_id,*
+    - flow_execute_live/org_id,ws_id,*
     - r+w+d:workspace_job/org_id,ws_id
     - w:workspace_sandbox_job_trigger/org_id,ws_id
     - w:workspace_test_job_trigger/org_id,ws_id

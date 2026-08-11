@@ -350,6 +350,7 @@ class UserDefinedFunctionResourceBase(SchemaObjectReferenceMixin["UserDefinedFun
         )
 
         def finalize(_: Any) -> None:
+
             self._rename_finalizer(
                 target_name=target_name, target_schema=target_schema, target_database=target_database
             )

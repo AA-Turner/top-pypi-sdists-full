@@ -81,6 +81,7 @@ def test_iter_artifact_repositories_with_limit(setup, artifact_repositories):
         assert f"TEST_ARTIFACT_REPOSITORY_ITER_C_{UUID}_" in ar.name
 
 
+@pytest.mark.skip(reason="Suspected Snowflake-side regression: first element may be missing from SHOW output")
 def test_iter_artifact_repositories_from_name_pagination(setup, artifact_repositories):
     """Test iterating over artifact repositories with from_name pagination parameter."""
     test_results = list(artifact_repositories.iter())
@@ -127,6 +128,7 @@ def test_iter_artifact_repositories_from_name_pagination(setup, artifact_reposit
     assert len(limited_results) <= 2, "Limited results should respect limit parameter"
 
 
+@pytest.mark.skip(reason="Suspected Snowflake-side regression: first element may be missing from SHOW output")
 def test_iter_artifact_repositories_from_name_with_filter(setup, artifact_repositories):
     """Test from_name pagination combined with like filter."""
     filter_pattern = f"TEST_ARTIFACT_REPOSITORY_ITER_B_{UUID}_%"

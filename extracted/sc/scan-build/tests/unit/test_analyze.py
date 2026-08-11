@@ -6,8 +6,10 @@ import os.path
 import platform
 import tempfile
 import unittest
+from unittest import mock
 
 import clanganalyzer.analyze as sut
+from clanganalyzer.clang import ClangCompilationError
 
 IS_WINDOWS = os.getenv("windows")
 
@@ -110,6 +112,15 @@ class FilteringFlagsTest(unittest.TestCase):
         self.assertFlagsFiltered(["-init", "my_init"])
         self.assertFlagsFiltered(["-sectorder", "a", "b", "c"])
 
+    def test_truncated_flag_list_does_not_raise(self):
+        # a flag expecting an argument at the end of the list shall not
+        # raise StopIteration (which imap_unordered would swallow silently)
+        self.assertFlagsFiltered(["-o"])
+        self.assertFlagsChanged(["-I."], ["-I.", "-o"])
+        self.assertArch([], ["-arch"])
+        self.assertLanguage(None, ["-x"])
+        self.assertFlagsFiltered(["-sectorder", "a"])
+
 
 class RunAnalyzerTest(unittest.TestCase):
     @staticmethod
@@ -151,6 +162,27 @@ class RunAnalyzerTest(unittest.TestCase):
         self.assertEqual(1, fwds["exit_code"])
         self.assertTrue(len(fwds["error_output"]) > 0)
 
+    def test_run_analyzer_rejected_flags_reported_not_raised(self):
+        # a compilation database entry with flags clang rejects shall not
+        # blow up the run, but be reported as a failed analysis
+        opts = {
+            "clang": "clang",
+            "directory": os.getcwd(),
+            "flags": ["-fno-reorder-functions"],
+            "direct_args": [],
+            "source": "test.c",
+            "output_dir": tempfile.gettempdir(),
+            "output_format": "html",
+            "output_failures": False,
+        }
+        spy = Spy()
+        error = ClangCompilationError("clang: error: unknown argument: '-fno-reorder-functions'")
+        with mock.patch.object(sut, "get_arguments", side_effect=error):
+            result = sut.run_analyzer(opts, spy.call)
+        self.assertEqual(None, spy.arg)
+        self.assertEqual(1, result["exit_code"])
+        self.assertTrue(len(result["error_output"]) > 0)
+
 
 class ReportFailureTest(unittest.TestCase):
     def assertUnderFailures(self, path):
@@ -163,7 +195,7 @@ class ReportFailureTest(unittest.TestCase):
             with open(filename, "w") as handle:
                 handle.write("int main() { return 0")
             uname_msg = " ".join(platform.uname()).strip()
-            error_msg = "this is my error output"
+            error_lines = ["error: this is my error output", "note: with a second line"]
             # execute test
             opts = {
                 "clang": "clang",
@@ -172,7 +204,7 @@ class ReportFailureTest(unittest.TestCase):
                 "source": filename,
                 "output_dir": tmp_dir,
                 "language": "c",
-                "error_output": [error_msg],
+                "error_output": error_lines,
                 "exit_code": 13,
             }
             sut.report_failure(opts)
@@ -191,7 +223,8 @@ class ReportFailureTest(unittest.TestCase):
             error_file = pp_file + ".stderr.txt"
             self.assertTrue(os.path.exists(error_file))
             with open(error_file) as error_handle:
-                self.assertEqual([error_msg], error_handle.readlines())
+                # each captured output line shall be a line in the file
+                self.assertEqual([line + "\n" for line in error_lines], error_handle.readlines())
 
 
 class AnalyzerTest(unittest.TestCase):

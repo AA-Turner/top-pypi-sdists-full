@@ -35,16 +35,20 @@ class GpuStatusGroup(object):
     openapi_types = {
         'key': 'GpuStatusGroupKey',
         'rollup': 'GpuStatusRollup',
-        'clusters': 'list[GpuStatusCluster]'
+        'clusters': 'list[GpuStatusCluster]',
+        'workload_state': 'str',
+        'workload_state_updated_at': 'datetime'
     }
 
     attribute_map = {
         'key': 'key',
         'rollup': 'rollup',
-        'clusters': 'clusters'
+        'clusters': 'clusters',
+        'workload_state': 'workload_state',
+        'workload_state_updated_at': 'workload_state_updated_at'
     }
 
-    def __init__(self, key=None, rollup=None, clusters=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, key=None, rollup=None, clusters=None, workload_state=None, workload_state_updated_at=None, local_vars_configuration=None):  # noqa: E501
         """GpuStatusGroup - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -53,11 +57,17 @@ class GpuStatusGroup(object):
         self._key = None
         self._rollup = None
         self._clusters = None
+        self._workload_state = None
+        self._workload_state_updated_at = None
         self.discriminator = None
 
         self.key = key
         self.rollup = rollup
         self.clusters = clusters
+        if workload_state is not None:
+            self.workload_state = workload_state
+        if workload_state_updated_at is not None:
+            self.workload_state_updated_at = workload_state_updated_at
 
     @property
     def key(self):
@@ -88,7 +98,7 @@ class GpuStatusGroup(object):
     def rollup(self):
         """Gets the rollup of this GpuStatusGroup.  # noqa: E501
 
-        Aggregated stats for the group.  # noqa: E501
+        Aggregated stats for the whole group, which can cover more GPUs than `clusters` lists: it reflects only the project, instance type and workload type filters.  # noqa: E501
 
         :return: The rollup of this GpuStatusGroup.  # noqa: E501
         :rtype: GpuStatusRollup
@@ -99,7 +109,7 @@ class GpuStatusGroup(object):
     def rollup(self, rollup):
         """Sets the rollup of this GpuStatusGroup.
 
-        Aggregated stats for the group.  # noqa: E501
+        Aggregated stats for the whole group, which can cover more GPUs than `clusters` lists: it reflects only the project, instance type and workload type filters.  # noqa: E501
 
         :param rollup: The rollup of this GpuStatusGroup.  # noqa: E501
         :type: GpuStatusRollup
@@ -133,6 +143,52 @@ class GpuStatusGroup(object):
             raise ValueError("Invalid value for `clusters`, must not be `None`")  # noqa: E501
 
         self._clusters = clusters
+
+    @property
+    def workload_state(self):
+        """Gets the workload_state of this GpuStatusGroup.  # noqa: E501
+
+        The current state of the group's workload. Only set when grouping by workload; null for the idle group, and when the workload's cluster has no DB row. Session-backed workloads report a SessionState value (e.g. 'Running'); KubeRay workloads report an HaJobStates value (e.g. 'RUNNING'). When the workload's GPUs span several clusters, the most recently created one is reported.  # noqa: E501
+
+        :return: The workload_state of this GpuStatusGroup.  # noqa: E501
+        :rtype: str
+        """
+        return self._workload_state
+
+    @workload_state.setter
+    def workload_state(self, workload_state):
+        """Sets the workload_state of this GpuStatusGroup.
+
+        The current state of the group's workload. Only set when grouping by workload; null for the idle group, and when the workload's cluster has no DB row. Session-backed workloads report a SessionState value (e.g. 'Running'); KubeRay workloads report an HaJobStates value (e.g. 'RUNNING'). When the workload's GPUs span several clusters, the most recently created one is reported.  # noqa: E501
+
+        :param workload_state: The workload_state of this GpuStatusGroup.  # noqa: E501
+        :type: str
+        """
+
+        self._workload_state = workload_state
+
+    @property
+    def workload_state_updated_at(self):
+        """Gets the workload_state_updated_at of this GpuStatusGroup.  # noqa: E501
+
+        When the workload entered its current state. Null under the same conditions as `workload_state`.  # noqa: E501
+
+        :return: The workload_state_updated_at of this GpuStatusGroup.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._workload_state_updated_at
+
+    @workload_state_updated_at.setter
+    def workload_state_updated_at(self, workload_state_updated_at):
+        """Sets the workload_state_updated_at of this GpuStatusGroup.
+
+        When the workload entered its current state. Null under the same conditions as `workload_state`.  # noqa: E501
+
+        :param workload_state_updated_at: The workload_state_updated_at of this GpuStatusGroup.  # noqa: E501
+        :type: datetime
+        """
+
+        self._workload_state_updated_at = workload_state_updated_at
 
     def to_dict(self):
         """Returns the model properties as a dict"""

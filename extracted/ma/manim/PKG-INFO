@@ -1,50 +1,41 @@
 Metadata-Version: 2.4
 Name: manim
-Version: 0.20.1
+Version: 0.21.0
 Summary: Animation engine for explanatory math videos.
-Project-URL: repository, https://github.com/manimcommunity/manim
-Project-URL: documentation, https://docs.manim.community/
-Project-URL: homepage, https://www.manim.community/
-Project-URL: Bug Tracker, https://github.com/ManimCommunity/manim/issues
-Project-URL: Changelog, https://docs.manim.community/en/stable/changelog.html
-Project-URL: X / Twitter, https://x.com/manim_community
-Project-URL: Bluesky, https://bsky.app/profile/manim.community
-Project-URL: Discord, https://www.manim.community/discord/
+Author: The Manim Community Developers, Grant '3Blue1Brown' Sanderson
 Author-email: The Manim Community Developers <contact@manim.community>, Grant '3Blue1Brown' Sanderson <grant@3blue1brown.com>
 License-Expression: MIT
 License-File: LICENSE
 License-File: LICENSE.community
 Classifier: Development Status :: 4 - Beta
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Natural Language :: English
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Multimedia :: Video
+Classifier: Topic :: Multimedia :: Graphics
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: Topic :: Multimedia :: Graphics
-Classifier: Topic :: Multimedia :: Video
-Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.11
-Requires-Dist: audioop-lts>=0.2.1; python_full_version >= '3.13'
+Classifier: Natural Language :: English
+Requires-Dist: audioop-lts>=0.2.1 ; python_full_version >= '3.13'
 Requires-Dist: av>=15.0
 Requires-Dist: beautifulsoup4>=4.12
 Requires-Dist: click>=8.0
 Requires-Dist: cloup>=2.0.0
 Requires-Dist: decorator>=4.3.2
 Requires-Dist: isosurfaces>=0.1.1
-Requires-Dist: manimpango<1.0.0,>=0.6.1
+Requires-Dist: manimpango>=0.6.1,<1.0.0
 Requires-Dist: mapbox-earcut>=1.0.0
 Requires-Dist: moderngl-window>=2.0.0
-Requires-Dist: moderngl<6.0.0,>=5.7.0
+Requires-Dist: moderngl>=5.7.0,<6.0.0
 Requires-Dist: networkx>=2.6
 Requires-Dist: numpy>=2.1
 Requires-Dist: pillow>=11.0
-Requires-Dist: pycairo<2.0.0,>=1.14
+Requires-Dist: pycairo>=1.14,<2.0.0
 Requires-Dist: pydub>=0.22.0
 Requires-Dist: pygments>=2.17
 Requires-Dist: rich>=12.0.0
 Requires-Dist: scipy>=1.13.0
-Requires-Dist: scipy>=1.15.0; python_full_version >= '3.13'
+Requires-Dist: scipy>=1.15.0 ; python_full_version >= '3.13'
 Requires-Dist: screeninfo>=0.7.0
 Requires-Dist: skia-pathops>=0.9.0
 Requires-Dist: srt>=3.0.0
@@ -52,11 +43,22 @@ Requires-Dist: svgelements>=1.9.0
 Requires-Dist: tqdm>=4.21.0
 Requires-Dist: typing-extensions>=4.12.0
 Requires-Dist: watchdog>=2.0.0
+Requires-Dist: dearpygui>=1.0.0 ; extra == 'gui'
+Requires-Dist: jupyterlab>=4.3.4 ; extra == 'jupyterlab'
+Requires-Dist: notebook>=7.3.2 ; extra == 'jupyterlab'
+Requires-Dist: typst>=0.14 ; extra == 'typst'
+Requires-Python: >=3.11
+Project-URL: repository, https://github.com/manimcommunity/manim
+Project-URL: documentation, https://docs.manim.community/
+Project-URL: homepage, https://www.manim.community/
+Project-URL: Bug Tracker, https://github.com/ManimCommunity/manim/issues
+Project-URL: Changelog, https://docs.manim.community/en/stable/changelog.html
+Project-URL: X / Twitter, https://x.com/manimcommunity
+Project-URL: Bluesky, https://bsky.app/profile/manim.community
+Project-URL: Discord, https://www.manim.community/discord/
 Provides-Extra: gui
-Requires-Dist: dearpygui>=1.0.0; extra == 'gui'
 Provides-Extra: jupyterlab
-Requires-Dist: jupyterlab>=4.3.4; extra == 'jupyterlab'
-Requires-Dist: notebook>=7.3.2; extra == 'jupyterlab'
+Provides-Extra: typst
 Description-Content-Type: text/markdown
 
 <p align="center">

@@ -24,7 +24,6 @@ from complexipy._complexipy import FileComplexity
 from complexipy.types import (
     ColorTypes,
     ExitReport,
-    OutputFormat,
     Sort,
 )
 from complexipy.utils.config import (
@@ -36,9 +35,11 @@ from complexipy.utils.diff import (
     has_regressions,
     resolve_diff_flags,
 )
-from complexipy.utils.ignored import handle_report_ignored
+from complexipy.utils.ignored import (
+    handle_removable_ignores,
+    handle_report_ignored,
+)
 from complexipy.utils.output import (
-    emit_deprecated_output_warnings,
     handle_console_settings,
     handle_display,
     handle_results_storage,
@@ -151,29 +152,6 @@ def main(
             "csv, json, gitlab, sarif."
         ),
     ),
-    output_csv: Optional[bool] = typer.Option(
-        None,
-        "--output-csv",
-        "-c",
-        help="Deprecated. Use `--output-format csv` instead. Output the results to a CSV file.",
-    ),
-    output_json: Optional[bool] = typer.Option(
-        None,
-        "--output-json",
-        "-j",
-        help="Deprecated. Use `--output-format json` instead. Output the results to a JSON file.",
-    ),
-    output_gitlab: Optional[bool] = typer.Option(
-        None,
-        "--output-gitlab",
-        help="Deprecated. Use `--output-format gitlab` instead. Output the results as a GitLab Code Quality JSON report.",
-    ),
-    output_sarif: Optional[bool] = typer.Option(
-        None,
-        "--output-sarif",
-        "-sr",
-        help="Deprecated. Use `--output-format sarif` instead. Output the results to a SARIF 2.1.0 file for use with GitHub Code Scanning and other SARIF-aware tools.",
-    ),
     diff: Optional[str] = typer.Option(
         None,
         "--diff",
@@ -192,11 +170,13 @@ def main(
             "the exit code. Visual-only, no enforcement."
         ),
     ),
-    ratchet: Optional[bool] = typer.Option(
+    staged: Optional[bool] = typer.Option(
         None,
-        "--ratchet",
-        "-R",
-        help="Deprecated. --diff now enforces by default.",
+        "--staged",
+        help=(
+            "Compare staged (git index) changes against the --diff reference "
+            "(default: HEAD). Answers 'what complexity am I about to commit?'."
+        ),
     ),
     top: Optional[int] = typer.Option(
         None,
@@ -260,13 +240,9 @@ def main(
         sort,
         output_format,
         output,
-        output_csv,
-        output_json,
-        output_gitlab,
-        output_sarif,
         diff,
         diff_only,
-        ratchet,
+        staged,
         top,
         plain,
         suggest_refactors,
@@ -279,7 +255,7 @@ def main(
     console = handle_console_settings(cfg.color, cfg.quiet, cfg.plain)
 
     cfg.diff, cfg.diff_only = resolve_diff_flags(
-        console, cfg.diff, cfg.diff_only, cfg.ratchet
+        console, cfg.diff, cfg.diff_only, cfg.staged
     )
 
     result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(
@@ -291,22 +267,7 @@ def main(
         INVOCATION_PATH,
     )
     files_complexities, failed_paths = result
-    legacy_cli_output_flags = {
-        OutputFormat.csv: output_csv,
-        OutputFormat.json: output_json,
-        OutputFormat.gitlab: output_gitlab,
-        OutputFormat.sarif: output_sarif,
-    }
-    emit_deprecated_output_warnings(
-        console,
-        legacy_cli_output_flags,
-        TOML_CONFIG,
-    )
-    output_formats = resolve_output_formats(
-        cfg.output_format,
-        legacy_cli_output_flags,
-        TOML_CONFIG,
-    )
+    output_formats = resolve_output_formats(cfg.output_format)
     output_snapshot_path = f"{INVOCATION_PATH}/complexipy-snapshot.json"
 
     snap = evaluate_snapshot(
@@ -326,6 +287,7 @@ def main(
         not cfg.failed,
         cfg.max_complexity_allowed,
         INVOCATION_PATH,
+        cfg.suggest_refactors,
     )
 
     display_ok = handle_display(
@@ -355,6 +317,15 @@ def main(
         INVOCATION_PATH,
     )
 
+    if not cfg.quiet:
+        handle_removable_ignores(
+            console,
+            cfg.paths,
+            cfg.exclude,
+            cfg.max_complexity_allowed,
+            INVOCATION_PATH,
+        )
+
     if cfg.quiet:
         snapshot_ok = snap.watermark_success if snap.should_run else True
     else:
@@ -367,7 +338,12 @@ def main(
     paths_ok = not failed_paths
     diff_ref = cfg.diff or cfg.diff_only
     diff_entries = handle_diff_output(
-        console, diff_ref, files_complexities, cfg.quiet, INVOCATION_PATH
+        console,
+        diff_ref,
+        files_complexities,
+        cfg.quiet,
+        INVOCATION_PATH,
+        staged=cfg.staged,
     )
     diff_ok = True
     if cfg.diff and diff_entries is not None:

@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 
-use tombi_diagnostic::Diagnostic;
 use tombi_future::Boxable;
 use tombi_schema_store::{Accessor, CurrentSchema, SchemaContext, SchemaUri};
 
@@ -57,7 +56,7 @@ where
         .await?;
 
         for resolved_schema in &resolved_schemas {
-            value_type_set.insert(resolved_schema.value_schema.value_type().await);
+            value_type_set.insert(resolved_schema.schema_view.value_type().await);
         }
 
         let value_type = if value_type_set.len() == 1 {
@@ -98,9 +97,9 @@ where
                         .await
                     {
                         Ok(_) => true,
-                        Err(tombi_validator::Error { diagnostics, .. }) => {
-                            diagnostics.iter().all(Diagnostic::is_warning)
-                        }
+                        Err(tombi_validator::Invalid {
+                            assertion_failed, ..
+                        }) => !assertion_failed,
                     };
 
                     if is_applicable_branch {
@@ -112,7 +111,7 @@ where
                             enum_values.extend(values.iter().cloned());
                         } else if hover_value_content.accessors.as_ref() == accessors
                             && let Some(values) = resolved_schema
-                                .value_schema
+                                .schema_view
                                 .as_ref()
                                 .get_enum(
                                     &resolved_schema.schema_uri,
@@ -222,25 +221,22 @@ impl GetHoverContent for tombi_schema_store::AnyOfSchema {
             .await?;
 
             for resolved_schema in &resolved_schemas {
-                if resolved_schema.value_schema.title().is_some()
-                    || resolved_schema.value_schema.description().is_some()
+                if resolved_schema.schema_view.title().is_some()
+                    || resolved_schema.schema_view.description().is_some()
                 {
                     title_description_set.insert((
+                        resolved_schema.schema_view.title().map(ToString::to_string),
                         resolved_schema
-                            .value_schema
-                            .title()
-                            .map(ToString::to_string),
-                        resolved_schema
-                            .value_schema
+                            .schema_view
                             .description()
                             .map(ToString::to_string),
                     ));
                 }
 
-                value_type_set.insert(resolved_schema.value_schema.value_type().await);
+                value_type_set.insert(resolved_schema.schema_view.value_type().await);
 
                 if let Some(values) = resolved_schema
-                    .value_schema
+                    .schema_view
                     .as_ref()
                     .get_enum(
                         &resolved_schema.schema_uri,

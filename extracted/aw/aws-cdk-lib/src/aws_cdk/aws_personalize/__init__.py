@@ -109,10 +109,10 @@ class CfnDataDeletionJob(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param dataset_group_arn: 
-        :param data_source: 
-        :param job_name: 
-        :param role_arn: 
+        :param dataset_group_arn: The Amazon Resource Name (ARN) of the dataset group that has the datasets you want to delete records from.
+        :param data_source: The Amazon S3 bucket that contains the list of userIds to delete.
+        :param job_name: The name for the data deletion job.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role that has permissions to read from the Amazon S3 data source.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a0facc6d6fe3ed43e58672d4c1dc60f6deb03bc9c43265b31ab744024e9b9a39)
@@ -186,7 +186,8 @@ class CfnDataDeletionJob(
     @builtins.property
     @jsii.member(jsii_name="attrCreationDateTime")
     def attr_creation_date_time(self) -> builtins.str:
-        '''
+        '''The creation date and time of the data deletion job.
+
         :cloudformationAttribute: CreationDateTime
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrCreationDateTime"))
@@ -194,23 +195,17 @@ class CfnDataDeletionJob(
     @builtins.property
     @jsii.member(jsii_name="attrDataDeletionJobArn")
     def attr_data_deletion_job_arn(self) -> builtins.str:
-        '''
+        '''The Amazon Resource Name (ARN) of the data deletion job.
+
         :cloudformationAttribute: DataDeletionJobArn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrDataDeletionJobArn"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="attrLastUpdatedDateTime")
     def attr_last_updated_date_time(self) -> builtins.str:
-        '''
+        '''The date and time the data deletion job was last updated.
+
         :cloudformationAttribute: LastUpdatedDateTime
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedDateTime"))
@@ -218,7 +213,8 @@ class CfnDataDeletionJob(
     @builtins.property
     @jsii.member(jsii_name="attrStatus")
     def attr_status(self) -> builtins.str:
-        '''
+        '''The status of the data deletion job.
+
         :cloudformationAttribute: Status
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
@@ -244,6 +240,7 @@ class CfnDataDeletionJob(
     @builtins.property
     @jsii.member(jsii_name="datasetGroupArn")
     def dataset_group_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the dataset group that has the datasets you want to delete records from.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "datasetGroupArn"))
 
     @dataset_group_arn.setter
@@ -258,6 +255,7 @@ class CfnDataDeletionJob(
     def data_source(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataDeletionJob.DataSourceProperty"]]:
+        '''The Amazon S3 bucket that contains the list of userIds to delete.'''
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataDeletionJob.DataSourceProperty"]], jsii.get(self, "dataSource"))
 
     @data_source.setter
@@ -273,6 +271,7 @@ class CfnDataDeletionJob(
     @builtins.property
     @jsii.member(jsii_name="jobName")
     def job_name(self) -> typing.Optional[builtins.str]:
+        '''The name for the data deletion job.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "jobName"))
 
     @job_name.setter
@@ -285,6 +284,7 @@ class CfnDataDeletionJob(
     @builtins.property
     @jsii.member(jsii_name="roleArn")
     def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the IAM role that has permissions to read from the Amazon S3 data source.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "roleArn"))
 
     @role_arn.setter
@@ -305,8 +305,9 @@ class CfnDataDeletionJob(
             *,
             data_location: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param data_location: 
+            '''The Amazon S3 bucket that contains the list of userIds to delete.
+
+            :param data_location: The path to the Amazon S3 bucket where the data is stored.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-datadeletionjob-datasource.html
             :exampleMetadata: fixture=_generated
@@ -330,7 +331,8 @@ class CfnDataDeletionJob(
 
         @builtins.property
         def data_location(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The path to the Amazon S3 bucket where the data is stored.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-datadeletionjob-datasource.html#cfn-personalize-datadeletionjob-datasource-datalocation
             '''
             result = self._values.get("data_location")
@@ -369,10 +371,10 @@ class CfnDataDeletionJobProps:
     ) -> None:
         '''Properties for defining a ``CfnDataDeletionJob``.
 
-        :param dataset_group_arn: 
-        :param data_source: 
-        :param job_name: 
-        :param role_arn: 
+        :param dataset_group_arn: The Amazon Resource Name (ARN) of the dataset group that has the datasets you want to delete records from.
+        :param data_source: The Amazon S3 bucket that contains the list of userIds to delete.
+        :param job_name: The name for the data deletion job.
+        :param role_arn: The Amazon Resource Name (ARN) of the IAM role that has permissions to read from the Amazon S3 data source.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datadeletionjob.html
         :exampleMetadata: fixture=_generated
@@ -410,7 +412,8 @@ class CfnDataDeletionJobProps:
 
     @builtins.property
     def dataset_group_arn(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The Amazon Resource Name (ARN) of the dataset group that has the datasets you want to delete records from.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datadeletionjob.html#cfn-personalize-datadeletionjob-datasetgrouparn
         '''
         result = self._values.get("dataset_group_arn")
@@ -420,7 +423,8 @@ class CfnDataDeletionJobProps:
     def data_source(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataDeletionJob.DataSourceProperty"]]:
-        '''
+        '''The Amazon S3 bucket that contains the list of userIds to delete.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datadeletionjob.html#cfn-personalize-datadeletionjob-datasource
         '''
         result = self._values.get("data_source")
@@ -428,7 +432,8 @@ class CfnDataDeletionJobProps:
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The name for the data deletion job.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datadeletionjob.html#cfn-personalize-datadeletionjob-jobname
         '''
         result = self._values.get("job_name")
@@ -436,7 +441,8 @@ class CfnDataDeletionJobProps:
 
     @builtins.property
     def role_arn(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The Amazon Resource Name (ARN) of the IAM role that has permissions to read from the Amazon S3 data source.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-datadeletionjob.html#cfn-personalize-datadeletionjob-rolearn
         '''
         result = self._values.get("role_arn")
@@ -1344,6 +1350,260 @@ class CfnDatasetProps:
 
     def __repr__(self) -> str:
         return "CfnDatasetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_personalize_95c6aa61.IRecipeRef)
+class CfnRecipe(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_personalize.CfnRecipe",
+):
+    '''Resource Type definition for AWS::Personalize::Recipe.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-recipe.html
+    :cloudformationResource: AWS::Personalize::Recipe
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_personalize as personalize
+        
+        cfn_recipe = personalize.CfnRecipe(self, "MyCfnRecipe",
+            name="name"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::Personalize::Recipe``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the recipe.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f998b5ed9878a8ee6171aaa96b2d7d565443631df8c1da2d13e55531cae19148)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRecipeProps(name=name)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForRecipe")
+    @builtins.classmethod
+    def arn_for_recipe(
+        cls,
+        resource: "_aws_personalize_95c6aa61.IRecipeRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__111450f72dfbc9a777864c667d5dd2512031d8eb95850681bc9a91a6b4dddea9)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRecipe", [resource]))
+
+    @jsii.member(jsii_name="isCfnRecipe")
+    @builtins.classmethod
+    def is_cfn_recipe(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRecipe.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2bf23396f9e8dd7e44e6cc64e90cab5a2112fbc83568592dca17c159094c8c5e)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRecipe", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f60885b23d266eedc53674ff77da9e3984c44fd9850d0c61b04129c4011eb675)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7f3456e7ac2cb57db499694e30be7cd483129253d20c787272ebc1e7c11957e5)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAlgorithmArn")
+    def attr_algorithm_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the algorithm that Amazon Personalize uses to train the model.
+
+        :cloudformationAttribute: AlgorithmArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAlgorithmArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationDateTime")
+    def attr_creation_date_time(self) -> builtins.str:
+        '''The date and time (in Unix format) that the recipe was created.
+
+        :cloudformationAttribute: CreationDateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationDateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDescription")
+    def attr_description(self) -> builtins.str:
+        '''The description of the recipe.
+
+        :cloudformationAttribute: Description
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDescription"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFeatureTransformationArn")
+    def attr_feature_transformation_arn(self) -> builtins.str:
+        '''The ARN of the FeatureTransformation object.
+
+        :cloudformationAttribute: FeatureTransformationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFeatureTransformationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedDateTime")
+    def attr_last_updated_date_time(self) -> builtins.str:
+        '''The date and time (in Unix format) that the recipe was last updated.
+
+        :cloudformationAttribute: LastUpdatedDateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedDateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRecipeArn")
+    def attr_recipe_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the recipe.
+
+        :cloudformationAttribute: RecipeArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRecipeArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRecipeType")
+    def attr_recipe_type(self) -> builtins.str:
+        '''One of the following values: PERSONALIZED_RANKING, RELATED_ITEMS, USER_PERSONALIZATION.
+
+        :cloudformationAttribute: RecipeType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRecipeType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the recipe.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="recipeRef")
+    def recipe_ref(self) -> "_aws_personalize_95c6aa61.RecipeReference":
+        '''A reference to a Recipe resource.'''
+        return typing.cast("_aws_personalize_95c6aa61.RecipeReference", jsii.get(self, "recipeRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the recipe.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d1650adbe2f7c6c514bd331081276b352df9bcf8384bcdf3e04a13eb6949e993)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_personalize.CfnRecipeProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name"},
+)
+class CfnRecipeProps:
+    def __init__(self, *, name: typing.Optional[builtins.str] = None) -> None:
+        '''Properties for defining a ``CfnRecipe``.
+
+        :param name: The name of the recipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-recipe.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_personalize as personalize
+            
+            cfn_recipe_props = personalize.CfnRecipeProps(
+                name="name"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d27fead3ee83777125f18917d68a73c086b0a58166ece1ef7b454cd63e2fb6dc)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if name is not None:
+            self._values["name"] = name
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the recipe.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-recipe.html#cfn-personalize-recipe-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRecipeProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -2950,6 +3210,8 @@ __all__ = [
     "CfnDatasetGroup",
     "CfnDatasetGroupProps",
     "CfnDatasetProps",
+    "CfnRecipe",
+    "CfnRecipeProps",
     "CfnSchema",
     "CfnSchemaProps",
     "CfnSolution",
@@ -3197,6 +3459,52 @@ def _typecheckingstub__c7542a55fdef9680f9b0e715bef803a25c64a52b098e530b53b6964f1
     name: builtins.str,
     schema_arn: builtins.str,
     dataset_import_job: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataset.DatasetImportJobProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f998b5ed9878a8ee6171aaa96b2d7d565443631df8c1da2d13e55531cae19148(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__111450f72dfbc9a777864c667d5dd2512031d8eb95850681bc9a91a6b4dddea9(
+    resource: _aws_personalize_95c6aa61.IRecipeRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2bf23396f9e8dd7e44e6cc64e90cab5a2112fbc83568592dca17c159094c8c5e(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f60885b23d266eedc53674ff77da9e3984c44fd9850d0c61b04129c4011eb675(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7f3456e7ac2cb57db499694e30be7cd483129253d20c787272ebc1e7c11957e5(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d1650adbe2f7c6c514bd331081276b352df9bcf8384bcdf3e04a13eb6949e993(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d27fead3ee83777125f18917d68a73c086b0a58166ece1ef7b454cd63e2fb6dc(
+    *,
+    name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

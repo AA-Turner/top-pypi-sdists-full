@@ -1,19 +1,28 @@
 # Copyright (c) 2012-2023 Snowflake Computing Inc. All rights reserved.
 
+import datetime
 import os
 import shutil
 import tempfile
+import time
 import typing
 
 from contextlib import contextmanager
 
+import typing_extensions
+
 import snowflake.connector
+
+from snowflake.connector import SnowflakeConnection
+from snowflake.connector.cursor import DictCursor
+from snowflake.core._utils import temporary_paramstyle
+from snowflake.core.exceptions import NotFoundError
 
 from ..utils import is_prod_or_preprod, random_string
 
 
 if typing.TYPE_CHECKING:
-    from snowflake.snowpark import Row, Session
+    from snowflake.snowpark import Session
 
 
 MASKED_VALUE = "********"
@@ -23,13 +32,115 @@ def random_object_name() -> str:
     return random_string(8, prefix="test_object_")
 
 
-def get_task_history(session: "Session", name: str) -> list["Row"]:
-    query = (
-        f"select * from table(information_schema.task_history("
-        f"scheduled_time_range_start=>dateadd('hour',-1,current_timestamp()),"
-        f"result_limit => 10,task_name=>'{name}'))"
+# Code bundle execution statuses that are not yet terminal; anything else is a final outcome.
+_NON_TERMINAL_CODE_BUNDLE_EXECUTION_STATUSES = frozenset(
+    {"", "RUNNING", "QUEUED", "BLOCKED", "PENDING", "RESUMING_WAREHOUSE"}
+)
+
+# Terminal statuses that indicate a code bundle execution completed successfully. The named
+# ``:execute`` path reports success as ``DONE``; other paths may report ``SUCCESS``. Either is a clean
+# completion (a real failure surfaces as a distinct status carrying an error_code/error_message).
+_SUCCESS_CODE_BUNDLE_EXECUTION_STATUSES = frozenset({"SUCCESS", "DONE"})
+
+
+def wait_for_code_bundle_execution(code_bundle_execution, job_id, timeout=360.0, interval=5.0):
+    """Poll a code bundle execution until it reaches a terminal status or ``timeout`` elapses.
+
+    ``async_exec`` only means the execution was *accepted*; the job runs asynchronously afterwards. This
+    polls ``fetch_status`` until the execution reaches a terminal status. The execution may not appear in
+    the account-level history immediately, so a ``NotFoundError`` is treated as "not ready yet" and
+    retried. Returns the last observed status (which may be ``None`` if it never became visible in time).
+
+    Parameters
+    ----------
+    code_bundle_execution : CodeBundleExecutionCollection
+        The account-level code bundle execution collection used to look up the execution by id.
+    job_id : str
+        The execution (query) id returned by an accepted execution.
+    timeout : float, optional
+        Maximum time to wait, in seconds. Spark/Scala bundles may need a cold-start warehouse.
+    interval : float, optional
+        Delay between polls, in seconds.
+    """
+    deadline = time.monotonic() + timeout
+    last_status = None
+    while time.monotonic() < deadline:
+        try:
+            last_status = code_bundle_execution[job_id].fetch_status()
+        except NotFoundError:
+            time.sleep(interval)
+            continue
+        if last_status.status and last_status.status.upper() not in _NON_TERMINAL_CODE_BUNDLE_EXECUTION_STATUSES:
+            return last_status
+        time.sleep(interval)
+    return last_status
+
+
+def assert_code_bundle_execution_succeeded(code_bundle_execution, job_id):
+    """Wait for a code bundle execution to finish and assert it completed successfully.
+
+    A successful terminal status is either ``SUCCESS`` or ``DONE`` (see
+    ``_SUCCESS_CODE_BUNDLE_EXECUTION_STATUSES``). Returns the terminal status so callers can make further
+    assertions on it.
+    """
+    status = wait_for_code_bundle_execution(code_bundle_execution, job_id)
+    assert status is not None, f"code bundle execution {job_id} never became visible"
+    assert status.status and status.status.upper() in _SUCCESS_CODE_BUNDLE_EXECUTION_STATUSES, (
+        f"code bundle execution {job_id} did not succeed: status={status.status!r} "
+        f"error_code={status.error_code!r} error_message={status.error_message!r}"
     )
-    return session.sql(query).collect()
+    return status
+
+
+class TaskHistoryArgs(typing.TypedDict, total=False):
+    scheduled_time_range_start: datetime.datetime | None
+    scheduled_time_range_end: datetime.datetime
+    result_limit: int | None
+    task_name: str
+    graph_id: str
+    root_task_id: str
+
+
+def get_task_history(
+    session: "Session | SnowflakeConnection",
+    **kwargs: typing_extensions.Unpack[TaskHistoryArgs],
+) -> list[dict[str, typing.Any]]:
+    if not isinstance(session, SnowflakeConnection):
+        # Snowpark Session: delegate using its underlying connection so this helper does not
+        # require ``snowflake-snowpark-python`` to be importable.
+        return get_task_history(session.connection, **kwargs)
+    connection: SnowflakeConnection = session
+
+    scheduled_time_range_start = kwargs.pop(
+        "scheduled_time_range_start", datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(hours=1)
+    )
+    clauses = list[str]()
+    bind_param_values = []
+    if scheduled_time_range_start is not None:
+        clauses.append("scheduled_time_range_start=> ?")
+        bind_param_values.append(("TIMESTAMP_LTZ", scheduled_time_range_start))
+    if (scheduled_time_range_end := kwargs.pop("scheduled_time_range_end", None)) is not None:
+        clauses.append("scheduled_time_range_end=> ?")
+        bind_param_values.append(("TIMESTAMP_LTZ", scheduled_time_range_end))
+
+    # If kwargs explicitly contains {"result_limit": None}, then do not apply a result limit.
+    # Otherwise, apply a default result limit of 10.
+    if (result_limit := kwargs.pop("result_limit", 10)) is not None:
+        clauses.append("result_limit=> ?")
+        bind_param_values.append(result_limit)
+
+    for k, v in kwargs.items():
+        clauses.append(f"{k}=> ?")
+        bind_param_values.append(v)
+
+    clauses_str = ",\n ".join(clauses)
+    # Use qmark paramstyle so that it works in old stored procedure runtimes which used StoredProcConnection.
+    with temporary_paramstyle("qmark", connection), connection.cursor(DictCursor) as cursor:
+        cursor.execute(
+            f"""select * from table(information_schema.task_history({clauses_str}))""",
+            bind_param_values,
+        )
+        return cursor.fetchall()
 
 
 def string_skip_space_and_cases(s):

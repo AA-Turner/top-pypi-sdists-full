@@ -49,7 +49,7 @@ def record_snapshot(snapshot: UsageSnapshot) -> None:
         "spend": snapshot.extra.amount,
         "currency": snapshot.extra.currency,
     }
-    HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    account_mod.ensure_dir(HISTORY_PATH.parent)
     with open(HISTORY_PATH, "a", encoding="utf-8") as f:
         f.write(json.dumps(sample, ensure_ascii=False) + "\n")
     _STATE_PATH.write_text(json.dumps({"ts": snapshot.fetched_at}), encoding="utf-8")

@@ -393,6 +393,87 @@ class ContactFlowVersionReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_connect.DataLakeAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "data_set_id": "dataSetId",
+        "instance_id": "instanceId",
+        "target_account_id": "targetAccountId",
+    },
+)
+class DataLakeAssociationReference:
+    def __init__(
+        self,
+        *,
+        data_set_id: builtins.str,
+        instance_id: builtins.str,
+        target_account_id: builtins.str,
+    ) -> None:
+        '''A reference to a DataLakeAssociation resource.
+
+        :param data_set_id: The DataSetId of the DataLakeAssociation resource.
+        :param instance_id: The InstanceId of the DataLakeAssociation resource.
+        :param target_account_id: The TargetAccountId of the DataLakeAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_connect as interfaces_connect
+            
+            data_lake_association_reference = interfaces_connect.DataLakeAssociationReference(
+                data_set_id="dataSetId",
+                instance_id="instanceId",
+                target_account_id="targetAccountId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c0ae3a8cbbb21f98e1b6ced702cd693dd61faa5b41aeb9cdd1b84abf7337f215)
+            check_type(argname="argument data_set_id", value=data_set_id, expected_type=type_hints["data_set_id"])
+            check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
+            check_type(argname="argument target_account_id", value=target_account_id, expected_type=type_hints["target_account_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_set_id": data_set_id,
+            "instance_id": instance_id,
+            "target_account_id": target_account_id,
+        }
+
+    @builtins.property
+    def data_set_id(self) -> builtins.str:
+        '''The DataSetId of the DataLakeAssociation resource.'''
+        result = self._values.get("data_set_id")
+        assert result is not None, "Required property 'data_set_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instance_id(self) -> builtins.str:
+        '''The InstanceId of the DataLakeAssociation resource.'''
+        result = self._values.get("instance_id")
+        assert result is not None, "Required property 'instance_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def target_account_id(self) -> builtins.str:
+        '''The TargetAccountId of the DataLakeAssociation resource.'''
+        result = self._values.get("target_account_id")
+        assert result is not None, "Required property 'target_account_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataLakeAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_connect.DataTableAttributeReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -1083,6 +1164,51 @@ class _IContactFlowVersionRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IContactFlowVersionRef).__jsii_proxy_class__ = lambda : _IContactFlowVersionRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_connect.IDataLakeAssociationRef")
+class IDataLakeAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DataLakeAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dataLakeAssociationRef")
+    def data_lake_association_ref(self) -> "DataLakeAssociationReference":
+        '''(experimental) A reference to a DataLakeAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDataLakeAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DataLakeAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_connect.IDataLakeAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dataLakeAssociationRef")
+    def data_lake_association_ref(self) -> "DataLakeAssociationReference":
+        '''(experimental) A reference to a DataLakeAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("DataLakeAssociationReference", jsii.get(self, "dataLakeAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDataLakeAssociationRef).__jsii_proxy_class__ = lambda : _IDataLakeAssociationRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_connect.IDataTableAttributeRef")
@@ -3538,6 +3664,7 @@ __all__ = [
     "ContactFlowModuleVersionReference",
     "ContactFlowReference",
     "ContactFlowVersionReference",
+    "DataLakeAssociationReference",
     "DataTableAttributeReference",
     "DataTableRecordReference",
     "DataTableReference",
@@ -3551,6 +3678,7 @@ __all__ = [
     "IContactFlowModuleVersionRef",
     "IContactFlowRef",
     "IContactFlowVersionRef",
+    "IDataLakeAssociationRef",
     "IDataTableAttributeRef",
     "IDataTableRecordRef",
     "IDataTableRef",
@@ -3651,6 +3779,15 @@ def _typecheckingstub__8dfa181ff2c0859219dbf48106492ecead1b4da0281898a69b709514d
 def _typecheckingstub__6f8ed10dcdc4a77bc2068dd63220cfc0b8add9c5c8c1020fec0826fbf1cecaa1(
     *,
     contact_flow_version_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c0ae3a8cbbb21f98e1b6ced702cd693dd61faa5b41aeb9cdd1b84abf7337f215(
+    *,
+    data_set_id: builtins.str,
+    instance_id: builtins.str,
+    target_account_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3862,5 +3999,5 @@ def _typecheckingstub__59549022c53269d7289aa349f0070431eec816e9588f5cf8c4a4c8e46
     """Type checking stubs"""
     pass
 
-for cls in [IAgentStatusRef, IApprovedOriginRef, IContactFlowModuleAliasRef, IContactFlowModuleRef, IContactFlowModuleVersionRef, IContactFlowRef, IContactFlowVersionRef, IDataTableAttributeRef, IDataTableRecordRef, IDataTableRef, IEmailAddressRef, IEvaluationFormRef, IHoursOfOperationRef, IInstanceRef, IInstanceStorageConfigRef, IIntegrationAssociationRef, INotificationRef, IPhoneNumberRef, IPredefinedAttributeRef, IPromptRef, IQueueRef, IQuickConnectRef, IRoutingProfileRef, IRuleRef, ISecurityKeyRef, ISecurityProfileRef, ITaskTemplateRef, ITestCaseRef, ITrafficDistributionGroupRef, IUserHierarchyGroupRef, IUserHierarchyStructureRef, IUserRef, IViewRef, IViewVersionRef, IWorkspaceRef]:
+for cls in [IAgentStatusRef, IApprovedOriginRef, IContactFlowModuleAliasRef, IContactFlowModuleRef, IContactFlowModuleVersionRef, IContactFlowRef, IContactFlowVersionRef, IDataLakeAssociationRef, IDataTableAttributeRef, IDataTableRecordRef, IDataTableRef, IEmailAddressRef, IEvaluationFormRef, IHoursOfOperationRef, IInstanceRef, IInstanceStorageConfigRef, IIntegrationAssociationRef, INotificationRef, IPhoneNumberRef, IPredefinedAttributeRef, IPromptRef, IQueueRef, IQuickConnectRef, IRoutingProfileRef, IRuleRef, ISecurityKeyRef, ISecurityProfileRef, ITaskTemplateRef, ITestCaseRef, ITrafficDistributionGroupRef, IUserHierarchyGroupRef, IUserHierarchyStructureRef, IUserRef, IViewRef, IViewVersionRef, IWorkspaceRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

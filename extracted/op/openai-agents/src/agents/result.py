@@ -18,6 +18,8 @@ from .exceptions import (
     InputGuardrailTripwireTriggered,
     MaxTurnsExceeded,
     RunErrorDetails,
+    _detach_data_redacted_error_traceback,
+    _is_error_data_redacted,
     _should_drain_stream_events_before_raising,
 )
 from .guardrail import InputGuardrailResult, OutputGuardrailResult
@@ -129,7 +131,7 @@ def _populate_state_from_result(
         snapshot_refs,
     )
     state._nested_history_owned_session_item_refs = live_refs
-    state._model_responses = result.raw_responses
+    state._model_responses = list(result.raw_responses)
     state._input_guardrail_results = result.input_guardrail_results
     state._output_guardrail_results = result.output_guardrail_results
     state._tool_input_guardrail_results = result.tool_input_guardrail_results
@@ -144,8 +146,12 @@ def _populate_state_from_result(
     source_state = getattr(result, "_state", None)
     if isinstance(source_state, RunState):
         state._generated_prompt_cache_key = source_state._generated_prompt_cache_key
+        state._pending_input = copy.deepcopy(source_state._pending_input)
+        state._current_step = source_state._current_step
     else:
         state._generated_prompt_cache_key = getattr(result, "_generated_prompt_cache_key", None)
+        state._pending_input = copy.deepcopy(getattr(result, "_pending_input_for_state", []))
+        state._current_step = getattr(result, "_current_step_for_state", None)
     state._reasoning_item_id_policy = getattr(result, "_reasoning_item_id_policy", None)
 
     interruptions = list(getattr(result, "interruptions", []))
@@ -155,7 +161,7 @@ def _populate_state_from_result(
     trace_state = getattr(result, "_trace_state", None)
     if trace_state is None:
         trace_state = TraceState.from_trace(getattr(result, "trace", None))
-    state._trace_state = copy.deepcopy(trace_state) if trace_state else None
+    state._trace_state = copy.deepcopy(trace_state) if trace_state is not None else None
     sandbox_resume_state = getattr(result, "_sandbox_resume_state", None)
     if isinstance(sandbox_resume_state, dict):
         state._sandbox = copy.deepcopy(sandbox_resume_state)
@@ -297,6 +303,12 @@ class RunResultBase(abc.ABC):
     """Root agent graph used when converting the result back into RunState."""
     _generated_prompt_cache_key: str | None = field(default=None, init=False, repr=False)
     """SDK-generated prompt cache key captured during the run."""
+    _pending_input_for_state: list[TResponseInputItem] = field(
+        default_factory=list, init=False, repr=False
+    )
+    """Pending input preserved when a non-streaming result is converted back to RunState."""
+    _current_step_for_state: Any = field(default=None, init=False, repr=False)
+    """Current step preserved when a non-streaming result is converted back to RunState."""
 
     @classmethod
     def __get_pydantic_core_schema__(
@@ -528,7 +540,8 @@ class RunResultStreaming(RunResultBase):
 
     The streaming method will raise:
     - A MaxTurnsExceeded exception if the agent exceeds the max_turns limit.
-    - A GuardrailTripwireTriggered exception if a guardrail is tripped.
+    - A tripwire exception if a guardrail is tripped, e.g. InputGuardrailTripwireTriggered
+      or OutputGuardrailTripwireTriggered.
     """
 
     current_agent: Agent[Any]
@@ -572,7 +585,7 @@ class RunResultStreaming(RunResultBase):
     _input_guardrails_task: asyncio.Task[Any] | None = field(default=None, repr=False)
     _triggered_input_guardrail_result: InputGuardrailResult | None = field(default=None, repr=False)
     _output_guardrails_task: asyncio.Task[Any] | None = field(default=None, repr=False)
-    _stored_exception: Exception | None = field(default=None, repr=False)
+    _stored_exception: BaseException | None = field(default=None, repr=False)
     _cancel_mode: Literal["none", "immediate", "after_turn"] = field(default="none", repr=False)
     _last_processed_response: ProcessedResponse | None = field(default=None, repr=False)
     """The last processed model response. This is needed for resuming from interruptions."""
@@ -729,7 +742,10 @@ class RunResultStreaming(RunResultBase):
         task = self.run_loop_task
         if task is None or not task.done() or task.cancelled():
             return None
-        return task.exception()
+        error = task.exception()
+        if isinstance(error, Exception) and _is_error_data_redacted(error):
+            _detach_data_redacted_error_traceback(error)
+        return error
 
     def cancel(self, mode: Literal["immediate", "after_turn"] = "immediate") -> None:
         """Cancel the streaming run.
@@ -802,7 +818,8 @@ class RunResultStreaming(RunResultBase):
 
         This will raise:
         - A MaxTurnsExceeded exception if the agent exceeds the max_turns limit.
-        - A GuardrailTripwireTriggered exception if a guardrail is tripped.
+        - A tripwire exception if a guardrail is tripped, e.g. InputGuardrailTripwireTriggered
+          or OutputGuardrailTripwireTriggered.
         """
         consumer_registered = False
         registered_consumer_task: asyncio.Task[Any] | None = None
@@ -858,7 +875,7 @@ class RunResultStreaming(RunResultBase):
                     self._stored_exception is not None
                     and _should_drain_stream_events_before_raising(self._stored_exception)
                 )
-                if self._stored_exception and (
+                if self._stored_exception is not None and (
                     not should_drain_queued_events or self._event_queue.empty()
                 ):
                     logger.debug("Breaking due to stored exception")
@@ -927,8 +944,16 @@ class RunResultStreaming(RunResultBase):
                 self._drain_event_queue()
                 self._drain_input_guardrail_queue()
 
-        if self._stored_exception:
-            raise self._stored_exception
+        stored_exception = self._stored_exception
+        if stored_exception is not None:
+            if _is_error_data_redacted(stored_exception):
+                _detach_data_redacted_error_traceback(stored_exception)
+                # The streaming result retains caller-visible run data. Drop the local reference
+                # before raising so the redacted exception cannot retain it through this frame.
+                self = cast(Any, None)
+                registered_consumer_task = None
+                item = cast(Any, None)
+            raise stored_exception
 
     def _create_error_details(self) -> RunErrorDetails | None:
         """Return a `RunErrorDetails` object considering the current attributes of the class.
@@ -973,29 +998,26 @@ class RunResultStreaming(RunResultBase):
         if self.run_loop_task and self.run_loop_task.done():
             if not self.run_loop_task.cancelled():
                 run_impl_exc = self.run_loop_task.exception()
-                if run_impl_exc and isinstance(run_impl_exc, Exception):
-                    if isinstance(run_impl_exc, AgentsException) and run_impl_exc.run_data is None:
+                if run_impl_exc is not None:
+                    if (
+                        isinstance(run_impl_exc, AgentsException)
+                        and run_impl_exc.run_data is None
+                        and not _is_error_data_redacted(run_impl_exc)
+                    ):
                         run_impl_exc.run_data = self._create_error_details()
                     self._stored_exception = run_impl_exc
 
         if self._input_guardrails_task and self._input_guardrails_task.done():
             if not self._input_guardrails_task.cancelled():
                 in_guard_exc = self._input_guardrails_task.exception()
-                if in_guard_exc and isinstance(in_guard_exc, Exception):
-                    if isinstance(in_guard_exc, AgentsException) and in_guard_exc.run_data is None:
+                if isinstance(in_guard_exc, Exception):
+                    if (
+                        isinstance(in_guard_exc, AgentsException)
+                        and in_guard_exc.run_data is None
+                        and not _is_error_data_redacted(in_guard_exc)
+                    ):
                         in_guard_exc.run_data = self._create_error_details()
                     self._stored_exception = in_guard_exc
-
-        if self._output_guardrails_task and self._output_guardrails_task.done():
-            if not self._output_guardrails_task.cancelled():
-                out_guard_exc = self._output_guardrails_task.exception()
-                if out_guard_exc and isinstance(out_guard_exc, Exception):
-                    if (
-                        isinstance(out_guard_exc, AgentsException)
-                        and out_guard_exc.run_data is None
-                    ):
-                        out_guard_exc.run_data = self._create_error_details()
-                    self._stored_exception = out_guard_exc
 
     def _cleanup_tasks(self):
         if self.run_loop_task and not self.run_loop_task.done():

@@ -24,6 +24,7 @@ from anyscale.commands.output_format import (
     OUTPUT_FLAG_LONG,
     OutputFormat,
     print_output,
+    warn_deprecated_flag,
 )
 from anyscale.commands.util import AnyscaleCommand
 from anyscale.controllers.machine_pool_controller import MachinePoolController
@@ -107,7 +108,13 @@ def update_machine_pool(name: str, spec_file: str) -> None:
 @command_metadata(
     status=ReleaseStatus.BETA,
     since="0.0.0",
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
+    option_docs={
+        "--format": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="Describe the machines and requests of a machine pool.",
@@ -145,13 +152,16 @@ def update_machine_pool(name: str, spec_file: str) -> None:
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result. Takes precedence over --format.",
 )
 def describe(name: str, format_: str, output_format: str) -> None:
+    if format_ != OutputFormat.TABLE.value:
+        warn_deprecated_flag("--format", "-o")
     machine_pool_controller = MachinePoolController()
     response: DescribeMachinePoolResponse = machine_pool_controller.describe_machine_pool(
         machine_pool_name=name
@@ -280,8 +290,13 @@ def delete_machine_pool(name: str) -> None:
 @command_metadata(
     status=ReleaseStatus.BETA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
+    option_docs={
+        "--format": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="List machine pools in the organization.",
@@ -290,9 +305,9 @@ def delete_machine_pool(name: str) -> None:
             output_instance=lambda: [
                 MachinePool(
                     machine_pool_name="can-testing",
-                    machine_pool_id="mp_8ogdz85mdwxb8a92yo44nn84ox",
-                    cloud_ids=["cld_kvedZWag2qA8i5BjxUevf5i7"],
-                    spec=None,
+                    machine_pool_id="mp_abc123",
+                    cloud_ids=["cld_abc123"],
+                    spec={},
                 )
             ],
         ),
@@ -318,13 +333,16 @@ def delete_machine_pool(name: str) -> None:
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result. Takes precedence over --format.",
 )
 def list_machine_pools(format_: str, output_format: str) -> None:
+    if format_ != OutputFormat.TABLE.value:
+        warn_deprecated_flag("--format", "-o")
     machine_pool_controller = MachinePoolController()
     result = machine_pool_controller.list_machine_pools()
 

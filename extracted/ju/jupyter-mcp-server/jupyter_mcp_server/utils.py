@@ -68,7 +68,6 @@ def get_mimebundle_text(bundle: dict[str, Any] | None, default: str | None = Non
     return default
 
 
-
 def get_current_notebook_context(notebook_manager=None):
     """
     Get the current notebook path and kernel ID for JUPYTER_SERVER mode.
@@ -124,7 +123,9 @@ def resolve_notebook_path(notebook_manager=None, notebook_name: str | None = Non
     if notebook_manager is None or notebook_name not in notebook_manager:
         raise ValueError(f"Notebook '{notebook_name}' is not connected.")
 
-    return notebook_manager.get_notebook_path(notebook_name), notebook_manager.get_kernel_id(notebook_name)
+    return notebook_manager.get_notebook_path(notebook_name), notebook_manager.get_kernel_id(
+        notebook_name
+    )
 
 
 def resolve_notebook_connection(notebook_manager, notebook_name: str | None = None):
@@ -616,7 +617,6 @@ def create_kernel(config, logger) -> CodeSandboxClient:
         raise
 
 
-
 def start_kernel(notebook_manager, config, logger):
     """Start the Jupyter kernel with error handling (for backward compatibility)."""
     try:
@@ -976,6 +976,18 @@ async def execute_via_execution_stack(
                 # Get result (returns None if pending, result dict if complete)
                 result = execution_stack.get(kernel_id, request_id)
 
+                # Recent jupyter-server-nbmodel versions expose rich progress
+                # snapshots instead of returning None while an execution is
+                # queued or running. These are not terminal results: keep
+                # polling until request_status becomes complete. Input requests
+                # remain actionable and are handled by the branch below.
+                if (
+                    isinstance(result, dict)
+                    and result.get("pending") is True
+                    and "input_request" not in result
+                ):
+                    result = None
+
                 if result is not None:
                     # Execution complete
                     logger.info(f"Execution request {request_id} completed")
@@ -1117,6 +1129,8 @@ async def execute_code_local(
         import logging
 
         logger = logging.getLogger(__name__)
+
+    client: Any = None
 
     try:
         # Get kernel manager
@@ -1308,6 +1322,12 @@ async def execute_code_local(
     except Exception as e:
         logger.error(f"Error executing code locally: {e}")
         return [f"[ERROR: {e!s}]"]
+
+    finally:
+        # lkm.client() hands back a fresh client per call, so channels left
+        # running here are never reclaimed.
+        if client is not None and client.channels_running:
+            client.stop_channels()
 
 
 async def execute_cell_local(

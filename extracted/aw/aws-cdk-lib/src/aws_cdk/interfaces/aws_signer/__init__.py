@@ -83,6 +83,51 @@ class _IProfilePermissionRefProxy(
 typing.cast(typing.Any, IProfilePermissionRef).__jsii_proxy_class__ = lambda : _IProfilePermissionRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_signer.ISigningJobRef")
+class ISigningJobRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a SigningJob.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="signingJobRef")
+    def signing_job_ref(self) -> "SigningJobReference":
+        '''(experimental) A reference to a SigningJob resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISigningJobRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SigningJob.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_signer.ISigningJobRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="signingJobRef")
+    def signing_job_ref(self) -> "SigningJobReference":
+        '''(experimental) A reference to a SigningJob resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SigningJobReference", jsii.get(self, "signingJobRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISigningJobRef).__jsii_proxy_class__ = lambda : _ISigningJobRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_signer.ISigningProfileRef")
 class ISigningProfileRef(
     _constructs_77d1e7e8.IConstruct,
@@ -194,6 +239,55 @@ class ProfilePermissionReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_signer.SigningJobReference",
+    jsii_struct_bases=[],
+    name_mapping={"signing_job_arn": "signingJobArn"},
+)
+class SigningJobReference:
+    def __init__(self, *, signing_job_arn: builtins.str) -> None:
+        '''A reference to a SigningJob resource.
+
+        :param signing_job_arn: The Arn of the SigningJob resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_signer as interfaces_signer
+            
+            signing_job_reference = interfaces_signer.SigningJobReference(
+                signing_job_arn="signingJobArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b079de1904b46fb2b2ddfc74c8279802a966dc3e5f8af3862a9c6e2f2e8098df)
+            check_type(argname="argument signing_job_arn", value=signing_job_arn, expected_type=type_hints["signing_job_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "signing_job_arn": signing_job_arn,
+        }
+
+    @builtins.property
+    def signing_job_arn(self) -> builtins.str:
+        '''The Arn of the SigningJob resource.'''
+        result = self._values.get("signing_job_arn")
+        assert result is not None, "Required property 'signing_job_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SigningJobReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_signer.SigningProfileReference",
     jsii_struct_bases=[],
     name_mapping={"signing_profile_arn": "signingProfileArn"},
@@ -244,8 +338,10 @@ class SigningProfileReference:
 
 __all__ = [
     "IProfilePermissionRef",
+    "ISigningJobRef",
     "ISigningProfileRef",
     "ProfilePermissionReference",
+    "SigningJobReference",
     "SigningProfileReference",
 ]
 
@@ -259,6 +355,13 @@ def _typecheckingstub__b408623badd1daa0c9bab1c1c66a31c6dde7f44a78b64930391b12dda
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b079de1904b46fb2b2ddfc74c8279802a966dc3e5f8af3862a9c6e2f2e8098df(
+    *,
+    signing_job_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__cf7fe5abd2cff30ba0a2b5a91b7d87a7e246390d9d00b650173e6e0eb5f27fab(
     *,
     signing_profile_arn: builtins.str,
@@ -266,5 +369,5 @@ def _typecheckingstub__cf7fe5abd2cff30ba0a2b5a91b7d87a7e246390d9d00b650173e6e0eb
     """Type checking stubs"""
     pass
 
-for cls in [IProfilePermissionRef, ISigningProfileRef]:
+for cls in [IProfilePermissionRef, ISigningJobRef, ISigningProfileRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

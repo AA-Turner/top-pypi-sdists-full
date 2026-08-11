@@ -5,7 +5,6 @@ from pydantic import ValidationError
 from tests.integ.dynamic_table.util import assert_dynamic_table
 
 
-@pytest.mark.min_sf_ver("8.27.0")
 def test_iter_like(dynamic_tables, dynamic_table_handle, table_handle, database, schema, db_parameters):
     listed_tables_deep = list(dynamic_tables.iter(like=dynamic_table_handle.name, deep=True))
     assert_dynamic_table(
@@ -18,7 +17,6 @@ def test_iter_like(dynamic_tables, dynamic_table_handle, table_handle, database,
     )
 
 
-@pytest.mark.min_sf_ver("8.27.0")
 def test_iter_starts_with(dynamic_tables, dynamic_table_handle, table_handle, database, schema, db_parameters):
     listed_tables_deep = list(dynamic_tables.iter(starts_with=dynamic_table_handle.name.upper(), deep=True))
     assert len(listed_tables_deep) == 1

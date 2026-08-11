@@ -1,9 +1,7 @@
 # SPDX-License-Identifier: MIT
 """This module parses and validates arguments for command-line interfaces.
 
-It uses argparse module to create the command line parser. (This library is
-in the standard python library since 3.2 and backported to 2.7, but not
-earlier.)
+It uses the argparse module to create the command line parser.
 
 It also implements basic validation methods, related to the command.
 Validations are mostly calling specific help methods, or mangling values.
@@ -80,23 +78,11 @@ def normalize_args(args: argparse.Namespace) -> None:
     args.excludes = list(uniq_excludes)
 
     # flatten comma-separated lists for checker options
-    if hasattr(args, "enable_checker") and args.enable_checker:
-        flattened = []
-        for item in args.enable_checker:
-            if isinstance(item, list):
-                flattened.extend(item)
-            else:
-                flattened.extend(item.split(","))
-        args.enable_checker = flattened
+    if args.enable_checker:
+        args.enable_checker = [checker for item in args.enable_checker for checker in item.split(",")]
 
-    if hasattr(args, "disable_checker") and args.disable_checker:
-        flattened = []
-        for item in args.disable_checker:
-            if isinstance(item, list):
-                flattened.extend(item)
-            else:
-                flattened.extend(item.split(","))
-        args.disable_checker = flattened
+    if args.disable_checker:
+        args.disable_checker = [checker for item in args.disable_checker for checker in item.split(",")]
 
 
 def validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
@@ -153,7 +139,7 @@ def create_parser() -> argparse.ArgumentParser:
         "-o",
         metavar="<path>",
         default=DEFAULT_OUTPUT_DIR,
-        help="Specifies the output directory for analyzer reports. Subdirectory will be created if default directory is targeted.",
+        help="Specifies the output directory for analyzer reports. A time-stamped subdirectory will be created inside it.",
     )
     _ = output.add_argument(
         "--keep-empty",
@@ -190,15 +176,13 @@ def create_parser() -> argparse.ArgumentParser:
         action="store_const",
         help="Cause the results as a set of .plist files with extra information on related files.",
     )
-    # TODO: implement '-view '
-
     advanced = parser.add_argument_group("advanced options")
     _ = advanced.add_argument(
         "--use-analyzer",
         metavar="<path>",
         dest="clang",
         default="clang",
-        help="clanganalyzer uses the 'clang' executable relative to itself for static analysis. One can override this behavior with this option by using the 'clang' packaged with Xcode (on OS X) or from the PATH.",
+        help="Use the given clang executable for the static analysis. By default the 'clang' executable found in the PATH is used.",
     )
     _ = advanced.add_argument(
         "--analyzer-target",

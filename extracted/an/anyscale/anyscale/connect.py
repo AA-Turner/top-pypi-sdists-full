@@ -89,7 +89,7 @@ def _get_base_image(image: str, ray_version: str, cpu_or_gpu: str) -> str:
     py_version = "".join(str(x) for x in sys.version_info[0:2])
     if sys.version_info.major == 3 and sys.version_info.minor == 10:
         py_version = "310"
-    if py_version not in ["36", "37", "38", "39", "310"]:
+    if py_version not in ["36", "37", "38", "39", "310", "311", "312", "313"]:
         raise ValueError(f"No default docker image for py{py_version}")
     return f"anyscale/{image}:{ray_version}-py{py_version}-{cpu_or_gpu}"
 

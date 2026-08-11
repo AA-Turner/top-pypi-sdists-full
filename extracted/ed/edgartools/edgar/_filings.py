@@ -2,6 +2,7 @@ import itertools
 import json
 import pickle
 import re
+import warnings
 import webbrowser
 from contextlib import nullcontext
 from dataclasses import dataclass
@@ -54,6 +55,8 @@ from edgar.dates import InvalidDateException
 from edgar.display.formatting import accession_number_text, display_size
 from edgar.display.styles import print_info, print_warning
 from edgar.documents import HTMLParser, ParserConfig
+from edgar.documents.exceptions import ParsingError
+from edgar.files._deprecation import PAGE_BREAK_DEPRECATION as _PAGE_BREAK_DEPRECATION
 from edgar.files.html_documents import get_clean_html
 from edgar.files.htmltools import html_sections
 from edgar.files.markdown import to_markdown
@@ -64,7 +67,7 @@ from edgar.headers import FilingDirectory, IndexHeaders
 from edgar.httprequests import download_file, download_text, download_text_between_tags
 from edgar.reference import describe_form
 from edgar.reference.tickers import Exchange, find_ticker, find_ticker_safe
-from edgar.richtools import Docs, print_rich, repr_rich, rich_to_text
+from edgar.richtools import Docs, print_rich, repr_rich
 from edgar.search import BM25Search, RegexSearch
 from edgar.sgml import FilingHeader, FilingSGML, Reports, Statements
 from edgar.storage import is_using_local_storage, local_filing_path, resolve_local_filing_path
@@ -1655,8 +1658,16 @@ class Filing:
         return xml_content
 
     @lru_cache(maxsize=4)
-    def text(self) -> str:
-        """Convert the html of the main filing document to text"""
+    def text(self, include_images: bool = False) -> str:
+        """Convert the html of the main filing document to text
+
+        Args:
+            include_images: Emit an ``[Image: <alt or filename>]`` placeholder
+                wherever the filing has an image (GH #886). Charts that carry
+                content — a 10-K's stock performance graph, say — otherwise
+                vanish with nothing to mark the gap. Off by default so the text
+                that feeds sections, search and embeddings stays image-free.
+        """
         # Offline shortcut for historic pre-HTML filings: when the primary document has no
         # <FILENAME> (so html()/_download_filing_text would otherwise re-fetch it over the
         # network) and it is plain text, return that document's text straight from the
@@ -1676,7 +1687,12 @@ class Filing:
             if document.is_empty:
                 return ""
 
-            return rich_to_text(document, width=500)  # Wide enough for tables without truncation
+            # Straight to the extractor. Going via rich_to_text() rendered the
+            # document through Document.__repr__, which hardcodes
+            # table_max_col_width=200 — so the 500 below never reached the table
+            # renderer and long cells were cut at 200 with no ellipsis.
+            return document.text(table_max_col_width=500,  # Wide enough for tables without truncation
+                                 include_images=include_images)
         else:
             text_extract_attachments = self.attachments.query("document_type == 'TEXT-EXTRACT'")
             if len(text_extract_attachments) > 0 and text_extract_attachments.get_by_index(0) is not None:
@@ -1747,16 +1763,42 @@ class Filing:
         """
         Return the markdown version of this filing html
 
+        Rendered by ``edgar.documents``, so images survive into the markdown
+        (GH #886) and tables render through the same pipeline as ``text()``,
+        ``view()`` and the section extractors. Relative image ``src`` values are
+        resolved against the filing's SEC archive directory, so the markdown is
+        a self-contained document with working image links.
+
         Args:
-            include_page_breaks: If True, include page break delimiters in the markdown
-            start_page_number: Starting page number for page break markers (default: 0)
+            include_page_breaks: If True, include ``{N}----`` page break
+                delimiters in the markdown. **Deprecated.** Page breaks exist
+                only in the legacy ``edgar.files`` renderer, so passing True
+                routes the whole document through it and forfeits images and
+                the newer table rendering. Removed in 6.0.
+            start_page_number: Starting page number for page break markers
+                (default: 0). Only meaningful with ``include_page_breaks=True``.
         """
         html = self.html()
         if html:
-            clean_html = get_clean_html(html)
-            if clean_html:
-                markdown_result = to_markdown(clean_html, include_page_breaks=include_page_breaks,
-                                              start_page_number=start_page_number)
+            if include_page_breaks:
+                warnings.warn(_PAGE_BREAK_DEPRECATION.format(cls="Filing"),
+                              DeprecationWarning, stacklevel=2)
+                clean_html = get_clean_html(html)
+                if clean_html:
+                    markdown_result = to_markdown(clean_html, include_page_breaks=True,
+                                                  start_page_number=start_page_number)
+                    if markdown_result:
+                        return markdown_result
+            else:
+                try:
+                    document = HTMLParser(ParserConfig(form=self.form)).parse(html)
+                    # Base for resolving relative image src. Trailing slash matters:
+                    # urljoin() drops the last path segment without it. base_dir is a
+                    # pure string property, so this costs no request.
+                    document.metadata.url = f"{self.base_dir}/"
+                    markdown_result = document.to_markdown()
+                except ParsingError:
+                    markdown_result = None
                 if markdown_result:
                     return markdown_result
         text_content = self.text()

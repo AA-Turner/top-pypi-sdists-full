@@ -42,6 +42,10 @@ class SearchClient(client.BaseClient):
     scopes = SearchScopes
     default_scope_requirements = [SearchScopes.search]
 
+    # annotate but do not assign 'resource_server'
+    # because we know that the classproperty of this name will evaluate to a string
+    resource_server: str
+
     #
     # Index Management
     #

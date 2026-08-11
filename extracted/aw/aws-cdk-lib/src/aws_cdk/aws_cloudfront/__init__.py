@@ -21317,6 +21317,7 @@ class CfnVpcOrigin(
                 # the properties below are optional
                 http_port=123,
                 https_port=123,
+                ip_address_type="ipAddressType",
                 origin_protocol_policy="originProtocolPolicy",
                 origin_ssl_protocols=["originSslProtocols"]
             ),
@@ -21528,6 +21529,7 @@ class CfnVpcOrigin(
             "name": "name",
             "http_port": "httpPort",
             "https_port": "httpsPort",
+            "ip_address_type": "ipAddressType",
             "origin_protocol_policy": "originProtocolPolicy",
             "origin_ssl_protocols": "originSslProtocols",
         },
@@ -21540,6 +21542,7 @@ class CfnVpcOrigin(
             name: builtins.str,
             http_port: typing.Optional[jsii.Number] = None,
             https_port: typing.Optional[jsii.Number] = None,
+            ip_address_type: typing.Optional[builtins.str] = None,
             origin_protocol_policy: typing.Optional[builtins.str] = None,
             origin_ssl_protocols: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
@@ -21549,6 +21552,7 @@ class CfnVpcOrigin(
             :param name: The name of the CloudFront VPC origin endpoint configuration.
             :param http_port: The HTTP port for the CloudFront VPC origin endpoint configuration. The default value is ``80`` . Default: - 80
             :param https_port: The HTTPS port of the CloudFront VPC origin endpoint configuration. The default value is ``443`` . Default: - 443
+            :param ip_address_type: Default: - "ipv4"
             :param origin_protocol_policy: The origin protocol policy for the CloudFront VPC origin endpoint configuration. Default: - "match-viewer"
             :param origin_ssl_protocols: Specifies the minimum SSL/TLS protocol that CloudFront uses when connecting to your origin over HTTPS. Valid values include ``SSLv3`` , ``TLSv1`` , ``TLSv1.1`` , and ``TLSv1.2`` . For more information, see `Minimum Origin SSL Protocol <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginSSLProtocols>`_ in the *Amazon CloudFront Developer Guide* .
 
@@ -21568,6 +21572,7 @@ class CfnVpcOrigin(
                     # the properties below are optional
                     http_port=123,
                     https_port=123,
+                    ip_address_type="ipAddressType",
                     origin_protocol_policy="originProtocolPolicy",
                     origin_ssl_protocols=["originSslProtocols"]
                 )
@@ -21578,6 +21583,7 @@ class CfnVpcOrigin(
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument http_port", value=http_port, expected_type=type_hints["http_port"])
                 check_type(argname="argument https_port", value=https_port, expected_type=type_hints["https_port"])
+                check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
                 check_type(argname="argument origin_protocol_policy", value=origin_protocol_policy, expected_type=type_hints["origin_protocol_policy"])
                 check_type(argname="argument origin_ssl_protocols", value=origin_ssl_protocols, expected_type=type_hints["origin_ssl_protocols"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -21588,6 +21594,8 @@ class CfnVpcOrigin(
                 self._values["http_port"] = http_port
             if https_port is not None:
                 self._values["https_port"] = https_port
+            if ip_address_type is not None:
+                self._values["ip_address_type"] = ip_address_type
             if origin_protocol_policy is not None:
                 self._values["origin_protocol_policy"] = origin_protocol_policy
             if origin_ssl_protocols is not None:
@@ -21638,6 +21646,16 @@ class CfnVpcOrigin(
             '''
             result = self._values.get("https_port")
             return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def ip_address_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :default: - "ipv4"
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-vpcorigin-vpcoriginendpointconfig.html#cfn-cloudfront-vpcorigin-vpcoriginendpointconfig-ipaddresstype
+            '''
+            result = self._values.get("ip_address_type")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def origin_protocol_policy(self) -> typing.Optional[builtins.str]:
@@ -21713,6 +21731,7 @@ class CfnVpcOriginProps:
                     # the properties below are optional
                     http_port=123,
                     https_port=123,
+                    ip_address_type="ipAddressType",
                     origin_protocol_policy="originProtocolPolicy",
                     origin_ssl_protocols=["originSslProtocols"]
                 ),
@@ -22538,7 +22557,7 @@ class DistributionProps:
         :param enable_logging: Enable access logging for the distribution. Default: - false, unless ``logBucket`` is specified.
         :param error_responses: How CloudFront should handle requests that are not successful (e.g., PageNotFound). Default: - No custom error responses.
         :param geo_restriction: Controls the countries in which your content is distributed. Default: - No geographic restrictions
-        :param http_version: Specify the maximum HTTP version that you want viewers to use to communicate with CloudFront. For viewers and CloudFront to use HTTP/2, viewers must support TLS 1.2 or later, and must support server name identification (SNI). Default: HttpVersion.HTTP2
+        :param http_version: The HTTP version(s) to enable on the distribution. For viewers and CloudFront to use HTTP/2, viewers must support TLS 1.2 or later, and must support server name identification (SNI). Default: HttpVersion.HTTP2
         :param log_bucket: The Amazon S3 bucket to store the access logs in. Make sure to set ``objectOwnership`` to ``s3.ObjectOwnership.OBJECT_WRITER`` in your custom bucket. Default: - A bucket is created if ``enableLogging`` is true
         :param log_file_prefix: An optional string that you want CloudFront to prefix to the access log filenames for this distribution. Default: - no prefix
         :param log_includes_cookies: Specifies whether you want CloudFront to include cookies in access logs. Default: false
@@ -22749,7 +22768,7 @@ class DistributionProps:
 
     @builtins.property
     def http_version(self) -> typing.Optional["HttpVersion"]:
-        '''Specify the maximum HTTP version that you want viewers to use to communicate with CloudFront.
+        '''The HTTP version(s) to enable on the distribution.
 
         For viewers and CloudFront to use HTTP/2, viewers must support TLS 1.2 or later, and must support server name identification (SNI).
 
@@ -23877,8 +23896,11 @@ class HeadersReferrerPolicy(enum.Enum):
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_cloudfront.HttpVersion")
 class HttpVersion(enum.Enum):
-    '''Maximum HTTP version to support.
+    '''The HTTP version(s) to enable on the distribution.
 
+    Note: Setting ``HTTP3`` enables HTTP 3 only (not HTTP 2). To support both HTTP 2 and HTTP 3, use ``HTTP2_AND_3``.
+
+    :see: https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_UpdateDistribution.html#cloudfront-UpdateDistribution-request-HttpVersion
     :exampleMetadata: infused
 
     Example::
@@ -23897,7 +23919,7 @@ class HttpVersion(enum.Enum):
     HTTP2_AND_3 = "HTTP2_AND_3"
     '''HTTP 2 and HTTP 3.'''
     HTTP3 = "HTTP3"
-    '''HTTP 3.'''
+    '''HTTP 3 only (does not include HTTP 2).'''
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_cloudfront.ICachePolicy")
@@ -31709,7 +31731,7 @@ class Distribution(
         :param enable_logging: Enable access logging for the distribution. Default: - false, unless ``logBucket`` is specified.
         :param error_responses: How CloudFront should handle requests that are not successful (e.g., PageNotFound). Default: - No custom error responses.
         :param geo_restriction: Controls the countries in which your content is distributed. Default: - No geographic restrictions
-        :param http_version: Specify the maximum HTTP version that you want viewers to use to communicate with CloudFront. For viewers and CloudFront to use HTTP/2, viewers must support TLS 1.2 or later, and must support server name identification (SNI). Default: HttpVersion.HTTP2
+        :param http_version: The HTTP version(s) to enable on the distribution. For viewers and CloudFront to use HTTP/2, viewers must support TLS 1.2 or later, and must support server name identification (SNI). Default: HttpVersion.HTTP2
         :param log_bucket: The Amazon S3 bucket to store the access logs in. Make sure to set ``objectOwnership`` to ``s3.ObjectOwnership.OBJECT_WRITER`` in your custom bucket. Default: - A bucket is created if ``enableLogging`` is true
         :param log_file_prefix: An optional string that you want CloudFront to prefix to the access log filenames for this distribution. Default: - no prefix
         :param log_includes_cookies: Specifies whether you want CloudFront to include cookies in access logs. Default: false
@@ -35598,6 +35620,7 @@ def _typecheckingstub__005dcbc2d3e8c1b9440d0937d4f4088afc4fb1a0a647692004a2a3713
     name: builtins.str,
     http_port: typing.Optional[jsii.Number] = None,
     https_port: typing.Optional[jsii.Number] = None,
+    ip_address_type: typing.Optional[builtins.str] = None,
     origin_protocol_policy: typing.Optional[builtins.str] = None,
     origin_ssl_protocols: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:

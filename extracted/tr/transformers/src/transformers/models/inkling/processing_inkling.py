@@ -26,11 +26,7 @@ logger = logging.get_logger(__name__)
 
 
 class InklingProcessorKwargs(ProcessingKwargs, total=False):
-    _defaults = {
-        "audio_kwargs": {
-            "load_audio_backend": "torchaudio",  # sglang ref uses torchaudio resampling
-        },
-    }
+    _defaults = {}
 
 
 @auto_docstring
@@ -101,7 +97,7 @@ class InklingProcessor(ProcessorMixin):
         audio_replacements = [self.replace_audio_token(processed_audio, audio_idx=idx) for idx in range(len(audio))]
         return processed_audio, audio_replacements
 
-    def replace_image_token(self, image_inputs: dict, image_idx: int) -> str:
+    def replace_image_token(self, image_inputs: dict, image_idx: int, **kwargs) -> str:
         num_soft_tokens = image_inputs["num_patches"][image_idx]
         return self.image_token * num_soft_tokens
 

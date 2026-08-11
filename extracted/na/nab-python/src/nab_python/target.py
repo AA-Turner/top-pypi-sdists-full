@@ -24,11 +24,15 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING
 
-from ._conflict_kind import EMPTY_MEMBERSHIP_SETS, MARKER_VARIABLE_FOR_KIND
+from ._conflict_kind import (
+    EMPTY_MEMBERSHIP_SETS,
+    MARKER_VARIABLE_FOR_KIND,
+    UnevaluableMarkerError,
+)
 from ._vendor.packaging import tags as ptags
 from ._vendor.packaging.markers import Marker, default_environment
 from ._vendor.packaging.markersets import variable_names
-from ._vendor.packaging.specifiers import SpecifierSet
+from ._vendor.packaging.specifiers import InvalidSpecifier, SpecifierSet
 from ._vendor.packaging.version import InvalidVersion, Version
 from .tags import (
     FREE_THREADED_MIN_PYTHON,
@@ -52,9 +56,11 @@ __all__ = [
     "Matrix",
     "NonIntervalMarkerError",
     "ResolveTarget",
+    "UnevaluableMarkerError",
     "apply_python_axis_overlay",
     "check_free_threaded",
     "declared_environment",
+    "declared_range_marker",
     "environment_declaration",
     "host_environment",
     "marker_variables",
@@ -244,9 +250,11 @@ _BY_CONSTRAINT = ("python_full_version", "implementation_version")
 
 # One ``lhs op rhs`` comparison of a marker, matched against the string form
 # :func:`Marker.__str__` normalises to: an operand is either a quoted literal
-# or a bare variable token, which is what tells the two apart.  Ordered so
-# the two-character operators win over their prefixes.
-_MARKER_OPERAND = r'"[^"]*"|[A-Za-z_][A-Za-z0-9_]*'
+# or a bare variable token, which is what tells the two apart.  Both quote
+# styles are matched, since packaging emits a value holding a double quote
+# single-quoted.  Ordered so the two-character operators win over their
+# prefixes.
+_MARKER_OPERAND = r'"[^"]*"|\'[^\']*\'|[A-Za-z_][A-Za-z0-9_]*'
 _MARKER_CLAUSE_RE = re.compile(
     rf"(?P<lhs>{_MARKER_OPERAND})\s*"
     r"(?P<op>===|==|!=|<=|>=|~=|<|>|not\s+in|in)\s*"
@@ -330,6 +338,25 @@ def environment_declaration(target: ResolveTarget, consulted: Iterable[Marker]) 
     return " and ".join(clauses)
 
 
+def declared_range_marker(target: ResolveTarget) -> str:
+    """Render the environment a target resolved for, on its whole declared range.
+
+    Pins every boundable environment axis to the target's value. A minor
+    interval leaves the micro release open, so python_version pins the whole
+    minor; a whole target (host, or a python-patches micro pin) adds the
+    concrete python_full_version it resolved at.
+    """
+    skip = UNBOUNDABLE_MARKER_VARIABLES | set(_BY_CONSTRAINT)
+    clauses = [
+        f'{name} == "{value}"'
+        for name, value in sorted(target.marker_env.items())
+        if name not in skip
+    ]
+    if not target.is_minor_interval:
+        clauses.append(f'python_full_version == "{target.python_full_version}"')
+    return " and ".join(clauses)
+
+
 def _clause_parts(atom: re.Match[str]) -> tuple[str, str, str]:
     """Return one clause's operands and its operator, whitespace normalized."""
     lhs, op, rhs = atom.group("lhs", "op", "rhs")
@@ -347,6 +374,12 @@ _NON_INTERVAL_OPERATORS = frozenset({"===", "in", "not in"})
 # renderable and crashes.  ``<=``/``>`` land after the literal at a real
 # release, so a prerelease there maps cleanly to that release.
 _AT_LITERAL_OPERATORS = frozenset({"<", ">=", "==", "!=", "~="})
+
+# ``<`` is dropped: a post-release sorts just above its release, so
+# ``< "3.12.4.post1"`` lands its boundary on the next real micro (3.12.5) and
+# tiles cleanly.  The other at-literal operators snap a post's boundary onto a
+# micro whose truth does not flip there, so a post-release crashes on those.
+_POST_AT_LITERAL_OPERATORS = _AT_LITERAL_OPERATORS - frozenset({"<"})
 
 # PEP 508 lets either operand be the variable, and packaging preserves the
 # written order, so ``python_full_version < "3.10.2"`` and its literal-first
@@ -373,9 +406,11 @@ class NonIntervalMarkerError(ValueError):
     comparison has to partition that interval so every real interpreter reads
     it the same way its slice does.  A membership (``in``/``not in``), a
     verbatim ``===``, a non-version string comparison, a comparison against
-    another variable, or a prerelease-version literal that would carve a slice
-    off a real micro cannot be tiled, so the resolve stops loudly rather than
-    pin the whole minor to one synthetic answer.
+    another variable, a pre- or post-release version literal that would carve
+    a slice off a real micro, or a literal PEP 440 refuses under the operator
+    it is written with (``< "3.12.*"``, ``~= "3"``) cannot be tiled, so the
+    resolve stops loudly rather than pin the whole minor to one synthetic
+    answer.
     """
 
 
@@ -386,9 +421,10 @@ def _non_interval(
     lhs, op, rhs = parts
     return NonIntervalMarkerError(
         f"consulted marker clause {lhs} {op} {rhs} cannot tile the"
-        f" {target.label} minor interval: a python_full_version membership,"
-        " verbatim ===, non-version, variable, or prerelease comparison names"
-        " no micro boundary the lock can render"
+        f" {target.label} minor interval: no micro boundary the lock can"
+        " render comes from a python_full_version membership, a verbatim ===,"
+        " a comparison against a variable, a pre- or post-release comparison,"
+        " or a literal the operator cannot spell as a version bound"
     )
 
 
@@ -516,22 +552,23 @@ def _clause_boundary_points(
     parsed = _clause_interval_literal(parts, scanned, target)
     if parsed is None:
         return set()
-    op, raw, version = parsed
+    op, specifier, version = parsed
 
-    if version.is_prerelease and op in _AT_LITERAL_OPERATORS:
-        # The boundary lands at the prerelease itself; only a strictly interior
-        # one carves a slice whose release floor sits outside it.  A prerelease
-        # of the minor's floor, or one outside the minor, is uniform under the
-        # rides-with-X convention and splits nothing.
-        if _in_minor(Version(version.base_version), minor_release, floor):
+    if (version.is_prerelease and op in _AT_LITERAL_OPERATORS) or (
+        version.is_postrelease and op in _POST_AT_LITERAL_OPERATORS
+    ):
+        # An at-literal boundary lands on the literal, and a pre- or post-release
+        # literal falls between two micros, so no micro reads it the way its slice
+        # would.  Interior to the minor that cannot be tiled and crashes; below the
+        # floor or in another minor it is uniform and splits nothing.  The literal
+        # itself decides which, not its release form: a prerelease sorts just below
+        # its release and a post just above, so ``3.12.0a1`` sits below the floor
+        # while ``3.12.0.post1`` sits above it.
+        if _in_minor(version, minor_release, floor):
             raise _non_interval(parts, target)
         return set()
 
-    intervals = (
-        SpecifierSet(f"{op}{raw}")
-        .to_range()
-        .release_intervals(_PYTHON_FULL_VERSION_PARTS)
-    )
+    intervals = specifier.to_range().release_intervals(_PYTHON_FULL_VERSION_PARTS)
     return {
         edge
         for lower, upper in intervals
@@ -541,20 +578,36 @@ def _clause_boundary_points(
 
 
 def _in_minor(point: Version, minor_release: tuple[int, ...], floor: Version) -> bool:
-    """Whether ``point`` is an interior micro of the minor above its floor."""
-    return point.release[:_PYTHON_VERSION_PARTS] == minor_release and point > floor
+    """Whether ``point`` is an interior micro of the minor above its floor.
+
+    An epoch sorts above every version of a lower one, so a boundary with a
+    different epoch is outside the minor whatever its release says:
+    ``1!3.12.4`` is not in ``[3.12.0, 3.13.0)``.
+    """
+    return (
+        point.epoch == floor.epoch
+        and point.release[:_PYTHON_VERSION_PARTS] == minor_release
+        and point > floor
+    )
 
 
 def _clause_interval_literal(
     parts: tuple[str, str, str], scanned: frozenset[str], target: ResolveTarget
-) -> tuple[str, str, Version] | None:
-    """Return ``(op, literal, version)`` for a version-boundary clause.
+) -> tuple[str, SpecifierSet, Version] | None:
+    """Return ``(op, specifier, version)`` for a version-boundary clause.
 
     ``None`` when the clause names no scanned version variable.  Raises
     :class:`NonIntervalMarkerError` when it names one but cannot tile an
     interval.  A literal-first clause has an ordered or symmetric operator
     mirrored back to variable-on-left form; ``~=``/``===`` and the membership
     operators cannot be mirrored, so a literal-first one of those is untileable.
+
+    The specifier is built here rather than by the caller because PEP 508
+    accepts literals PEP 440 refuses under the operator they are written with.
+    A ``.*`` suffix is a specifier only under ``==``/``!=``, and ``~=`` needs
+    two release components, so ``< "3.12.*"`` and ``~= "3"`` are valid markers
+    with no specifier form; building it is what tells them from the clauses
+    that have one.
     """
     lhs, op, rhs = parts
     if lhs in scanned:
@@ -574,9 +627,10 @@ def _clause_interval_literal(
     base = raw.removesuffix(".*")
     try:
         version = Version(base)
-    except InvalidVersion:
+        specifier = SpecifierSet(f"{op}{raw}")
+    except (InvalidVersion, InvalidSpecifier):
         raise _non_interval(parts, target) from None
-    return op, raw, version
+    return op, specifier, version
 
 
 def host_environment(
@@ -688,6 +742,11 @@ class ResolveTarget:
     platform_spec: PlatformSpec | None = field(default=None, compare=False)
     multi_implementation: bool = field(default=False, compare=False)
     tags_faithful: bool = field(default=True, compare=False)
+    # python_full_version was pinned to a concrete micro (a matrix python-patches
+    # value or a declared patch level), not synthesized as a bare minor's ``.0``
+    # floor.  A pinned ``X.Y.0`` equals that floor by value, so only this flag
+    # tells the two apart.
+    concrete_micro: bool = field(default=False, compare=False)
     # The python_full_version clauses bounding this target's micro slice, set
     # by :func:`slices_from_points` when a consulted marker splits the minor.
     # Empty for an ordinary target.  Appended to
@@ -745,8 +804,12 @@ class ResolveTarget:
         minor carries ``micro_clauses`` and still stands for every interpreter
         its bounds admit, so it too is an interval answering Requires-Python at
         the same whole minor.
+
+        A pinned ``X.Y.0`` reads as the synthetic floor by string alone, so the
+        concrete-micro flag, not the value, decides: a python-patches pin is
+        whole even when its micro is ``.0``.
         """
-        if self.host_faithful:
+        if self.host_faithful or self.concrete_micro:
             return False
         if self.micro_clauses:
             return True
@@ -971,6 +1034,10 @@ class ResolveTarget:
         over, and only the python axis (``python_version``,
         ``python_full_version``, and the tags' interpreter/abi) moves.
         This is what pip's ``--python-version`` targets.
+
+        A bare minor ("3.10") resolves as a micro interval off its ``.0``
+        floor; a named patch level ("3.10.5", "3.13.0") is one concrete
+        micro resolved whole, so an ``X.Y.0`` pin is not the synthetic floor.
         """
         env = host_environment(env_source)
         apply_python_axis_overlay(env, python_axis_environment(python))
@@ -980,6 +1047,7 @@ class ResolveTarget:
             marker_env=env,
             tags=TagSet.for_host_python(python, tags_source=tags_source),
             host_faithful=False,
+            concrete_micro=len(Version(python).release) >= _PYTHON_FULL_VERSION_PARTS,
         )
 
     @classmethod
@@ -1013,6 +1081,7 @@ class ResolveTarget:
             host_faithful=False,
             platform_spec=spec,
             multi_implementation=multi_implementation,
+            concrete_micro=python_full_version is not None,
         )
 
 

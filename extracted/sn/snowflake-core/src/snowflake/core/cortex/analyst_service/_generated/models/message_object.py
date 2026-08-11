@@ -44,6 +44,7 @@ class MessageObject(BaseModel):
 
     @field_validator("role")
     def role_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("user", "analyst"):

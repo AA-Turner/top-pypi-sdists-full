@@ -15,13 +15,13 @@ from functools import partial as _partial
 from typing import ClassVar as _ClassVar, overload as _overload
 
 try:
-    from greenlet import getcurrent as get_ident
+    from greenlet import getcurrent as get_ident  # type: ignore
 except ImportError:
     from _thread import get_ident
 
 from jalali_core import GregorianToJalali, JalaliToGregorian, j_days_in_month
 
-__VERSION__ = '6.0.2'
+__VERSION__ = '6.1.0'
 MINYEAR = 1
 MAXYEAR = 9377
 
@@ -45,8 +45,8 @@ STRFTIME_MAPPING = {
     '%f': ('_strftime_get_attr_value', {'attr': 'microsecond', 'fmt': '%06.d', 'fb': '000000'}),
     '%H': ('_strftime_get_attr_value', {'attr': 'hour', 'fmt': '%02.d', 'fb': '00'}),
     '%-H': ('_strftime_get_attr_value', {'attr': 'hour', 'fmt': '%d', 'fb': '0'}),
-    '%I': ('_strftime_get_attr_value', {'attr': 'hour', 'fmt': '%02.d', 'fb': '12'}),
-    '%-I': ('_strftime_get_attr_value', {'attr': 'hour', 'fmt': '%d', 'fb': '12'}),
+    '%I': ('_strftime_get_attr_value', {'attr': '_hour12', 'fmt': '%02.d', 'fb': '12'}),
+    '%-I': ('_strftime_get_attr_value', {'attr': '_hour12', 'fmt': '%d', 'fb': '12'}),
     '%M': ('_strftime_get_attr_value', {'attr': 'minute', 'fmt': '%02.d', 'fb': '00'}),
     '%-M': ('_strftime_get_attr_value', {'attr': 'minute', 'fmt': '%d', 'fb': '0'}),
     '%S': ('_strftime_get_attr_value', {'attr': 'second', 'fmt': '%02.d', 'fb': '00'}),
@@ -354,8 +354,8 @@ class date:
         (y, m, d) = GregorianToJalali(d.year, d.month, d.day).getJalaliList()
         return date(y, m, d)
 
-    @staticmethod
-    def fromisoformat(date_string: str) -> date:
+    @classmethod
+    def fromisoformat(cls, date_string: str) -> date:
         """
         Convert an ISO 8601 formatted string to a jdatetime.date
         """
@@ -623,6 +623,12 @@ class date:
     def aslocale(self, locale: str) -> date:
         return date(self.year, self.month, self.day, locale=locale)
 
+    @classmethod
+    def strptime(cls, date_string: str, format: str) -> date:
+        """Return a date corresponding to date_string, parsed according to format."""
+        dt = datetime.strptime(date_string, format)
+        return cls(dt.year, dt.month, dt.day, locale=dt.locale)
+
 
 date.min = date(MINYEAR, 1, 1)
 date.max = date(MAXYEAR, 12, 30)
@@ -680,7 +686,7 @@ class datetime(date):
         microsecond: int | None = None,
         tzinfo: tzinfo | None = None,
         *,
-        fold: typing.Literal[0, 1] = 0,
+        fold: int = 0,
         **kwargs,
     ):
         date.__init__(self, year, month, day, **kwargs)
@@ -872,6 +878,12 @@ class datetime(date):
         return self.__time.hour
 
     @property
+    def _hour12(self) -> int:
+        """Return the hour on a 12-hour clock (1..12), used by the %I directive."""
+        hour = self.hour % 12
+        return 12 if hour == 0 else hour
+
+    @property
     def minute(self) -> int:
         return self.__time.minute
 
@@ -888,11 +900,11 @@ class datetime(date):
         return self.__time.tzinfo
 
     @property
-    def fold(self) -> typing.Literal[0, 1]:
+    def fold(self) -> int:
         return self._fold
 
-    @staticmethod
-    def strptime(date_string: str, format: str) -> datetime:
+    @classmethod
+    def strptime(cls, date_string: str, format: str) -> datetime:
         """string, format -> new datetime parsed from a string (like time.strptime())"""
         regex = _directives_to_pattern(re.escape(format))
 
@@ -921,9 +933,9 @@ class datetime(date):
                 raise ValueError(f"time data '{date_string}' does not match format '{format}'")
 
         timezone_string = get('z', None)
-        timezone = datetime._timezone_from_string(timezone_string)
+        timezone = cls._timezone_from_string(timezone_string)
 
-        return datetime(
+        return cls(
             year,
             month,
             int(get('d', 1)),
@@ -943,8 +955,8 @@ class datetime(date):
         minute: int | None = None,
         second: int | None = None,
         microsecond: int | None = None,
-        tzinfo: py_datetime.tzinfo | None = True,
-        fold: typing.Literal[0, 1] | None = None,
+        tzinfo: py_datetime.tzinfo | None | typing.Literal[True] = True,
+        fold: int | None = None,
     ) -> datetime:
         """Return datetime with new specified fields."""
         t_year = self.year
@@ -1171,11 +1183,10 @@ class datetime(date):
         """Return ctime() style string."""
         return self.strftime('%c')
 
-    # TODO: check what this def does !
     def dst(self) -> timedelta | None:
         """Return self.tzinfo.dst(self)"""
         if self.tzinfo:
-            return self.tzinfo.dst(self)
+            return self.tzinfo.dst(self.togregorian())
         return None
 
     def isoformat(self, sep: str = 'T', timespec: str = 'auto') -> str:

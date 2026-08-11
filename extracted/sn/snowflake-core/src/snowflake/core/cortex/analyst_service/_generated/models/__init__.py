@@ -37,6 +37,8 @@ from snowflake.core.cortex.analyst_service._generated.models.create_analyst_eval
     CreateAnalystEvalOptimizationResponse,
 )
 from snowflake.core.cortex.analyst_service._generated.models.error_response import ErrorResponse
+from snowflake.core.cortex.analyst_service._generated.models.expand_query_request import ExpandQueryRequest
+from snowflake.core.cortex.analyst_service._generated.models.expand_query_response import ExpandQueryResponse
 from snowflake.core.cortex.analyst_service._generated.models.fast_generation_request import FastGenerationRequest
 from snowflake.core.cortex.analyst_service._generated.models.fast_generation_response import FastGenerationResponse
 from snowflake.core.cortex.analyst_service._generated.models.generate_filters_and_metrics_suggestions_request import (
@@ -53,6 +55,12 @@ from snowflake.core.cortex.analyst_service._generated.models.generate_verified_q
 )
 from snowflake.core.cortex.analyst_service._generated.models.get_agentic_optimization_response import (
     GetAgenticOptimizationResponse,
+)
+from snowflake.core.cortex.analyst_service._generated.models.get_analyst_eval_optimization_request import (
+    GetAnalystEvalOptimizationRequest,
+)
+from snowflake.core.cortex.analyst_service._generated.models.get_analyst_eval_optimization_response import (
+    GetAnalystEvalOptimizationResponse,
 )
 from snowflake.core.cortex.analyst_service._generated.models.list_agentic_optimizations_request import (
     ListAgenticOptimizationsRequest,
@@ -129,6 +137,8 @@ __all__ = [
     "CreateAnalystEvalOptimizationRequest",
     "CreateAnalystEvalOptimizationResponse",
     "ErrorResponse",
+    "ExpandQueryRequest",
+    "ExpandQueryResponse",
     "FastGenerationRequest",
     "FastGenerationResponse",
     "GenerateFiltersAndMetricsSuggestionsRequest",
@@ -136,6 +146,8 @@ __all__ = [
     "GenerateVerifiedQuerySuggestionsRequest",
     "GenerateVerifiedQuerySuggestionsResponse",
     "GetAgenticOptimizationResponse",
+    "GetAnalystEvalOptimizationRequest",
+    "GetAnalystEvalOptimizationResponse",
     "ListAgenticOptimizationsRequest",
     "ListAgenticOptimizationsResponse",
     "MessageContent",

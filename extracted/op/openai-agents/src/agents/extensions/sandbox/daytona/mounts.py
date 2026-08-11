@@ -4,7 +4,8 @@ Provides ``DaytonaCloudBucketMountStrategy``, a wrapper around the generic
 :class:`InContainerMountStrategy` that ensures ``rclone`` is installed inside
 the sandbox before delegating to :class:`RcloneMountPattern`.
 
-Supports S3, R2, GCS, Azure Blob, and Box mounts through a single code path.
+Supports credentialless S3, R2, GCS, and Azure Blob mounts through a single code path.
+Authenticated mounts require an exact-path runtime acknowledgement on the trusted manifest.
 """
 
 from __future__ import annotations
@@ -13,6 +14,10 @@ import logging
 from pathlib import Path
 from typing import Literal
 
+from ....sandbox._mount_security import (
+    redact_mount_error_data,
+    validate_mount_activation_credential_boundary,
+)
 from ....sandbox.entries.mounts.base import InContainerMountStrategy, Mount, MountStrategyBase
 from ....sandbox.entries.mounts.patterns import RcloneMountPattern
 from ....sandbox.errors import MountConfigError
@@ -164,9 +169,11 @@ class DaytonaCloudBucketMountStrategy(MountStrategyBase):
     """Mount rclone-backed cloud storage in Daytona sandboxes.
 
     Wraps :class:`InContainerMountStrategy` with automatic ``rclone``
-    provisioning.  Use with any rclone-backed provider mount (``S3Mount``,
-    ``R2Mount``, ``GCSMount``, ``AzureBlobMount``, ``BoxMount``) and let the
-    generic framework handle config generation and mount execution.
+    provisioning. Use with rclone-backed provider mounts (``S3Mount``, ``R2Mount``,
+    ``GCSMount``, ``AzureBlobMount``) and let the generic framework handle config generation
+    and mount execution. Credential-bearing mounts require the applicable exact-path runtime
+    acknowledgement on the trusted manifest because the delegated helper executes inside the
+    sandbox.
 
     Usage::
 
@@ -175,8 +182,6 @@ class DaytonaCloudBucketMountStrategy(MountStrategyBase):
 
         mount = S3Mount(
             bucket="my-bucket",
-            access_key_id="...",
-            secret_access_key="...",
             mount_path=Path("/mnt/bucket"),
             mount_strategy=DaytonaCloudBucketMountStrategy(),
         )
@@ -191,6 +196,7 @@ class DaytonaCloudBucketMountStrategy(MountStrategyBase):
     def validate_mount(self, mount: Mount) -> None:
         self._delegate().validate_mount(mount)
 
+    @redact_mount_error_data
     async def activate(
         self,
         mount: Mount,
@@ -198,12 +204,20 @@ class DaytonaCloudBucketMountStrategy(MountStrategyBase):
         dest: Path,
         base_dir: Path,
     ) -> list[MaterializedFile]:
+        validate_mount_activation_credential_boundary(
+            mount,
+            self,
+            manifest=getattr(getattr(session, "state", None), "manifest", None),
+            mount_path=lambda: mount._resolve_mount_path(session, dest),
+            provider_backend_id="daytona",
+        )
         _assert_daytona_session(session)
         if self.pattern.mode == "fuse":
             await _ensure_fuse_support(session)
         await _ensure_rclone(session)
         return await self._delegate().activate(mount, session, dest, base_dir)
 
+    @redact_mount_error_data
     async def deactivate(
         self,
         mount: Mount,
@@ -214,6 +228,7 @@ class DaytonaCloudBucketMountStrategy(MountStrategyBase):
         _assert_daytona_session(session)
         await self._delegate().deactivate(mount, session, dest, base_dir)
 
+    @redact_mount_error_data
     async def teardown_for_snapshot(
         self,
         mount: Mount,
@@ -223,12 +238,20 @@ class DaytonaCloudBucketMountStrategy(MountStrategyBase):
         _assert_daytona_session(session)
         await self._delegate().teardown_for_snapshot(mount, session, path)
 
+    @redact_mount_error_data
     async def restore_after_snapshot(
         self,
         mount: Mount,
         session: BaseSandboxSession,
         path: Path,
     ) -> None:
+        validate_mount_activation_credential_boundary(
+            mount,
+            self,
+            manifest=getattr(getattr(session, "state", None), "manifest", None),
+            mount_path=path,
+            provider_backend_id="daytona",
+        )
         _assert_daytona_session(session)
         if self.pattern.mode == "fuse":
             await _ensure_fuse_support(session)

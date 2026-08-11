@@ -1367,9 +1367,45 @@ to learn more about AWS Lambda's X-Ray support.
 
 ## Lambda with AWS Distro for OpenTelemetry layer
 
-To have automatic integration with XRay without having to add dependencies or change your code, you can use the
-[AWS Distro for OpenTelemetry Lambda (ADOT) layer](https://aws-otel.github.io/docs/getting-started/lambda).
-Consuming the latest ADOT layer can be done with the following snippet:
+You can add [AWS Distro for OpenTelemetry (ADOT) Lambda layers](https://aws-otel.github.io/docs/getting-started/lambda)
+to automatically instrument your Lambda functions with OpenTelemetry.
+
+### Optimized ADOT Lambda layers (recommended)
+
+The recommended approach uses the optimized ADOT Lambda layers (the `AWSOpenTelemetryDistro*` layer family).
+These layers provide a plug-and-play experience with support for
+[CloudWatch Application Signals](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Application-Signals.html)
+and do not bundle an embedded collector, resulting in lower overhead.
+
+To use the optimized layers, add the layer ARN for your region and runtime from the
+[ADOT Lambda Layer ARNs](https://aws-otel.github.io/docs/getting-started/lambda#adot-lambda-layer-arns) table,
+set the `AWS_LAMBDA_EXEC_WRAPPER` environment variable to `/opt/otel-instrument`, and attach the
+`CloudWatchLambdaApplicationSignalsExecutionRolePolicy` managed IAM policy:
+
+```python
+fn = lambda_.Function(self, "MyFunction",
+    runtime=lambda_.Runtime.NODEJS_LATEST,
+    handler="index.handler",
+    code=lambda_.Code.from_inline("exports.handler = function(event, ctx, cb) { return cb(null, \"hi\"); }"),
+    environment={
+        "AWS_LAMBDA_EXEC_WRAPPER": "/opt/otel-instrument"
+    }
+)
+
+fn.add_layers(lambda_.LayerVersion.from_layer_version_arn(self, "AdotLayer", "arn:aws:lambda:us-east-1:615299751070:layer:AWSOpenTelemetryDistroJs:7"))
+
+fn.role.add_managed_policy(
+    iam.ManagedPolicy.from_aws_managed_policy_name("CloudWatchLambdaApplicationSignalsExecutionRolePolicy"))
+```
+
+### Legacy ADOT Lambda layers (using `adotInstrumentation`)
+
+> **Note:** The `adotInstrumentation` property and its associated helpers (`AdotLayerVersion`,
+> `AdotLambdaExecWrapper`, and the `AdotLambdaLayer*Version` classes) use the legacy ADOT Lambda
+> layers that bundle an embedded collector. The ADOT project considers these layers
+> [not recommended](https://aws-otel.github.io/docs/getting-started/lambda#not-recommended-using-the-legacy-adot-lambda-layers-with-embedded-collector)
+> for the standard CloudWatch/X-Ray path. They may still be useful if you need to export
+> telemetry to a non-CloudWatch endpoint via a custom collector configuration.
 
 ```python
 from aws_cdk.aws_lambda import AdotLambdaExecWrapper, AdotLayerVersion, AdotLambdaLayerJavaScriptSdkVersion
@@ -1386,7 +1422,7 @@ fn = lambda_.Function(self, "MyFunction",
 )
 ```
 
-To use a different layer version, use one of the following helper functions for the `layerVersion` prop:
+The legacy helper functions for the `layerVersion` prop are:
 
 * `AdotLayerVersion.fromJavaScriptSdkLayerVersion`
 * `AdotLayerVersion.fromPythonSdkLayerVersion`
@@ -1404,7 +1440,7 @@ Each helper function expects a version value from a corresponding enum-like clas
 
 For more examples, see our [the integration test](test/integ.lambda-adot.ts).
 
-If you want to retrieve the ARN of the ADOT Lambda layer without enabling ADOT in a Lambda function:
+If you want to retrieve the ARN of a legacy ADOT Lambda layer without enabling ADOT in a Lambda function:
 
 ```python
 # fn: lambda.Function
@@ -2155,9 +2191,15 @@ class AdotInstrumentationConfig:
     ) -> None:
         '''Properties for an ADOT instrumentation in Lambda.
 
+        **Note:** This uses the legacy ADOT Lambda layers that bundle an embedded collector.
+        For the recommended optimized ADOT Lambda layers (the ``AWSOpenTelemetryDistro*`` family),
+        add the layer via ``Function.addLayers()`` and set the ``AWS_LAMBDA_EXEC_WRAPPER``
+        environment variable to ``/opt/otel-instrument`` instead.
+
         :param exec_wrapper: The startup script to run, see ADOT documentation to pick the right script for your use case: https://aws-otel.github.io/docs/getting-started/lambda.
         :param layer_version: The ADOT Lambda layer.
 
+        :see: https://aws-otel.github.io/docs/getting-started/lambda
         :exampleMetadata: infused
 
         Example::
@@ -2214,6 +2256,10 @@ class AdotInstrumentationConfig:
 class AdotLambdaExecWrapper(enum.Enum):
     '''The wrapper script to be used for the Lambda function in order to enable auto instrumentation with ADOT.
 
+    **Note:** These wrappers are for the legacy ADOT Lambda layers with an embedded collector.
+    The recommended optimized ADOT Lambda layers use ``/opt/otel-instrument`` set via the
+    ``AWS_LAMBDA_EXEC_WRAPPER`` environment variable directly.
+
     :exampleMetadata: infused
 
     Example::
@@ -2249,6 +2295,8 @@ class AdotLambdaLayerGenericVersion(
     jsii_type="aws-cdk-lib.aws_lambda.AdotLambdaLayerGenericVersion",
 ):
     '''The collection of versions of the ADOT Lambda Layer for generic purpose.
+
+    **Note:** These are legacy ADOT Lambda layers with an embedded collector.
 
     :exampleMetadata: fixture=_generated
 
@@ -2348,6 +2396,8 @@ class AdotLambdaLayerJavaAutoInstrumentationVersion(
 ):
     '''The collection of versions of the ADOT Lambda Layer for Java auto-instrumentation.
 
+    **Note:** These are legacy ADOT Lambda layers with an embedded collector.
+
     :exampleMetadata: fixture=_generated
 
     Example::
@@ -2433,6 +2483,8 @@ class AdotLambdaLayerJavaScriptSdkVersion(
     jsii_type="aws-cdk-lib.aws_lambda.AdotLambdaLayerJavaScriptSdkVersion",
 ):
     '''The collection of versions of the ADOT Lambda Layer for JavaScript SDK.
+
+    **Note:** These are legacy ADOT Lambda layers with an embedded collector.
 
     :exampleMetadata: infused
 
@@ -2527,6 +2579,8 @@ class AdotLambdaLayerJavaSdkVersion(
 ):
     '''The collection of versions of the ADOT Lambda Layer for Java SDK.
 
+    **Note:** These are legacy ADOT Lambda layers with an embedded collector.
+
     :exampleMetadata: infused
 
     Example::
@@ -2610,6 +2664,8 @@ class AdotLambdaLayerPythonSdkVersion(
     jsii_type="aws-cdk-lib.aws_lambda.AdotLambdaLayerPythonSdkVersion",
 ):
     '''The collection of versions of the ADOT Lambda Layer for Python SDK.
+
+    **Note:** These are legacy ADOT Lambda layers with an embedded collector.
 
     :exampleMetadata: fixture=_generated
 
@@ -2738,6 +2794,10 @@ class AdotLayerVersion(
     jsii_type="aws-cdk-lib.aws_lambda.AdotLayerVersion",
 ):
     '''An ADOT Lambda layer version that's specific to a lambda layer type and an architecture.
+
+    **Note:** These resolve to the legacy ADOT Lambda layers with an embedded collector.
+    For the recommended optimized layers, use ``LayerVersion.fromLayerVersionArn()`` with
+    an ``AWSOpenTelemetryDistro*`` layer ARN instead.
 
     :exampleMetadata: infused
 
@@ -5091,7 +5151,8 @@ class CfnCapacityProvider(
             log_group: typing.Optional[builtins.str] = None,
             system_log_level: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
+            '''The capacity provider's Amazon CloudWatch Logs configuration settings.
+
             :param log_group: 
             :param system_log_level: 
 
@@ -5309,7 +5370,8 @@ class CfnCapacityProvider(
             *,
             logging_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCapacityProvider.CapacityProviderLoggingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''
+            '''Configuration that specifies the telemetry collection for the capacity provider.
+
             :param logging_config: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-capacityprovider-capacityprovidertelemetryconfig.html

@@ -23,6 +23,34 @@ def test_classifiers() -> None:
     assert python_versions(pyproject) == ["3.10", "3.11", "3.12"]
 
 
+def test_classifiers_are_sorted_by_default() -> None:
+    pyproject = {
+        "project": {
+            "classifiers": [
+                "Programming Language :: Python :: 3.12",
+                "Programming Language :: Python :: 3.10",
+                "Programming Language :: Python :: 3.11",
+            ],
+        }
+    }
+
+    assert python_versions(pyproject) == ["3.10", "3.11", "3.12"]
+
+
+def test_classifiers_can_preserve_order() -> None:
+    pyproject = {
+        "project": {
+            "classifiers": [
+                "Programming Language :: Python :: 3.12",
+                "Programming Language :: Python :: 3.10",
+                "Programming Language :: Python :: 3.11",
+            ],
+        }
+    }
+
+    assert python_versions(pyproject, sort=False) == ["3.12", "3.10", "3.11"]
+
+
 def test_no_classifiers() -> None:
     pyproject = {"project": {"requires-python": ">=3.10"}}
     with pytest.raises(ValueError, match="No Python version classifiers"):
@@ -67,6 +95,33 @@ def test_python_range_no_min() -> None:
 
     with pytest.raises(ValueError, match="No minimum version found"):
         python_versions(pyproject, max_version="3.5")
+
+
+def test_python_range_major_only() -> None:
+    # ">=3" is equivalent to ">=3.0" (PEP 440); a major-only version has an
+    # implicit minor version of 0 and must not crash.
+    pyproject = {"project": {"requires-python": ">=3"}}
+
+    assert python_versions(pyproject, max_version="3.2") == ["3.0", "3.1", "3.2"]
+
+
+def test_python_range_major_only_max_version() -> None:
+    # A major-only max_version ("3" == "3.0" per PEP 440) has an implicit minor
+    # version of 0 and must not crash, mirroring the requires-python handling.
+    pyproject = {"project": {"requires-python": ">=3"}}
+
+    assert python_versions(pyproject, max_version="3") == ["3.0"]
+
+
+def test_python_range_multiple_lower_bounds() -> None:
+    # With several lower-bound specifiers the effective minimum is the largest
+    # one, regardless of the order they appear in.
+    assert python_versions(
+        {"project": {"requires-python": ">=3.8,>=3.10"}}, max_version="3.12"
+    ) == ["3.10", "3.11", "3.12"]
+    assert python_versions(
+        {"project": {"requires-python": ">=3.10,>=3.8"}}, max_version="3.12"
+    ) == ["3.10", "3.11", "3.12"]
 
 
 def test_dependency_groups() -> None:

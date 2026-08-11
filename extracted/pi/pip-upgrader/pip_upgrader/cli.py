@@ -2,7 +2,7 @@
 pip-upgrade
 
 Usage:
-  pip-upgrade [<requirements_file>] ... [--prerelease] [-p=<package>...] [--skip=<package>...] [--dry-run] [--non-interactive] [--skip-greater-equal] [--use-default-index] [--timeout=<seconds>] [--minor | --patch]
+  pip-upgrade [<requirements_file>] ... [--prerelease] [-p=<package>...] [--skip=<package>...] [--dry-run] [--non-interactive] [--skip-greater-equal] [--use-default-index] [--timeout=<seconds>] [--min-age-days=<days>] [--minor | --patch] [--respect-constraints | --no-respect-constraints] [--cve-only]
 
 Arguments:
     requirements_file             The requirement FILE, WILDCARD PATH to multiple files, pyproject.toml, or Pipfile.
@@ -14,8 +14,15 @@ Arguments:
     --skip-greater-equal          Skip packages with >= and ~= pins (by default ==, >=, and ~= are checked).
     --use-default-index           Skip searching for custom index-url in pip configuration file(s).
     --timeout <seconds>           Set a custom timeout for PyPI requests (default: 15 seconds).
+    --min-age-days <days>         Skip candidate versions published less than <days> days ago (default: 0,
+                                  disabled). Protects against malicious packages that appear briefly on PyPI.
     --minor                       Only upgrade within the same major version (e.g. 1.2.3 -> 1.x.y).
     --patch                       Only upgrade within the same major.minor version (e.g. 1.2.3 -> 1.2.x).
+    --respect-constraints         Validate proposed upgrades with pip's resolver and clamp any that would produce
+                                  unsatisfiable pins to the highest compatible version. On by default with --non-interactive.
+    --no-respect-constraints      Disable the constraint validation that runs by default with --non-interactive.
+    --cve-only                    Run pip-audit and upgrade only packages with known CVEs, each to the minimum
+                                  version that fixes every vulnerability affecting it (not the latest release).
 
 Examples:
   pip-upgrade             # auto discovers requirements file(s), pyproject.toml, and Pipfile
@@ -29,6 +36,10 @@ Examples:
   pip-upgrade requirements.txt --non-interactive --skip django --skip celery  # upgrade all except django and celery
   pip-upgrade requirements.txt --minor    # only upgrade within same major version
   pip-upgrade requirements.txt --patch    # only upgrade within same major.minor version
+  pip-upgrade requirements.txt --min-age-days 7  # ignore versions published in the last 7 days
+  pip-upgrade requirements.txt --respect-constraints  # clamp upgrades to versions pip can actually resolve together
+  pip-upgrade requirements.txt --non-interactive --no-respect-constraints  # skip the default constraint validation
+  pip-upgrade requirements.txt --cve-only  # only upgrade packages with known CVEs, to their minimum safe version
 
 Help:
   Interactively upgrade packages from requirements file, and also update the pinned version from requirements file(s).
@@ -39,8 +50,12 @@ Help:
 """  # noqa: E501
 
 from docopt import docopt
+from packaging import version
+from packaging.utils import canonicalize_name
 
 from pip_upgrader import __version__ as VERSION
+from pip_upgrader.constraint_validator import ConstraintValidator
+from pip_upgrader.cve_auditor import CVEAuditor
 from pip_upgrader.packages_detector import PackagesDetector
 from pip_upgrader.packages_interactive_selector import PackageInteractiveSelector
 from pip_upgrader.packages_status_detector import PackagesStatusDetector
@@ -50,6 +65,37 @@ from pip_upgrader.requirements_detector import RequirementsDetector
 
 def get_options():
     return docopt(__doc__, version=VERSION)
+
+
+def _apply_cve_filter(packages_status_map, filenames):
+    """Restrict upgrades to CVE-affected packages, clamped to their min fix.
+
+    Keeps only packages pip-audit flagged as vulnerable, and rewrites each
+    package's target to the minimum version that clears its CVEs instead of the
+    latest PyPI release. Packages already at or above their fix version are
+    dropped. If pip-audit finds nothing (or is unavailable), returns an empty
+    map so nothing is upgraded.
+    """
+    min_fix_versions = CVEAuditor(filenames).get_min_fix_versions()
+    filtered = {}
+    for name, status in packages_status_map.items():
+        min_fix = min_fix_versions.get(canonicalize_name(name))
+        if not min_fix:
+            continue
+
+        fix_version = version.parse(min_fix)
+        status = status.copy()
+        status['latest_version'] = fix_version
+        status['upgrade_available'] = status['current_version'] < fix_version
+        if not status['upgrade_available']:
+            print('{}: already at or above CVE fix version {}, skipping.'.format(name, min_fix))
+            continue
+        print('{}: CVE fix -> upgrading to {}'.format(name, min_fix))
+        filtered[name] = status
+
+    if not filtered:
+        print('No CVE-affected packages to upgrade.')
+    return filtered
 
 
 def main():
@@ -73,6 +119,11 @@ def main():
         # 3. query pypi API, see which package has a newer version vs the one in requirements (or current env)
         packages_status_map = PackagesStatusDetector(packages, options).detect_available_upgrades(options)
 
+        # 3b. [optionally] restrict to CVE-affected packages, clamped to their
+        # minimum safe fix version (via pip-audit).
+        if options.get('--cve-only'):
+            packages_status_map = _apply_cve_filter(packages_status_map, filenames)
+
         # 4. [optionally], show interactive screen when user can choose which packages to upgrade
         if options.get('--non-interactive'):
             if options.get('-p'):
@@ -83,6 +134,16 @@ def main():
         # 5. having the list of packages, replace the version inside all filenames
         if not selected_packages:
             return
+
+        # 5b. optionally validate the proposed pins against pip's resolver and clamp
+        # any that would be unsatisfiable. On by default with --non-interactive,
+        # unless explicitly disabled with --no-respect-constraints.
+        respect_constraints = options.get('--respect-constraints') or (
+            options.get('--non-interactive') and not options.get('--no-respect-constraints')
+        )
+        if respect_constraints:
+            selected_packages = ConstraintValidator(selected_packages, filenames).validate_and_adjust()
+
         upgraded_packages = PackagesUpgrader(selected_packages, filenames, options).do_upgrade()
 
         pkg_names = ', '.join([package['name'] for package in upgraded_packages])

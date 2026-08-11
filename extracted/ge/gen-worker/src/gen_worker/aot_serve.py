@@ -69,6 +69,7 @@ compile stack keeps ``import gen_worker`` off the torch/pb import graph.
 
 from __future__ import annotations
 
+import contextlib
 import copy
 import gzip
 import hashlib
@@ -90,6 +91,8 @@ from . import activity as activity_mod
 from . import aot_flatten
 from . import aot_identity
 from . import artifact_meta
+from . import boot_phases
+from . import cell_key as cell_key_mod
 from . import host_isa
 from .cell_adopt import AdoptOutcome
 from . import shape_growth
@@ -148,6 +151,14 @@ SOURCE_STATE_DICT = "state_dict"
 #: literal). Tiny, so it ships inside the artifact rather than being
 #: reconstructed — nothing outside the artifact knows its value.
 SOURCE_LITERAL = "literal"
+#: pgw#1080: a constant AOTInductor COMPUTES for itself at load, from the
+#: constants that were bound (`_FOLDED_CONST_*`, produced by the runtime
+#: constant-folding pass). Nothing binds it and nothing ships its bytes — it
+#: is neither a weight nor a literal, and treating it as either is a refusal
+#: for a value that is not missing. Weightless mints (pgw#1080) defer folding
+#: to load precisely so a rebindable weight's VALUE is never compiled in, so
+#: this class exists wherever that fence is armed.
+SOURCE_COMPUTED = "computed"
 
 #: The hardware/toolchain axes an ``.pt2`` is genuinely pinned to (pgw#765).
 #: ``sm`` is the GPU identity: AOTInductor itself keys on
@@ -156,8 +167,7 @@ SOURCE_LITERAL = "literal"
 #: Paul's ruling ("AOT cells are locked into the sm_x version, not the actual
 #: GPU"), the pgw#691 collapse that removed it from cell identity on
 #: byte-identical evidence, and the pgw#754 ISA clamp that made the host half
-#: portable. It stays in metadata for observability and as the discovery
-#: SELECTION PREFERENCE (``aot_cells._candidates``) — never as a refusal.
+#: portable. It stays in metadata for observability — never as a refusal.
 IDENTITY_AXES: Tuple[str, ...] = ("sm", "torch", "cuda")
 
 
@@ -241,7 +251,7 @@ def runtime_key() -> Dict[str, str]:
 #
 # THE RULE (pgw#1033): whoever reads a ``cell_key`` off an ``aot-inductor``
 # envelope registers it. There are two such readers on the serving path —
-# ``aot_cells.discover`` (a delivered cell) and
+# the delivered/named-cell arm and
 # ``fleet_cells.adopt_delegated_mint`` (this pod's OWN mint). Only the first
 # registered, so a self-minted cell — the one artifact this process is
 # certain is exported — was the one ref ``is_aot_ref`` did not recognize.
@@ -463,10 +473,11 @@ def constants_from_meta(meta: Mapping[str, Any]) -> Tuple[ConstantSpec, ...]:
         if not fqn:
             raise ValueError(f"constant {idx} has no fqn")
         source = str(row.get("source") or "").strip()
-        if source not in (SOURCE_STATE_DICT, SOURCE_LITERAL):
+        if source not in (SOURCE_STATE_DICT, SOURCE_LITERAL, SOURCE_COMPUTED):
             raise ValueError(
                 f"constant {fqn!r} has unknown source {source!r} "
-                f"(expected {SOURCE_STATE_DICT!r} or {SOURCE_LITERAL!r})")
+                f"(expected {SOURCE_STATE_DICT!r}, {SOURCE_LITERAL!r} or "
+                f"{SOURCE_COMPUTED!r})")
         shape = row.get("shape")
         if not isinstance(shape, list):
             raise ValueError(f"constant {fqn!r} has no shape list")
@@ -486,13 +497,14 @@ def constants_from_meta(meta: Mapping[str, Any]) -> Tuple[ConstantSpec, ...]:
 
 
 def range_digest(meta: Mapping[str, Any]) -> str:
-    """Canonical digest of the DECLARED admissible traffic of one artifact.
+    """Canonical digest of one entry's DECLARED ENVELOPE slice — the input
+    ranges the entry admits.
 
     Owed to the exact-identity lane (pgw#716/#717): declared dim ranges live
     in ``ep.range_constraints``, NOT in the graph nodes — three exports
     differing only in declared range produced the identical node-only
-    digest. A node-only ``graph_hashes`` therefore collides artifacts that
-    admit different traffic. Folding THIS digest into the per-class hash
+    digest. A node-only ``graph_hashes`` therefore collides artifacts whose
+    declared envelopes differ. Folding THIS digest into the per-class hash
     closes it. Exposed here (not in ``cell_key``) because this module owns
     the contract's canonical form.
     """
@@ -508,7 +520,7 @@ def range_digest(meta: Mapping[str, Any]) -> str:
         }
         if not s.trivial_identity:
             # pgw#994, on the `excluded` precedent below: the call identity is
-            # part of the declared traffic (two classes that take the same
+            # part of the declared envelope (two classes that take the same
             # tensors in different argument structures are different graphs),
             # but it is keyed only when it is not the trivial identity. Every
             # row published before pgw#994 is trivial, so no live cell is
@@ -525,8 +537,8 @@ def range_digest(meta: Mapping[str, Any]) -> str:
         ],
         "symbols": {k: list(v) for k, v in sorted(contract.symbols.items())},
     }
-    # pgw#790: the NEGATIVE half of the declared admissible traffic. Two
-    # classes that differ only in what they REFUSE admit different traffic,
+    # pgw#790: the NEGATIVE half of the declared envelope. Two
+    # classes that differ only in what they REFUSE declare different envelopes,
     # so the digest must see it or the collision this function exists to
     # close reopens for adapter forks. Keyed only when non-empty: a contract
     # that excludes nothing is the contract every already-published cell
@@ -650,6 +662,14 @@ def artifact_metadata(
         "strict_export": bool(strict_export),
         "lora_bucket": int(lora_bucket or 0),
         "package_constants_in_so": False,
+        # pgw#1097: the folding fence, DECLARED. `package_constants_in_so`
+        # says no weight BYTES ship inside the cell; this says no weight
+        # VALUES were compiled into its kernels either. Both are what make
+        # one cell legally serve every fine-tune of a family, and both are
+        # refused pre-download when absent — a cell minted before the fence
+        # may carry its minting checkpoint's copy of any 0-dim or <=8-element
+        # weight, which is exactly the tensor a fine-tune changes.
+        "constant_folding_fenced": True,
         "source_ref": str(source_ref or ""),
         "source_digest": str(source_digest or ""),
         # pgw#754: the host-CPU execution requirement of the packaged host
@@ -678,7 +698,8 @@ def artifact_metadata(
 #: presented as cost, not as an error. ``fleet_cells`` now asserts at import
 #: that nothing it strips appears here.
 DECLARED_AXES: Tuple[str, ...] = (
-    "format", "kind", "package_constants_in_so", *IDENTITY_AXES,
+    "format", "kind", "package_constants_in_so",
+    "constant_folding_fenced", *IDENTITY_AXES,
     "host_isa", "family",
 )
 
@@ -714,6 +735,16 @@ def verify_declared(meta: Dict[str, Any], *, family: str = "") -> str:
         return (
             "artifact was minted with package_constants_in_so != False "
             "(weights baked into the .so; breaks the CAS cell model)")
+    # pgw#1097: the same shape of refusal, one layer in. A cell minted before
+    # the folding fence carries the minting checkpoint's values for any 0-dim
+    # or <=8-element weight inductor inlined, so it is sound for exactly one
+    # fine-tune and silently wrong for the rest. Absent flag = a pre-fence
+    # mint; refused, not warned about, and re-minting is the remedy.
+    if meta.get("constant_folding_fenced") is not True:
+        return (
+            "artifact was minted without the folding fence "
+            "(constant_folding_fenced != True; its weights may carry the "
+            "minting checkpoint's values — pgw#1097). Re-mint")
     here = runtime_key()
     if not here["torch"]:
         return "torch not importable"
@@ -725,7 +756,13 @@ def verify_declared(meta: Dict[str, Any], *, family: str = "") -> str:
     if isa_reason:
         return isa_reason
     want_fam = str(meta.get("family") or "")
-    if family and want_fam and want_fam != family:
+    # pgw#939: STRICTLY, like every axis above it and like this function's own
+    # docstring already promised. `want_fam and ...` meant an UNSTAMPED cell
+    # matched every family it was ever offered to — a wrong cache HIT, not a
+    # miss, on the axis that decides which pipeline the .so is dlopen'd into.
+    # The mint stamps this from one place (`artifact_metadata`), so a silent
+    # cell is a malformed one; when no caller names a family nothing changes.
+    if family and want_fam != family:
         return f"family {want_fam!r} != {family!r}"
     return ""
 
@@ -758,8 +795,16 @@ def verify_contract(
     bucket = int(meta.get("lora_bucket") or 0)
     hashes: List[str] = []
     for name, block in entries.items():
+        # pgw#939: absence is a verdict, not a skipped check. `class_hash`
+        # below was already written this way and is the model the other two
+        # axes are brought to — `compile_cache.verify` is strict on every
+        # IDENTITY_AXES field for the same reason, and `compile_cache.py`
+        # names this exact `if want and want != have` shape as JAX PR #27814's
+        # one documented wrong-cache-hit.
         stamped = str(block.get("range_digest") or "")
-        if stamped and stamped != range_digest(block):
+        if not stamped:
+            return f"entry {name!r}: no range_digest stamped"
+        if stamped != range_digest(block):
             return f"entry {name!r}: range_digest does not match its contract"
         stamped_hash = str(block.get("class_hash") or "")
         if not stamped_hash:
@@ -769,8 +814,35 @@ def verify_contract(
             return f"entry {name!r}: class_hash does not match its recorded facts"
         hashes.append(stamped_hash)
     stamped_combined = str(meta.get("combined_graph_hash") or "")
-    if stamped_combined and stamped_combined != combined_graph_hash(hashes):
+    if not stamped_combined:
+        return "no combined_graph_hash stamped"
+    if stamped_combined != combined_graph_hash(hashes):
         return "combined_graph_hash does not match the per-entry class hashes"
+    # pgw#1059: the stamped key must be exactly the key the artifact's OWN
+    # recorded facts describe — the same recomputation the mint stamped and
+    # the publish path corroborated, now proven at ADMISSION on the staged
+    # bytes. Two consequences, both deliberate: a forged/hand-edited stamp is
+    # refused by name, and a PRE-REDEFINITION cell is refused STRUCTURALLY
+    # (its metadata records the old axis set — `declared_traffic`, no
+    # four-axis identity — so the recomputation raises rather than matching),
+    # which is what makes the dev-corpus purge hygiene rather than a
+    # correctness precondition.
+    # Gated on key SHAPE: a ck-shaped stamp is an identity claim and must
+    # restate; a non-key stamp (focused fixtures, torn metadata) is not a
+    # claim — and it can never match a hub row either (`IsCellKey` gates the
+    # store flavor), so nothing downstream can mistake it for identity.
+    stamped_key = str(meta.get("cell_key") or "")
+    if stamped_key and cell_key_mod.is_key(stamped_key):
+        try:
+            recomputed = cell_key_mod.from_exported_artifact_metadata(meta)
+        except cell_key_mod.CellKeyError as exc:
+            return (
+                f"stamped cell_key {stamped_key} is not restatable from the "
+                f"artifact's own recorded facts ({exc})")
+        if recomputed.digest != stamped_key:
+            return (
+                f"stamped cell_key {stamped_key} != the key the artifact's "
+                f"recorded facts describe ({recomputed.digest})")
     return ""
 
 
@@ -794,8 +866,6 @@ def verify(
 
 
 #: :func:`host_isa_reason`'s refusal for a cell that stamped no requirement.
-#: Also the ``aot_cells`` discovery reject class, so the same fact has one name
-#: whether it is ruled on before download or after staging.
 NO_HOST_ISA_STAMP = "no_host_isa_stamp"
 
 
@@ -803,9 +873,8 @@ def host_isa_reason(meta: Mapping[str, Any]) -> str:
     """'' when this host's CPU can execute the artifact's packaged host
     code, else the refusal reason (pgw#754).
 
-    Reads the mint's ``host_isa`` requirement stamp — metadata-only, so
-    discovery (``aot_cells._candidates``) filters unexecutable cells BEFORE
-    downloading them. An artifact carrying NO stamp is refused here: its true
+    Reads the mint's ``host_isa`` requirement stamp — metadata-only.
+    An artifact carrying NO stamp is refused here: its true
     ISA need is undiscoverable from metadata, an AVX-512-built ``.pt2``
     SIGILLs (exit 132 inside ``aoti_load_package``) on a host without it, and
     the miss policy for a refused cell is a self-mint that stamps one.
@@ -977,21 +1046,28 @@ def _unpack(
 #: module survives owns the shared one.
 #:
 #: pgw#1040 collapsed the OTHER seven envelope readers into
-#: :func:`artifact_meta.read_metadata` and left this one alone ON PURPOSE.
-#: Delegating it makes it a one-line alias, which the pgw#849 ratchet then
-#: reports as a STALE baseline entry — an edit to
-#: ``scripts/unreached_surface_baseline.txt``, which a live sibling lane is
-#: rewriting. It costs nothing to wait: this function and its baseline line die
-#: together in whichever cut settles the TRT ratification.
+#: :func:`artifact_meta.read_metadata` and left this one alone ON PURPOSE,
+#: reasoning that "it costs nothing to wait" for the TRT ratification.
+#:
+#: pgw#1098 PRICED THE WAIT: $1.584 and 92 minutes. pgw#1013 then bounded the
+#: collapsed reader and not this one, so two readers of one member disagreed
+#: about row 7's sdxl envelope — and the disagreement was silent in the exact
+#: direction that loses work. Delegated now. A second reader of a member is
+#: not duplication to be tidied later; it is a divergence waiting for the
+#: first caller who bounds one of them.
 def unpack_metadata(artifact: Path) -> Dict[str, Any]:
-    """Read ONLY metadata.json from an artifact (kind sniffing — cheap)."""
-    with tarfile.open(artifact, mode="r:*") as tar:
-        for member in tar:
-            if member.name == METADATA_NAME and member.isfile():
-                src = tar.extractfile(member)
-                assert src is not None
-                return json.loads(src.read().decode())
-    raise ValueError(f"artifact {artifact} has no {METADATA_NAME}")
+    """Read ONLY metadata.json from an artifact (kind sniffing — cheap).
+
+    pgw#1098: DELEGATES to ``artifact_meta``, which calls itself "the ONE
+    reader" and was not. This function kept its own unbounded scan, so the
+    two disagreed about the same bytes: on row 7's sdxl cell the bounded
+    reader refused the envelope and this one read it fine, which is what made
+    the failure asymmetric and invisible — ``arm_aot`` got ``meta=None`` and
+    silently skipped the lifted-binding install, then ``enable`` (reaching
+    the envelope through here) refused the artifact by a downstream name.
+    One reader, one bound, or the next divergence costs another mint.
+    """
+    return artifact_meta.read_metadata(artifact)
 
 
 @dataclass
@@ -1550,8 +1626,8 @@ def assert_ingress(
     * symbolic dims inside the declared inclusive range;
     * **symbol CONSISTENCY** — one symbol appearing in two shapes must take
       the same value. ``range_constraints`` cannot express this, but the
-      graph requires it, so a mismatch is out-of-contract even when both
-      values are individually in range.
+      graph requires it, so a mismatch is outside the declared envelope even
+      when both values are individually in range.
     """
     misses, symbols = ingress_report(contract, args, kwargs, first_only=True)
     if misses:
@@ -1655,6 +1731,12 @@ def resolve_constants(
     out: Dict[str, Any] = {}
     missing: List[str] = []
     for spec in specs:
+        if spec.source == SOURCE_COMPUTED:
+            # AOTInductor's own const-fold pass produces this one AFTER the
+            # bound constants land; handing it a value would be handing it a
+            # value it is about to overwrite, and demanding one would refuse a
+            # cell that is complete (pgw#1080).
+            continue
         table = state_dict if spec.source == SOURCE_STATE_DICT else literals
         if spec.fqn not in table:
             missing.append(f"{spec.fqn} (source={spec.source})")
@@ -1978,13 +2060,17 @@ def no_entry_detail(
     Nothing is silently dropped — ``tried`` and the counts always add up.
     """
     if not missed:
-        return f"no packaged entry admits this call ({tried} tried)"
+        return (
+            f"request out of declared envelope: no packaged entry admits "
+            f"this call ({tried} tried), so the request is served EAGER "
+            f"and named at ingress")
     ranked = sorted(missed, key=lambda row: (row[0], row[1]))
     _distance, closest, misses = ranked[0]
     dims_ok = all(_rung(m.reason) < MISS_RUNGS["static_dim_mismatch"]
                   for m in misses)
     head = (
-        f"no packaged entry admits this call ({tried} tried); CLOSEST entry "
+        f"request out of declared envelope — no packaged entry admits this "
+        f"call, served EAGER ({tried} tried); CLOSEST entry "
         f"{closest!r}"
         f"{' — every declared dim MATCHES' if dims_ok else ''}: "
         + "; ".join(f"{m.reason} ({m.detail})" for m in misses[:2]))
@@ -2292,7 +2378,8 @@ def wrap_module(
 
     An :class:`IngressContractError` is NOT such an error. It is a named,
     counted, per-request contract refusal — the request serves eagerly and
-    the artifact stays armed for in-contract traffic, because one
+    the artifact stays armed for traffic inside the declared envelope,
+    because one
     out-of-range request (or an entry-dispatch miss/ambiguity) says nothing
     about the artifact's health.
 
@@ -2351,7 +2438,7 @@ def wrap_module(
             state["ingress_refusals"] = int(state["ingress_refusals"]) + 1
             state["last_refusal"] = f"{exc.reason}: {exc}"
             logger.warning(
-                "aot-serve: %s REFUSED out-of-contract input (%s: %s); "
+                "aot-serve: %s REFUSED input outside the declared envelope (%s: %s); "
                 "serving this request eager, artifact stays armed",
                 label, exc.reason, exc)
             activity_mod.emit_event(
@@ -2529,8 +2616,18 @@ def load_and_wrap(
     settled while the artifact is still inert bytes.
     """
     family = str(getattr(cfg, "family", "") or "")
-    staged = stage_artifact(
-        Path(artifact), family, cache_dir=cache_dir, expected=expected)
+    # pgw#1087: admission splits in two and the halves have different owners.
+    # `cell_verify` is unpack + identity + contract verification on inert bytes
+    # (disk + hashing); `entry_admit` below is per-ENTRY dlopen, constant bind
+    # and ingress-assertion arming (device). Both were inside one `cell_arm`
+    # row, so an adopt that spent four minutes hashing a tarball and one
+    # second binding read identically to the reverse.
+    with boot_phases.span(
+        boot_phases.PHASE_CELL_VERIFY, ref=family,
+        artifact_kind="aot-inductor",
+    ) if boot_phases.in_boot() else contextlib.nullcontext():
+        staged = stage_artifact(
+            Path(artifact), family, cache_dir=cache_dir, expected=expected)
     try:
         meta = staged.metadata
         # pgw#1040: parsed and validated once, while staging.
@@ -2615,17 +2712,27 @@ def load_and_wrap(
             pools[target] = pool
             runners: List[Tuple[str, ArtifactRunner]] = []
             for name, contract, constants in parsed:
-                package = _load_package(staged.root / PACKAGE_NAME, name)
-                runner = ArtifactRunner(
-                    package=package, contract=contract, constants=constants,
-                    module_name=target, entry=name, family=family)
-                try:
-                    runner.bind(pool, literals_by_entry.get(name, {}),
-                                user_managed=True)
-                except ConstantsUnboundError as exc:
-                    raise AdoptError(
-                        f"constants_{exc.reason}",
-                        f"entry {name!r}: {exc}") from exc
+                # pgw#1087: ONE entry's admission — dlopen + bind. Per entry
+                # because that is the axis a 36-class cell varies on, and a
+                # roll-up cannot tell a uniformly slow admission from one
+                # pathological entry.
+                with boot_phases.span(
+                    boot_phases.PHASE_ENTRY_ADMIT, ref=family, function=name,
+                    artifact_kind="aot-inductor",
+                ) if boot_phases.in_boot() else contextlib.nullcontext() as sp:
+                    package = _load_package(staged.root / PACKAGE_NAME, name)
+                    runner = ArtifactRunner(
+                        package=package, contract=contract, constants=constants,
+                        module_name=target, entry=name, family=family)
+                    try:
+                        runner.bind(pool, literals_by_entry.get(name, {}),
+                                    user_managed=True)
+                    except ConstantsUnboundError as exc:
+                        raise AdoptError(
+                            f"constants_{exc.reason}",
+                            f"entry {name!r}: {exc}") from exc
+                    if sp is not None:
+                        sp.note(f"target={target} constants={len(constants)}")
                 total_constants += len(constants)
                 runners.append((name, runner))
             dispatches[target] = EntryDispatch(tuple(runners))
@@ -2680,6 +2787,8 @@ def enable(
     cfg: Any,
     cache_dir: Optional[Path] = None,
     artifact: Optional[Path] = None,
+    *,
+    expected: "Optional[aot_identity.ExpectedIdentity]" = None,
 ) -> AdoptOutcome:
     """Consumer entry point: verify + load + bind + swap an AOTI artifact.
 
@@ -2697,7 +2806,9 @@ def enable(
     if artifact is None:
         return AdoptOutcome.miss("no_artifact")
     try:
-        meta = load_and_wrap(pipeline, cfg, Path(artifact), cache_dir=cache_dir)
+        meta = load_and_wrap(
+            pipeline, cfg, Path(artifact), cache_dir=cache_dir,
+            expected=expected)
     except Exception as exc:
         reason = str(getattr(exc, "reason", "") or "") or type(exc).__name__
         identity = _adopt_identity(Path(artifact))
@@ -2906,6 +3017,7 @@ __all__ = [
     "LITERALS_NAME",
     "METADATA_NAME",
     "PACKAGE_NAME",
+    "SOURCE_COMPUTED",
     "SOURCE_LITERAL",
     "SOURCE_STATE_DICT",
     "armed_metadata",

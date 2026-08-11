@@ -1,6 +1,6 @@
 [package]
 name = "ruff-format"
-version = "0.5.2"
+version = "0.5.4"
 edition = "2024"
 license = "MIT"
 readme = "README.md"
@@ -12,6 +12,6 @@ name = "ruff_format"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.28", features = ["abi3-py38"] }
+pyo3 = { version = "0.29", features = ["abi3-py38"] }
 ruff_python_formatter = { git = "https://github.com/astral-sh/ruff.git" }
 ruff_python_parser = { git = "https://github.com/astral-sh/ruff.git" }

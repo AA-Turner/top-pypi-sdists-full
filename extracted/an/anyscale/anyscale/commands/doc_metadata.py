@@ -110,6 +110,10 @@ def build_doc_examples(
     for fmt in output_formats:
         if fmt == OutputFormat.TEXT:
             output = example.output_raw
+        elif instance is None:
+            # No output_instance to render a structured example from; skip this
+            # format rather than emitting a null-rendered "output".
+            continue
         else:
             output = render_output(instance, fmt, table_columns=table_columns)
         entry: Dict[str, Any] = {

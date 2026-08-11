@@ -117,7 +117,7 @@ class SubjectItem(qt.QStandardItem):
     @subject.setter
     def subject(self, subject):
         if self.__subject is not None:
-            raise ValueError("Subject already set " " (subject change not supported).")
+            raise ValueError("Subject already set (subject change not supported).")
         if subject is None:
             self.__subject = None
         else:
@@ -1378,6 +1378,8 @@ class PlaneColormapItem(ColormapBase):
         "magma",
         "inferno",
         "plasma",
+        "twilight",
+        "twilight_shifted",
     ]
 
     def getEditor(self, parent, option, index):

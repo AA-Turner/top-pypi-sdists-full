@@ -47,6 +47,7 @@ class TagReference(BaseModel):
 
     @field_validator("tag_database")
     def tag_database_validate_regular_expression(cls, v):
+
         if v is None:
             return v
         if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$""", v):
@@ -55,6 +56,7 @@ class TagReference(BaseModel):
 
     @field_validator("tag_schema")
     def tag_schema_validate_regular_expression(cls, v):
+
         if v is None:
             return v
         if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$""", v):
@@ -63,6 +65,7 @@ class TagReference(BaseModel):
 
     @field_validator("tag_name")
     def tag_name_validate_regular_expression(cls, v):
+
         if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$""", v):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v

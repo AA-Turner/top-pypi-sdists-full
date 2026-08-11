@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arcade-mcp
-Version: 1.15.1
+Version: 1.15.2
 Summary: Arcade.dev - Tool Calling platform for Agents
 Author-email: Arcade <dev@arcade.dev>
 License: MIT License
@@ -48,7 +48,7 @@ Requires-Dist: tqdm==4.67.1
 Requires-Dist: typer<0.17.0,>=0.16.0
 Provides-Extra: all
 Requires-Dist: anthropic>=0.40.0; extra == 'all'
-Requires-Dist: mcp>=1.9.0; extra == 'all'
+Requires-Dist: mcp<2.0.0,>=1.9.0; extra == 'all'
 Requires-Dist: numpy>=2.0.0; extra == 'all'
 Requires-Dist: openai==1.82.1; extra == 'all'
 Requires-Dist: pytz>=2024.1; extra == 'all'
@@ -67,7 +67,7 @@ Requires-Dist: types-pytz>=2024.1; extra == 'dev'
 Requires-Dist: types-pyyaml>=6.0.0; extra == 'dev'
 Provides-Extra: evals
 Requires-Dist: anthropic>=0.40.0; extra == 'evals'
-Requires-Dist: mcp>=1.9.0; extra == 'evals'
+Requires-Dist: mcp<2.0.0,>=1.9.0; extra == 'evals'
 Requires-Dist: numpy>=2.0.0; extra == 'evals'
 Requires-Dist: openai==1.82.1; extra == 'evals'
 Requires-Dist: pytz>=2024.1; extra == 'evals'

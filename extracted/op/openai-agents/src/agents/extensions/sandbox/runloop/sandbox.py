@@ -34,6 +34,7 @@ from runloop_api_client.types.shared.launch_parameters import (
     UserParameters as _RunloopSdkUserParameters,
 )
 
+from ....sandbox._mount_security import redact_mount_error_data
 from ....sandbox.entries import Mount
 from ....sandbox.errors import (
     ExecTimeoutError,
@@ -734,6 +735,7 @@ class RunloopSandboxSession(BaseSandboxSession):
             return 0.001
         return float(timeout_s)
 
+    @redact_mount_error_data
     async def start(self) -> None:
         """Resume a reconnected Runloop devbox without replaying full setup when possible.
 
@@ -741,6 +743,7 @@ class RunloopSandboxSession(BaseSandboxSession):
         In that path, Runloop reuses the live machine and only reapplies snapshot or ephemeral
         manifest state if the cached workspace fingerprint no longer matches.
         """
+        await self._validate_manifest_application()
         if self._skip_start:
             if await self.state.snapshot.restorable(dependencies=self.dependencies):
                 is_running = await self.running()
@@ -1545,13 +1548,16 @@ class RunloopSandboxClient(BaseSandboxClient[RunloopSandboxClientOptions | None]
     ) -> None:
         self._sdk = _import_runloop_sdk().async_sdk(bearer_token=bearer_token, base_url=base_url)
         self._platform = RunloopPlatformClient(self._sdk)
-        self._instrumentation = instrumentation or Instrumentation()
+        self._instrumentation = (
+            instrumentation if instrumentation is not None else Instrumentation()
+        )
         self._dependencies = dependencies
 
     @property
     def platform(self) -> RunloopPlatformClient:
         return self._platform
 
+    @redact_mount_error_data
     async def create(
         self,
         *,
@@ -1567,7 +1573,7 @@ class RunloopSandboxClient(BaseSandboxClient[RunloopSandboxClientOptions | None]
         configured blueprint selection or user profile when provisioning the devbox. The returned
         session follows the shared sandbox lifecycle and must be started before direct operations.
         """
-        resolved_options = options or RunloopSandboxClientOptions()
+        resolved_options = options if options is not None else RunloopSandboxClientOptions()
         if (
             resolved_options.blueprint_id is not None
             and resolved_options.blueprint_name is not None
@@ -1577,8 +1583,13 @@ class RunloopSandboxClient(BaseSandboxClient[RunloopSandboxClientOptions | None]
             )
 
         user_parameters = _normalize_runloop_user_parameters(resolved_options.user_parameters)
-        manifest = manifest or Manifest(root=_default_runloop_manifest_root(user_parameters))
+        manifest = (
+            manifest
+            if manifest is not None
+            else Manifest(root=_default_runloop_manifest_root(user_parameters))
+        )
         _validate_runloop_manifest_root(manifest, user_parameters=user_parameters)
+        self._validate_manifest_for_create(manifest)
 
         timeouts_in = resolved_options.timeouts
         if isinstance(timeouts_in, RunloopTimeouts):
@@ -1660,6 +1671,7 @@ class RunloopSandboxClient(BaseSandboxClient[RunloopSandboxClientOptions | None]
             pass
         return session
 
+    @redact_mount_error_data
     async def resume(
         self,
         state: SandboxSessionState,

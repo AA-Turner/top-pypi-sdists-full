@@ -65,6 +65,16 @@ class Window:
     resets_at: datetime | None
     severity: str
 
+    def is_current(self, now: float) -> bool:
+        """False once ``resets_at`` has passed — the reading describes a window that has since
+        rolled over, so its percentage says nothing about the live one.
+
+        Only a cached snapshot can be stale like this, and only when a live fetch was impossible:
+        no readable token (the moments around an account switch) or a 429/5xx backoff. An unknown
+        reset time counts as current — nothing says otherwise.
+        """
+        return self.resets_at is None or _as_utc(self.resets_at).timestamp() > now
+
 
 @dataclass
 class ExtraUsage:
@@ -393,7 +403,7 @@ def read_cached_usage(target: account.Account) -> UsageSnapshot | None:
 
 
 def _write_cache(raw: dict[str, object], fetched_at: float, source: str = CACHE_SOURCE_API) -> None:
-    CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    account.ensure_dir(CACHE_PATH.parent)
     CACHE_PATH.write_text(
         json.dumps({"fetched_at": fetched_at, "source": source, "raw": raw}, ensure_ascii=False),
         encoding="utf-8",
@@ -491,7 +501,7 @@ def _read_lock(now: float) -> tuple[float, str, int | None] | None:
 
 def _write_lock(blocked_until: float, reason: str, status: int | None = None) -> None:
     try:
-        LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
+        account.ensure_dir(LOCK_PATH.parent)
         payload: dict[str, object] = {"blocked_until": blocked_until, "reason": reason}
         if status is not None:
             payload["status"] = status

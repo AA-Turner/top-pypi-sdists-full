@@ -11,6 +11,7 @@ from typing import cast
 import pytest
 
 import pytest_django
+import pytest_django.asserts
 from pytest_django.asserts import __all__ as asserts_all
 
 
@@ -20,18 +21,13 @@ def _get_actual_assertions_names() -> list[str]:
     """
     from unittest import TestCase as DefaultTestCase
 
-    from django import VERSION
+    from django.contrib.messages.test import MessagesTestMixin
     from django.test import TestCase as DjangoTestCase
 
-    if VERSION >= (5, 0):
-        from django.contrib.messages.test import MessagesTestMixin
+    class MessagesTestCase(MessagesTestMixin, DjangoTestCase):
+        pass
 
-        class MessagesTestCase(MessagesTestMixin, DjangoTestCase):
-            pass
-
-        obj = MessagesTestCase("run")
-    else:
-        obj = DjangoTestCase("run")
+    obj = MessagesTestCase("run")
 
     def is_assert(func) -> bool:
         return func.startswith("assert") and "_" not in func
@@ -62,11 +58,11 @@ def test_sanity() -> None:
 
     from pytest_django.asserts import assertContains, assertNumQueries
 
-    response = HttpResponse("My response")
+    response = HttpResponse(b"My response")
 
-    assertContains(response, "My response")
+    assertContains(response, b"My response")
     with pytest.raises(AssertionError):
-        assertContains(response, "Not my response")
+        assertContains(response, b"Not my response")
 
     assertNumQueries(0, lambda: 1 + 1)
     with assertNumQueries(0):

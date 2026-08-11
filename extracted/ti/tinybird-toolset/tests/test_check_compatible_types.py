@@ -357,6 +357,21 @@ class TestCast(unittest.TestCase):
             self.assertTrue(chquery.check_compatible_types('AggregateFunction(sum, Int16)', 'AggregateFunction(sum, Int8)'))
         self.assertEqual(str(error.exception), """Different #0 argument: Int16 vs Int8""")
 
+    def test_works_with_aggregate_functions_over_json(self):
+        # Regression test for PLTF-842: resolving an AggregateFunction/
+        # SimpleAggregateFunction over a JSON value type used to segfault.
+        # DataTypeObject::doGetDefaultSerialization() unconditionally
+        # dereferences Context::getGlobalContextInstance() to read the
+        # allow_simdjson setting, which is null since chtoolset never runs
+        # a real clickhouse-server. See CheckCompatibleTypes.cpp.
+        self.assertTrue(chquery.check_compatible_types(
+            'AggregateFunction(argMax, JSON, DateTime)',
+            'AggregateFunction(argMax, JSON, DateTime)'))
+
+        self.assertTrue(chquery.check_compatible_types(
+            'SimpleAggregateFunction(any, JSON)',
+            'SimpleAggregateFunction(any, JSON)'))
+
     def test_rejects_if_agg_parameters_are_incompatible(self):
         with self.assertRaises(ValueError) as error:
             self.assertTrue(chquery.check_compatible_types('AggregateFunction(topK, String)', 'AggregateFunction(topK(100), String)'))
@@ -365,3 +380,44 @@ class TestCast(unittest.TestCase):
         with self.assertRaises(ValueError) as error:
             self.assertTrue(chquery.check_compatible_types('AggregateFunction(topK(99), String)', 'AggregateFunction(topK(100), String)'))
         self.assertEqual(str(error.exception), """Different #0 parameter: 99 vs 100""")
+
+    # Nested/composed types that must resolve without crashing. Covers PLTF-842
+    # (JSON nested inside Array/Map/Tuple/Nested/AggregateFunction combinators,
+    # which all previously segfaulted resolving JSON's default serialization
+    # without a global ClickHouse Context) plus general composed-type coverage.
+    NESTED_AND_COMPOSED_TYPES = [
+        'Array(JSON)',
+        'Map(String, JSON)',
+        'Tuple(JSON, String)',
+        'Tuple(a JSON, b String)',
+        'Nullable(JSON)',
+        'Nested(a JSON, b String)',
+        'AggregateFunction(argMax, Array(JSON), DateTime)',
+        'AggregateFunction(argMax, Map(String, JSON), DateTime)',
+        'AggregateFunction(argMax, Tuple(JSON, String), DateTime)',
+        'SimpleAggregateFunction(any, Array(JSON))',
+        'Array(AggregateFunction(argMax, JSON, DateTime))',
+        'Array(LowCardinality(String))',
+        'Map(String, LowCardinality(String))',
+        'Array(Nullable(Int64))',
+        'Map(String, Nullable(Int64))',
+        'Map(String, AggregateFunction(sum, Int64))',
+        'Nested(a UInt64, b String)',
+        'Tuple(x Float64, y Float64)',
+        'Array(Tuple(UInt8, String))',
+        'Array(Array(String))',
+        'Map(String, Array(String))',
+        'Map(String, Map(String, Int64))',
+        'Variant(String, Int64)',
+        'Dynamic',
+        'LowCardinality(Nullable(String))',
+    ]
+
+    def test_nested_and_composed_types_self_compatible(self):
+        for type_str in self.NESTED_AND_COMPOSED_TYPES:
+            with self.subTest(type_str):
+                self.assertTrue(chquery.check_compatible_types(type_str, type_str))
+
+    def test_low_cardinality_of_json_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'DataTypeLowCardinality is supported only for'):
+            chquery.check_compatible_types('LowCardinality(JSON)', 'LowCardinality(JSON)')

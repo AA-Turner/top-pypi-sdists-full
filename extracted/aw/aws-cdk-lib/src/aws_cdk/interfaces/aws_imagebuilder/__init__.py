@@ -39,6 +39,104 @@ else:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_imagebuilder.AllImageBuildVersionsReference",
+    jsii_struct_bases=[],
+    name_mapping={"all_image_build_versions_arn": "allImageBuildVersionsArn"},
+)
+class AllImageBuildVersionsReference:
+    def __init__(self, *, all_image_build_versions_arn: builtins.str) -> None:
+        '''A reference to a AllImageBuildVersions resource.
+
+        :param all_image_build_versions_arn: The Arn of the AllImageBuildVersions resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_imagebuilder as interfaces_imagebuilder
+            
+            all_image_build_versions_reference = interfaces_imagebuilder.AllImageBuildVersionsReference(
+                all_image_build_versions_arn="allImageBuildVersionsArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__aadd36342f7ca3bc99b5dd891328b840e85f370c55a5a72ca05e059ec2709b45)
+            check_type(argname="argument all_image_build_versions_arn", value=all_image_build_versions_arn, expected_type=type_hints["all_image_build_versions_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "all_image_build_versions_arn": all_image_build_versions_arn,
+        }
+
+    @builtins.property
+    def all_image_build_versions_arn(self) -> builtins.str:
+        '''The Arn of the AllImageBuildVersions resource.'''
+        result = self._values.get("all_image_build_versions_arn")
+        assert result is not None, "Required property 'all_image_build_versions_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AllImageBuildVersionsReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_imagebuilder.AllWorkflowBuildVersionsReference",
+    jsii_struct_bases=[],
+    name_mapping={"all_workflow_build_versions_arn": "allWorkflowBuildVersionsArn"},
+)
+class AllWorkflowBuildVersionsReference:
+    def __init__(self, *, all_workflow_build_versions_arn: builtins.str) -> None:
+        '''A reference to a AllWorkflowBuildVersions resource.
+
+        :param all_workflow_build_versions_arn: The Arn of the AllWorkflowBuildVersions resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_imagebuilder as interfaces_imagebuilder
+            
+            all_workflow_build_versions_reference = interfaces_imagebuilder.AllWorkflowBuildVersionsReference(
+                all_workflow_build_versions_arn="allWorkflowBuildVersionsArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7efdca6edb465aaa90c93fbccc728e527716cc04a8147a43c778313b99d3c754)
+            check_type(argname="argument all_workflow_build_versions_arn", value=all_workflow_build_versions_arn, expected_type=type_hints["all_workflow_build_versions_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "all_workflow_build_versions_arn": all_workflow_build_versions_arn,
+        }
+
+    @builtins.property
+    def all_workflow_build_versions_arn(self) -> builtins.str:
+        '''The Arn of the AllWorkflowBuildVersions resource.'''
+        result = self._values.get("all_workflow_build_versions_arn")
+        assert result is not None, "Required property 'all_workflow_build_versions_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AllWorkflowBuildVersionsReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_imagebuilder.ComponentReference",
     jsii_struct_bases=[],
     name_mapping={"component_arn": "componentArn"},
@@ -183,6 +281,100 @@ class DistributionConfigurationReference:
         return "DistributionConfigurationReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_imagebuilder.IAllImageBuildVersionsRef"
+)
+class IAllImageBuildVersionsRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AllImageBuildVersions.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="allImageBuildVersionsRef")
+    def all_image_build_versions_ref(self) -> "AllImageBuildVersionsReference":
+        '''(experimental) A reference to a AllImageBuildVersions resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAllImageBuildVersionsRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AllImageBuildVersions.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_imagebuilder.IAllImageBuildVersionsRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="allImageBuildVersionsRef")
+    def all_image_build_versions_ref(self) -> "AllImageBuildVersionsReference":
+        '''(experimental) A reference to a AllImageBuildVersions resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("AllImageBuildVersionsReference", jsii.get(self, "allImageBuildVersionsRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAllImageBuildVersionsRef).__jsii_proxy_class__ = lambda : _IAllImageBuildVersionsRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_imagebuilder.IAllWorkflowBuildVersionsRef"
+)
+class IAllWorkflowBuildVersionsRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AllWorkflowBuildVersions.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="allWorkflowBuildVersionsRef")
+    def all_workflow_build_versions_ref(self) -> "AllWorkflowBuildVersionsReference":
+        '''(experimental) A reference to a AllWorkflowBuildVersions resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAllWorkflowBuildVersionsRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AllWorkflowBuildVersions.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_imagebuilder.IAllWorkflowBuildVersionsRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="allWorkflowBuildVersionsRef")
+    def all_workflow_build_versions_ref(self) -> "AllWorkflowBuildVersionsReference":
+        '''(experimental) A reference to a AllWorkflowBuildVersions resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("AllWorkflowBuildVersionsReference", jsii.get(self, "allWorkflowBuildVersionsRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAllWorkflowBuildVersionsRef).__jsii_proxy_class__ = lambda : _IAllWorkflowBuildVersionsRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_imagebuilder.IComponentRef")
@@ -557,6 +749,53 @@ class _ILifecyclePolicyRefProxy(
 typing.cast(typing.Any, ILifecyclePolicyRef).__jsii_proxy_class__ = lambda : _ILifecyclePolicyRefProxy
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_imagebuilder.IWorkflowExecutionRef"
+)
+class IWorkflowExecutionRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a WorkflowExecution.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="workflowExecutionRef")
+    def workflow_execution_ref(self) -> "WorkflowExecutionReference":
+        '''(experimental) A reference to a WorkflowExecution resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWorkflowExecutionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a WorkflowExecution.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_imagebuilder.IWorkflowExecutionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="workflowExecutionRef")
+    def workflow_execution_ref(self) -> "WorkflowExecutionReference":
+        '''(experimental) A reference to a WorkflowExecution resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WorkflowExecutionReference", jsii.get(self, "workflowExecutionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWorkflowExecutionRef).__jsii_proxy_class__ = lambda : _IWorkflowExecutionRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_imagebuilder.IWorkflowRef")
 class IWorkflowRef(
     _constructs_77d1e7e8.IConstruct,
@@ -600,6 +839,53 @@ class _IWorkflowRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IWorkflowRef).__jsii_proxy_class__ = lambda : _IWorkflowRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_imagebuilder.IWorkflowStepExecutionRef"
+)
+class IWorkflowStepExecutionRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a WorkflowStepExecution.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="workflowStepExecutionRef")
+    def workflow_step_execution_ref(self) -> "WorkflowStepExecutionReference":
+        '''(experimental) A reference to a WorkflowStepExecution resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWorkflowStepExecutionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a WorkflowStepExecution.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_imagebuilder.IWorkflowStepExecutionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="workflowStepExecutionRef")
+    def workflow_step_execution_ref(self) -> "WorkflowStepExecutionReference":
+        '''(experimental) A reference to a WorkflowStepExecution resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WorkflowStepExecutionReference", jsii.get(self, "workflowStepExecutionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWorkflowStepExecutionRef).__jsii_proxy_class__ = lambda : _IWorkflowStepExecutionRefProxy
 
 
 @jsii.data_type(
@@ -850,6 +1136,55 @@ class LifecyclePolicyReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_imagebuilder.WorkflowExecutionReference",
+    jsii_struct_bases=[],
+    name_mapping={"workflow_execution_arn": "workflowExecutionArn"},
+)
+class WorkflowExecutionReference:
+    def __init__(self, *, workflow_execution_arn: builtins.str) -> None:
+        '''A reference to a WorkflowExecution resource.
+
+        :param workflow_execution_arn: The Arn of the WorkflowExecution resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_imagebuilder as interfaces_imagebuilder
+            
+            workflow_execution_reference = interfaces_imagebuilder.WorkflowExecutionReference(
+                workflow_execution_arn="workflowExecutionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2117708d3fdbb8ada413d2a107220e1608438379d230ba860da07612a860f7e4)
+            check_type(argname="argument workflow_execution_arn", value=workflow_execution_arn, expected_type=type_hints["workflow_execution_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "workflow_execution_arn": workflow_execution_arn,
+        }
+
+    @builtins.property
+    def workflow_execution_arn(self) -> builtins.str:
+        '''The Arn of the WorkflowExecution resource.'''
+        result = self._values.get("workflow_execution_arn")
+        assert result is not None, "Required property 'workflow_execution_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WorkflowExecutionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_imagebuilder.WorkflowReference",
     jsii_struct_bases=[],
     name_mapping={"workflow_arn": "workflowArn"},
@@ -898,10 +1233,63 @@ class WorkflowReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_imagebuilder.WorkflowStepExecutionReference",
+    jsii_struct_bases=[],
+    name_mapping={"step_execution_id": "stepExecutionId"},
+)
+class WorkflowStepExecutionReference:
+    def __init__(self, *, step_execution_id: builtins.str) -> None:
+        '''A reference to a WorkflowStepExecution resource.
+
+        :param step_execution_id: The StepExecutionId of the WorkflowStepExecution resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_imagebuilder as interfaces_imagebuilder
+            
+            workflow_step_execution_reference = interfaces_imagebuilder.WorkflowStepExecutionReference(
+                step_execution_id="stepExecutionId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__237f40ea6b7247467fcd449fc8400d6a310fb10eba956f755777fd513c4a46f4)
+            check_type(argname="argument step_execution_id", value=step_execution_id, expected_type=type_hints["step_execution_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "step_execution_id": step_execution_id,
+        }
+
+    @builtins.property
+    def step_execution_id(self) -> builtins.str:
+        '''The StepExecutionId of the WorkflowStepExecution resource.'''
+        result = self._values.get("step_execution_id")
+        assert result is not None, "Required property 'step_execution_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WorkflowStepExecutionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
+    "AllImageBuildVersionsReference",
+    "AllWorkflowBuildVersionsReference",
     "ComponentReference",
     "ContainerRecipeReference",
     "DistributionConfigurationReference",
+    "IAllImageBuildVersionsRef",
+    "IAllWorkflowBuildVersionsRef",
     "IComponentRef",
     "IContainerRecipeRef",
     "IDistributionConfigurationRef",
@@ -910,16 +1298,34 @@ __all__ = [
     "IImageRef",
     "IInfrastructureConfigurationRef",
     "ILifecyclePolicyRef",
+    "IWorkflowExecutionRef",
     "IWorkflowRef",
+    "IWorkflowStepExecutionRef",
     "ImagePipelineReference",
     "ImageRecipeReference",
     "ImageReference",
     "InfrastructureConfigurationReference",
     "LifecyclePolicyReference",
+    "WorkflowExecutionReference",
     "WorkflowReference",
+    "WorkflowStepExecutionReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__aadd36342f7ca3bc99b5dd891328b840e85f370c55a5a72ca05e059ec2709b45(
+    *,
+    all_image_build_versions_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7efdca6edb465aaa90c93fbccc728e527716cc04a8147a43c778313b99d3c754(
+    *,
+    all_workflow_build_versions_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__1ca56b2395a8f846764be2a4a24e940c2ff5663afee7eaf27811f8696b037a37(
     *,
@@ -977,6 +1383,13 @@ def _typecheckingstub__a0e33e0615fd6db354b50325a083d7a4ba4c4fd4b885437c35be0e5f9
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2117708d3fdbb8ada413d2a107220e1608438379d230ba860da07612a860f7e4(
+    *,
+    workflow_execution_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c546261c2556897bd85b6ea4c73c8e1757dc626717aab7bab599cf97ba458923(
     *,
     workflow_arn: builtins.str,
@@ -984,5 +1397,12 @@ def _typecheckingstub__c546261c2556897bd85b6ea4c73c8e1757dc626717aab7bab599cf97b
     """Type checking stubs"""
     pass
 
-for cls in [IComponentRef, IContainerRecipeRef, IDistributionConfigurationRef, IImagePipelineRef, IImageRecipeRef, IImageRef, IInfrastructureConfigurationRef, ILifecyclePolicyRef, IWorkflowRef]:
+def _typecheckingstub__237f40ea6b7247467fcd449fc8400d6a310fb10eba956f755777fd513c4a46f4(
+    *,
+    step_execution_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IAllImageBuildVersionsRef, IAllWorkflowBuildVersionsRef, IComponentRef, IContainerRecipeRef, IDistributionConfigurationRef, IImagePipelineRef, IImageRecipeRef, IImageRef, IInfrastructureConfigurationRef, ILifecyclePolicyRef, IWorkflowExecutionRef, IWorkflowRef, IWorkflowStepExecutionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -1,124 +1,290 @@
 #!/usr/bin/env python3
 """Classes used for representing Tables, TableRows and TableCells."""
 
-from itertools import accumulate, chain
+from __future__ import annotations
+
+from functools import cached_property
+from itertools import chain
+from typing import TYPE_CHECKING
 
 from inscriptis.annotation import Annotation, horizontal_shift
-from inscriptis.html_properties import HorizontalAlignment, VerticalAlignment
 from inscriptis.model.canvas import Canvas
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from inscriptis.html_properties import HorizontalAlignment, VerticalAlignment
+
+
+class FrozenError(TypeError):
+    """Raised when trying to modify a frozen object."""
+
+
+class BlocksNotNormalizedError(RuntimeError):
+    """Raised when an operation requires normalized blocks."""
 
 
 class TableCell(Canvas):
-    """A table cell.
+    """A table cell containing normalized, immutable content.
+
+    A cell has two distinct phases. During construction, its content blocks are
+    mutable and may contain multiple lines. Calling `normalize_blocks`
+    converts the content into one-line blocks and freezes the cell's content.
+    After normalization, the cell's dimensions and alignment may still be
+    changed, but its content blocks cannot be modified.
+
+    The cell distinguishes between its content dimensions and its requested
+    dimensions. The actual cell width and height are at least as large as the
+    content dimensions, while horizontal and vertical alignment determine how
+    the content is positioned within any additional space.
 
     Attributes:
-        line_width: the original line widths per line (required to adjust
-                    annotations after a reformatting)
-        vertical_padding: vertical padding that has been introduced due to
-                          vertical formatting rules.
+        __dict__: Used by :func:`cached_property` to store cached values.
+        _content_blocks: The cell's content blocks. This is a mutable list
+            before normalization and an immutable tuple after normalization.
+        _width: The requested minimum width of the cell.
+        _height: The requested minimum height of the cell.
+        _align: The cell's horizontal alignment.
+        _valign: The cell's vertical alignment.
 
     """
 
     __slots__ = (
+        "__dict__",
+        "_align",
+        "_content_blocks",
+        "_height",
+        "_valign",
         "_width",
-        "align",
         "annotation_counter",
         "annotations",
         "block_annotations",
-        "blocks",
         "current_block",
-        "line_width",
         "margin",
-        "valign",
-        "vertical_padding",
     )
 
     def __init__(self, align: HorizontalAlignment, valign: VerticalAlignment):
+        """Initialize a table cell.
+
+        Args:
+            align: The horizontal alignment of the cell's content.
+            valign: The vertical alignment of the cell's content.
+
+        """
         super().__init__()
-        self.align = align
-        self.valign = valign
-        self._width = None
-        self.line_width: list[int] = []
-        self.vertical_padding = 0
+        self._align = align
+        self._valign = valign
+
+        # table content (might be smaller than the requested table width and height)
+        self._content_blocks: Sequence[str] = []
+
+        # table width and height (might be larger than the content's actual width and height)
+        self._height: int = 0
+        self._width: int = 0
 
     def normalize_blocks(self) -> int:
-        """Split multi-line blocks into multiple one-line blocks.
+        """Normalize and freeze the cell's content blocks.
+
+        Multi-line blocks are split into individual lines. If the cell has no
+        content, a single empty block is created. After normalization, the
+        content blocks are immutable and cannot be replaced through ``blocks``.
 
         Returns:
-            The height of the normalized cell.
+            The number of normalized content blocks.
 
         """
         self.flush_inline()
-        self.blocks = list(chain(*(line.split("\n") for line in self.blocks)))
-        if not self.blocks:
-            self.blocks = [""]
-        return len(self.blocks)
+        self._content_blocks = tuple(chain.from_iterable(line.split("\n") for line in self._content_blocks))
+        if not self._content_blocks:
+            self._content_blocks = ("",)
 
-    @property
-    def height(self) -> int:
-        """Compute the table cell's height.
+        return len(self._content_blocks)
+
+    @cached_property
+    def _content_width(self) -> int:
+        """Return the width of the normalized content.
 
         Returns:
-            The cell's current height.
+            The length of the longest content block.
+
+        Raises:
+            BlocksNotNormalizedError: If the content has not been normalized.
 
         """
-        return max(1, len(self.blocks))
+        if not isinstance(self._content_blocks, tuple):
+            msg = "Cannot reliably compute content width before blocks have been normalized."
+            raise BlocksNotNormalizedError(msg)
+        return max(len(line) for line in self._content_blocks)
+
+    @property
+    def blocks(self) -> Sequence[str]:
+        """Return the cell's blocks.
+
+        Returns the normalized content blocks when no padding is required;
+        otherwise returns the rendered blocks including horizontal and vertical
+        padding.
+
+        Returns:
+            The cell's content or rendered blocks.
+
+        """
+        if self._width > 0 or self._height > len(self._content_blocks):
+            return self._rendered_blocks
+        return self._content_blocks
+
+    @blocks.setter
+    def blocks(self, blocks: list[str]):
+        """Set the cell's content blocks.
+
+        Args:
+            blocks: The new content blocks.
+
+        Raises:
+            FrozenError: If the cell has already been normalized.
+
+        """
+        if hasattr(self, "_content_blocks") and isinstance(self._content_blocks, tuple):
+            msg = "Cannot modify blocks after they have been normalized."
+            raise FrozenError(msg)
+
+        self._content_blocks = blocks
+
+    @cached_property
+    def _rendered_blocks(self):
+        """Return the content blocks with alignment and padding applied."""
+        empty_line = " " * self.width
+        return tuple(
+            chain(
+                (empty_line,) * self._top_padding,
+                (self.align.format(line, self.width) for line in self._content_blocks),
+                (empty_line,) * (self._height - len(self._content_blocks) - self._top_padding),
+            )
+        )
+
+    @property
+    def align(self) -> HorizontalAlignment:
+        return self._align
+
+    @align.setter
+    def align(self, align: HorizontalAlignment):
+        self._align = align
+        self._invalidate_formatting()
+
+    @property
+    def valign(self) -> VerticalAlignment:
+        return self._valign
+
+    @valign.setter
+    def valign(self, valign: VerticalAlignment):
+        self._valign = valign
+        self._invalidate_formatting()
 
     @property
     def width(self) -> int:
-        """Compute the table cell's width.
+        """Return the cell's actual width.
 
         Returns:
-            The cell's current width.
+            The greater of the content width and the requested minimum width.
 
         """
-        if self._width:
-            return self._width
-        return max(len(line) for line in chain(*(block.split("\n") for block in self.blocks)))
+        return max(self._content_width, self._width)
 
     @width.setter
-    def width(self, width):
-        """Set the table's width and applies the cell's horizontal formatting.
+    def width(self, width: int):
+        """Set the cell's minimum width.
 
         Args:
-            width: The cell's expected width.
+            width: The minimum width of the cell.
+
+        Raises:
+            ValueError: If `width` is smaller than the content width.
 
         """
-        # save the original line widths before reformatting
-        self.line_width = [len(block) for block in self.blocks]
+        if width < self._content_width:
+            msg = (
+                f"Cannot set cell width to {width} as it is smaller than the content's width of {self._content_width}."
+            )
+            raise ValueError(msg)
+        if width != self._width:
+            self._width = width
+            self._invalidate_formatting()
 
-        # record new width and start reformatting
-        self._width = width
-        format_spec = f"{{:{self.align.value}{width}}}"
-        self.blocks = [format_spec.format(b) for b in self.blocks]
+    @property
+    def height(self) -> int:
+        """Return the cell's actual height.
+
+        Returns:
+            The greater of the content height and the requested minimum height.
+
+        """
+        return max(len(self._content_blocks), self._height)
 
     @height.setter
     def height(self, height: int):
-        """Set the cell's height to the given value.
+        """Set the cell's minimum height.
 
-        Notes:
-            Depending on the height and the cell's vertical formatting this
-            might require the introduction of empty lines.
+        Args:
+            height: The minimum height of the cell.
+
+        Raises:
+            ValueError: If `height` is smaller than the content height.
 
         """
-        rows = len(self.blocks)
-        if rows < height:
-            empty_line = [""]
-            if self.valign == VerticalAlignment.bottom:
-                self.vertical_padding = height - rows
-                self.blocks = self.vertical_padding * empty_line + self.blocks
-            elif self.valign == VerticalAlignment.middle:
-                self.vertical_padding = (height - rows) // 2
-                self.blocks = self.vertical_padding * empty_line + self.blocks + ((height - rows + 1) // 2 * empty_line)
-            else:
-                self.blocks = self.blocks + ((height - rows) * empty_line)
+        if height < len(self._content_blocks):
+            msg = (
+                f"Cannot set cell height to {height} as it is smaller than the content's height "
+                f"of {len(self._content_blocks)}."
+            )
+            raise ValueError(msg)
+        if height != self._height:
+            self._height = height
+            self._invalidate_formatting()
 
-    def get_annotations(self, idx: int, row_width: int) -> list[Annotation]:
-        """Return a list of all annotations within the TableCell.
+    @property
+    def _top_padding(self) -> int:
+        """Return the number of blank lines above the cell's content."""
+        return (self.height - len(self._content_blocks)) * self.valign.value // 2
+
+    @property
+    def _line_width(self) -> tuple[int, ...]:
+        """Return the line widths of the cell's content blocks, including vertical padding.
+
+        Note:
+            The returned list is `height`-long, with zero-length entries
+            filling the top and bottom padding slots, while the remaining
+            entries hold the original line widths.
 
         Returns:
-            A list of annotations that have been adjusted to the cell's
-            position.
+            A list of the original line widths per line.
+
+        """
+        return tuple(
+            chain(
+                (0,) * self._top_padding,
+                (len(line) for line in self._content_blocks),
+                (0,) * (len(self.blocks) - len(self._content_blocks) - self._top_padding),
+            )
+        )
+
+    def _invalidate_formatting(self) -> None:
+        """Invalidate the cached formatting of the cell."""
+        self.__dict__.pop("_rendered_blocks", None)
+
+    def get_annotations(self, idx: int, row_width: int) -> list[Annotation]:
+        """Return annotations positioned within the rendered table cell.
+
+        Annotation positions are translated from the cell's unpadded content
+        coordinates to their positions in the rendered table, accounting for
+        horizontal alignment, vertical padding, and the width of the containing
+        table row.
+
+        Args:
+            idx: The starting index of the table row in the output.
+            row_width: The width of the containing table row.
+
+        Returns:
+            The cell's annotations with positions adjusted for the rendered
+            table layout.
 
         """
         self.current_block.idx = idx
@@ -126,30 +292,59 @@ class TableCell(Canvas):
             return []
 
         # the easy case - the cell has only one line :)
-        if len(self.blocks) == 1:
-            content_width = self.line_width[0]
-            result = horizontal_shift(self.annotations, content_width, self.width, self.align, idx)
-            self.line_width[0] = self.width
-            return result
+        if self.height == 1:
+            content_width = self._line_width[0]
+            return horizontal_shift(self.annotations, content_width, self.width, self.align, idx)
 
         # the more challenging one - multiple cell lines
-        line_break_pos = list(accumulate(self.line_width))
+        #
+        # `self._line_width` is `height`-long after vertical padding was
+        # applied: zero-length entries fill the top (`self.vertical_padding`)
+        # and bottom (for VerticalAlignment.middle) padding slots, while the
+        # remaining `len(self._content_blocks)` entries hold the original line
+        # widths. Annotation `start` positions reference the *pre-padding*
+        # joined content (one newline between lines), so we must scan only
+        # the content widths to find which content line an annotation falls
+        # on, then offset the destination by the top padding to land on the
+        # correct output line.
+        line_widths = self._line_width
+        top_pad = self._top_padding
+        content_widths = line_widths[top_pad : top_pad + len(self._content_blocks)]
         annotation_lines = [[] for _ in self.blocks]
 
-        # assign annotations to the corresponding line
-        for a in self.annotations:
-            for no, line_break in enumerate(line_break_pos):
-                if a.start <= (line_break + no):  # consider newline
-                    annotation_lines[no + self.vertical_padding].append(a)
-                    break
+        line_no = 0
+        line_end = content_widths[0]
 
-        # compute the annotation index based on its line and delta :)
+        # Annotations are ordered by start position, allowing us to advance
+        # through the content lines only once.
+        for annotation in self.annotations:
+            while annotation.start > line_end:
+                line_no += 1
+                line_end += content_widths[line_no] + 1
+
+            annotation_lines[line_no + top_pad].append(annotation)
+
+        # Translate each annotation from content coordinates to rendered
+        # table coordinates.
         result = []
-        idx += self.vertical_padding  # newlines introduced by the padding
-        for line_annotations, line_len in zip(annotation_lines, self.line_width, strict=False):
-            result.extend(horizontal_shift(line_annotations, line_len, self.width, self.align, idx))
-            idx += row_width - line_len
-        self.line_width = [self.width for _ in self.line_width]
+        idx += top_pad
+
+        for line_annotations, line_width in zip(
+            annotation_lines,
+            line_widths,
+            strict=False,
+        ):
+            result.extend(
+                horizontal_shift(
+                    line_annotations,
+                    line_width,
+                    self.width,
+                    self.align,
+                    idx,
+                )
+            )
+            idx += row_width - line_width
+
         return result
 
 

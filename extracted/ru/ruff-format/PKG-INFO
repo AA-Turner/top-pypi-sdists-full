@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ruff-format
-Version: 0.5.2
+Version: 0.5.4
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

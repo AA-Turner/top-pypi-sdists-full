@@ -239,13 +239,13 @@ class AcmeExternalAccountBindingReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_certificatemanager.CertificateReference",
     jsii_struct_bases=[],
-    name_mapping={"certificate_id": "certificateId"},
+    name_mapping={"certificate_arn": "certificateArn"},
 )
 class CertificateReference:
-    def __init__(self, *, certificate_id: builtins.str) -> None:
+    def __init__(self, *, certificate_arn: builtins.str) -> None:
         '''A reference to a Certificate resource.
 
-        :param certificate_id: The Id of the Certificate resource.
+        :param certificate_arn: The CertificateArn of the Certificate resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -256,21 +256,21 @@ class CertificateReference:
             from aws_cdk.interfaces import aws_certificatemanager as interfaces_certificatemanager
             
             certificate_reference = interfaces_certificatemanager.CertificateReference(
-                certificate_id="certificateId"
+                certificate_arn="certificateArn"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__da5e0111dc240001304a5eccb1ff5f839789b5eba06c7b66c6a6a3c8491a98fd)
-            check_type(argname="argument certificate_id", value=certificate_id, expected_type=type_hints["certificate_id"])
+            check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "certificate_id": certificate_id,
+            "certificate_arn": certificate_arn,
         }
 
     @builtins.property
-    def certificate_id(self) -> builtins.str:
-        '''The Id of the Certificate resource.'''
-        result = self._values.get("certificate_id")
-        assert result is not None, "Required property 'certificate_id' is missing"
+    def certificate_arn(self) -> builtins.str:
+        '''The CertificateArn of the Certificate resource.'''
+        result = self._values.get("certificate_arn")
+        assert result is not None, "Required property 'certificate_arn' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -567,7 +567,7 @@ def _typecheckingstub__bf00c9f351d7c651cf1400d81a66cd919ff75aa88bc07d23ae5d19a51
 
 def _typecheckingstub__da5e0111dc240001304a5eccb1ff5f839789b5eba06c7b66c6a6a3c8491a98fd(
     *,
-    certificate_id: builtins.str,
+    certificate_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

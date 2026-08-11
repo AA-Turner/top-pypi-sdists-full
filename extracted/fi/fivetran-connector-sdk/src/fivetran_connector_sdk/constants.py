@@ -1,6 +1,6 @@
 from fivetran_connector_sdk.protos import common_pb2
 
-TESTER_VERSION = "2.26.0729.001"
+TESTER_VERSION = "2.26.0810.001"
 
 WIN_OS = "windows"
 ARM_64 = "arm64"
@@ -45,9 +45,12 @@ PYPROJECT_TOML = "pyproject.toml"
 PYPROJECT_SKIP_VALIDATION_MESSAGE = "using pyproject.toml; skipping dependency validation"
 RECOMMEND_STABLE_VERSION_MESSAGE = "We recommend using the current stable version for the following libraries:"
 CONFIGURATION_JSON = "configuration.json"
+FIVETRAN_API_KEY_ENV = "FIVETRAN_API_KEY"
+FIVETRAN_DESTINATION_NAME_ENV = "FIVETRAN_DESTINATION_NAME"
+FIVETRAN_CONNECTION_NAME_ENV = "FIVETRAN_CONNECTION_NAME"
 PYPI_PACKAGE_DETAILS_URL = "https://pypi.org/pypi/fivetran_connector_sdk/json"
 SIX_HOUR_IN_SEC = 6 * 60 * 60
-MEMORY_LIMIT_BYTES = 4 * 1024 ** 3  # 4 GB memory limit to simulate production memory constraints during local debug
+MEMORY_LIMIT_BYTES = 4 * 1024 ** 3  # 4 GB memory limit to simulate memory constraints during local debug
 CHECKPOINT_OP_TIMEOUT_IN_SEC = 120 # seconds
 FIFO_READ_TIMEOUT_SECONDS = 30 # seconds - timeout for reading from FIFOs (named pipes)
 MAX_RETRIES = 3
@@ -68,8 +71,8 @@ EXCLUDED_DIRS = ["__pycache__", "lib", "include", OUTPUT_FILES_DIR]
 EXCLUDED_PIPREQS_DIRS = ["bin,etc,include,lib,Lib,lib64,Scripts,share"]
 VALID_COMMANDS = ["version", "init", "debug", "deploy", "reset", "package", "configuration", "help"]
 DEPRECATED_FORCE_FLAG_WARNING = (
-    "--force and -f are deprecated and will be removed in a future release."
-    "Use --non-interactive instead."
+    "--force and -f are deprecated and will be removed in a future release. "
+    "Use --non-interactive or --yes instead. See help for more details."
 )
 MAX_ALLOWED_EDIT_DISTANCE_FROM_VALID_COMMAND = 3
 COMMANDS_AND_SYNONYMS = {

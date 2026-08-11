@@ -62,6 +62,8 @@ _AVAILABLE_LUTS: dict[str, _LUT_DESCRIPTION] = {
     "inferno": _LUT_DESCRIPTION("resource", "#00ff00"),
     "plasma": _LUT_DESCRIPTION("resource", "#00ff00"),
     "temperature": _LUT_DESCRIPTION("builtin", "#ff66ff"),
+    "twilight": _LUT_DESCRIPTION("resource", "#ff66ff"),
+    "twilight_shifted": _LUT_DESCRIPTION("resource", "#ff66ff"),
 }
 """Description for internal porpose of all the default LUT provided by the library."""
 
@@ -577,5 +579,5 @@ def normalize(
         normalizer,
         nan_color=_UINT8_LUT[0],
     )
-    norm_data.shape = data.shape
+    norm_data = norm_data.reshape(data.shape)
     return NormalizeResult(norm_data, vmin, vmax)

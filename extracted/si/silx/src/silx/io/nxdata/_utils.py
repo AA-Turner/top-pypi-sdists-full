@@ -1,26 +1,3 @@
-# /*##########################################################################
-#
-# Copyright (c) 2017-2023 European Synchrotron Radiation Facility
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
-#
-# ###########################################################################*/
 """Utility functions used by NXdata validation and parsing."""
 
 import copy
@@ -32,16 +9,13 @@ import numpy
 
 from silx.io import is_dataset
 
-__authors__ = ["P. Knobel"]
-__license__ = "MIT"
-__date__ = "17/04/2018"
-
 
 nxdata_logger = logging.getLogger("silx.io.nxdata")
 
 Interpretation = Literal[
     "scalar", "spectrum", "image", "rgb-image", "rgba-image", "vertex"
 ]
+ScaleType = Literal["linear", "log", "asinh"]
 
 
 INTERPDIM: dict[Interpretation, int] = {
@@ -55,6 +29,26 @@ INTERPDIM: dict[Interpretation, int] = {
 """Number of signal dimensions associated to each possible @interpretation
 attribute.
 """
+
+
+def _decode(attr):
+    if isinstance(attr, str):
+        return attr
+    elif isinstance(attr, bytes):
+        # byte-string
+        return attr.decode("utf-8")
+    elif isinstance(attr, numpy.ndarray) and not attr.shape:
+        if isinstance(attr[()], bytes):
+            # byte string as ndarray scalar
+            return attr[()].decode("utf-8")
+        else:
+            # other scalar, possibly unicode
+            return attr[()]
+    elif isinstance(attr, numpy.ndarray):
+        return [_decode(element) for element in attr]
+    else:
+        # TODO: Fix typing
+        return copy.deepcopy(attr)
 
 
 def get_attr_as_unicode(
@@ -75,26 +69,7 @@ def get_attr_as_unicode(
     """
     attr = item.attrs.get(attr_name, default)
 
-    if isinstance(attr, bytes):
-        # byte-string
-        return attr.decode("utf-8")
-    elif isinstance(attr, numpy.ndarray) and not attr.shape:
-        if isinstance(attr[()], bytes):
-            # byte string as ndarray scalar
-            return attr[()].decode("utf-8")
-        else:
-            # other scalar, possibly unicode
-            return attr[()]
-    elif isinstance(attr, numpy.ndarray) and len(attr.shape):
-        if hasattr(attr[0], "decode"):
-            # array of byte-strings
-            return [element.decode("utf-8") for element in attr]
-        else:
-            # other array, most likely unicode objects
-            return [element for element in attr]
-    else:
-        # TODO: Fix typing
-        return copy.deepcopy(attr)
+    return _decode(attr)
 
 
 def get_uncertainties_names(group: h5py.Group, signal_name: str) -> list[str] | None:

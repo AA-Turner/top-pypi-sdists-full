@@ -23,8 +23,11 @@ from nab_index.client import SdistFile, WheelFile
 from .._iso8601 import parse_iso_datetime
 from .._toml import tool_nab_section
 from .._vendor.packaging.pylock import Pylock, PylockValidationError
-from .._vendor.packaging.specifiers import InvalidSpecifier, SpecifierSet
+from .._vendor.packaging.specifiers import SpecifierSet
 from .._vendor.packaging.utils import canonicalize_name
+from ..metadata import validate_specifier_versions
+from ..paths import path_state
+from .groups import BASE_MEMBER
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
@@ -178,13 +181,13 @@ def read_lockfile_anchor(path: Path) -> datetime | None:
     re-locks: the anchor used for the previous resolve is read back
     and reused unless the user passes ``--upgrade``.
 
-    Returns ``None`` when ``path`` does not exist, is not valid TOML,
-    is not a PEP 751-shaped pylock, or is missing the ``[tool.nab]``
-    block.  Naive timestamps (no timezone offset) are coerced to UTC
+    Returns ``None`` when ``path`` does not exist, cannot be read, is
+    not valid TOML, is not a PEP 751-shaped pylock, or is missing the
+    ``[tool.nab]`` block.  Naive timestamps (no offset) are coerced to UTC
     for symmetry with the writer; this is informational provenance, so
     a missing offset is recoverable rather than fatal.
     """
-    if not path.is_file():
+    if not path_state(path).should_read:
         return None
     try:
         with path.open("rb") as f:
@@ -211,11 +214,11 @@ def read_lockfile_packages(path: Path) -> dict[str, Version] | None:
     Packages without a recorded version (direct-reference entries that
     omit it) are skipped.
 
-    Returns ``None`` when ``path`` does not exist, is not valid TOML,
-    or is not a spec-compliant PEP 751 lockfile; the caller falls back
-    to a no-diff summary line.
+    Returns ``None`` when ``path`` does not exist, cannot be read, is
+    not valid TOML, or is not a spec-compliant PEP 751 lockfile; the
+    caller falls back to a no-diff summary line.
     """
-    if not path.is_file():
+    if not path_state(path).should_read:
         return None
     try:
         with path.open("rb") as f:
@@ -274,7 +277,7 @@ def build_target_lock(
     install context requires directly: the project's own dependencies,
     and those of each selected extra and each selected group, keyed by
     its ``(kind, name)`` member.  :func:`_membership_gates` walks the
-    resolve from them to find the packages only a selection reaches.  An
+    resolve from each to find which contexts reach each package.  An
     empty ``base_roots`` is a project with no dependencies of its own, so
     it does not stand in for ``None``: omitting it while passing selector
     roots raises.
@@ -357,33 +360,34 @@ def _membership_gates(
     base_roots: Iterable[str],
     selector_roots: Mapping[tuple[str, str], Iterable[str]],
 ) -> dict[str, tuple[tuple[str, str], ...]]:
-    """Name the selections that gate each package no base dependency reaches.
+    """Name every install context that reaches each package.
 
     A selected extra or group is folded into the resolve that produces
     the lock, so its requirements pin packages a default install must not
-    receive.  PEP 751 defaults an install to no extras and to
-    ``default-groups``, and decides per package from ``packages.marker``,
-    so a package only a selection reaches has to name every selection
-    that reaches it; the writer turns each ``(kind, name)`` member into
-    ``'name' in extras`` / ``'name' in dependency_groups``.  A package
-    the project's own dependencies reach is unconditional.
+    receive.  PEP 751 decides per package from ``packages.marker``, so a
+    package has to name every context that reaches it; the writer turns
+    each ``(kind, name)`` member into ``'name' in extras`` /
+    ``'name' in dependency_groups``.  The project's own dependencies are
+    one such context, recorded as
+    :data:`~nab_python.lockfile.BASE_MEMBER` until the writer knows what to
+    call it, so a package both they and a group reach installs for either.
 
     Reachability is over this target's resolved graph, so an extras proxy
     (an extra requiring ``pkg[fancy]`` while the project requires plain
     ``pkg``) gates what ``fancy`` adds without gating ``pkg``.
+
+    Empty roots on both sides gate nothing, which is a lock with no
+    selection and no name for the project's own dependencies.
     """
-    if not selector_roots:
-        return {}
-
     pinned = {canonicalize_name(name): version for name, version in pins.items()}
-    base_reachable = _reachable_names(provider, pinned, base_roots)
 
-    gates: defaultdict[str, list[tuple[str, str]]] = defaultdict(list)
-    for member in sorted(selector_roots):
-        gated = _reachable_names(provider, pinned, selector_roots[member])
-        for name in gated - base_reachable:
-            gates[name].append(member)
-    return {name: tuple(members) for name, members in gates.items()}
+    reach: defaultdict[str, set[tuple[str, str]]] = defaultdict(set)
+    for name in _reachable_names(provider, pinned, base_roots):
+        reach[name].add(BASE_MEMBER)
+    for member, roots in selector_roots.items():
+        for name in _reachable_names(provider, pinned, roots):
+            reach[name].add(member)
+    return {name: tuple(sorted(members)) for name, members in reach.items()}
 
 
 def _reachable_names(
@@ -655,19 +659,20 @@ def _common_requires_python(files: Iterable[WheelFile | SdistFile]) -> str | Non
     such artefact leaves the whole package unconstrained. Otherwise the
     value survives only when every artefact agrees.
 
-    A malformed value counts as unconstrained too, matching
-    ``excluded_by_python``, which admits a dist whose Requires-Python is
-    an unparseable specifier on any Python. So the lock writer always
-    parses a valid specifier or ``None``, and the pin is never
-    over-constrained by an artefact whose floor nab could not read.
+    A value nab cannot use counts as unconstrained too, matching
+    ``excluded_by_python``, which admits a dist on any Python when the
+    specifier will not parse or its versions will not convert. So the
+    lock writer always records a usable specifier or ``None``, and the
+    pin is never over-constrained by an artefact whose floor nab could
+    not read.
     """
     seen: set[str] = set()
     for f in files:
         if f.requires_python is None:
             return None
         try:
-            SpecifierSet(f.requires_python)
-        except InvalidSpecifier:
+            validate_specifier_versions(SpecifierSet(f.requires_python))
+        except ValueError:
             return None
         seen.add(f.requires_python)
     if len(seen) == 1:

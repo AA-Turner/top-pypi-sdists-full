@@ -6,6 +6,7 @@ from .response import (
     IterableRegisteredAPIsResponse,
     IterableRunLogsResponse,
     IterableRunsResponse,
+    IterableWebInputsResponse,
 )
 
 __all__ = (
@@ -15,6 +16,7 @@ __all__ = (
     "IterableRegisteredAPIsResponse",
     "IterableRunLogsResponse",
     "IterableRunsResponse",
+    "IterableWebInputsResponse",
     "SpecificFlowClient",
     "RunActivityNotificationPolicy",
 )

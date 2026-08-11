@@ -2389,7 +2389,7 @@ ResourceTypeType = Literal[
 ]
 RetentionTypeType = Literal["Delete", "Retain"]
 RootAccessType = Literal["Disabled", "Enabled"]
-RoutingStrategyType = Literal["LEAST_OUTSTANDING_REQUESTS", "RANDOM"]
+RoutingStrategyType = Literal["LEAST_OUTSTANDING_REQUESTS", "PREFIX_AWARE", "RANDOM"]
 RuleEvaluationStatusType = Literal[
     "Error", "InProgress", "IssuesFound", "NoIssuesFound", "Stopped", "Stopping"
 ]

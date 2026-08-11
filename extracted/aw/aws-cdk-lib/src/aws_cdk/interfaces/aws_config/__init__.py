@@ -307,12 +307,21 @@ class ConfigurationRecorderReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_config.ConformancePackReference",
     jsii_struct_bases=[],
-    name_mapping={"conformance_pack_name": "conformancePackName"},
+    name_mapping={
+        "conformance_pack_arn": "conformancePackArn",
+        "conformance_pack_name": "conformancePackName",
+    },
 )
 class ConformancePackReference:
-    def __init__(self, *, conformance_pack_name: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        conformance_pack_arn: builtins.str,
+        conformance_pack_name: builtins.str,
+    ) -> None:
         '''A reference to a ConformancePack resource.
 
+        :param conformance_pack_arn: The ARN of the ConformancePack resource.
         :param conformance_pack_name: The ConformancePackName of the ConformancePack resource.
 
         :exampleMetadata: fixture=_generated
@@ -324,15 +333,25 @@ class ConformancePackReference:
             from aws_cdk.interfaces import aws_config as interfaces_config
             
             conformance_pack_reference = interfaces_config.ConformancePackReference(
+                conformance_pack_arn="conformancePackArn",
                 conformance_pack_name="conformancePackName"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3d9ef7123d37db2269e5cdf462a02624d8d1913289786ec44f2e6bdf362833de)
+            check_type(argname="argument conformance_pack_arn", value=conformance_pack_arn, expected_type=type_hints["conformance_pack_arn"])
             check_type(argname="argument conformance_pack_name", value=conformance_pack_name, expected_type=type_hints["conformance_pack_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
+            "conformance_pack_arn": conformance_pack_arn,
             "conformance_pack_name": conformance_pack_name,
         }
+
+    @builtins.property
+    def conformance_pack_arn(self) -> builtins.str:
+        '''The ARN of the ConformancePack resource.'''
+        result = self._values.get("conformance_pack_arn")
+        assert result is not None, "Required property 'conformance_pack_arn' is missing"
+        return typing.cast(builtins.str, result)
 
     @builtins.property
     def conformance_pack_name(self) -> builtins.str:
@@ -1015,13 +1034,20 @@ class OrganizationConfigRuleReference:
     jsii_type="aws-cdk-lib.interfaces.aws_config.OrganizationConformancePackReference",
     jsii_struct_bases=[],
     name_mapping={
+        "organization_conformance_pack_arn": "organizationConformancePackArn",
         "organization_conformance_pack_name": "organizationConformancePackName",
     },
 )
 class OrganizationConformancePackReference:
-    def __init__(self, *, organization_conformance_pack_name: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        organization_conformance_pack_arn: builtins.str,
+        organization_conformance_pack_name: builtins.str,
+    ) -> None:
         '''A reference to a OrganizationConformancePack resource.
 
+        :param organization_conformance_pack_arn: The ARN of the OrganizationConformancePack resource.
         :param organization_conformance_pack_name: The OrganizationConformancePackName of the OrganizationConformancePack resource.
 
         :exampleMetadata: fixture=_generated
@@ -1033,15 +1059,25 @@ class OrganizationConformancePackReference:
             from aws_cdk.interfaces import aws_config as interfaces_config
             
             organization_conformance_pack_reference = interfaces_config.OrganizationConformancePackReference(
+                organization_conformance_pack_arn="organizationConformancePackArn",
                 organization_conformance_pack_name="organizationConformancePackName"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5daef4318559c53f3db81583c1922e04cf23be4f5e212436f0518974f39373fa)
+            check_type(argname="argument organization_conformance_pack_arn", value=organization_conformance_pack_arn, expected_type=type_hints["organization_conformance_pack_arn"])
             check_type(argname="argument organization_conformance_pack_name", value=organization_conformance_pack_name, expected_type=type_hints["organization_conformance_pack_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
+            "organization_conformance_pack_arn": organization_conformance_pack_arn,
             "organization_conformance_pack_name": organization_conformance_pack_name,
         }
+
+    @builtins.property
+    def organization_conformance_pack_arn(self) -> builtins.str:
+        '''The ARN of the OrganizationConformancePack resource.'''
+        result = self._values.get("organization_conformance_pack_arn")
+        assert result is not None, "Required property 'organization_conformance_pack_arn' is missing"
+        return typing.cast(builtins.str, result)
 
     @builtins.property
     def organization_conformance_pack_name(self) -> builtins.str:
@@ -1221,6 +1257,7 @@ def _typecheckingstub__63416909aacc16f4b663be48b88e6851d224326d56dfd0b80c8619fd7
 
 def _typecheckingstub__3d9ef7123d37db2269e5cdf462a02624d8d1913289786ec44f2e6bdf362833de(
     *,
+    conformance_pack_arn: builtins.str,
     conformance_pack_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -1249,6 +1286,7 @@ def _typecheckingstub__cb822d1d5dc6ff37fc69eed1ccccc256efb622e5273788e4c1abbf28a
 
 def _typecheckingstub__5daef4318559c53f3db81583c1922e04cf23be4f5e212436f0518974f39373fa(
     *,
+    organization_conformance_pack_arn: builtins.str,
     organization_conformance_pack_name: builtins.str,
 ) -> None:
     """Type checking stubs"""

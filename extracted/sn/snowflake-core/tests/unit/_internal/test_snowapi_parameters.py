@@ -25,7 +25,10 @@ def test_default_max_threads():
     assert parameters.max_threads is None
 
 
-@pytest.mark.parametrize("flag", ("should_retry_request", "should_print_verbose_stack_trace", "fix_hostname"))
+@pytest.mark.parametrize(
+    "flag",
+    ("should_retry_request", "should_print_verbose_stack_trace", "fix_hostname", "should_skip_async_exec_polling"),
+)
 @pytest.mark.parametrize("value, expected", VALUES)
 def test_flags(flag, value, expected):
     parameters = SnowApiParameters(
@@ -33,6 +36,7 @@ def test_flags(flag, value, expected):
             SnowApiParameter.USE_CLIENT_RETRY: value,
             SnowApiParameter.PRINT_VERBOSE_STACK_TRACE: value,
             SnowApiParameter.FIX_HOSTNAME: value,
+            SnowApiParameter.SKIP_ASYNC_EXEC_POLLING: value,
         }
     )
     assert getattr(parameters, flag) is expected
@@ -43,14 +47,17 @@ def test_default_flags():
     assert parameters.should_retry_request is True
     assert parameters.should_print_verbose_stack_trace is True
     assert parameters.fix_hostname is True
+    assert parameters.should_skip_async_exec_polling is True
 
     parameters = SnowApiParameters(
         {
             SnowApiParameter.USE_CLIENT_RETRY: None,
             SnowApiParameter.PRINT_VERBOSE_STACK_TRACE: None,
             SnowApiParameter.FIX_HOSTNAME: None,
+            SnowApiParameter.SKIP_ASYNC_EXEC_POLLING: None,
         }
     )
     assert parameters.should_retry_request is True
     assert parameters.should_print_verbose_stack_trace is True
     assert parameters.fix_hostname is True
+    assert parameters.should_skip_async_exec_polling is True

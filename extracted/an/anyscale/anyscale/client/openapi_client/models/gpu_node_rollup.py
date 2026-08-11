@@ -117,7 +117,7 @@ class GpuNodeRollup(object):
     def nodes_allocated(self):
         """Gets the nodes_allocated of this GpuNodeRollup.  # noqa: E501
 
-        Nodes running a workload with no unhealthy GPU.  # noqa: E501
+        Nodes with at least one GPU running a workload.  # noqa: E501
 
         :return: The nodes_allocated of this GpuNodeRollup.  # noqa: E501
         :rtype: int
@@ -128,7 +128,7 @@ class GpuNodeRollup(object):
     def nodes_allocated(self, nodes_allocated):
         """Sets the nodes_allocated of this GpuNodeRollup.
 
-        Nodes running a workload with no unhealthy GPU.  # noqa: E501
+        Nodes with at least one GPU running a workload.  # noqa: E501
 
         :param nodes_allocated: The nodes_allocated of this GpuNodeRollup.  # noqa: E501
         :type: int
@@ -142,7 +142,7 @@ class GpuNodeRollup(object):
     def nodes_idle(self):
         """Gets the nodes_idle of this GpuNodeRollup.  # noqa: E501
 
-        Nodes whose GPUs are all idle.  # noqa: E501
+        Nodes with at least one idle GPU.  # noqa: E501
 
         :return: The nodes_idle of this GpuNodeRollup.  # noqa: E501
         :rtype: int
@@ -153,7 +153,7 @@ class GpuNodeRollup(object):
     def nodes_idle(self, nodes_idle):
         """Sets the nodes_idle of this GpuNodeRollup.
 
-        Nodes whose GPUs are all idle.  # noqa: E501
+        Nodes with at least one idle GPU.  # noqa: E501
 
         :param nodes_idle: The nodes_idle of this GpuNodeRollup.  # noqa: E501
         :type: int

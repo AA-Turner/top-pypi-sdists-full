@@ -4,7 +4,7 @@ use std::fmt::Display;
 use std::path::Path;
 
 use anyhow::Result;
-use fancy_regex::Regex;
+use fancy_regex::{BytesMode, Regex, RegexBuilder};
 use globset::{Glob, GlobSet};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
@@ -327,16 +327,18 @@ impl FilePattern {
     }
 
     pub(crate) fn regex(pattern: &str) -> Result<Self, fancy_regex::Error> {
-        Ok(Self::Regex(Regex::new(pattern)?))
+        let regex = RegexBuilder::new(pattern)
+            .bytes_mode(BytesMode::UnicodeBytes)
+            .build()?;
+        Ok(Self::Regex(regex))
     }
 
     pub(crate) fn is_match(&self, path: &Path) -> bool {
         match self {
             FilePattern::Never => false,
-            // Regex patterns are text matchers; globs can match OS paths directly.
-            FilePattern::Regex(regex) => path
-                .to_str()
-                .is_some_and(|path| regex.is_match(path).unwrap_or(false)),
+            FilePattern::Regex(regex) => regex
+                .is_match(path.as_os_str().as_encoded_bytes())
+                .unwrap_or(false),
             FilePattern::Glob(globs) => globs.is_match(path),
         }
     }
@@ -360,9 +362,9 @@ impl TryFrom<FilePatternWire> for FilePattern {
 
     fn try_from(value: FilePatternWire) -> Result<Self, Self::Error> {
         match value {
-            FilePatternWire::Glob { glob } => Ok(Self::Glob(GlobPatterns::new(vec![glob])?)),
-            FilePatternWire::GlobList { glob } => Ok(Self::Glob(GlobPatterns::new(glob)?)),
-            FilePatternWire::Regex(pattern) => Ok(Self::Regex(Regex::new(&pattern)?)),
+            FilePatternWire::Glob { glob } => Ok(Self::glob(vec![glob])?),
+            FilePatternWire::GlobList { glob } => Ok(Self::glob(glob)?),
+            FilePatternWire::Regex(pattern) => Ok(Self::regex(&pattern)?),
         }
     }
 }
@@ -398,6 +400,7 @@ pub enum Language {
     Haskell,
     Julia,
     Lua,
+    Mise,
     Node,
     Perl,
     Php,
@@ -694,7 +697,7 @@ pub(crate) struct HookOptions {
     /// Append filenames that would be checked to the hook entry as arguments.
     /// Default is true.
     pub pass_filenames: Option<PassFilenames>,
-    /// A description of the hook. For metadata only.
+    /// A description of the hook.
     pub description: Option<String>,
     /// Run the hook on a specific version of the language.
     /// Default is `default`.
@@ -1501,6 +1504,10 @@ where
     I: Iterator<Item = &'a str>,
 {
     for key in keys {
+        // Silently ignore extension keys starting with 'x-' (used for YAML anchors and custom metadata).
+        if key.starts_with("x-") {
+            continue;
+        }
         let path = if prefix.is_empty() {
             key.to_string()
         } else {

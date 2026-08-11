@@ -1347,6 +1347,7 @@ def _trtllm_fp4_block_scale_moe_ds_routing_reference(
     topk_group,
     local_expert_offset,
     routed_scaling_factor,
+    num_fused_shared_experts=0,
     **activation_kwargs,
 ):
     """FP4 MoE with DeepSeek-V3 routing: sigmoid + groups + top_k."""
@@ -1387,6 +1388,23 @@ def _trtllm_fp4_block_scale_moe_ds_routing_reference(
     full_weights = (raw_w / weights_sum) * scale
     w_topk = full_weights.gather(1, topk_idx)
 
+    nsfe = int(num_fused_shared_experts or 0)
+    if nsfe > 0:
+        # Fused shared experts: ids num_experts + k with constant weight 1.0,
+        # appended after the routed top-k slots.
+        shared_idx = (
+            torch.arange(
+                E_global, E_global + nsfe, device=topk_idx.device, dtype=topk_idx.dtype
+            )
+            .unsqueeze(0)
+            .expand(T, nsfe)
+        )
+        topk_idx = torch.cat([topk_idx, shared_idx], dim=1)
+        w_topk = torch.cat(
+            [w_topk, torch.ones(T, nsfe, dtype=w_topk.dtype, device=w_topk.device)],
+            dim=1,
+        )
+
     return _fp4_moe_run_experts(
         hidden_states,
         hidden_states_scale,
@@ -1399,7 +1417,7 @@ def _trtllm_fp4_block_scale_moe_ds_routing_reference(
         w_topk,
         topk_idx,
         local_expert_offset,
-        E_global,
+        E_global + nsfe,
         **activation_kwargs,
     )
 
@@ -1853,8 +1871,13 @@ def _moe_fp4_block_scale_renormalize_init(**kwargs):
 
 
 def _moe_fp4_block_scale_ds_init(**kwargs):
+    # The generated benchmark covers the routed path
+    # (num_fused_shared_experts == 0); the fused shared-expert slots only
+    # append extra constant-weight columns and weight rows.
     kwargs["routing_method_type"] = 2
-    return _moe_fp4_block_scale_init(**kwargs)
+    out = _moe_fp4_block_scale_init(**kwargs)
+    out["num_fused_shared_experts"] = 0
+    return out
 
 
 def _moe_fp4_block_scale_llama4_init(**kwargs):
@@ -1934,7 +1957,17 @@ trtllm_fp4_block_scale_moe_ds_routing_trace = TraceTemplate(
             description="Number of groups selected in top-k routing.", abbrev="kg"
         ),
     },
-    inputs=dict(_FP4_STANDARD_INPUTS),
+    inputs={
+        **_FP4_STANDARD_INPUTS,
+        "num_fused_shared_experts": Scalar(
+            "int32",
+            description=(
+                "Number of fused shared experts appended after the routed "
+                "experts (weight rows num_experts + k, constant weight 1.0). "
+                "Only supported with DeepSeekV3 routing."
+            ),
+        ),
+    },
     outputs=dict(_FP4_STANDARD_OUTPUTS),
     tags=_FP4_STANDARD_TAGS,
     reference=_trtllm_fp4_block_scale_moe_ds_routing_reference,
@@ -2233,6 +2266,55 @@ def _trtllm_fp8_per_tensor_scale_moe_reference(
         local_expert_offset,
         int(num_experts),
     )
+
+
+@torch.no_grad()
+def _trtllm_fp8_per_tensor_scale_routed_moe_reference(
+    topk_ids,
+    hidden_states,
+    gemm1_weights,
+    output1_scales_scalar,
+    output1_scales_gate_scalar,
+    gemm2_weights,
+    output2_scales_scalar,
+    num_experts,
+    local_expert_offset,
+    **_unused,
+):
+    """Reference for routed TRT-LLM FP8 per-tensor scale MoE."""
+    packed_topk = topk_ids.to(torch.int32)
+    topk_idx = torch.bitwise_right_shift(packed_topk, 16).to(torch.int64)
+    topk_weights = packed_topk.to(torch.int16).view(torch.bfloat16).to(torch.float32)
+
+    T, H = hidden_states.shape
+    E_local = gemm1_weights.shape[0]
+    W1 = gemm1_weights.to(torch.float32)
+    W2 = gemm2_weights.to(torch.float32)
+    s1 = output1_scales_scalar.to(torch.float32).view(E_local, 1, 1)
+    s1g = output1_scales_gate_scalar.to(torch.float32).view(E_local, 1, 1)
+    s2 = output2_scales_scalar.to(torch.float32).view(E_local, 1, 1)
+    I = W1.shape[1] // 2
+    W1 = torch.cat([W1[:, :I] * s1g, W1[:, I:] * s1], dim=1)
+    W2 = W2 * s2
+
+    activations = hidden_states.to(torch.float32)
+    output = torch.zeros((T, H), dtype=torch.float32, device=hidden_states.device)
+    local_start = int(local_expert_offset)
+    for local_idx in range(E_local):
+        global_idx = local_start + local_idx
+        if global_idx < 0 or global_idx >= int(num_experts):
+            continue
+        token_mask = (topk_idx == global_idx).any(dim=1)
+        if not token_mask.any():
+            continue
+        token_idx = torch.nonzero(token_mask, as_tuple=False).squeeze(1)
+        gemm1_out = activations.index_select(0, token_idx).matmul(W1[local_idx].t())
+        gate, up = gemm1_out[:, :I], gemm1_out[:, I:]
+        expert_out = (gate * torch.sigmoid(gate) * up).matmul(W2[local_idx].t())
+        matches = (topk_idx.index_select(0, token_idx) == global_idx).to(torch.float32)
+        weights = (topk_weights.index_select(0, token_idx) * matches).sum(dim=1)
+        output.index_add_(0, token_idx, expert_out * weights.unsqueeze(1))
+    return output.to(torch.bfloat16)
 
 
 @torch.no_grad()
@@ -2803,6 +2885,63 @@ trtllm_fp8_per_tensor_scale_moe_trace = TraceTemplate(
     reference=_trtllm_fp8_per_tensor_scale_moe_reference,
 )
 
+
+# FP8 per-tensor scale routed (packed precomputed topk_ids and weights)
+trtllm_fp8_per_tensor_scale_routed_moe_trace = TraceTemplate(
+    op_type="moe",
+    name_prefix="trtllm_fp8_per_tensor_scale_routed_moe",
+    description="TRT-LLM FP8 per-tensor scale MoE with packed precomputed routing.",
+    axes=dict(_TRTLLM_MOE_ROUTED_AXES),
+    inputs={
+        "topk_ids": Tensor(
+            ["seq_len", "top_k"],
+            dtype="int32",
+            description="Packed BF16 routing weight and global expert id.",
+        ),
+        "routing_bias": Tensor(
+            ["num_experts"], optional=True, description="Optional routing bias."
+        ),
+        "hidden_states": Tensor(
+            ["seq_len", "hidden_size"], description="FP8-quantized hidden states."
+        ),
+        "gemm1_weights": Tensor(
+            ["num_local_experts", "gemm1_out_size", "hidden_size"],
+            description="FC1 FP8 weights.",
+        ),
+        "output1_scales_scalar": Tensor(
+            ["num_local_experts"],
+            dtype="float32",
+            description="Per-expert FC1 output scale.",
+        ),
+        "output1_scales_gate_scalar": Tensor(
+            ["num_local_experts"],
+            dtype="float32",
+            description="Per-expert FC1 gate scale.",
+        ),
+        "gemm2_weights": Tensor(
+            ["num_local_experts", "hidden_size", "intermediate_size"],
+            description="FC2 FP8 weights.",
+        ),
+        "output2_scales_scalar": Tensor(
+            ["num_local_experts"],
+            dtype="float32",
+            description="Per-expert FC2 output scale.",
+        ),
+        "num_experts": Scalar("int32", description="Total number of experts."),
+        "top_k": Scalar("int32", description="Number of experts routed per token."),
+        "local_expert_offset": Scalar(
+            "int32", description="Offset of local experts in global expert space."
+        ),
+        "routed_scaling_factor": Scalar(
+            "float32", optional=True, description="Scaling factor for routing weights."
+        ),
+    },
+    outputs=dict(_TRTLLM_MOE_COMMON_OUTPUTS),
+    tags=["status:verified", "backend:trtllm", "quantization:float8_e4m3fn"],
+    reference=_trtllm_fp8_per_tensor_scale_routed_moe_reference,
+)
+
+
 # FP8 block-scale routed (precomputed topk_ids)
 trtllm_fp8_block_scale_routed_moe_trace = TraceTemplate(
     op_type="moe",
@@ -3224,6 +3363,9 @@ b12x_fused_moe_trace = TraceTemplate(
             abbrev="",
             description="2*I (SwiGLU) or I (ReLU2).",
         ),
+        "input_global_scale_size": Var(
+            description="1 (shared scale) or num_local_experts."
+        ),
     },
     inputs={
         "x": Tensor(
@@ -3274,6 +3416,16 @@ b12x_fused_moe_trace = TraceTemplate(
             description=(
                 "Global scale for FC2 input quantization. Required for "
                 "activation_precision='fp4'; accepted but ignored for "
+                "activation_precision='bf16'."
+            ),
+        ),
+        "input_global_scale": Tensor(
+            ["input_global_scale_size"],
+            dtype="float32",
+            optional=True,
+            description=(
+                "Global scale for FC1 input quantization (scalar or "
+                "per-expert). Defaults to w1_alpha; ignored for "
                 "activation_precision='bf16'."
             ),
         ),

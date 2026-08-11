@@ -420,6 +420,356 @@ class CfnDomainProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_codeartifact_78520058.IPackageRef)
+class CfnPackage(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_codeartifact.CfnPackage",
+):
+    '''Resource Type definition for AWS::CodeArtifact::Package.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeartifact-package.html
+    :cloudformationResource: AWS::CodeArtifact::Package
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_codeartifact as codeartifact
+        
+        cfn_package = codeartifact.CfnPackage(self, "MyCfnPackage",
+            domain_name="domainName",
+            format="format",
+            name="name",
+            repository="repository",
+        
+            # the properties below are optional
+            namespace="namespace"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        domain_name: builtins.str,
+        format: builtins.str,
+        name: builtins.str,
+        repository: builtins.str,
+        namespace: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::CodeArtifact::Package``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param domain_name: The name of the domain that contains the repository that contains the package.
+        :param format: The format of the package.
+        :param name: The name of the package.
+        :param repository: The name of the repository that contains the package.
+        :param namespace: The namespace of the package.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0dee80a64e560e32251b117b05a5e5905bef8f39b796acc2535fa0af7fdf1d82)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPackageProps(
+            domain_name=domain_name,
+            format=format,
+            name=name,
+            repository=repository,
+            namespace=namespace,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForPackage")
+    @builtins.classmethod
+    def arn_for_package(
+        cls,
+        resource: "_aws_codeartifact_78520058.IPackageRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__78642229dcb67c20c5fdf3ad8fcf89bfcf69745a76facf5b10084caabbb16b6e)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPackage", [resource]))
+
+    @jsii.member(jsii_name="isCfnPackage")
+    @builtins.classmethod
+    def is_cfn_package(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPackage.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__228f699220c871ca3f20172245e8add493b2c7c915ce8a11eb54d2eab3e6eb97)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPackage", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__82350bc4beba648083d17c3e25fb23d7631c61cc8fe46f0d99548595b160b9e6)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8d514ddc505300f9a4243d7ce064d2d9c3579c2eb7ad4259fbf55c44c3f4e16a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the package.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOriginConfiguration")
+    def attr_origin_configuration(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The package origin configuration for the package.
+
+        :cloudformationAttribute: OriginConfiguration
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrOriginConfiguration"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="packageRef")
+    def package_ref(self) -> "_aws_codeartifact_78520058.PackageReference":
+        '''A reference to a Package resource.'''
+        return typing.cast("_aws_codeartifact_78520058.PackageReference", jsii.get(self, "packageRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainName")
+    def domain_name(self) -> builtins.str:
+        '''The name of the domain that contains the repository that contains the package.'''
+        return typing.cast(builtins.str, jsii.get(self, "domainName"))
+
+    @domain_name.setter
+    def domain_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4fb39817b736550091d46c03427cfaf7e170338580e2185fabf4fb24bd70fe20)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="format")
+    def format(self) -> builtins.str:
+        '''The format of the package.'''
+        return typing.cast(builtins.str, jsii.get(self, "format"))
+
+    @format.setter
+    def format(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__75d0de403a482066019b1ced4f5faa97edcf88300a4ee192dfc68b7a8c0d9a57)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "format", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the package.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b6e926d2f2af6c10baf9318b769527460935160979261f9d9d8bc3d41e99c1d1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="repository")
+    def repository(self) -> builtins.str:
+        '''The name of the repository that contains the package.'''
+        return typing.cast(builtins.str, jsii.get(self, "repository"))
+
+    @repository.setter
+    def repository(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__11e7dae5f2ce9aa0bf97e20a1abc956ce5cf20645ef31332361539ec1e90bc19)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "repository", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="namespace")
+    def namespace(self) -> typing.Optional[builtins.str]:
+        '''The namespace of the package.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "namespace"))
+
+    @namespace.setter
+    def namespace(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c1ae57001c39950bd49e4c7c006b898d43f767ee4485216daa423a040ba21718)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "namespace", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codeartifact.CfnPackage.OriginConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"restrictions": "restrictions"},
+    )
+    class OriginConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            restrictions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPackage.RestrictionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The package origin configuration for the package.
+
+            :param restrictions: The origin restrictions for the package.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codeartifact-package-originconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codeartifact as codeartifact
+                
+                origin_configuration_property = codeartifact.CfnPackage.OriginConfigurationProperty(
+                    restrictions=codeartifact.CfnPackage.RestrictionsProperty(
+                        publish="publish",
+                        upstream="upstream"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__666df518a7ca6d0249c94fd57dfa07bb470e20a3915337683a05281dec14bba1)
+                check_type(argname="argument restrictions", value=restrictions, expected_type=type_hints["restrictions"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if restrictions is not None:
+                self._values["restrictions"] = restrictions
+
+        @builtins.property
+        def restrictions(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPackage.RestrictionsProperty"]]:
+            '''The origin restrictions for the package.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codeartifact-package-originconfiguration.html#cfn-codeartifact-package-originconfiguration-restrictions
+            '''
+            result = self._values.get("restrictions")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPackage.RestrictionsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OriginConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codeartifact.CfnPackage.RestrictionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"publish": "publish", "upstream": "upstream"},
+    )
+    class RestrictionsProperty:
+        def __init__(
+            self,
+            *,
+            publish: typing.Optional[builtins.str] = None,
+            upstream: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The origin restrictions for the package.
+
+            :param publish: The package origin configuration that determines if new versions of the package can be published directly to the repository.
+            :param upstream: The package origin configuration that determines if new versions of the package can be added to the repository from an external connection or upstream source.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codeartifact-package-restrictions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codeartifact as codeartifact
+                
+                restrictions_property = codeartifact.CfnPackage.RestrictionsProperty(
+                    publish="publish",
+                    upstream="upstream"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d77a15f0c8ccd3aa47c96647396e2a1cd50112004659ad9961b2470bb2fbde8c)
+                check_type(argname="argument publish", value=publish, expected_type=type_hints["publish"])
+                check_type(argname="argument upstream", value=upstream, expected_type=type_hints["upstream"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if publish is not None:
+                self._values["publish"] = publish
+            if upstream is not None:
+                self._values["upstream"] = upstream
+
+        @builtins.property
+        def publish(self) -> typing.Optional[builtins.str]:
+            '''The package origin configuration that determines if new versions of the package can be published directly to the repository.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codeartifact-package-restrictions.html#cfn-codeartifact-package-restrictions-publish
+            '''
+            result = self._values.get("publish")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def upstream(self) -> typing.Optional[builtins.str]:
+            '''The package origin configuration that determines if new versions of the package can be added to the repository from an external connection or upstream source.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codeartifact-package-restrictions.html#cfn-codeartifact-package-restrictions-upstream
+            '''
+            result = self._values.get("upstream")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RestrictionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_codeartifact_78520058.IPackageGroupRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnPackageGroup(
     _aws_cdk_0cae9daa.CfnResource,
@@ -1148,6 +1498,131 @@ class CfnPackageGroupProps:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_codeartifact.CfnPackageProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "domain_name": "domainName",
+        "format": "format",
+        "name": "name",
+        "repository": "repository",
+        "namespace": "namespace",
+    },
+)
+class CfnPackageProps:
+    def __init__(
+        self,
+        *,
+        domain_name: builtins.str,
+        format: builtins.str,
+        name: builtins.str,
+        repository: builtins.str,
+        namespace: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPackage``.
+
+        :param domain_name: The name of the domain that contains the repository that contains the package.
+        :param format: The format of the package.
+        :param name: The name of the package.
+        :param repository: The name of the repository that contains the package.
+        :param namespace: The namespace of the package.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeartifact-package.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_codeartifact as codeartifact
+            
+            cfn_package_props = codeartifact.CfnPackageProps(
+                domain_name="domainName",
+                format="format",
+                name="name",
+                repository="repository",
+            
+                # the properties below are optional
+                namespace="namespace"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__56783d3407ac878530e1a5c296f4ab13e9e6bd7863feae10fa5e3d00bd886555)
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument format", value=format, expected_type=type_hints["format"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
+            check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_name": domain_name,
+            "format": format,
+            "name": name,
+            "repository": repository,
+        }
+        if namespace is not None:
+            self._values["namespace"] = namespace
+
+    @builtins.property
+    def domain_name(self) -> builtins.str:
+        '''The name of the domain that contains the repository that contains the package.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeartifact-package.html#cfn-codeartifact-package-domainname
+        '''
+        result = self._values.get("domain_name")
+        assert result is not None, "Required property 'domain_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def format(self) -> builtins.str:
+        '''The format of the package.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeartifact-package.html#cfn-codeartifact-package-format
+        '''
+        result = self._values.get("format")
+        assert result is not None, "Required property 'format' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the package.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeartifact-package.html#cfn-codeartifact-package-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def repository(self) -> builtins.str:
+        '''The name of the repository that contains the package.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeartifact-package.html#cfn-codeartifact-package-repository
+        '''
+        result = self._values.get("repository")
+        assert result is not None, "Required property 'repository' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def namespace(self) -> typing.Optional[builtins.str]:
+        '''The namespace of the package.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codeartifact-package.html#cfn-codeartifact-package-namespace
+        '''
+        result = self._values.get("namespace")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPackageProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_codeartifact_78520058.IRepositoryRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnRepository(
     _aws_cdk_0cae9daa.CfnResource,
@@ -1645,8 +2120,10 @@ class CfnRepositoryProps:
 __all__ = [
     "CfnDomain",
     "CfnDomainProps",
+    "CfnPackage",
     "CfnPackageGroup",
     "CfnPackageGroupProps",
+    "CfnPackageProps",
     "CfnRepository",
     "CfnRepositoryProps",
 ]
@@ -1719,6 +2196,88 @@ def _typecheckingstub__ed4a67a72fcc7050f3a4ea650fb97fc3375ca5e90727251a483297144
     encryption_key: typing.Optional[builtins.str] = None,
     permissions_policy_document: typing.Any = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0dee80a64e560e32251b117b05a5e5905bef8f39b796acc2535fa0af7fdf1d82(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    domain_name: builtins.str,
+    format: builtins.str,
+    name: builtins.str,
+    repository: builtins.str,
+    namespace: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__78642229dcb67c20c5fdf3ad8fcf89bfcf69745a76facf5b10084caabbb16b6e(
+    resource: _aws_codeartifact_78520058.IPackageRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__228f699220c871ca3f20172245e8add493b2c7c915ce8a11eb54d2eab3e6eb97(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__82350bc4beba648083d17c3e25fb23d7631c61cc8fe46f0d99548595b160b9e6(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d514ddc505300f9a4243d7ce064d2d9c3579c2eb7ad4259fbf55c44c3f4e16a(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4fb39817b736550091d46c03427cfaf7e170338580e2185fabf4fb24bd70fe20(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__75d0de403a482066019b1ced4f5faa97edcf88300a4ee192dfc68b7a8c0d9a57(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b6e926d2f2af6c10baf9318b769527460935160979261f9d9d8bc3d41e99c1d1(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__11e7dae5f2ce9aa0bf97e20a1abc956ce5cf20645ef31332361539ec1e90bc19(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c1ae57001c39950bd49e4c7c006b898d43f767ee4485216daa423a040ba21718(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__666df518a7ca6d0249c94fd57dfa07bb470e20a3915337683a05281dec14bba1(
+    *,
+    restrictions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPackage.RestrictionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d77a15f0c8ccd3aa47c96647396e2a1cd50112004659ad9961b2470bb2fbde8c(
+    *,
+    publish: typing.Optional[builtins.str] = None,
+    upstream: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1837,6 +2396,17 @@ def _typecheckingstub__25201ca742777c6bda1acf009c5a015a6a51866eef1a9bc32a2ebf1a5
     domain_owner: typing.Optional[builtins.str] = None,
     origin_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPackageGroup.OriginConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__56783d3407ac878530e1a5c296f4ab13e9e6bd7863feae10fa5e3d00bd886555(
+    *,
+    domain_name: builtins.str,
+    format: builtins.str,
+    name: builtins.str,
+    repository: builtins.str,
+    namespace: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

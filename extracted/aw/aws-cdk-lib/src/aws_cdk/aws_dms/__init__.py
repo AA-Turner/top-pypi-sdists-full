@@ -135,27 +135,6 @@ class CfnCertificate(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCertificate", [resource]))
 
-    @jsii.member(jsii_name="fromCertificateId")
-    @builtins.classmethod
-    def from_certificate_id(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        certificate_id: builtins.str,
-    ) -> "_aws_dms_c75cb9b8.ICertificateRef":
-        '''Creates a new ICertificateRef from a certificateId.
-
-        :param scope: -
-        :param id: -
-        :param certificate_id: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__54c58e4c61ec8f4fec86aeebbf242c64f4df21097435a1de2fa86d057deacae4)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument certificate_id", value=certificate_id, expected_type=type_hints["certificate_id"])
-        return typing.cast("_aws_dms_c75cb9b8.ICertificateRef", jsii.sinvoke(cls, "fromCertificateId", [scope, id, certificate_id]))
-
     @jsii.member(jsii_name="isCfnCertificate")
     @builtins.classmethod
     def is_cfn_certificate(cls, x: typing.Any) -> builtins.bool:
@@ -199,12 +178,13 @@ class CfnCertificate(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
+    @jsii.member(jsii_name="attrCertificateArn")
+    def attr_certificate_arn(self) -> builtins.str:
+        '''The certificate Arn.
+
+        :cloudformationAttribute: CertificateArn
         '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+        return typing.cast(builtins.str, jsii.get(self, "attrCertificateArn"))
 
     @builtins.property
     @jsii.member(jsii_name="certificateRef")
@@ -15054,14 +15034,6 @@ def _typecheckingstub__f7c4a44b8a3c02f3f6ada86310479fa26dc0b32d4fba95316eb3faa44
 
 def _typecheckingstub__800ce2b9498d1aaa5d3738e8f5421864b7bdeee9fa9fe90b522738ed60f48aa1(
     resource: _aws_dms_c75cb9b8.ICertificateRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__54c58e4c61ec8f4fec86aeebbf242c64f4df21097435a1de2fa86d057deacae4(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    certificate_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

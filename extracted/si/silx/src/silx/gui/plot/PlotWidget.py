@@ -25,21 +25,17 @@
 The :class:`PlotWidget` implements the plot API initially provided in PyMca.
 """
 
-from __future__ import annotations
-
 __authors__ = ["V.A. Sole", "T. Vincent"]
 __license__ = "MIT"
 __date__ = "21/12/2018"
 
 import logging
-from collections import namedtuple
 from collections.abc import Iterable, Sequence
 from contextlib import contextmanager
 import datetime as dt
 import itertools
 from io import BytesIO, StringIO
 import numbers
-import warnings
 from typing import Any, Callable, Generator, Literal
 
 
@@ -62,13 +58,14 @@ from .LimitsHistory import LimitsHistory
 from . import _utils
 
 from . import items
+from .items import types
+from .items import _types
 from .items.core import PickingResult
 from .items.curve import CurveStyle
 from .items.axis import TickMode  # noqa
 
 from .. import qt
 from ._utils.panzoom import ViewConstraints
-from ...gui.plot._utils.dtime_ticklayout import timestamp
 from ...utils.deprecation import deprecated_warning
 
 from .backends.BackendBase import BackendBase
@@ -76,12 +73,6 @@ from .backends.BackendBase import BackendBase
 _logger = logging.getLogger(__name__)
 if _matplotlib is None:
     _logger.debug("matplotlib not available")
-
-
-"""
-Object returned when requesting the data range.
-"""
-_PlotDataRange = namedtuple("PlotDataRange", ["x", "y", "yright"])
 
 
 class _PlotWidgetSelection(qt.QObject):
@@ -101,7 +92,7 @@ class _PlotWidgetSelection(qt.QObject):
     sigSelectedItemsChanged = qt.Signal()
     """Signal emitted whenever the list of selected items changes."""
 
-    def __init__(self, parent: PlotWidget):
+    def __init__(self, parent: "PlotWidget"):
         assert isinstance(parent, PlotWidget)
         super().__init__(parent=parent)
 
@@ -380,7 +371,7 @@ class PlotWidget(qt.QMainWindow):
 
     def __init__(
         self,
-        parent: qt.Qt.Widget | None = None,
+        parent: qt.QWidget | None = None,
         backend: BackendType = None,
     ):
         self._autoreplot = False
@@ -408,7 +399,7 @@ class PlotWidget(qt.QMainWindow):
         self.__itemsToUpdate = []  # Used as an OrderedSet
         self.__activeItems = {"curve": None, "image": None, "scatter": None}
 
-        self._dataRange = None
+        self._dataRange: types.PlotDataRange | None = None
 
         # line types
         self._defaultColors = None
@@ -628,15 +619,13 @@ class PlotWidget(qt.QMainWindow):
         self._backend.setGraphXLabel(xaxis.getLabel())
         self._backend.setXAxisTimeZone(xTimeZone)
         self._backend.setXAxisTimeSeries(isXAxisTimeSeries)
-        self._backend.setXAxisLogarithmic(xaxis.getScale() == items.Axis.LOGARITHMIC)
+        self._backend.setXAxisScale(xaxis.getScale())
         self._backend.setXAxisInverted(isXAxisInverted)
 
         for axis in ("left", "right"):
             self._backend.setGraphYLabel(self.getYAxis(axis).getLabel(), axis)
         self._backend.setYAxisInverted(isYAxisInverted)
-        self._backend.setYAxisLogarithmic(
-            self.getYAxis().getScale() == items.Axis.LOGARITHMIC
-        )
+        self._backend.setYAxisScale(self.getYAxis().getScale())
 
         # Finally restore aspect ratio and limits
         self._backend.setKeepDataAspectRatio(isKeepDataAspectRatio)
@@ -668,7 +657,7 @@ class PlotWidget(qt.QMainWindow):
 
     # Default Qt context menu
 
-    def contextMenuEvent(self, event: qt.Qt.QContextEvent):
+    def contextMenuEvent(self, event: qt.QContextMenuEvent):
         """Override QWidget.contextMenuEvent to implement the context menu"""
         menu = qt.QMenu(self)
         from .actions.control import ZoomBackAction  # Avoid cyclic import
@@ -840,49 +829,7 @@ class PlotWidget(qt.QMainWindow):
         """
         self._dataRange = None
 
-    def _updateDataRange(self):
-        """
-        Recomputes the range of the data displayed on this PlotWidget.
-        """
-        xMin = yMinLeft = yMinRight = float("nan")
-        xMax = yMaxLeft = yMaxRight = float("nan")
-
-        for item in self.getItems():
-            if item.isVisible():
-                bounds = item.getBounds()
-                if bounds is not None:
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore", category=RuntimeWarning)
-                        # Ignore All-NaN slice encountered
-                        xMin = numpy.nanmin([xMin, bounds[0]])
-                        xMax = numpy.nanmax([xMax, bounds[1]])
-                    # Take care of right axis
-                    if (
-                        isinstance(item, items.YAxisMixIn)
-                        and item.getYAxis() == "right"
-                    ):
-                        with warnings.catch_warnings():
-                            warnings.simplefilter("ignore", category=RuntimeWarning)
-                            # Ignore All-NaN slice encountered
-                            yMinRight = numpy.nanmin([yMinRight, bounds[2]])
-                            yMaxRight = numpy.nanmax([yMaxRight, bounds[3]])
-                    else:
-                        with warnings.catch_warnings():
-                            warnings.simplefilter("ignore", category=RuntimeWarning)
-                            # Ignore All-NaN slice encountered
-                            yMinLeft = numpy.nanmin([yMinLeft, bounds[2]])
-                            yMaxLeft = numpy.nanmax([yMaxLeft, bounds[3]])
-
-        def lGetRange(x, y):
-            return None if numpy.isnan(x) and numpy.isnan(y) else (x, y)
-
-        xRange = lGetRange(xMin, xMax)
-        yLeftRange = lGetRange(yMinLeft, yMaxLeft)
-        yRightRange = lGetRange(yMinRight, yMaxRight)
-
-        self._dataRange = _PlotDataRange(x=xRange, y=yLeftRange, yright=yRightRange)
-
-    def getDataRange(self) -> _PlotDataRange:
+    def getDataRange(self) -> types.PlotDataRange:
         """
         Returns this PlotWidget's data range.
 
@@ -891,8 +838,82 @@ class PlotWidget(qt.QMainWindow):
                 or None if no data is associated with the axis.
         """
         if self._dataRange is None:
-            self._updateDataRange()
+            self._dataRange = self._computeDataRange(reset=False)
         return self._dataRange
+
+    def _getResetDataRange(self) -> types.PlotDataRange:
+        """
+        Returns this PlotWidget's data range for resetting. The current limits
+        of non-autoscaling axes are taking into account when determining the
+        range of autoscaling axes.
+
+        :return: a namedtuple with the following members :
+                x, y (left y axis), yright. Each member is a tuple (min, max)
+                or None if no data is associated with the axis.
+        """
+        if (
+            self._xAxis.isAutoScale()
+            and self._yAxis.isAutoScale()
+            and self._yRightAxis.isAutoScale()
+        ):
+            return self.getDataRange()
+
+        return self._computeDataRange(reset=True)
+
+    def _computeDataRange(self, reset: bool = False) -> types.PlotDataRange:
+        xMinList = []
+        xMaxList = []
+
+        yMinLeftList = []
+        yMaxLeftList = []
+
+        yMinRightList = []
+        yMaxRightList = []
+
+        for item in self.getItems():
+            if not item.isVisible():
+                continue
+
+            if reset:
+                bounds = self._itemResetBounds(item)
+            else:
+                bounds = item.getBounds()
+            if bounds is None:
+                continue
+
+            xmin, xmax, ymin, ymax = bounds
+
+            xMinList.append(xmin)
+            xMaxList.append(xmax)
+
+            if isinstance(item, items.YAxisMixIn) and item.getYAxis() == "right":
+                yMinRightList.append(ymin)
+                yMaxRightList.append(ymax)
+            else:
+                yMinLeftList.append(ymin)
+                yMaxLeftList.append(ymax)
+
+        def pack(min_list, max_list):
+            min_list = [x for x in min_list if not numpy.isnan(x)]
+            max_list = [x for x in max_list if not numpy.isnan(x)]
+            if not min_list or not max_list:
+                return None
+            return min(min_list), max(max_list)
+
+        return types.PlotDataRange(
+            x=pack(xMinList, xMaxList),
+            y=pack(yMinLeftList, yMaxLeftList),
+            yright=pack(yMinRightList, yMaxRightList),
+        )
+
+    def _itemResetBounds(self, item: items.Item) -> types.ItemBounds | None:
+        xAxis = self.getXAxis()
+        if isinstance(item, items.YAxisMixIn):
+            yAxis = self.getYAxis(item.getYAxis())
+        else:
+            yAxis = self.getYAxis()
+        axisInfo = _types.AxesInfo(x=xAxis._getInfo(), y=yAxis._getInfo())
+        return item._getResetBounds(axisInfo)
 
     # Content management
 
@@ -1128,17 +1149,7 @@ class PlotWidget(qt.QMainWindow):
                                 (Default: True)
         :param fill: True to fill the curve, False otherwise (default).
         :param resetzoom: True (the default) to reset the zoom.
-        :param histogram: if not None then the curve will be draw as an
-            histogram. The step for each values of the curve can be set to the
-            left, center or right of the original x curve values.
-            If histogram is not None and len(x) == len(y)+1 then x is directly
-            take as edges of the histogram.
-            Type of histogram::
-
-            - None (default)
-            - 'left'
-            - 'right'
-            - 'center'
+        :param histogram: DEPRECATED, use `addHistogram` with `align` instead.
         :param copy: True make a copy of the data (default),
                           False to use provided arrays.
         :param baseline: curve baseline
@@ -1146,6 +1157,13 @@ class PlotWidget(qt.QMainWindow):
         """
         # This is an histogram, use addHistogram
         if histogram is not None:
+            deprecated_warning(
+                type_="Argument",
+                name="histogram",
+                reason="histogram arg is deprecated. Use `addHistogram` to produce an histogram, setting the `align` argument instead.",
+                replacement="addHistogram",
+                since_version="3.0.2",
+            )
             histo = self.addHistogram(
                 histogram=y,
                 edges=x,
@@ -1154,21 +1172,16 @@ class PlotWidget(qt.QMainWindow):
                 fill=fill,
                 align=histogram,
                 copy=copy,
+                z=z,
+                info=info,
+                linewidth=linewidth,
+                linestyle=linestyle,
+                yaxis=yaxis,
             )
-
-            histo.setInfo(info)
-            if linewidth is not None:
-                histo.setLineWidth(linewidth)
-            if linestyle is not None:
-                histo.setLineStyle(linestyle)
             if xlabel is not None:
                 _logger.warning("addCurve: Histogram does not support xlabel argument")
             if ylabel is not None:
                 _logger.warning("addCurve: Histogram does not support ylabel argument")
-            if yaxis is not None:
-                histo.setYAxis(yaxis)
-            if z is not None:
-                histo.setZValue(z)
             if selectable is not None:
                 _logger.warning(
                     "addCurve: Histogram does not support selectable argument"
@@ -1242,7 +1255,7 @@ class PlotWidget(qt.QMainWindow):
             # tickMode to TickMode.TIME_SERIES and, if necessary, set the axis
             # to the correct time zone.
             if len(x) > 0 and isinstance(x[0], dt.datetime):
-                x = [timestamp(d) for d in x]
+                x = [d.timestamp() for d in x]
 
             curve.setData(x, y, xerror, yerror, baseline=baseline, copy=copy)
 
@@ -1284,6 +1297,10 @@ class PlotWidget(qt.QMainWindow):
         copy: bool = True,
         z: int | None = None,
         baseline: float | numpy.ndarray | None = None,
+        info: Any = None,
+        linewidth: float | None = None,
+        linestyle: str | None = None,
+        yaxis: Literal["left", "right"] | None = None,
     ) -> items.Histogram:
         """Add an histogram to the graph.
 
@@ -1317,6 +1334,18 @@ class PlotWidget(qt.QMainWindow):
                           False to use provided arrays.
         :param z: Layer on which to draw the histogram
         :param baseline: histogram baseline
+        :param info: User-defined information associated to the histogram
+        :param linewidth: The width of the histogram lines in pixels (Default: 1).
+        :param linestyle: Type of line::
+
+            - ' '  no line
+            - '-'  solid line
+            - '--' dashed line
+            - '-.' dash-dot line
+            - ':'  dotted line
+            - None (the default) to use default line style
+        :param yaxis: The Y axis this histogram is attached to.
+                      Either 'left' (the default) or 'right'
         :returns: The histogram item
         """
         legend = "Unnamed histogram" if legend is None else str(legend)
@@ -1359,6 +1388,15 @@ class PlotWidget(qt.QMainWindow):
             # if the user does not want that, autoscale of the different
             # axes has to be set to off.
             self.resetZoom()
+
+        if linewidth is not None:
+            histo.setLineWidth(linewidth)
+        if linestyle is not None:
+            histo.setLineStyle(linestyle)
+        if yaxis is not None:
+            histo.setYAxis(yaxis)
+        if info is not None:
+            histo.setInfo(info)
 
         return histo
 
@@ -1928,7 +1966,7 @@ class PlotWidget(qt.QMainWindow):
         marker = self._getMarker(legend)
         if marker is not None and not isinstance(marker, markerClass):
             _logger.warning(
-                "Adding marker with same legend" " but different type replaces it"
+                "Adding marker with same legend but different type replaces it"
             )
             self.removeItem(marker)
             marker = None
@@ -2180,23 +2218,21 @@ class PlotWidget(qt.QMainWindow):
             xFactor = factor if direction == "right" else -factor
             xMin, xMax = self._xAxis.getLimits()
 
-            xMin, xMax = _utils.applyPan(
-                xMin, xMax, xFactor, self._xAxis.getScale() == self._xAxis.LOGARITHMIC
-            )
+            xMin, xMax = _utils.applyPan(self._xAxis.getScale(), xMin, xMax, xFactor)
             self._xAxis.setLimits(xMin, xMax)
 
         else:  # direction in ('up', 'down')
             sign = -1.0 if self._yAxis.isInverted() else 1.0
             yFactor = sign * (factor if direction == "up" else -factor)
-            yMin, yMax = self._yAxis.getLimits()
-            yIsLog = self._yAxis.getScale() == self._yAxis.LOGARITHMIC
 
-            yMin, yMax = _utils.applyPan(yMin, yMax, yFactor, yIsLog)
+            yMin, yMax = self._yAxis.getLimits()
+            yMin, yMax = _utils.applyPan(self._yAxis.getScale(), yMin, yMax, yFactor)
             self._yAxis.setLimits(yMin, yMax)
 
             y2Min, y2Max = self._yRightAxis.getLimits()
-
-            y2Min, y2Max = _utils.applyPan(y2Min, y2Max, yFactor, yIsLog)
+            y2Min, y2Max = _utils.applyPan(
+                self._yRightAxis.getScale(), y2Min, y2Max, yFactor
+            )
             self._yRightAxis.setLimits(y2Min, y2Max)
 
     # Active Curve/Image
@@ -2697,8 +2733,8 @@ class PlotWidget(qt.QMainWindow):
             limits = list(
                 _utils.addMarginsToLimits(
                     self.getDataMargins() if margins is True else margins,
-                    self.getXAxis()._isLogarithmic(),
-                    self.getYAxis()._isLogarithmic(),
+                    self.getXAxis().getScale(),
+                    self.getYAxis().getScale(),
                     *limits,
                 )
             )
@@ -3055,7 +3091,7 @@ class PlotWidget(qt.QMainWindow):
 
         The list contains at least:
         ('gray', 'reversed gray', 'temperature', 'red', 'green', 'blue',
-        'magma', 'inferno', 'plasma', 'viridis')
+        'magma', 'inferno', 'plasma', 'viridis', 'twilight', 'twilight_shifted')
         """
         return Colormap.getSupportedColormaps()
 
@@ -3291,9 +3327,11 @@ class PlotWidget(qt.QMainWindow):
         self,
         dataMargins: tuple[float, float, float, float] | None = None,
     ):
-        """Reset the plot limits to the bounds of the data and redraw the plot.
+        """Force :meth:`_resetZoom` without emitting Qt signals."""
+        self._resetZoom(dataMargins=dataMargins, force=True, notify=False)
 
-        This method forces a reset zoom and does not check axis autoscale.
+    def resetZoom(self, dataMargins=None):
+        """Reset the plot limits and redraw the plot.
 
         Extra margins can be added around the data inside the plot area
         (see :meth:`setDataMargins`).
@@ -3305,33 +3343,28 @@ class PlotWidget(qt.QMainWindow):
             Ratios of margins to add around the data inside the plot area for each side.
             If None (the default), use margins from :meth:`getDataMargins`.
         """
-        # Get data range
-        ranges = self.getDataRange()
-        xmin, xmax = (1.0, 100.0) if ranges.x is None else ranges.x
-        ymin, ymax = (1.0, 100.0) if ranges.y is None else ranges.y
-        if ranges.yright is None:
-            y2min, y2max = ymin, ymax
-        else:
-            y2min, y2max = ranges.yright
-            if ranges.y is None:
-                ymin, ymax = ranges.yright
+        self._resetZoom(dataMargins=dataMargins)
 
-        self.setLimits(
-            xmin,
-            xmax,
-            ymin,
-            ymax,
-            y2min,
-            y2max,
-            margins=dataMargins if dataMargins is not None else True,
-        )
+    def _resetZoom(self, dataMargins=None, force=False, notify=True):
+        """Reset the plot limits and redraw the plot.
 
-    def resetZoom(self, dataMargins: tuple[float, float, float, float] | None = None):
-        """Reset the plot limits to the bounds of the data and redraw the plot.
+        The plot limits after a reset depend on whether axes have
 
-        It automatically scale limits of axes that are in autoscale mode
-        (see :meth:`getXAxis`, :meth:`getYAxis` and :meth:`Axis.setAutoScale`).
-        It keeps current limits on axes that are not in autoscale mode.
+        - fixed limits (``autoscale=False``) or
+        - variable limits (``autoscale=True``).
+
+        See :meth:`getXAxis`, :meth:`getYAxis` and :meth:`Axis.setAutoScale`.
+
+        Axes that have fixed limits keep their limits after a reset.
+
+        Axes that have variable limits will have new limits determined by
+
+        - the data range within the limits of the axes with fixed limits or
+        - the full data range if all axes have variable limits.
+
+        Plot limits are not reset when all axes have fixed limits unless ``force=True``.
+
+        Qt signals are emitted when plot limits changed unless ``notify=False``.
 
         Extra margins can be added around the data inside the plot area
         (see :meth:`setDataMargins`).
@@ -3339,45 +3372,86 @@ class PlotWidget(qt.QMainWindow):
         data (xMin, xMax, yMin and yMax limits).
         For log scale, extra margins are applied in log10 of the data.
 
-        :param dataMargins: Ratios of margins to add around the data inside
-                            the plot area for each side (default: no margins).
+        :param dataMargins:
+            Ratios of margins to add around the data inside the plot area for each side.
+            If None (the default), use margins from :meth:`getDataMargins`.
+        :param force: If True, plot limits are reset even when all axes have fixed limits.
+        :param notify: If True, Qt signals are emitted when plot limits changed.
+        """
+        # Early-return when no resetting is needed nor forced
+        needsReset, xLimits, ylLimits, yrLimits = self.__getAxesLimitState()
+
+        if not force and not needsReset:
+            _logger.debug("No reset required")
+            return
+
+        # Compute plot limits
+        ranges = self._getResetDataRange()
+        xmin, xmax = ranges.x or (1.0, 100.0)
+        if ranges.yright is None:
+            ylmin, ylmax = ranges.y or (1.0, 100.0)
+            yrmin, yrmax = ylmin, ylmax
+        else:
+            ylmin, ylmax = ranges.y or ranges.yright
+            yrmin, yrmax = ranges.yright
+
+        if dataMargins is None:
+            # Use the default margins set with setDataMargins()
+            dataMargins = True
+
+        # Set plot limits to compute values
+        self.setLimits(
+            xmin,
+            xmax,
+            ylmin,
+            ylmax,
+            yrmin,
+            yrmax,
+            margins=dataMargins,
+        )
+
+        # Notify plot limit changes
+        if notify:
+            xChanged = xLimits != self._xAxis.getLimits()
+            ylChanged = ylLimits != self._yAxis.getLimits()
+            yrChanged = yrLimits != self._yRightAxis.getLimits()
+
+            if xChanged or ylChanged or yrChanged:
+                self._notifyLimitsChanged()
+
+    def __getAxesLimitState(
+        self,
+    ) -> tuple[bool, tuple[float, float], tuple[float, float], tuple[float, float]]:
+        """
+        Checks whether axes limits need to be reset and returns
+        the limits as well.
         """
         xLimits = self._xAxis.getLimits()
-        yLimits = self._yAxis.getLimits()
-        y2Limits = self._yRightAxis.getLimits()
+        ylLimits = self._yAxis.getLimits()
+        yrLimits = self._yRightAxis.getLimits()
 
+        # Reset is needed when any of these is True
         xAuto = self._xAxis.isAutoScale()
-        yAuto = self._yAxis.isAutoScale()
+        ylAuto = self._yAxis.isAutoScale()
+        yrAuto = self._yRightAxis.isAutoScale()
 
-        # With log axes, autoscale if limits are <= 0
+        # Reset is needed for log axes with limits are <= 0
         # This avoids issues with toggling log scale with matplotlib 2.1.0
-        if self._xAxis.getScale() == self._xAxis.LOGARITHMIC and xLimits[0] <= 0:
+        # TODO: still needed?
+        xIsLog = self._xAxis.getScale() == self._xAxis.LOGARITHMIC
+        ylIsLog = self._yAxis.getScale() == self._yAxis.LOGARITHMIC
+        yrIsLog = self._yRightAxis.getScale() == self._yAxis.LOGARITHMIC
+
+        if xIsLog and xLimits[0] <= 0:
             xAuto = True
-        if self._yAxis.getScale() == self._yAxis.LOGARITHMIC and (
-            yLimits[0] <= 0 or y2Limits[0] <= 0
-        ):
-            yAuto = True
+        if ylIsLog and ylLimits[0] <= 0:
+            ylAuto = True
+        if yrIsLog and yrLimits[0] <= 0:
+            yrAuto = True
 
-        if not xAuto and not yAuto:
-            _logger.debug("Nothing to autoscale")
-        else:  # Some axes to autoscale
-            self._forceResetZoom(dataMargins=dataMargins)
+        needsReset = xAuto or ylAuto or yrAuto
 
-            # Restore limits for axis not in autoscale
-            if not xAuto and yAuto:
-                self.setGraphXLimits(*xLimits)
-            elif xAuto and not yAuto:
-                if y2Limits is not None:
-                    self.setGraphYLimits(y2Limits[0], y2Limits[1], axis="right")
-                if yLimits is not None:
-                    self.setGraphYLimits(yLimits[0], yLimits[1], axis="left")
-
-        if (
-            xLimits != self._xAxis.getLimits()
-            or yLimits != self._yAxis.getLimits()
-            or y2Limits != self._yRightAxis.getLimits()
-        ):
-            self._notifyLimitsChanged()
+        return needsReset, xLimits, ylLimits, yrLimits
 
     # Coord conversion
 
@@ -3714,7 +3788,7 @@ class PlotWidget(qt.QMainWindow):
                      a tuple of 4 floats.
         :param shape: Only for 'draw' mode. The kind of shape to draw.
                       In 'polygon', 'rectangle', 'line', 'vline', 'hline',
-                      'freeline'.
+                      'polylines'.
                       Default is 'polygon'.
         :param label: Only for 'draw' mode, sent in drawing events.
         :param zoomOnWheel: Toggle zoom on wheel support

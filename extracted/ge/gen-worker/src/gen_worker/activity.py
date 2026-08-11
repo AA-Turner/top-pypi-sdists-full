@@ -48,7 +48,19 @@ from .pb import worker_scheduler_pb2 as pb
 logger = logging.getLogger(__name__)
 
 KIND_SELF_MINT_COMPILE = "self_mint_compile"
+#: The RUNNING setup+warmup activity — opened by :func:`begin`, ended when the
+#: load window closes. An eager release's boot load runs under this kind
+#: through the same executor call site (th#1021).
 KIND_WARMUP = "warmup"
+# pgw#1067 (worker half of th#1723): the boot-forward roll-up is a countable
+# EVENT about a span that already ended, and it needs its OWN kind. The hub
+# keys `info.Activities` on kind alone, and the `warmup` slot feeds
+# `SelfMintActivityRunning` (stall monitor, cap turnover, unservable reaper) and
+# `InFlightMintKinds` — so emitting the terminal roll-up as `warmup` made a
+# still-loading worker read as finished to all of them. No hub change: every
+# kind is stored generically and served at
+# GET /v1/admin/worker-activity-events?kind=.
+KIND_WARMUP_SUMMARY = "warmup_summary"
 # pgw#680: one tenant request hit fail-on-recompile on a compiled lane and
 # was served eager; phase carries the guard-reason class token, detail the
 # full confession. The hub accepts any kind and logs completions verbatim,
@@ -96,6 +108,24 @@ KIND_CELL_NUMERICS = "cell_numerics"
 # detail lists component<-local_source pairs (the hydration guard's proof that
 # every weight came from OUR tree, bankable hub-side; phase=hydrated).
 KIND_MODULAR_HYDRATION = "modular_hydration"
+# pgw#1048: a non-modular composition named a component that is in neither the
+# materialized tree nor the dispatched injection. `phase=refused` — the load
+# did NOT happen and will not be retried for this dispatched identity, because
+# a refetch cannot widen a manifest the hub narrowed (th#1711/th#1715). The
+# detail names missing/expected/injected: without it the hub sees only
+# `OSError: Error no file named config.json found in directory <root>`, which
+# names neither the component nor the cause, and which pgw#1047 watched a pod
+# retry for 9 minutes.
+KIND_COMPONENT_MISS = "component_miss"
+# pgw#1094: the serve-path output-integrity floor's verdict on one output.
+# `phase` is the verdict token — `noise` / `blank` / `nonfinite` are fail-CLOSED
+# (the request also gets a typed `OutputIntegrityError` and nothing is
+# uploaded), `unmeasured` is the confession that the screen could not run and
+# the output served anyway. PASS emits nothing: one row per served render buys
+# no decision. `detail` carries the measured adjacent_frame_corr and
+# frame_std_min, so ie#634's "corr 0.29 was uploaded and billed" is countable
+# hub-side instead of invisible.
+KIND_OUTPUT_INTEGRITY = "output_integrity"
 KIND_ROTATION_PRELOAD = "rotation_preload"
 KIND_CAPABILITY_RENEWAL = "capability_renewal"
 KIND_RESIDENCY_FAULT = "residency_fault"
@@ -218,6 +248,13 @@ class Activity:
 
     def __init__(self, kind: str) -> None:
         self.kind = kind
+        #: This activity's own scope (pgw#894). Process-local and stable for
+        #: the activity's life: it keys the progress registry so a counter fed
+        #: by unrelated work can never answer THIS activity's stall question.
+        #: Not on the wire — the hub still identifies an activity by
+        #: (worker, kind, phase) — so it costs no protocol change; what it
+        #: buys is that the number the beat CARRIES describes this activity.
+        self.id = f"{kind}:{_next_seq()}"
         self._phase = ""
         self._step = 0
         self._total = 0
@@ -241,7 +278,7 @@ class Activity:
         without waiting out its own window. Producers re-acquire per tick, so a
         counter that is still being fed is simply re-registered under the new
         phase."""
-        c = progress_mod.counter(name, unit, total)
+        c = progress_mod.counter(name, unit, total, owner=self.id)
         self._counters[name] = (self._phase, c)
         return c
 
@@ -409,6 +446,23 @@ def current() -> Optional[Activity]:
     return act if act is not None and not act._done else None
 
 
+def scoped_counter(
+    name: str, unit: str, total: float = 0.0,
+) -> "progress_mod.Counter":
+    """The counter for ``name`` owned by the CURRENT activity, or an unowned
+    process counter when none is open (pgw#894).
+
+    For producers that are not themselves inside an activity method: a model
+    download or a weight load belongs to whatever phase asked for it, and the
+    fallback keeps library / CLI use — where no activity exists — working
+    exactly as before.
+    """
+    act = current()
+    if act is not None:
+        return act.counter(name, unit, total)
+    return progress_mod.counter(name, unit, total)
+
+
 def on_beat() -> None:
     """Ride the 10s app heartbeat (lifecycle._heartbeat_loop, gw#621): while
     an activity is open and the progress registry has counters, emit one
@@ -420,11 +474,21 @@ def on_beat() -> None:
         act = current()
         if act is None:
             return
-        snap = progress_mod.freshest()
+        # pgw#894: THIS activity's counters, not the registry's. The beat used
+        # to attach `progress.freshest()` — the min-age counter anywhere in
+        # the process — to whatever activity happened to be current, and the
+        # hub advances an activity's `UpdatedAt` from a counter-name change or
+        # value increase (`worker_activity.go:323-338`), which is the
+        # timestamp its stall/condemnation path reads. So a serving request
+        # deferred a background mint's stall verdict: 28 lines on the standing
+        # chaos hub reported `infer:steps` under `self_mint_compile`, and line
+        # 4542 declined a condemnation because that mint activity was "0s ago".
+        snap = progress_mod.freshest(act.id)
         if snap is None:
             return
         act.progress_beat(
-            snap, self_stalled=progress_mod.self_diagnosis() is not None)
+            snap,
+            self_stalled=progress_mod.self_diagnosis(act.id) is not None)
     except Exception:
         logger.debug("progress beat dropped", exc_info=True)
 

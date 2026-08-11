@@ -107,7 +107,7 @@ table {background:#fff}
 
 
 def indexFileHTML(indexBaseName: str) -> str:
-    return f'''<!DOCTYPE html>
+    return f"""<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -172,7 +172,7 @@ def indexFileHTML(indexBaseName: str) -> str:
   </div>
 </body>
 </html>
-'''
+"""
 
 
 def generateHtmlEbaTablesetFiles(dts: ModelXbrl, indexFile: str, lang: str = "en") -> None:
@@ -199,7 +199,7 @@ def generateHtmlEbaTablesetFiles(dts: ModelXbrl, indexFile: str, lang: str = "en
                     tableName = tableName.removeprefix("eba_t")
                 elif tableName.startswith("srb_t"):
                     tableName = tableName.removeprefix("srb_t")
-                viewRenderedGrid(dts, tblFile, lang=lang, cssExtras=TABLE_CSS_EXTRAS, table=tableName)  # type: ignore[no-untyped-call]
+                viewRenderedGrid(dts, tblFile, lang=lang, cssExtras=TABLE_CSS_EXTRAS, table=tableName)
 
                 elt = etree.SubElement(listElt, "li")
                 elt.set("class", "nav-list-menu-li")

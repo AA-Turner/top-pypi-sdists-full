@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scitex-dev
-Version: 0.43.1
+Version: 0.47.0
 Summary: Shared developer utilities for the SciTeX ecosystem
 Author-email: Yusuke Watanabe <ywatanabe@scitex.ai>
 License-Expression: AGPL-3.0-only
@@ -16,17 +16,15 @@ Requires-Dist: scitex-logging>=0.1.0
 Requires-Dist: click>=8.0.0
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: tomli>=2.0; python_version < "3.11"
+Requires-Dist: fastmcp>=2.0.0
+Requires-Dist: newb>=0.3.0
+Requires-Dist: scitex-ssh>=1.1.0
+Requires-Dist: scitex-scholar>=1.4.3
+Requires-Dist: Pillow>=9.2.0
+Requires-Dist: tomlkit>=0.12.0
+Requires-Dist: textual>=0.50.0
 Requires-Dist: packaging>=21.0
-Provides-Extra: cli
-Provides-Extra: mcp
-Requires-Dist: fastmcp>=2.0.0; extra == "mcp"
-Provides-Extra: skills
-Requires-Dist: newb>=0.3.0; extra == "skills"
-Provides-Extra: sync
-Requires-Dist: scitex-ssh>=1.1.0; extra == "sync"
-Requires-Dist: scitex-scholar>=1.4.3; extra == "sync"
-Provides-Extra: icons
-Requires-Dist: Pillow>=9.2.0; extra == "icons"
+Requires-Dist: rich>=13.0.0
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0.0; extra == "dev"
 Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
@@ -37,11 +35,6 @@ Requires-Dist: textual>=0.50.0; extra == "dev"
 Requires-Dist: newb>=0.3.0; extra == "dev"
 Requires-Dist: tomlkit>=0.12.0; extra == "dev"
 Requires-Dist: Pillow>=9.2.0; extra == "dev"
-Provides-Extra: cli-audit
-Provides-Extra: umbrella-regen
-Requires-Dist: tomlkit>=0.12.0; extra == "umbrella-regen"
-Provides-Extra: tui
-Requires-Dist: textual>=0.50.0; extra == "tui"
 Provides-Extra: docs
 Requires-Dist: sphinx>=7.0; extra == "docs"
 Requires-Dist: sphinx-rtd-theme>=2.0; extra == "docs"
@@ -49,13 +42,8 @@ Requires-Dist: myst-parser>=2.0; extra == "docs"
 Requires-Dist: sphinx-copybutton>=0.5; extra == "docs"
 Requires-Dist: sphinx-autodoc-typehints>=1.25; extra == "docs"
 Provides-Extra: all
-Requires-Dist: scitex-dev[mcp]; extra == "all"
-Requires-Dist: scitex-dev[skills]; extra == "all"
-Requires-Dist: scitex-dev[sync]; extra == "all"
 Requires-Dist: scitex-dev[dev]; extra == "all"
 Requires-Dist: scitex-dev[docs]; extra == "all"
-Requires-Dist: scitex-dev[umbrella-regen]; extra == "all"
-Requires-Dist: scitex-dev[tui]; extra == "all"
 Dynamic: license-file
 
 # SciTeX Dev (`scitex-dev`)
@@ -101,18 +89,24 @@ Dynamic: license-file
 
 ## Installation
 
+There are exactly two installs. The CLI, the MCP server, icon rendering
+and skills all ship in the base install — there is no per-feature menu to
+assemble, and nothing to forget to add.
+
 ```bash
+# Everything you need to USE scitex-dev:
 pip install scitex-dev
 
-# With CLI support:
-pip install scitex-dev[cli]
-
-# With MCP server:
-pip install scitex-dev[mcp]
-
-# Everything:
+# Plus the maintainer toolchain (pytest, sphinx, ...) — for working ON it:
 pip install scitex-dev[all]
 ```
+
+`[all]` adds development and documentation tooling on top of the base
+install; it does not unlock features. Extra names are restricted to
+`{all, dev, docs}` by PS-225, because a per-feature extra is something
+somebody eventually pins — and a pin naming an extra that does not exist
+installs anyway, warns into a log nobody reads, and silently omits the
+capability.
 
 ### Configuration
 

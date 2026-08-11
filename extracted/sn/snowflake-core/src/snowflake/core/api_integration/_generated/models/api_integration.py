@@ -74,6 +74,7 @@ class ApiIntegration(BaseModel):
 
     @field_validator("name")
     def name_validate_regular_expression(cls, v):
+
         if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$""", v):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v

@@ -135,6 +135,10 @@ class TransferClient(client.BaseClient):
     scopes = TransferScopes
     default_scope_requirements = [TransferScopes.all]
 
+    # annotate but do not assign 'resource_server'
+    # because we know that the classproperty of this name will evaluate to a string
+    resource_server: str
+
     def _register_standard_retry_checks(self, retry_config: RetryConfig) -> None:
         """Override the default retry checks."""
         retry_config.checks.register_many_checks(TRANSFER_DEFAULT_RETRY_CHECKS)

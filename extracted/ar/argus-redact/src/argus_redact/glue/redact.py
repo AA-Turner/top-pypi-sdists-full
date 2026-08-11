@@ -38,6 +38,18 @@ from argus_redact._core_loader import HAS_CORE as _RUST_CORE  # noqa: E402
 from argus_redact._core_loader import _core  # noqa: E402
 
 
+def _effective_lang(lang: "str | list[str] | None", default: str = "zh") -> str:
+    """Resolve a single effective language from a ``str | list[str] | None`` param.
+
+    A ``str`` is returned as-is; a list resolves to its first entry (or
+    ``default`` if empty/None). Shared by the langchain/llamaindex integrations
+    and the risk/grammar call sites here that need one representative language.
+    """
+    if isinstance(lang, str):
+        return lang
+    return lang[0] if lang else default
+
+
 @functools.lru_cache(maxsize=1)
 def _warn_ablation_once() -> None:
     """Warn ONCE per process if any research ablation env toggle is active.
@@ -170,7 +182,21 @@ def _validate_langs(langs: tuple[str, ...] | list[str]) -> None:
     """Raise ValueError for any requested language code not in the known set.
 
     'shared' is merged in implicitly and is never requestable on its own.
+
+    An empty resolved language list is also rejected. An empty *string*
+    (``lang=""``) already fails the unknown-code branch below, but an empty
+    *list* (``lang=[]``, or a CSV of only separators split down to nothing)
+    would otherwise pass silently: no language pattern pack loads, so every
+    non-language-neutral detector is dropped (a fail-open under-redaction), and
+    the downstream ``lang[0]`` in the report/anchor build raises IndexError
+    (surfacing over HTTP as a 500 rather than a 400). Reject it here — the one
+    choke point shared by ``_load_patterns`` and ``_detect``.
     """
+    if not langs:
+        raise ValueError(
+            "No language specified: the resolved language list is empty. "
+            "Pass at least one language code (e.g. lang='zh' or lang=['zh', 'en'])."
+        )
     for code in langs:
         if code not in _LANG_PATTERNS:
             available = list(_LANG_PATTERNS.keys())
@@ -690,7 +716,7 @@ def _replace_and_emit(
         unified_prefix=unified_prefix,
         _mask_collisions=mask_collisions,
     )
-    effective_lang = lang if isinstance(lang, str) else (lang[0] if lang else "zh")
+    effective_lang = _effective_lang(lang)
     if effective_lang == "en":
         redacted = normalize_grammar_en(redacted, list(result_key.values()))
     timing["replace_ms"] = (time.perf_counter() - t0) * 1000
@@ -883,6 +909,10 @@ def redact(
         entities, _restored = _pre_detected_pipeline(_pre_detected, types, types_exclude, text)
         _restored_types.extend(_restored)
         langs = [lang] if isinstance(lang, str) else list(lang)
+        # The _detect branch validates langs; this branch skips it, so the
+        # empty-lang guard must run here too (otherwise the report build's
+        # lang[0] would IndexError on lang=[]).
+        _validate_langs(langs)
         timing: dict[str, float] = {}
         layer_stats = {
             "layer1_count": 0,
@@ -977,16 +1007,40 @@ def redact(
             from argus_redact.pure.risk import assess_risk
             from argus_redact.specs import lookup
 
-            # Build risk input with cached sensitivity lookup
+            # Build risk input with cached sensitivity lookup. The score TIER
+            # and the PIPL/GDPR/HIPAA article set must resolve from ONE language
+            # entry: assess_risk resolves the articles via Rust
+            # compliance_for(effective_lang, t) — exact effective-lang match,
+            # else the first-registered entry — so the sensitivity that feeds the
+            # score tier must come from that SAME typedef. Keying off the
+            # first-registered (zh) entry made the two disagree for every zh+en
+            # type (person / phone / date_of_birth / religion / political /
+            # self_reference), so the report classified ordinary-PII while
+            # scoring high/critical (or the inverse). Reuse the redact.py:693
+            # effective-lang idiom; the empty case is already rejected upstream.
+            effective_lang = _effective_lang(lang)
             sens_cache: dict[str, int] = {}
             risk_entities = []
             for e in entity_details:
                 t = e["type"]
                 if t not in sens_cache:
                     typedefs = lookup(t)
-                    sens_cache[t] = typedefs[0].sensitivity if typedefs else 2
+                    if typedefs:
+                        # Mirror compliance_for's selection EXACTLY: exact
+                        # effective-lang match, else first-registered
+                        # (== lookup(t)[0]). The first-registered fallback is
+                        # also the FALLBACK when compliance_for returns None —
+                        # a register_pii_type type absent from risk_data.ron
+                        # still scores off its registered sensitivity.
+                        chosen = next(
+                            (td for td in typedefs if td.lang == effective_lang),
+                            typedefs[0],
+                        )
+                        sens_cache[t] = chosen.sensitivity
+                    else:
+                        sens_cache[t] = 2
                 risk_entities.append({"type": t, "sensitivity": sens_cache[t]})
-            risk = assess_risk(risk_entities, lang=lang if isinstance(lang, str) else lang[0])
+            risk = assess_risk(risk_entities, lang=effective_lang)
 
             return RedactReport(
                 redacted_text=redacted,

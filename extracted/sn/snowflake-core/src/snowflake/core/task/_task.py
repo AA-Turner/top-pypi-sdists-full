@@ -1,6 +1,6 @@
 # Copyright (c) 2012-2023 Snowflake Computing Inc. All rights reserved.
 
-import os
+import typing
 
 from collections.abc import Iterable, Iterator
 from concurrent.futures import Future
@@ -9,13 +9,15 @@ from logging import getLogger
 from types import ModuleType
 from typing import TYPE_CHECKING, Any, Callable, Literal, NamedTuple, Optional, Union, overload
 
+import typing_extensions
+
 from pydantic import StrictStr
 
 from snowflake.core import PollingOperation
 from snowflake.core._common import CreateMode, SchemaObjectCollectionParent, SchemaObjectReferenceMixin
 from snowflake.core._generated.api_client import StoredProcApiClient
 from snowflake.core._internal.telemetry import api_telemetry
-from snowflake.core._internal.utils import deprecated
+from snowflake.core._internal.utils import StrEnum, deprecated
 from snowflake.core._operation import PollingOperations
 from snowflake.core._options import require_snowpark
 from snowflake.core.task._generated import (
@@ -37,17 +39,13 @@ from ..tag._tag import TagValue
 
 
 if TYPE_CHECKING:
+    from snowflake.core import Root
     from snowflake.core.schema._schema import SchemaResource
     from snowflake.snowpark.stored_procedure import StoredProcedure
     from snowflake.snowpark.types import DataType
 
+
 _logger = getLogger(__name__)
-
-
-TASK_CONTEXT_FILE_IMPORT = (
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "context.py"),
-    "snowflake.core.task.context",
-)
 
 
 class Cron(NamedTuple):
@@ -118,39 +116,113 @@ class Cron(NamedTuple):
         return self.expr.lower() == other.expr.lower() and self.timezone.lower() == other.timezone.lower()
 
 
+class OverlapPolicy(StrEnum):
+    """Policy for whether multiple runs of a task graph may overlap.
+
+    Controls whether a new run may start while a previous run is still executing.
+    """
+
+    NO_OVERLAP = "NO_OVERLAP"
+    """Only one run at a time; the next run waits for the previous to complete."""
+    ALLOW_CHILD_OVERLAP = "ALLOW_CHILD_OVERLAP"
+    """Child tasks may overlap across runs; the root task does not overlap."""
+    ALLOW_ALL_OVERLAP = "ALLOW_ALL_OVERLAP"
+    """Runs may overlap; a new run may start regardless of in-progress runs."""
+
+    def _equivalent_allow_overlapping_execution_value(self) -> bool | None:
+        """Return the legacy ``allow_overlapping_execution`` flag equivalent to this policy.
+
+        Returns
+        -------
+        bool or None
+            ``False`` for ``NO_OVERLAP``, ``True`` for ``ALLOW_CHILD_OVERLAP``, and ``None``
+            for ``ALLOW_ALL_OVERLAP`` (no single boolean equivalent).
+
+        Raises
+        ------
+        ValueError
+            If this member is not a known overlap policy (should not occur in normal use).
+        """
+        match self:
+            case self.NO_OVERLAP:
+                return False
+            case self.ALLOW_CHILD_OVERLAP:
+                return True
+            case self.ALLOW_ALL_OVERLAP:
+                return None
+            case _:
+                raise ValueError(f"Invalid overlap policy: {self}")
+
+    @classmethod
+    def _from_allow_overlapping_execution(
+        cls, allow_overlapping_execution: bool | None
+    ) -> typing_extensions.Self | None:
+        """Build an overlap policy from the legacy ``allow_overlapping_execution`` flag.
+
+        Parameters
+        ----------
+        allow_overlapping_execution : bool or None
+            ``False`` maps to ``NO_OVERLAP``, ``True`` maps to ``ALLOW_CHILD_OVERLAP``, and
+            ``None`` means unset and is returned as ``None``.
+
+        Returns
+        -------
+        OverlapPolicy or None
+            Matching policy, or ``None`` when ``allow_overlapping_execution`` is ``None``.
+        """
+        match allow_overlapping_execution:
+            case False:
+                return cls.NO_OVERLAP
+            case True:
+                return cls.ALLOW_CHILD_OVERLAP
+            case None:
+                return None
+
+    @classmethod
+    def _effective_value(cls, value: Optional[typing_extensions.Self]) -> typing_extensions.Self:
+        """Return the effective overlap policy for this overlap policy."""
+        return value if value is not None else cls.NO_OVERLAP
+
+
+def _timedelta_to_minutes_schedule(value: timedelta) -> MinutesSchedule:
+    """Convert a ``timedelta`` to a :class:`MinutesSchedule`.
+
+    The total interval is split into whole minutes plus a ``seconds`` remainder in
+    ``[0, 59]``. Sub-second precision is rejected.
+    """
+    total_seconds = value.total_seconds()
+    if not total_seconds.is_integer():
+        raise ValueError(f"The interval must be a whole number of seconds but got {total_seconds} second(s).")
+    int_total_seconds = int(total_seconds)
+    minutes, seconds = divmod(int_total_seconds, 60)
+    return MinutesSchedule(minutes=minutes, seconds=seconds)
+
+
+def _minutes_schedule_to_timedelta(schedule: MinutesSchedule) -> timedelta:
+    return timedelta(minutes=schedule.minutes, seconds=schedule.seconds or 0)
+
+
 def _to_model_schedule(schedule: Optional[Union[Cron, timedelta]]) -> Optional[TaskSchedule]:
     if schedule is None:
         return None
     if isinstance(schedule, Cron):
         return CronSchedule(cron_expr=schedule.expr, timezone=schedule.timezone)
     elif isinstance(schedule, timedelta):
-        total_seconds = schedule.total_seconds()
-        if (not total_seconds.is_integer() or total_seconds % 60 != 0) or not (60 <= total_seconds <= 11520 * 60):
-            raise ValueError(
-                f"The schedule time delta must be a whole integer of minutes, greater than 1 minute and "
-                f"less than 8 days (11520 minutes) but got {total_seconds / 60.0} minute(s)."
-            )
-        return MinutesSchedule(minutes=int(total_seconds / 60))
+        return _timedelta_to_minutes_schedule(schedule)
     raise TypeError("schedule should be either Cron or timedelta value")
 
 
 def _to_model_target_completion_interval(target_completion_interval: Optional[timedelta]) -> Optional[MinutesSchedule]:
     if target_completion_interval is None:
         return None
-    total_seconds = target_completion_interval.total_seconds()
-    if (not total_seconds.is_integer() or total_seconds % 60 != 0) or not (60 <= total_seconds <= 24 * 60 * 60):
-        raise ValueError(
-            f"The target_completion_interval must be a whole integer of minutes with minimum of 1 minute and maximum "
-            f"of 24 hours (1440 minutes) but got {total_seconds / 60.0} minute(s)."
-        )
-    return MinutesSchedule(minutes=int(total_seconds / 60))
+    return _timedelta_to_minutes_schedule(target_completion_interval)
 
 
 def _from_model_schedule(schedule: Optional[TaskSchedule]) -> Optional[Union[timedelta, Cron]]:
     if schedule is None:
         return None
     if isinstance(schedule, MinutesSchedule):
-        return timedelta(minutes=schedule.minutes)
+        return _minutes_schedule_to_timedelta(schedule)
     elif isinstance(schedule, CronSchedule):
         return Cron(schedule.cron_expr, schedule.timezone)
     raise TypeError("schedule must be either a MinutesSchedule or CronSchedule. ")  # won't happen in reality.
@@ -161,7 +233,7 @@ def _from_model_target_completion_interval(
 ) -> Optional[timedelta]:
     if target_completion_interval is None:
         return None
-    return timedelta(minutes=target_completion_interval.minutes)
+    return _minutes_schedule_to_timedelta(target_completion_interval)
 
 
 class StoredProcedureCall:
@@ -253,6 +325,9 @@ class Task:
         schedule: Optional[Union[Cron, timedelta]] = None,
         allow_overlapping_execution: Optional[bool] = None,
         error_integration: Optional[str] = None,
+        success_integration: Optional[str] = None,
+        overlap_policy: Optional[OverlapPolicy] = None,
+        execute_as_user: Optional[str] = None,
         comment: Optional[str] = None,
         finalize: Optional[str] = None,
         task_auto_retry_attempts: Optional[int] = None,
@@ -288,7 +363,7 @@ class Task:
         #: Snowflake ignores this parameter setting. Note that if the task history is unavailable for a given task, the
         #: compute resources revert to this initial size.
         #:
-        #: A warehouse size is the same as in `creating a virtual warehous
+        #: A warehouse size is the same as in `creating a virtual warehouse
         #: <https://docs.snowflake.com/en/sql-reference/sql/create-warehouse>`_.
         #:
         #: If ``warehouse`` is specified for this task, then setting this parameter produces an error.
@@ -322,8 +397,28 @@ class Task:
         self.suspend_task_after_num_failures = suspend_task_after_num_failures
         #: Specifies the time limit on a single run of the task before it times out (in milliseconds).
         self.user_task_timeout_ms = user_task_timeout_ms
-        #: Whether to allow multiple instances of the DAG to run concurrently.
-        self.allow_overlapping_execution = allow_overlapping_execution
+
+        # Switch used to determine whether to use the overlap_policy or allow_overlapping_execution
+        # property when creating the task. Set within the property setters for these two properties.
+        self._use_overlap_policy = True
+        # Overlap policy is a newer field with 3 possible values used to specify the overlap policy which was previously
+        # specified using the allow_overlapping_execution Boolean field.
+        if overlap_policy is not None:
+            if allow_overlapping_execution is not None and (
+                (equivalent_value := overlap_policy._equivalent_allow_overlapping_execution_value()) is None
+                or equivalent_value != allow_overlapping_execution
+            ):
+                raise ValueError(
+                    "allow_overlapping_execution and overlap_policy are both set and inconsistent. "
+                    f"overlap_policy={overlap_policy} maps to allow_overlapping_execution={equivalent_value} "
+                    f"but allow_overlapping_execution={allow_overlapping_execution} was provided."
+                )
+            #: Overlap policy for the task graph. Only applicable to root tasks.
+            self.overlap_policy = overlap_policy
+        else:
+            #: Whether to allow multiple instances of the DAG to run concurrently.
+            self.allow_overlapping_execution = allow_overlapping_execution
+
         #: Specifies the name of the notification integration used to communicate with Amazon SNS, MS Azure Event Grid,
         #: or Google Pub/Sub.
         #:
@@ -333,6 +428,11 @@ class Task:
         #: Required only when configuring a task to send error notifications using Amazon Simple Notification Service
         #: (SNS), Microsoft Azure Event Grid, or Google Pub/Sub.
         self.error_integration = error_integration
+        #: Specifies the name of the notification integration used for success notifications when the task graph
+        #: completes successfully.
+        self.success_integration = success_integration
+        #: Specifies the name of the user whose privileges are used to run the task.
+        self.execute_as_user = execute_as_user
         #: Specifies a comment for the task.
         self.comment = comment
         #: Specifies the finalizer task, use this to add a finalizer task for the DAG. For more info
@@ -419,6 +519,14 @@ class Task:
 
     @classmethod
     def _from_rest_model(cls, model: TaskModel) -> "Task":
+        if model.overlap_policy is not None:
+            overlap_policy = OverlapPolicy(model.overlap_policy)
+            # Ignore the value of allow_overlapping_execution.
+            allow_overlapping_execution = None
+        else:
+            overlap_policy = None
+            allow_overlapping_execution = model.allow_overlapping_execution
+
         return Task(
             name=model.name,
             definition=model.definition,
@@ -430,8 +538,11 @@ class Task:
             serverless_task_max_statement_size=model.serverless_task_max_statement_size,
             user_task_timeout_ms=model.user_task_timeout_ms,
             schedule=_from_model_schedule(model.schedule),
-            allow_overlapping_execution=model.allow_overlapping_execution,
+            allow_overlapping_execution=allow_overlapping_execution,
             error_integration=model.error_integration,
+            success_integration=model.success_integration,
+            overlap_policy=overlap_policy,
+            execute_as_user=model.execute_as_user,
             comment=model.comment,
             finalize=model.finalize,
             task_auto_retry_attempts=model.task_auto_retry_attempts,
@@ -461,6 +572,16 @@ class Task:
                             f"Task.{prop} is a dict. The value of this dict must be one of str, int, float, or bool."
                             f"Found value type {type(v)} for key {k}"
                         )
+
+        # Avoid setting both overlap_policy and allow_overlapping_execution
+        # to remain consistent with what the user set on this instance.
+        if self._use_overlap_policy:
+            overlap_policy = str(self.overlap_policy) if self.overlap_policy is not None else None
+            allow_overlapping_execution = None
+        else:
+            overlap_policy = None
+            allow_overlapping_execution = self.allow_overlapping_execution
+
         model = TaskModel(
             name=self.name,
             definition=self.sql_definition,
@@ -472,8 +593,11 @@ class Task:
             suspend_task_after_num_failures=self.suspend_task_after_num_failures,
             user_task_timeout_ms=self.user_task_timeout_ms,
             schedule=_to_model_schedule(self.schedule),
-            allow_overlapping_execution=self.allow_overlapping_execution,
+            allow_overlapping_execution=allow_overlapping_execution,
             error_integration=self.error_integration,
+            success_integration=self.success_integration,
+            overlap_policy=overlap_policy,
+            execute_as_user=self.execute_as_user,
             comment=self.comment,
             finalize=self.finalize,
             task_auto_retry_attempts=self.task_auto_retry_attempts,
@@ -496,6 +620,120 @@ class Task:
 
     def to_dict(self, hide_readonly_properties: bool = False) -> dict[str, Any]:
         return self._to_rest_model().to_dict(hide_readonly_properties=hide_readonly_properties)
+
+    def _extract_definition(self, root: "Root") -> None:
+        definition = self.definition
+        if not isinstance(definition, str):
+            _register_task_definition_stored_procedure(definition, root)
+
+    @property
+    def allow_overlapping_execution(self) -> bool | None:
+        """Legacy boolean view of whether overlapping runs are allowed.
+
+        The configured :attr:`overlap_policy` (when present) is the source of truth for
+        this property.
+
+        Returns
+        -------
+        bool or None
+            * ``False`` — overlapping runs are not allowed (``NO_OVERLAP``).
+            * ``True`` — child tasks may overlap across runs (``ALLOW_CHILD_OVERLAP``).
+            * ``None`` — unset, or overlap behavior has no legacy boolean equivalent
+              (for example ``ALLOW_ALL_OVERLAP``), or :attr:`overlap_policy` was never set.
+        """
+        if (value := self.overlap_policy) is None:
+            return None
+        return value._equivalent_allow_overlapping_execution_value()
+
+    @allow_overlapping_execution.setter
+    def allow_overlapping_execution(self, value: bool | None) -> None:
+        """Set overlap behavior using the legacy ``allow_overlapping_execution`` field.
+
+        Parameters
+        ----------
+        value : bool or None
+            * ``False`` — configure the task not to allow overlapping runs.
+            * ``True`` — configure the task to allow overlapping runs of child tasks.
+            * ``None`` — clear overlap configuration on this object.
+
+        Notes
+        -----
+        ``True`` maps only to ``OverlapPolicy.ALLOW_CHILD_OVERLAP``. If the task was
+        previously configured with ``OverlapPolicy.ALLOW_ALL_OVERLAP``, assigning
+        ``True`` replaces that policy because it has no equivalent legacy boolean value.
+        """
+        self._use_overlap_policy = False
+        self._overlap_policy = OverlapPolicy._from_allow_overlapping_execution(value)
+
+    @property
+    def overlap_policy(self) -> OverlapPolicy | None:
+        """Snowflake overlap policy configured for this task.
+
+        When you need a non-optional policy, use :attr:`effective_overlap_policy`, which
+        treats an unset :attr:`overlap_policy` as ``OverlapPolicy.NO_OVERLAP`` on this object.
+
+        Returns
+        -------
+        OverlapPolicy or None
+            The configured policy, or ``None`` if unset on this object.
+        """
+        return self._overlap_policy
+
+    @overlap_policy.setter
+    def overlap_policy(self, value: OverlapPolicy | None) -> None:
+        """Set the Snowflake overlap policy for this task.
+
+        Parameters
+        ----------
+        value : OverlapPolicy or None
+            Policy to store on this object, or ``None`` to clear :attr:`overlap_policy`.
+        """
+        self._use_overlap_policy = True
+        self._overlap_policy = value
+
+    @property
+    def effective_overlap_policy(self) -> OverlapPolicy:
+        """Effective overlap policy for this task after applying client-side defaults.
+
+        Returns
+        -------
+        OverlapPolicy
+            :attr:`overlap_policy` when set; otherwise ``OverlapPolicy.NO_OVERLAP``.
+        """
+        return OverlapPolicy._effective_value(self.overlap_policy)
+
+
+class _FetchTaskDependentsParams(typing.TypedDict, total=False):
+    recursive: bool
+    """Whether to fetch the dependents recursively.
+
+    If not provided, the server-side default is used.
+    """
+
+
+def _register_task_definition_stored_procedure(definition: StoredProcedureCall, root: "Root") -> None:
+    require_snowpark()
+    from snowflake.snowpark.stored_procedure import StoredProcedure
+
+    if isinstance(definition.func, StoredProcedure):
+        sproc_obj = definition.func
+    else:
+        imports = definition._imports if definition._imports else []
+        sproc_obj = root.session.sproc.register(
+            definition.func,
+            name="task_handler_sp",
+            return_type=definition._return_type,
+            input_types=definition._input_types,
+            stage_location=definition._stage_location,
+            imports=imports,
+            packages=definition._packages,
+            anonymous=True,
+            is_permanent=True,
+        )
+    sp_sql = snowpark._internal.udf_utils.generate_call_python_sp_sql(root.session, sproc_obj.name, *definition._args)
+    if sproc_obj._anonymous_sp_sql:
+        sp_sql = f"{sproc_obj._anonymous_sp_sql}{sp_sql}"
+    definition._sql = sp_sql
 
 
 class TaskResource(SchemaObjectReferenceMixin["TaskCollection"]):
@@ -688,8 +926,13 @@ class TaskResource(SchemaObjectReferenceMixin["TaskCollection"]):
         return PollingOperations.empty(future)
 
     @api_telemetry
-    def fetch_task_dependents(self) -> list[Task]:
+    def fetch_task_dependents(self, **kwargs: typing_extensions.Unpack[_FetchTaskDependentsParams]) -> list[Task]:
         """Return the list of child tasks that use this task as the root in a DAG.
+
+        Parameters
+        ----------
+        recursive: bool
+            Whether to fetch the dependents recursively. If not provided, the server-side default is used.
 
         Examples
         ________
@@ -700,19 +943,26 @@ class TaskResource(SchemaObjectReferenceMixin["TaskCollection"]):
         return [
             Task._from_rest_model(x)
             for x in self.collection._api.fetch_task_dependents(
-                self.database.name, self.schema.name, self.name, async_req=False
+                self.database.name, self.schema.name, self.name, async_req=False, **kwargs
             )
         ]
 
     @api_telemetry
-    def fetch_task_dependents_async(self) -> PollingOperation[list[Task]]:
+    def fetch_task_dependents_async(
+        self, **kwargs: typing_extensions.Unpack[_FetchTaskDependentsParams]
+    ) -> PollingOperation[list[Task]]:
         """An asynchronous version of :func:`fetch_task_dependents`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
+
+        Parameters
+        ----------
+        recursive: bool
+            Whether to fetch the dependents recursively. If not provided, the server-side default is used.
         """  # noqa: D401
         future = self.collection._api.fetch_task_dependents(
-            self.database.name, self.schema.name, self.name, async_req=True
+            self.database.name, self.schema.name, self.name, async_req=True, **kwargs
         )
         return PollingOperation(future, lambda rest_models: [Task._from_rest_model(x) for x in rest_models])
 
@@ -926,7 +1176,6 @@ class TaskResource(SchemaObjectReferenceMixin["TaskCollection"]):
     def _create_or_alter(self, task: Task, async_req: bool) -> Union[SuccessResponse, Future[SuccessResponse]]:
         self.collection._extract_definition(task)
         task_model = task._to_rest_model()
-        task_model.schedule = _to_model_schedule(task.schedule)
         return self.collection._api.create_or_alter_task(
             database=self.database.name,
             var_schema=self.schema.name,
@@ -1094,31 +1343,4 @@ class TaskCollection(SchemaObjectCollectionParent[TaskResource]):
         return PollingOperation(future, lambda tasks: map(Task._from_rest_model, iter(tasks)))
 
     def _extract_definition(self, task: Task) -> None:
-        definition = task.definition
-        if not isinstance(definition, str):
-            require_snowpark()
-            from snowflake.snowpark.stored_procedure import StoredProcedure
-
-            if isinstance(definition.func, StoredProcedure):
-                sproc_obj = definition.func
-            else:
-                imports = definition._imports if definition._imports else []
-                if not snowpark._internal.utils.is_in_stored_procedure():
-                    imports.append(TASK_CONTEXT_FILE_IMPORT)
-                sproc_obj = self.root.session.sproc.register(
-                    definition.func,
-                    name="task_handler_sp",
-                    return_type=definition._return_type,
-                    input_types=definition._input_types,
-                    stage_location=definition._stage_location,
-                    imports=imports,
-                    packages=definition._packages,
-                    anonymous=True,
-                    is_permanent=True,
-                )
-            sp_sql = snowpark._internal.udf_utils.generate_call_python_sp_sql(
-                self.root.session, sproc_obj.name, *definition._args
-            )
-            if sproc_obj._anonymous_sp_sql:
-                sp_sql = f"{sproc_obj._anonymous_sp_sql}{sp_sql}"
-            definition._sql = sp_sql
+        task._extract_definition(self.root)

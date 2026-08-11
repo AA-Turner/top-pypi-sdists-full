@@ -1,3 +1,5 @@
+import subprocess
+import sys
 import time
 import typing
 from datetime import datetime, timedelta
@@ -127,6 +129,19 @@ class TestFIFOCachePolicy(mixins.BaseMixin):
             capacity=capacity,
             getsizeof=getsizeof,
         )
+
+    def test_iterator_len_correct_across_ring_wrap(self):
+        """Evictions wrap the ring buffer; len() must stay correct after every next()."""
+        cache = self.create_cache(5)
+        for i in range(9):
+            cache.insert(f"k{i}", i)
+
+        it = cache.keys()
+        for left in range(len(cache), 0, -1):
+            assert len(it) == left
+            next(it)
+
+        assert len(it) == 0
 
     def test_oldest_item_evicted_on_overflow(self):
         """When capacity is exceeded, the first inserted key must be evicted."""
@@ -504,6 +519,23 @@ class TestLRUCache(
         )
 
 
+READ_UNDER_LIVE_ITERATOR = """
+import cachebox
+
+cache = cachebox.LRUCache(10)
+for key in ("a", "b", "c"):
+    cache[key] = 1
+
+it = cache.keys()
+assert "a" in cache
+
+try:
+    list(it)
+except RuntimeError:
+    print("ok")
+"""
+
+
 class TestLRUCachePolicy(mixins.BaseMixin):
     def create_cache(
         self,
@@ -532,6 +564,19 @@ class TestLRUCachePolicy(mixins.BaseMixin):
         c.insert("d", 4)
         assert "a" not in c
         assert "d" in c
+
+    def test_read_under_live_iterator_invalidates_it(self):
+        # a read promotes the key and relinks the list; without the generation
+        # bump the iterator walks rewired memory and the process dies, so the
+        # check runs in a child process
+        done = subprocess.run(
+            [sys.executable, "-c", READ_UNDER_LIVE_ITERATOR],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+
+        assert done.stdout.strip() == "ok", done.stderr or f"exit code {done.returncode}"
 
     def test_does_not_evict_recently_read_key(self):
         c = self.create_cache(3)
@@ -1008,6 +1053,19 @@ class TestTTLCachePolicy(mixins.SweepIntervalMixin):
             sweep_interval=sweep_interval,
         )
 
+    def test_iterator_len_correct_across_ring_wrap(self):
+        """Evictions wrap the ring buffer; len() must stay correct after every next()."""
+        cache = self.create_cache(5)
+        for i in range(9):
+            cache.insert(f"k{i}", i)
+
+        it = cache.keys()
+        for left in range(len(cache), 0, -1):
+            assert len(it) == left
+            next(it)
+
+        assert len(it) == 0
+
     def test_global_ttl_property(self):
         c = self.create_cache(10, global_ttl=5)
         assert c.global_ttl == 5
@@ -1020,6 +1078,21 @@ class TestTTLCachePolicy(mixins.SweepIntervalMixin):
 
         with pytest.raises(ValueError):
             c = self.create_cache(10, global_ttl=-1)
+
+    def test_iterator_len_skips_expired_item_behind_a_live_one(self):
+        cache = self.create_cache(global_ttl=1)
+
+        cache.insert("A", 1)
+        cache.insert("B", 2)
+        time.sleep(0.6)
+        cache.insert("A", 11)  # refreshed, but keeps its place in front of "B"
+        time.sleep(0.6)
+
+        # "B" is expired, but the sweep stops at the live "A" in front of it
+        assert len(cache) == 2
+
+        assert len(cache.keys()) == 1
+        assert list(cache.keys()) == ["A"]
 
     def test_global_ttl_with_iterable(self):
         c = self.create_cache(10, {"A": "B", "C": "D"}, global_ttl=1)
@@ -1507,6 +1580,20 @@ class TestVTTLCachePolicy(mixins.SweepIntervalMixin):
         c.insert("k", "v", ttl=0.1)
         time.sleep(0.15)
         assert "k" not in c
+
+    def test_iterator_len_skips_item_expired_after_creation(self):
+        c = self.create_cache()
+        c.insert("alive", 1, ttl=10)
+        c.insert("soon", 2, ttl=0.2)
+
+        it = c.keys()
+        assert len(it) == 2
+
+        time.sleep(0.25)
+        assert len(it) == 1
+
+        # asking for the length does not consume the iterator
+        assert list(it) == ["alive"]
 
     def test_expired_item_not_returned_by_get(self):
         c = self.create_cache()

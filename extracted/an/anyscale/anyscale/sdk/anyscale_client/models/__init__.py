@@ -90,6 +90,7 @@ from anyscale_client.models.create_production_job_config import CreateProduction
 from anyscale_client.models.create_project import CreateProject
 from anyscale_client.models.create_sso_config import CreateSSOConfig
 from anyscale_client.models.create_schedule import CreateSchedule
+from anyscale_client.models.event_level import EventLevel
 from anyscale_client.models.grpc_protocol_config import GrpcProtocolConfig
 from anyscale_client.models.http_validation_error import HTTPValidationError
 from anyscale_client.models.ha_job_goal_states import HaJobGoalStates
@@ -152,6 +153,10 @@ from anyscale_client.models.schedule_api_model import ScheduleAPIModel
 from anyscale_client.models.schedule_config import ScheduleConfig
 from anyscale_client.models.scheduleapimodel_list_response import ScheduleapimodelListResponse
 from anyscale_client.models.scheduleapimodel_response import ScheduleapimodelResponse
+from anyscale_client.models.scheduler_event_export import SchedulerEventExport
+from anyscale_client.models.scheduler_event_export_workload import SchedulerEventExportWorkload
+from anyscale_client.models.scheduler_event_type import SchedulerEventType
+from anyscale_client.models.schedulereventexport_list_response import SchedulereventexportListResponse
 from anyscale_client.models.service_config import ServiceConfig
 from anyscale_client.models.service_event_current_state import ServiceEventCurrentState
 from anyscale_client.models.service_goal_states import ServiceGoalStates
@@ -187,3 +192,4 @@ from anyscale_client.models.user_service_access_types import UserServiceAccessTy
 from anyscale_client.models.validation_error import ValidationError
 from anyscale_client.models.version_checklist import VersionChecklist
 from anyscale_client.models.worker_node_type import WorkerNodeType
+from anyscale_client.models.workload_type import WorkloadType

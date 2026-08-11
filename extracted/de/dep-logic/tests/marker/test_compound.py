@@ -55,6 +55,15 @@ def test_multi_marker_is_any() -> None:
     assert m2 & m1.is_any()
 
 
+def test_equality_marker_union_with_complement_is_any() -> None:
+    marker = parse_marker('os_name == "a" or os_name == "b" or os_name != "a"')
+
+    assert marker.is_any()
+    assert marker.evaluate({"os_name": "a"})
+    assert marker.evaluate({"os_name": "b"})
+    assert marker.evaluate({"os_name": "c"})
+
+
 def test_multi_marker_intersect_multi() -> None:
     m = parse_marker('sys_platform == "darwin" and implementation_name == "cpython"')
 
@@ -354,8 +363,7 @@ def test_marker_union_intersect_marker_union_drops_unnecessary_markers() -> None
 
     intersection = m & m2
     expected = (
-        'python_version >= "2.7" and python_version < "2.8" '
-        'or python_version ~= "3.4"'
+        'python_version >= "2.7" and python_version < "2.8" or python_version ~= "3.4"'
     )
     assert str(intersection) == expected
 

@@ -40,7 +40,7 @@ class AgentInstructions(BaseModel):
     system : str, optional
         System instructions for the agent.
     sample_questions : list[SampleQuestion], optional
-        Sample questions and optional answers for the agent.
+        Sample questions for the agent.
     """
 
     response: Optional[StrictStr] = None
@@ -144,7 +144,7 @@ class AgentInstructionsModel:
             System instructions for the agent.
 
         sample_questions : list[SampleQuestion], optional
-            Sample questions and optional answers for the agent.
+            Sample questions for the agent.
         """
         self.response = response
         self.orchestration = orchestration

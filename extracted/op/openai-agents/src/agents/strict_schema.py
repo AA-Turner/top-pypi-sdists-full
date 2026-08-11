@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import copy
-from typing import Any, TypeGuard
+from typing import Any, TypeGuard, cast
 
 from openai import NOT_GIVEN
 
@@ -20,6 +20,10 @@ _EMPTY_SCHEMA = {
 # example, tool schemas advertised by a third-party MCP server).
 _MAX_SCHEMA_NODES = 100_000
 
+# Keep recursive copying and normalization comfortably below Python's recursion limit. This
+# counts every nested dictionary or list, including schema maps such as `properties` and `$defs`.
+_MAX_SCHEMA_DEPTH = 100
+
 _ADDITIONAL_PROPERTIES_ERROR = (
     "additionalProperties should not be set for object types. This could be because "
     "you're using an older version of Pydantic, or because you configured additional "
@@ -27,12 +31,76 @@ _ADDITIONAL_PROPERTIES_ERROR = (
     "to not use a strict schema."
 )
 
+_OPEN_OBJECT_ERROR = (
+    "JSON schema contains an object that permits undeclared properties and cannot be converted "
+    "to a strict schema without changing its accepted values."
+)
+
+_UNVALIDATED_REF_ERROR = (
+    "JSON schema contains a reference whose target was not validated for strict mode."
+)
+_NESTED_RESOURCE_REF_ERROR = (
+    "JSON schema contains a reference owned by or crossing a nested `$id` resource that cannot "
+    "be resolved against the document root."
+)
+
+_SCHEMA_DEPTH_ERROR = (
+    "JSON schema is too deeply nested to process safely. Simplify or flatten the schema."
+)
+
+
+def _validate_json_schema_depth(schema: object) -> None:
+    """Reject container nesting that is unsafe for recursive schema processing."""
+    stack: list[tuple[object, int]] = [(schema, 1)]
+    while stack:
+        value, depth = stack.pop()
+        if depth > _MAX_SCHEMA_DEPTH:
+            raise UserError(_SCHEMA_DEPTH_ERROR)
+
+        if isinstance(value, dict):
+            stack.extend(
+                (child, depth + 1) for child in value.values() if isinstance(child, dict | list)
+            )
+        elif isinstance(value, list):
+            stack.extend((child, depth + 1) for child in value if isinstance(child, dict | list))
+
+
+def _copy_json_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    """Copy a JSON schema only after verifying recursive copying is safe."""
+    _validate_json_schema_depth(schema)
+    return copy.deepcopy(schema)
+
+
+# Keywords that may legally sit alongside a `$ref` without adding validation constraints.
+# Definition maps are also allowed because they do not directly constrain an instance.
+_REF_NON_CONSTRAINING_SIBLINGS = frozenset(
+    {
+        "$anchor",
+        "$comment",
+        "$defs",
+        "$schema",
+        "contentEncoding",
+        "contentMediaType",
+        "contentSchema",
+        "default",
+        "definitions",
+        "deprecated",
+        "description",
+        "examples",
+        "readOnly",
+        "title",
+        "writeOnly",
+    }
+)
+_ROOT_REF_NON_CONSTRAINING_SIBLINGS = _REF_NON_CONSTRAINING_SIBLINGS | {"$id"}
+
 
 class _NodeBudget:
-    """Tracks the remaining schema-node expansion budget across the recursion."""
+    """Tracks conversion state across the recursion."""
 
-    def __init__(self, limit: int) -> None:
+    def __init__(self, limit: int, *, reject_open_objects: bool = False) -> None:
         self.remaining = limit
+        self.reject_open_objects = reject_open_objects
 
     def spend(self) -> None:
         self.remaining -= 1
@@ -46,16 +114,24 @@ class _NodeBudget:
 
 def ensure_strict_json_schema(
     schema: dict[str, Any],
+    *,
+    _reject_open_objects: bool = False,
 ) -> dict[str, Any]:
     """Mutates the given JSON schema to ensure it conforms to the `strict` standard
     that the OpenAI API expects.
     """
+    _validate_json_schema_depth(schema)
     if schema == {}:
         return copy.deepcopy(_EMPTY_SCHEMA)
-    converted = _ensure_strict_json_schema(
-        schema, path=(), root=schema, budget=_NodeBudget(_MAX_SCHEMA_NODES)
+    budget = _NodeBudget(_MAX_SCHEMA_NODES, reject_open_objects=_reject_open_objects)
+    return _ensure_strict_root(
+        _ensure_strict_json_schema(
+            schema,
+            path=(),
+            root=schema,
+            budget=budget,
+        )
     )
-    return _ensure_strict_root(converted)
 
 
 def _ensure_strict_root(schema: dict[str, Any]) -> dict[str, Any]:
@@ -82,7 +158,12 @@ def _ensure_strict_json_schema(
     path: tuple[str, ...],
     root: dict[str, object],
     budget: _NodeBudget | None = None,
+    depth: int = 1,
+    inside_nested_resource: bool = False,
 ) -> dict[str, Any]:
+    if depth > _MAX_SCHEMA_DEPTH:
+        raise UserError(_SCHEMA_DEPTH_ERROR)
+
     if not is_dict(json_schema):
         raise TypeError(f"Expected {json_schema} to be a dictionary; path={path}")
 
@@ -91,12 +172,37 @@ def _ensure_strict_json_schema(
     if budget is None:
         budget = _NodeBudget(_MAX_SCHEMA_NODES)
     budget.spend()
+    next_depth = depth + 1
+    inside_nested_resource = inside_nested_resource or (
+        json_schema is not root and _declares_schema_resource(json_schema)
+    )
+
+    if "$ref" in json_schema:
+        if inside_nested_resource:
+            raise UserError(_NESTED_RESOURCE_REF_ERROR)
+        allowed_siblings = (
+            _ROOT_REF_NON_CONSTRAINING_SIBLINGS
+            if json_schema is root
+            else _REF_NON_CONSTRAINING_SIBLINGS
+        )
+        incompatible_siblings = set(json_schema) - {"$ref"} - allowed_siblings
+        if incompatible_siblings:
+            raise UserError(
+                "JSON schema contains a `$ref` with incompatible sibling keyword(s) "
+                f"({', '.join(sorted(incompatible_siblings))}) that cannot be merged "
+                "without changing its accepted values."
+            )
 
     defs = json_schema.get("$defs")
     if is_dict(defs):
         for def_name, def_schema in defs.items():
             _ensure_strict_json_schema(
-                def_schema, path=(*path, "$defs", def_name), root=root, budget=budget
+                def_schema,
+                path=(*path, "$defs", def_name),
+                root=root,
+                budget=budget,
+                depth=next_depth,
+                inside_nested_resource=inside_nested_resource,
             )
 
     definitions = json_schema.get("definitions")
@@ -107,6 +213,8 @@ def _ensure_strict_json_schema(
                 path=(*path, "definitions", definition_name),
                 root=root,
                 budget=budget,
+                depth=next_depth,
+                inside_nested_resource=inside_nested_resource,
             )
 
     typ = json_schema.get("type")
@@ -116,6 +224,14 @@ def _ensure_strict_json_schema(
     elif typ is None and json_schema.get("additionalProperties", False) is not False:
         raise UserError(_ADDITIONAL_PROPERTIES_ERROR)
     is_object = typ == "object" or (is_list(typ) and "object" in typ)
+    has_no_declared_properties = "properties" not in json_schema or properties == {}
+    if (
+        budget.reject_open_objects
+        and is_object
+        and has_no_declared_properties
+        and json_schema.get("additionalProperties") is not False
+    ):
+        raise UserError(_OPEN_OBJECT_ERROR)
     if is_object and "additionalProperties" not in json_schema:
         json_schema["additionalProperties"] = False
     elif (
@@ -134,7 +250,12 @@ def _ensure_strict_json_schema(
         json_schema["required"] = list(properties.keys())
         json_schema["properties"] = {
             key: _ensure_strict_json_schema(
-                prop_schema, path=(*path, "properties", key), root=root, budget=budget
+                prop_schema,
+                path=(*path, "properties", key),
+                root=root,
+                budget=budget,
+                depth=next_depth,
+                inside_nested_resource=inside_nested_resource,
             )
             for key, prop_schema in properties.items()
         }
@@ -144,7 +265,12 @@ def _ensure_strict_json_schema(
     items = json_schema.get("items")
     if is_dict(items):
         json_schema["items"] = _ensure_strict_json_schema(
-            items, path=(*path, "items"), root=root, budget=budget
+            items,
+            path=(*path, "items"),
+            root=root,
+            budget=budget,
+            depth=next_depth,
+            inside_nested_resource=inside_nested_resource,
         )
 
     # unions
@@ -152,7 +278,12 @@ def _ensure_strict_json_schema(
     if is_list(any_of):
         json_schema["anyOf"] = [
             _ensure_strict_json_schema(
-                variant, path=(*path, "anyOf", str(i)), root=root, budget=budget
+                variant,
+                path=(*path, "anyOf", str(i)),
+                root=root,
+                budget=budget,
+                depth=next_depth,
+                inside_nested_resource=inside_nested_resource,
             )
             for i, variant in enumerate(any_of)
         ]
@@ -167,7 +298,12 @@ def _ensure_strict_json_schema(
             existing_any_of = []
         json_schema["anyOf"] = existing_any_of + [
             _ensure_strict_json_schema(
-                variant, path=(*path, "oneOf", str(i)), root=root, budget=budget
+                variant,
+                path=(*path, "oneOf", str(i)),
+                root=root,
+                budget=budget,
+                depth=next_depth,
+                inside_nested_resource=inside_nested_resource,
             )
             for i, variant in enumerate(one_of)
         ]
@@ -177,17 +313,50 @@ def _ensure_strict_json_schema(
     all_of = json_schema.get("allOf")
     if is_list(all_of):
         if len(all_of) == 1:
-            json_schema.update(
-                _ensure_strict_json_schema(
-                    all_of[0], path=(*path, "allOf", "0"), root=root, budget=budget
+            entry = all_of[0]
+            if (
+                is_dict(entry)
+                and "$ref" in entry
+                and not (set(entry) - {"$ref"} - _REF_NON_CONSTRAINING_SIBLINGS)
+            ):
+                if inside_nested_resource:
+                    raise UserError(_NESTED_RESOURCE_REF_ERROR)
+                budget.spend()
+                strict_entry = _resolve_non_constraining_ref_chain(
+                    root=root,
+                    schema=entry,
+                    budget=budget,
                 )
-            )
+            else:
+                strict_entry = _ensure_strict_json_schema(
+                    entry,
+                    path=(*path, "allOf", "0"),
+                    root=root,
+                    budget=budget,
+                    depth=next_depth,
+                    inside_nested_resource=inside_nested_resource,
+                )
             json_schema.pop("allOf")
-            return _ensure_strict_json_schema(json_schema, path=path, root=root, budget=budget)
+            merged = _merge_single_all_of(entry=strict_entry, parent=json_schema)
+            json_schema.clear()
+            json_schema.update(merged)
+            return _ensure_strict_json_schema(
+                json_schema,
+                path=path,
+                root=root,
+                budget=budget,
+                depth=next_depth,
+                inside_nested_resource=inside_nested_resource,
+            )
         else:
             json_schema["allOf"] = [
                 _ensure_strict_json_schema(
-                    entry, path=(*path, "allOf", str(i)), root=root, budget=budget
+                    entry,
+                    path=(*path, "allOf", str(i)),
+                    root=root,
+                    budget=budget,
+                    depth=next_depth,
+                    inside_nested_resource=inside_nested_resource,
                 )
                 for i, entry in enumerate(all_of)
             ]
@@ -221,7 +390,17 @@ def _ensure_strict_json_schema(
         json_schema.update({**resolved, **json_schema})
         # Since the schema expanded from `$ref` might not have `additionalProperties: false` applied
         # we call `_ensure_strict_json_schema` again to fix the inlined schema and ensure it's valid
-        return _ensure_strict_json_schema(json_schema, path=path, root=root, budget=budget)
+        return _ensure_strict_json_schema(
+            json_schema,
+            path=path,
+            root=root,
+            budget=budget,
+            depth=next_depth,
+            inside_nested_resource=inside_nested_resource,
+        )
+
+    if budget.reject_open_objects and "$ref" in json_schema:
+        raise UserError(_UNVALIDATED_REF_ERROR)
 
     return json_schema
 
@@ -232,14 +411,107 @@ def resolve_ref(*, root: dict[str, object], ref: str) -> object:
 
     path = ref[2:].split("/")
     resolved = root
-    for key in path:
+    for raw_key in path:
+        key = raw_key.replace("~1", "/").replace("~0", "~")
         value = resolved[key]
         assert is_dict(value), (
             f"encountered non-dictionary entry while resolving {ref} - {resolved}"
         )
         resolved = value
+        if _declares_schema_resource(resolved):
+            raise UserError(_NESTED_RESOURCE_REF_ERROR)
 
     return resolved
+
+
+def _declares_schema_resource(schema: dict[str, object]) -> bool:
+    return isinstance(schema.get("$id"), str)
+
+
+def _resolve_non_constraining_ref_chain(
+    *,
+    root: dict[str, object],
+    schema: dict[str, Any],
+    budget: _NodeBudget,
+) -> dict[str, Any]:
+    resolved = schema
+    seen_refs: set[str] = set()
+    carried_siblings: dict[str, Any] = {}
+    while True:
+        if "$ref" not in resolved:
+            break
+        if set(resolved) - {"$ref"} - _REF_NON_CONSTRAINING_SIBLINGS:
+            break
+
+        ref = resolved["$ref"]
+        assert isinstance(ref, str), f"Received non-string $ref - {ref}"
+        if ref in seen_refs:
+            raise UserError("JSON schema contains a circular `$ref` chain.")
+        seen_refs.add(ref)
+
+        carried_siblings = {
+            **{key: value for key, value in resolved.items() if key != "$ref"},
+            **carried_siblings,
+        }
+        budget.spend()
+        target = resolve_ref(root=root, ref=ref)
+        if not is_dict(target):
+            raise ValueError(f"Expected `$ref: {ref}` to resolved to a dictionary but got {target}")
+        resolved = target
+    return {**resolved, **carried_siblings}
+
+
+def _merge_single_all_of(
+    *,
+    entry: dict[str, Any],
+    parent: dict[str, Any],
+) -> dict[str, Any]:
+    merged = dict(entry)
+    incompatible_overlaps: list[str] = []
+    for key, parent_value in parent.items():
+        if key not in merged:
+            merged[key] = parent_value
+        elif key in _REF_NON_CONSTRAINING_SIBLINGS:
+            merged[key] = parent_value
+        elif _json_values_equal(parent_value, merged[key]):
+            continue
+        elif (key == "properties" and parent_value == {}) or (
+            key == "required" and parent_value == []
+        ):
+            continue
+        else:
+            incompatible_overlaps.append(key)
+
+    if incompatible_overlaps:
+        raise UserError(
+            "JSON schema contains a singleton `allOf` entry with incompatible parent "
+            f"keyword(s) ({', '.join(sorted(incompatible_overlaps))}) that cannot be merged "
+            "without changing its accepted values."
+        )
+    return merged
+
+
+def _json_values_equal(left: Any, right: Any) -> bool:
+    if isinstance(left, bool) or isinstance(right, bool):
+        return type(left) is type(right) and left == right
+    if isinstance(left, int | float) and isinstance(right, int | float):
+        return left == right
+    if isinstance(left, list) or isinstance(right, list):
+        if not isinstance(left, list) or not isinstance(right, list):
+            return False
+        return len(left) == len(right) and all(
+            _json_values_equal(left_item, right_item)
+            for left_item, right_item in zip(left, right, strict=False)
+        )
+    if isinstance(left, dict) or isinstance(right, dict):
+        if not isinstance(left, dict) or not isinstance(right, dict):
+            return False
+        return left.keys() == right.keys() and all(
+            _json_values_equal(left[key], right[key]) for key in left
+        )
+    if type(left) is not type(right):
+        return False
+    return cast(bool, left == right)
 
 
 def is_dict(obj: object) -> TypeGuard[dict[str, object]]:

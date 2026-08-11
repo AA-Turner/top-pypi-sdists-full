@@ -1,20 +1,83 @@
 import atexit
+import contextlib
 import logging
+import multiprocessing
+import sys
 import tempfile
 import threading
+import warnings
 
 import os.path
 
-from typing import Union, Optional
+from typing import Iterator, Union, Optional, TYPE_CHECKING
 
 from datetime import datetime
 from logging.handlers import QueueHandler
+from multiprocessing.context import BaseContext
 from multiprocessing.managers import SyncManager, RemoteError
 
 from siliconcompiler.utils.settings import SettingsManager
 from siliconcompiler.utils import default_sc_path, default_sc_system_path
 
 from siliconcompiler.report.dashboard.cli.board import Board
+
+if TYPE_CHECKING:
+    from siliconcompiler.package.cache import PathCache
+
+
+def get_process_context() -> BaseContext:
+    """Returns the multiprocessing context used to launch scheduler workers.
+
+    SiliconCompiler launches node workers and the run-check pool by handing
+    them an already-configured, non-picklable object graph (the node with its
+    log pipe attached, inherited logger handlers, etc.) and expects unguarded
+    module-level ``proj.run()`` scripts to work. Both of those require the
+    ``fork`` start method: ``spawn``/``forkserver`` re-import ``__main__`` (so
+    an unguarded script recurses into the bootstrapping error) and cannot
+    inherit the pre-attached pipe.
+
+    We therefore pin ``fork`` explicitly on Linux rather than relying on the
+    interpreter default, which changed to ``forkserver`` in Python 3.14.
+
+    Everywhere else we pin ``spawn``. Note this is deliberately keyed on the
+    platform, not on ``"fork" in get_all_start_methods()``: fork *is* available
+    on macOS, but it is unsafe there with threads (SC runs a logging
+    ``QueueListener`` and the dashboard board on threads), which is why CPython
+    itself defaults macOS to ``spawn``. Windows has no fork at all. On those
+    platforms callers must guard scripts with ``if __name__ == "__main__"``, as
+    has always been required.
+    """
+    if sys.platform.startswith("linux"):
+        return multiprocessing.get_context("fork")
+    return multiprocessing.get_context("spawn")
+
+
+@contextlib.contextmanager
+def forking() -> Iterator[None]:
+    """Context manager wrapping a deliberate ``fork`` of the current process.
+
+    SiliconCompiler pins the ``fork`` start method on Linux (see
+    :func:`get_process_context`) while running a logging ``QueueListener`` and
+    the dashboard board on threads. Every worker launch (and every ``pty.fork``
+    used to run a tool under a pseudo-terminal) therefore trips CPython's "This
+    process is multi-threaded, use of fork()/forkpty() may lead to deadlocks in
+    the child" ``DeprecationWarning`` (emitted by ``os.fork``/``os.forkpty``
+    since Python 3.12). The fork paths are deliberately engineered to be
+    fork-safe (workers fork-then-run carefully; the pty child immediately
+    ``execvp``s), so silence that warning at the point of the fork rather than
+    leaking it onto downstream users' consoles or forcing them to configure a
+    global filter.
+
+    Only the fork-with-threads warning is suppressed; any other warning raised
+    while forking still propagates.
+    """
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=r".* is multi-threaded, use of fork(pty)?\(\) may lead to deadlocks "
+                    r"in the child",
+            category=DeprecationWarning)
+        yield
 
 
 class _ManagerSingleton(type):
@@ -79,14 +142,21 @@ class _ManagerSingleton(type):
         If an instance of the class does not already exist, it creates one
         and stores it. Subsequent calls will return the existing instance.
         A special '_init_singleton' method is called on the first creation.
+
+        The instance is registered only once ``_init_singleton`` has finished.
+        The outer ``has_cls`` check deliberately skips the lock, so publishing
+        any earlier would hand a half-built instance to a second thread while
+        the first is still inside ``_init_singleton`` -- which, for
+        :class:`MPManager`, spends that time launching a manager process, a
+        wide window in which every attribute is still missing.
         """
         if not _ManagerSingleton.has_cls(cls):
             with _ManagerSingleton._lock:
                 if cls not in _ManagerSingleton._instances:
                     instance = super(_ManagerSingleton, cls).__call__(*args, **kwargs)
-                    _ManagerSingleton._instances[cls] = instance
                     # Custom initializer for the singleton instance
                     instance._init_singleton()
+                    _ManagerSingleton._instances[cls] = instance
         return _ManagerSingleton._instances[cls]
 
 
@@ -141,8 +211,14 @@ class MPManager(metaclass=_ManagerSingleton):
                 self.__logger.warning("Manager address file not found; falling back to server mode")
                 is_server = True  # fall back to create new manager
         if is_server:
-            self.__manager = SyncManager(authkey=MPManager.__authkey)
-            self.__manager.start()
+            # Pin the start method for the manager's server process: its
+            # start() launches a process, and under the Python 3.14 default
+            # (forkserver) that re-imports __main__ and breaks unguarded
+            # module-level proj.run() scripts. See get_process_context().
+            self.__manager = SyncManager(authkey=MPManager.__authkey,
+                                         ctx=get_process_context())
+            with forking():
+                self.__manager.start()
             MPManager._set_manager_address(self.__manager.address)
             self.__manager_server = True
 
@@ -155,6 +231,12 @@ class MPManager(metaclass=_ManagerSingleton):
             default_sc_path("settings.json"), self.__logger,
             system_filepath=default_sc_system_path())
         self.__transient_settings = SettingsManager(None, self.__logger)
+
+        # Cache of paths that data sources have resolved to. Imported here rather
+        # than at module scope: siliconcompiler.package imports this module, so a
+        # top-level import would close a cycle.
+        from siliconcompiler.package.cache import PathCache
+        self.__path_cache = PathCache()
 
         # Register cleanup function to run at exit
         atexit.register(MPManager.stop)
@@ -302,6 +384,20 @@ class MPManager(metaclass=_ManagerSingleton):
             SettingsManager: The singleton transient settings instance.
         """
         return MPManager().__transient_settings
+
+    @staticmethod
+    def get_path_cache() -> "PathCache":
+        """
+        Provides access to the shared cache of resolved data source paths.
+
+        There is one cache per process. Entries are keyed by a content hash of a
+        data source's URI and reference, so a single cache serves every project,
+        library and design in the process without them colliding.
+
+        Returns:
+            PathCache: The singleton path cache instance.
+        """
+        return MPManager().__path_cache
 
     @staticmethod
     def get_dashboard() -> Board:

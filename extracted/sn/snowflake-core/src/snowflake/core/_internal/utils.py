@@ -3,7 +3,7 @@ import functools
 import os
 import warnings
 
-from re import compile
+from re import compile, sub
 from typing import TYPE_CHECKING, Callable, Optional, TypeVar, Union
 
 from typing_extensions import ParamSpec
@@ -97,6 +97,34 @@ def normalize_name(name: str) -> str:
         return validate_quoted_name(name)
     elif UNQUOTED_CASE_INSENSITIVE.match(name):
         return escape_quotes(name.upper())
+    else:
+        return DOUBLE_QUOTE + escape_quotes(name) + DOUBLE_QUOTE
+
+
+def quote_name(name: str, keep_case: bool = False) -> str:
+    """Quote a name if it is not already quoted.
+
+    Produces a normalized quoted identifier so that two strings that refer to the same Snowflake
+    identifier map to the same result.
+
+    Parameters
+    ----------
+    name : str
+        Identifier text, either unquoted (case-insensitive or requiring quotes) or already quoted.
+    keep_case : bool, default False
+        If ``True``, unquoted simple identifiers are quoted without uppercasing. If ``False``,
+        unquoted case-insensitive identifiers are uppercased before quoting, matching Snowflake's
+        default for unquoted names.
+
+    Returns
+    -------
+    str
+        A double-quoted Snowflake identifier string.
+    """
+    if ALREADY_QUOTED.match(name):
+        return validate_quoted_name(name)
+    elif UNQUOTED_CASE_INSENSITIVE.match(name) and not keep_case:
+        return DOUBLE_QUOTE + escape_quotes(name.upper()) + DOUBLE_QUOTE
     else:
         return DOUBLE_QUOTE + escape_quotes(name) + DOUBLE_QUOTE
 
@@ -196,7 +224,25 @@ SNOWFLAKE_PATH_PREFIXES = [STAGE_PREFIX, SNOWURL_PREFIX]
 
 
 def is_single_quoted(name: str) -> bool:
-    return name.startswith("'") and name.endswith("'") and len(name) >= 2
+    r"""Return True only when *name* is a properly-formed single-quoted string.
+
+    A string is considered properly-formed when it starts and ends with ``'``
+    and its inner content contains no *unescaped* single quote.
+    """
+    if not (name.startswith("'") and name.endswith("'") and len(name) >= 2):
+        return False
+    inner = name[1:-1]
+    i = 0
+    while i < len(inner):
+        if inner[i] == "\\":
+            i += 2  # backslash escapes the next character; skip both
+        elif inner[i] == "'":
+            return False  # unescaped quote — not a valid single-quoted literal
+        else:
+            i += 1
+    # If i > len(inner) the trailing backslash consumed the closing quote,
+    # meaning the SQL string was never properly closed.
+    return i == len(inner)
 
 
 def normalize_path(path: str, is_local: bool) -> str:
@@ -204,15 +250,20 @@ def normalize_path(path: str, is_local: bool) -> str:
 
     If there are any special characters including spaces in the path, it needs to be
     quoted with single quote. For example, 'file:///tmp/load data' for a path containing
-    a directory named "load data". Therefore, if `path` is already wrapped by single quotes,
-    we do nothing.
+    a directory named "load data".
+
+    If there are unescaped single quotes in the path, they are escaped with a backslash.
     """
     prefixes = ["file://"] if is_local else SNOWFLAKE_PATH_PREFIXES
     if is_single_quoted(path):
         return path
     if is_local and OPERATING_SYSTEM == "Windows":
         path = path.replace("\\", "/")
-    path = path.strip().replace("'", "\\'")
+    path = path.strip()
+    path = sub(
+        r"\\+(?=')", lambda m: m.group() * 2, path
+    )  # double any run of backslashes only when they immediately precede a single quote
+    path = path.replace("'", "\\'")
     if not any(path.startswith(prefix) for prefix in prefixes):
         path = f"{prefixes[0]}{path}"
     return f"'{path}'"
@@ -299,3 +350,21 @@ def put_file(
                 + f"OVERWRITE = {overwrite};"
             )
             cur.fetchall()  # Make sure no errors were raised
+
+
+class StrEnum(str, enum.Enum):
+    """String-valued :class:`enum.Enum` members that behave like :class:`str`.
+
+    Notes
+    -----
+    Mirrors :class:`enum.StrEnum` from the standard library (Python 3.11 and later) for
+    environments on older interpreters.
+    """
+
+    def __str__(self) -> str:
+        """Return the member's string value."""
+        return self.value
+
+    def __repr__(self) -> str:
+        """Return the member's string value (same as :meth:`__str__`)."""
+        return self.value

@@ -10,7 +10,8 @@ from tests.utils import random_string
 
 def test_swap(tables, temp_db):
     table1_name = random_string(10, "test_table_")
-    table2_name = random_string(10, "test_table_")
+    # Quoted identifier containing the &, # and = special characters
+    table2_name = random_string(10, prefix='"test_table_&#=_', suffix='"')
     test_table1_handle = tables[table1_name]
     test_table2_handle = tables[table2_name]
 

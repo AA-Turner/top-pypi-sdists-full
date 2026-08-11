@@ -321,6 +321,53 @@ typing.cast(typing.Any, IReplicationGroupRef).__jsii_proxy_class__ = lambda : _I
 
 
 @jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_elasticache.IReservedCacheNodeRef"
+)
+class IReservedCacheNodeRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ReservedCacheNode.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="reservedCacheNodeRef")
+    def reserved_cache_node_ref(self) -> "ReservedCacheNodeReference":
+        '''(experimental) A reference to a ReservedCacheNode resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IReservedCacheNodeRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ReservedCacheNode.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_elasticache.IReservedCacheNodeRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="reservedCacheNodeRef")
+    def reserved_cache_node_ref(self) -> "ReservedCacheNodeReference":
+        '''(experimental) A reference to a ReservedCacheNode resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ReservedCacheNodeReference", jsii.get(self, "reservedCacheNodeRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IReservedCacheNodeRef).__jsii_proxy_class__ = lambda : _IReservedCacheNodeRefProxy
+
+
+@jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_elasticache.ISecurityGroupIngressRef"
 )
 class ISecurityGroupIngressRef(
@@ -691,6 +738,55 @@ class ReplicationGroupReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_elasticache.ReservedCacheNodeReference",
+    jsii_struct_bases=[],
+    name_mapping={"reservation_arn": "reservationArn"},
+)
+class ReservedCacheNodeReference:
+    def __init__(self, *, reservation_arn: builtins.str) -> None:
+        '''A reference to a ReservedCacheNode resource.
+
+        :param reservation_arn: The ReservationARN of the ReservedCacheNode resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_elasticache as interfaces_elasticache
+            
+            reserved_cache_node_reference = interfaces_elasticache.ReservedCacheNodeReference(
+                reservation_arn="reservationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7af9f8bab1e46f57d3a405647c01f4923ad259b6c850a7378991bf6e12fc59a8)
+            check_type(argname="argument reservation_arn", value=reservation_arn, expected_type=type_hints["reservation_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "reservation_arn": reservation_arn,
+        }
+
+    @builtins.property
+    def reservation_arn(self) -> builtins.str:
+        '''The ReservationARN of the ReservedCacheNode resource.'''
+        result = self._values.get("reservation_arn")
+        assert result is not None, "Required property 'reservation_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ReservedCacheNodeReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_elasticache.SecurityGroupIngressReference",
     jsii_struct_bases=[],
     name_mapping={"security_group_ingress_id": "securityGroupIngressId"},
@@ -1037,6 +1133,7 @@ __all__ = [
     "IGlobalReplicationGroupRef",
     "IParameterGroupRef",
     "IReplicationGroupRef",
+    "IReservedCacheNodeRef",
     "ISecurityGroupIngressRef",
     "ISecurityGroupRef",
     "IServerlessCacheRef",
@@ -1045,6 +1142,7 @@ __all__ = [
     "IUserRef",
     "ParameterGroupReference",
     "ReplicationGroupReference",
+    "ReservedCacheNodeReference",
     "SecurityGroupIngressReference",
     "SecurityGroupReference",
     "ServerlessCacheReference",
@@ -1079,6 +1177,13 @@ def _typecheckingstub__1eca65ea880b260aad6464c837598920044ffd8da7d0d1fef38a23c3e
 def _typecheckingstub__ac21f93e3244bf3b28faf92f749d98bf4a6f689a52cbf892b72ae014468205da(
     *,
     replication_group_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7af9f8bab1e46f57d3a405647c01f4923ad259b6c850a7378991bf6e12fc59a8(
+    *,
+    reservation_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1128,5 +1233,5 @@ def _typecheckingstub__0f5266f1a03ff8c36e332d77e256f7bd512f4776df1f9ef4e242fbab2
     """Type checking stubs"""
     pass
 
-for cls in [ICacheClusterRef, IGlobalReplicationGroupRef, IParameterGroupRef, IReplicationGroupRef, ISecurityGroupIngressRef, ISecurityGroupRef, IServerlessCacheRef, ISubnetGroupRef, IUserGroupRef, IUserRef]:
+for cls in [ICacheClusterRef, IGlobalReplicationGroupRef, IParameterGroupRef, IReplicationGroupRef, IReservedCacheNodeRef, ISecurityGroupIngressRef, ISecurityGroupRef, IServerlessCacheRef, ISubnetGroupRef, IUserGroupRef, IUserRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

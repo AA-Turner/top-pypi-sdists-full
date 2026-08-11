@@ -3,7 +3,7 @@ from contextlib import contextmanager
 import os
 import sys
 import time
-from typing import List, Optional
+from typing import Any, List, Optional, TextIO
 
 from botocore.exceptions import ClientError
 import click
@@ -19,6 +19,57 @@ from anyscale.utils.imports.gcp import try_import_gcp_exceptions
 
 
 _process_start_time = time.time()
+
+# Opt-in stream selection for informational output; see `BlockLogger`.
+LOG_STREAM_ENV_VAR = "ANYSCALE_LOG_STREAM"
+LOG_STREAM_STDOUT = "stdout"
+LOG_STREAM_STDERR = "stderr"
+
+# Mirrors `OutputFormat.JSON`/`YAML`; importing it here would cycle through
+# `commands/output_format.py` -> `anyscale.util` -> this module.
+_MACHINE_READABLE_FORMATS = frozenset({"json", "yaml"})
+
+# No shared registry: every command names its own. `old_format` selects a legacy
+# JSON-printing path; bare `format`/`yaml` are unbound today but listed for symmetry.
+_OUTPUT_FORMAT_PARAM_NAMES = (
+    "format",
+    "format_",
+    "json",
+    "json_output",
+    "old_format",
+    "output",
+    "output_format",
+    "output_json",
+    "show_json",
+    "yaml",
+    "yaml_output",
+)
+
+
+def _selects_machine_readable_format(value: Any) -> bool:
+    # Flags arrive as `True`; `-o`/`--format` carry the name. `-o` is a destination file
+    # for `anyscale cloud get`, but a path never equals a bare format name.
+    if value is True:
+        return True
+    return isinstance(value, str) and value.strip().lower() in _MACHINE_READABLE_FORMATS
+
+
+def structured_output_selected() -> bool:
+    """Whether the running command is writing a machine-readable payload to stdout.
+
+    Read off the live Click params so no command needs a call site; parents are walked
+    because the root group declares `--json` too.
+    """
+    # Annotated because `silent=True` makes this Optional only in newer click stubs.
+    ctx: Optional[click.Context] = click.get_current_context(silent=True)
+    while ctx is not None:
+        if any(
+            _selects_machine_readable_format(ctx.params.get(name))
+            for name in _OUTPUT_FORMAT_PARAM_NAMES
+        ):
+            return True
+        ctx = ctx.parent
+    return False
 
 
 def bold(text: str, color: Optional[int] = None) -> str:
@@ -76,6 +127,9 @@ class BlockLogger:
     Logger class for the CLI. Supports formatting in blocks if `block_label` is provided to
     the methods. Also supports anyscale.connect style logging if `block_label` is not
     provided.
+
+    Informational output goes to stderr, or stdout with `ANYSCALE_LOG_STREAM=stdout`.
+    Warnings, errors, debug, and output alongside a machine-readable payload never move.
     """
 
     def __init__(
@@ -90,6 +144,21 @@ class BlockLogger:
         self.current_block: Optional[str] = None
         self.spinner_manager = spinner_manager
         self.indent_level: int = 0
+
+    def _use_stdout(self) -> bool:
+        """Whether informational output should go to stdout instead of stderr."""
+        if structured_output_selected():
+            return False
+        stream = os.environ.get(LOG_STREAM_ENV_VAR, LOG_STREAM_STDERR)
+        # Anything unrecognized falls back to stderr rather than raising: this runs on
+        # every log line, so a typo must not take down the command.
+        return stream.strip().lower() == LOG_STREAM_STDOUT
+
+    @property
+    def _out(self) -> TextIO:
+        # Resolved on every access, never cached, so that `redirect_stdout`/
+        # `redirect_stderr` and a variable exported after `import anyscale` both work.
+        return sys.stdout if self._use_stdout() else sys.stderr
 
     def open_block(
         self, block_label: str, block_title: Optional[str] = None, auto_close=False
@@ -111,7 +180,8 @@ class BlockLogger:
         self.current_block = block_label
         print(
             f"{colorama.Style.BRIGHT}{colorama.Fore.CYAN}{block_title if block_title else block_label}{colorama.Style.RESET_ALL}",
-            file=sys.stderr,
+            file=self._out,
+            flush=True,
         )
 
     def close_block(self, block_label: Optional[str] = None) -> None:
@@ -128,7 +198,7 @@ class BlockLogger:
                 self.current_block == block_label
             ), f"Attempting to close block {block_label}, but block {self.current_block} is currently open."
         self.current_block = None
-        print(file=sys.stderr)
+        print(file=self._out, flush=True)
 
     @staticmethod
     def highlight(text: str) -> str:
@@ -142,15 +212,16 @@ class BlockLogger:
     ) -> None:
         if not self.log_output:
             return
+        # Resolved once because a record is up to three prints, and re-resolving could
+        # split one line across streams. The last print flushes: piped stdout buffers.
+        stream = self._out
         if block_label:
             # Check block_label if provided.
             assert (
                 self.current_block == block_label
             ), f"Attempting to log to block {block_label}, but block {self.current_block} is currently open."
-            print(INDENT * self.indent_level, end="", file=sys.stderr)
-            print(
-                *msg, file=sys.stderr,
-            )
+            print(INDENT * self.indent_level, end="", file=stream)
+            print(*msg, file=stream, flush=True)
         else:
             print(
                 "{}{}(anyscale +{}){} ".format(
@@ -160,17 +231,17 @@ class BlockLogger:
                     colorama.Style.RESET_ALL,
                 ),
                 end="",
-                file=sys.stderr,
+                file=stream,
             )
-            print(INDENT * self.indent_level, end="", file=sys.stderr)
-            print(
-                *msg, file=sys.stderr, end=end,
-            )
+            print(INDENT * self.indent_level, end="", file=stream)
+            print(*msg, file=stream, end=end, flush=True)
 
     def debug(self, *msg: str) -> None:
         if not self.log_output:
             return
         if os.environ.get("ANYSCALE_DEBUG") == "1":
+            # Bypasses `_out`: ANYSCALE_DEBUG is often set alongside `-o json`, and
+            # debug on stdout corrupts the payload even for an unrecognized format flag.
             print(
                 "{}{}(anyscale +{}){} ".format(
                     colorama.Style.DIM,
@@ -179,9 +250,10 @@ class BlockLogger:
                     colorama.Style.RESET_ALL,
                 ),
                 end="",
+                file=sys.stderr,
             )
             print(INDENT * self.indent_level, end="", file=sys.stderr)
-            print(*msg)
+            print(*msg, file=sys.stderr)
 
     def warning(self, *msg: str) -> None:
         if not self.log_output:
@@ -280,7 +352,7 @@ class BlockLogger:
                 # work without capturing the spinner as well
                 pass
         """
-        console = Console(stderr=True)
+        console = Console(stderr=not self._use_stdout())
         status = Status(msg, spinner="dots", console=console)
         spinner_manager = SpinnerManager(status, initial_text=msg)
         try:

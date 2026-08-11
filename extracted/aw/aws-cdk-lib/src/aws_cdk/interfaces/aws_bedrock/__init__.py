@@ -553,6 +553,55 @@ class DataSourceReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrock.DefaultPromptRouterReference",
+    jsii_struct_bases=[],
+    name_mapping={"prompt_router_arn": "promptRouterArn"},
+)
+class DefaultPromptRouterReference:
+    def __init__(self, *, prompt_router_arn: builtins.str) -> None:
+        '''A reference to a DefaultPromptRouter resource.
+
+        :param prompt_router_arn: The PromptRouterArn of the DefaultPromptRouter resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrock as interfaces_bedrock
+            
+            default_prompt_router_reference = interfaces_bedrock.DefaultPromptRouterReference(
+                prompt_router_arn="promptRouterArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3b8bdad02d1b5cc9a4bf951f93a4b405a36e8d220593374921bd219e4b4148ae)
+            check_type(argname="argument prompt_router_arn", value=prompt_router_arn, expected_type=type_hints["prompt_router_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "prompt_router_arn": prompt_router_arn,
+        }
+
+    @builtins.property
+    def prompt_router_arn(self) -> builtins.str:
+        '''The PromptRouterArn of the DefaultPromptRouter resource.'''
+        result = self._values.get("prompt_router_arn")
+        assert result is not None, "Required property 'prompt_router_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DefaultPromptRouterReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_bedrock.EnforcedGuardrailConfigurationReference",
     jsii_struct_bases=[],
     name_mapping={"config_id": "configId"},
@@ -1302,6 +1351,51 @@ class _IDataSourceRefProxy(
 typing.cast(typing.Any, IDataSourceRef).__jsii_proxy_class__ = lambda : _IDataSourceRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_bedrock.IDefaultPromptRouterRef")
+class IDefaultPromptRouterRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DefaultPromptRouter.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="defaultPromptRouterRef")
+    def default_prompt_router_ref(self) -> "DefaultPromptRouterReference":
+        '''(experimental) A reference to a DefaultPromptRouter resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDefaultPromptRouterRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DefaultPromptRouter.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrock.IDefaultPromptRouterRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="defaultPromptRouterRef")
+    def default_prompt_router_ref(self) -> "DefaultPromptRouterReference":
+        '''(experimental) A reference to a DefaultPromptRouter resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("DefaultPromptRouterReference", jsii.get(self, "defaultPromptRouterRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDefaultPromptRouterRef).__jsii_proxy_class__ = lambda : _IDefaultPromptRouterRefProxy
+
+
 @jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_bedrock.IEnforcedGuardrailConfigurationRef"
 )
@@ -1625,6 +1719,51 @@ class _IIntelligentPromptRouterRefProxy(
 typing.cast(typing.Any, IIntelligentPromptRouterRef).__jsii_proxy_class__ = lambda : _IIntelligentPromptRouterRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_bedrock.IKnowledgeBasePolicyRef")
+class IKnowledgeBasePolicyRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a KnowledgeBasePolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="knowledgeBasePolicyRef")
+    def knowledge_base_policy_ref(self) -> "KnowledgeBasePolicyReference":
+        '''(experimental) A reference to a KnowledgeBasePolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IKnowledgeBasePolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a KnowledgeBasePolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrock.IKnowledgeBasePolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="knowledgeBasePolicyRef")
+    def knowledge_base_policy_ref(self) -> "KnowledgeBasePolicyReference":
+        '''(experimental) A reference to a KnowledgeBasePolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("KnowledgeBasePolicyReference", jsii.get(self, "knowledgeBasePolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IKnowledgeBasePolicyRef).__jsii_proxy_class__ = lambda : _IKnowledgeBasePolicyRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_bedrock.IKnowledgeBaseRef")
 class IKnowledgeBaseRef(
     _constructs_77d1e7e8.IConstruct,
@@ -1668,6 +1807,51 @@ class _IKnowledgeBaseRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IKnowledgeBaseRef).__jsii_proxy_class__ = lambda : _IKnowledgeBaseRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_bedrock.IModelInvocationJobRef")
+class IModelInvocationJobRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ModelInvocationJob.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="modelInvocationJobRef")
+    def model_invocation_job_ref(self) -> "ModelInvocationJobReference":
+        '''(experimental) A reference to a ModelInvocationJob resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IModelInvocationJobRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ModelInvocationJob.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrock.IModelInvocationJobRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="modelInvocationJobRef")
+    def model_invocation_job_ref(self) -> "ModelInvocationJobReference":
+        '''(experimental) A reference to a ModelInvocationJob resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ModelInvocationJobReference", jsii.get(self, "modelInvocationJobRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IModelInvocationJobRef).__jsii_proxy_class__ = lambda : _IModelInvocationJobRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_bedrock.IPromptRef")
@@ -1855,6 +2039,55 @@ class IntelligentPromptRouterReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrock.KnowledgeBasePolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"knowledge_base_id": "knowledgeBaseId"},
+)
+class KnowledgeBasePolicyReference:
+    def __init__(self, *, knowledge_base_id: builtins.str) -> None:
+        '''A reference to a KnowledgeBasePolicy resource.
+
+        :param knowledge_base_id: The KnowledgeBaseId of the KnowledgeBasePolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrock as interfaces_bedrock
+            
+            knowledge_base_policy_reference = interfaces_bedrock.KnowledgeBasePolicyReference(
+                knowledge_base_id="knowledgeBaseId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__27cdecb28f0b4e0486de8a40f76b425eae7d8f34678b405aad2315f9c459552f)
+            check_type(argname="argument knowledge_base_id", value=knowledge_base_id, expected_type=type_hints["knowledge_base_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "knowledge_base_id": knowledge_base_id,
+        }
+
+    @builtins.property
+    def knowledge_base_id(self) -> builtins.str:
+        '''The KnowledgeBaseId of the KnowledgeBasePolicy resource.'''
+        result = self._values.get("knowledge_base_id")
+        assert result is not None, "Required property 'knowledge_base_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "KnowledgeBasePolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_bedrock.KnowledgeBaseReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -1918,6 +2151,55 @@ class KnowledgeBaseReference:
 
     def __repr__(self) -> str:
         return "KnowledgeBaseReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrock.ModelInvocationJobReference",
+    jsii_struct_bases=[],
+    name_mapping={"job_arn": "jobArn"},
+)
+class ModelInvocationJobReference:
+    def __init__(self, *, job_arn: builtins.str) -> None:
+        '''A reference to a ModelInvocationJob resource.
+
+        :param job_arn: The JobArn of the ModelInvocationJob resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrock as interfaces_bedrock
+            
+            model_invocation_job_reference = interfaces_bedrock.ModelInvocationJobReference(
+                job_arn="jobArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b4f8ac53a13ca0f875a24e308193dc76c56b18f28f06f17dfd9140c97ed7e2d9)
+            check_type(argname="argument job_arn", value=job_arn, expected_type=type_hints["job_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "job_arn": job_arn,
+        }
+
+    @builtins.property
+    def job_arn(self) -> builtins.str:
+        '''The JobArn of the ModelInvocationJob resource.'''
+        result = self._values.get("job_arn")
+        assert result is not None, "Required property 'job_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ModelInvocationJobReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -2079,6 +2361,7 @@ __all__ = [
     "DataAutomationLibraryReference",
     "DataAutomationProjectReference",
     "DataSourceReference",
+    "DefaultPromptRouterReference",
     "EnforcedGuardrailConfigurationReference",
     "FlowAliasReference",
     "FlowReference",
@@ -2094,6 +2377,7 @@ __all__ = [
     "IDataAutomationLibraryRef",
     "IDataAutomationProjectRef",
     "IDataSourceRef",
+    "IDefaultPromptRouterRef",
     "IEnforcedGuardrailConfigurationRef",
     "IFlowAliasRef",
     "IFlowRef",
@@ -2101,12 +2385,16 @@ __all__ = [
     "IGuardrailRef",
     "IGuardrailVersionRef",
     "IIntelligentPromptRouterRef",
+    "IKnowledgeBasePolicyRef",
     "IKnowledgeBaseRef",
+    "IModelInvocationJobRef",
     "IPromptRef",
     "IPromptVersionRef",
     "IResourcePolicyRef",
     "IntelligentPromptRouterReference",
+    "KnowledgeBasePolicyReference",
     "KnowledgeBaseReference",
+    "ModelInvocationJobReference",
     "PromptReference",
     "PromptVersionReference",
     "ResourcePolicyReference",
@@ -2182,6 +2470,13 @@ def _typecheckingstub__e0bf2d83e4541e1c43cb719782e1cec816e4258b1bd773390292a218e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3b8bdad02d1b5cc9a4bf951f93a4b405a36e8d220593374921bd219e4b4148ae(
+    *,
+    prompt_router_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e6b6e39b764d1f392b946ac8eecf3bd356bf238c7e0baf7aa49a9f780071f243(
     *,
     config_id: builtins.str,
@@ -2234,10 +2529,24 @@ def _typecheckingstub__38a40ff6e0abe9dc6f7aade274b0120c2e6f40eee77f6758ec3f0558d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__27cdecb28f0b4e0486de8a40f76b425eae7d8f34678b405aad2315f9c459552f(
+    *,
+    knowledge_base_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b94f3e512cb504adcdb57798a5a24eb1317d023c697a912239afbe89bab2685a(
     *,
     knowledge_base_arn: builtins.str,
     knowledge_base_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b4f8ac53a13ca0f875a24e308193dc76c56b18f28f06f17dfd9140c97ed7e2d9(
+    *,
+    job_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2263,5 +2572,5 @@ def _typecheckingstub__c4f45192684c2f8bfe0b8c4c31aa059da7faa64670a744f854a64688e
     """Type checking stubs"""
     pass
 
-for cls in [IAgentAliasRef, IAgentRef, IApplicationInferenceProfileRef, IAutomatedReasoningPolicyRef, IAutomatedReasoningPolicyVersionRef, IBlueprintRef, IDataAutomationLibraryRef, IDataAutomationProjectRef, IDataSourceRef, IEnforcedGuardrailConfigurationRef, IFlowAliasRef, IFlowRef, IFlowVersionRef, IGuardrailRef, IGuardrailVersionRef, IIntelligentPromptRouterRef, IKnowledgeBaseRef, IPromptRef, IPromptVersionRef, IResourcePolicyRef]:
+for cls in [IAgentAliasRef, IAgentRef, IApplicationInferenceProfileRef, IAutomatedReasoningPolicyRef, IAutomatedReasoningPolicyVersionRef, IBlueprintRef, IDataAutomationLibraryRef, IDataAutomationProjectRef, IDataSourceRef, IDefaultPromptRouterRef, IEnforcedGuardrailConfigurationRef, IFlowAliasRef, IFlowRef, IFlowVersionRef, IGuardrailRef, IGuardrailVersionRef, IIntelligentPromptRouterRef, IKnowledgeBasePolicyRef, IKnowledgeBaseRef, IModelInvocationJobRef, IPromptRef, IPromptVersionRef, IResourcePolicyRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

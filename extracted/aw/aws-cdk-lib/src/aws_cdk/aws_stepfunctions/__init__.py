@@ -2621,6 +2621,673 @@ class CfnActivityProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_stepfunctions_322ef9fd.IMapRunRef)
+class CfnMapRun(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_stepfunctions.CfnMapRun",
+):
+    '''Resource schema for AWS::StepFunctions::MapRun.
+
+    A Map Run is a set of child workflow executions started by a Distributed Map state in Step Functions.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-maprun.html
+    :cloudformationResource: AWS::StepFunctions::MapRun
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_stepfunctions as stepfunctions
+        
+        cfn_map_run = stepfunctions.CfnMapRun(self, "MyCfnMapRun",
+            execution_arn="executionArn"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        execution_arn: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::StepFunctions::MapRun``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param execution_arn: The Amazon Resource Name (ARN) that identifies the execution in which the Map Run was started.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c901ec5c009dbade0b802cee66959fa664b1593316c176736d78535b9767d72b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnMapRunProps(execution_arn=execution_arn)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForMapRun")
+    @builtins.classmethod
+    def arn_for_map_run(
+        cls,
+        resource: "_aws_stepfunctions_322ef9fd.IMapRunRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0d127ffdaf2a569c604166c6c5eae05bdcb98e1ccef5ea130aec5265c5d6d92e)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMapRun", [resource]))
+
+    @jsii.member(jsii_name="isCfnMapRun")
+    @builtins.classmethod
+    def is_cfn_map_run(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnMapRun.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__be1a7bc5396370b18962e425a3946010277b3081b4d6cdd6794bbf2137aa08a1)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMapRun", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__88fc8a6be4b326fd059b930d4b08e2609339418db5a724a64210cdabb40e9e3c)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__995e19168dab4afe71415240ef4909dc4ec1f0a2499e1391a56c815bc3705c4a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrExecutionCounts")
+    def attr_execution_counts(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Contains details about all child workflow executions started by a Map Run.
+
+        :cloudformationAttribute: ExecutionCounts
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrExecutionCounts"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrItemCounts")
+    def attr_item_counts(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Contains details about items processed in all child workflow executions started by a Map Run.
+
+        :cloudformationAttribute: ItemCounts
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrItemCounts"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMapRunArn")
+    def attr_map_run_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) that identifies the Map Run.
+
+        :cloudformationAttribute: MapRunArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrMapRunArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMaxConcurrency")
+    def attr_max_concurrency(self) -> jsii.Number:
+        '''The maximum number of child workflow executions configured to run in parallel for the Map Run at the same time.
+
+        :cloudformationAttribute: MaxConcurrency
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrMaxConcurrency"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStartDate")
+    def attr_start_date(self) -> builtins.str:
+        '''The date when the Map Run was started.
+
+        :cloudformationAttribute: StartDate
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStartDate"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current status of the Map Run.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStopDate")
+    def attr_stop_date(self) -> builtins.str:
+        '''The date when the Map Run was stopped.
+
+        :cloudformationAttribute: StopDate
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStopDate"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrToleratedFailureCount")
+    def attr_tolerated_failure_count(self) -> jsii.Number:
+        '''The maximum number of failed child workflow executions before the Map Run fails.
+
+        :cloudformationAttribute: ToleratedFailureCount
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrToleratedFailureCount"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrToleratedFailurePercentage")
+    def attr_tolerated_failure_percentage(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The maximum percentage of failed child workflow executions before the Map Run fails.
+
+        :cloudformationAttribute: ToleratedFailurePercentage
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrToleratedFailurePercentage"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="mapRunRef")
+    def map_run_ref(self) -> "_aws_stepfunctions_322ef9fd.MapRunReference":
+        '''A reference to a MapRun resource.'''
+        return typing.cast("_aws_stepfunctions_322ef9fd.MapRunReference", jsii.get(self, "mapRunRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="executionArn")
+    def execution_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) that identifies the execution in which the Map Run was started.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "executionArn"))
+
+    @execution_arn.setter
+    def execution_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__77feec26a5b340c1a6090ad54b6969f90126b61f3d592c504effc4f00d3ecb19)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "executionArn", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnMapRun.MapRunExecutionCountsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "aborted": "aborted",
+            "failed": "failed",
+            "failures_not_redrivable": "failuresNotRedrivable",
+            "pending": "pending",
+            "pending_redrive": "pendingRedrive",
+            "results_written": "resultsWritten",
+            "running": "running",
+            "succeeded": "succeeded",
+            "timed_out": "timedOut",
+            "total": "total",
+        },
+    )
+    class MapRunExecutionCountsProperty:
+        def __init__(
+            self,
+            *,
+            aborted: typing.Optional[jsii.Number] = None,
+            failed: typing.Optional[jsii.Number] = None,
+            failures_not_redrivable: typing.Optional[jsii.Number] = None,
+            pending: typing.Optional[jsii.Number] = None,
+            pending_redrive: typing.Optional[jsii.Number] = None,
+            results_written: typing.Optional[jsii.Number] = None,
+            running: typing.Optional[jsii.Number] = None,
+            succeeded: typing.Optional[jsii.Number] = None,
+            timed_out: typing.Optional[jsii.Number] = None,
+            total: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Contains details about all child workflow executions started by a Map Run.
+
+            :param aborted: The total number of child workflow executions that were stopped.
+            :param failed: The total number of child workflow executions that have failed.
+            :param failures_not_redrivable: The number of child workflow executions that cannot be redriven.
+            :param pending: The total number of child workflow executions that haven't started executing yet.
+            :param pending_redrive: The number of unsuccessful child workflow executions waiting to be redriven.
+            :param results_written: The count of child workflow executions whose results were written by ResultWriter.
+            :param running: The total number of child workflow executions that are currently in-progress.
+            :param succeeded: The total number of child workflow executions that have completed successfully.
+            :param timed_out: The total number of child workflow executions that have timed out.
+            :param total: The total number of child workflow executions started by a Map Run.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-maprun-maprunexecutioncounts.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_stepfunctions as stepfunctions
+                
+                map_run_execution_counts_property = stepfunctions.CfnMapRun.MapRunExecutionCountsProperty(
+                    aborted=123,
+                    failed=123,
+                    failures_not_redrivable=123,
+                    pending=123,
+                    pending_redrive=123,
+                    results_written=123,
+                    running=123,
+                    succeeded=123,
+                    timed_out=123,
+                    total=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0bf89bf21995df2aeaf830fc9af4458a1bae1c3bd7b2569259d17eb565b2581f)
+                check_type(argname="argument aborted", value=aborted, expected_type=type_hints["aborted"])
+                check_type(argname="argument failed", value=failed, expected_type=type_hints["failed"])
+                check_type(argname="argument failures_not_redrivable", value=failures_not_redrivable, expected_type=type_hints["failures_not_redrivable"])
+                check_type(argname="argument pending", value=pending, expected_type=type_hints["pending"])
+                check_type(argname="argument pending_redrive", value=pending_redrive, expected_type=type_hints["pending_redrive"])
+                check_type(argname="argument results_written", value=results_written, expected_type=type_hints["results_written"])
+                check_type(argname="argument running", value=running, expected_type=type_hints["running"])
+                check_type(argname="argument succeeded", value=succeeded, expected_type=type_hints["succeeded"])
+                check_type(argname="argument timed_out", value=timed_out, expected_type=type_hints["timed_out"])
+                check_type(argname="argument total", value=total, expected_type=type_hints["total"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if aborted is not None:
+                self._values["aborted"] = aborted
+            if failed is not None:
+                self._values["failed"] = failed
+            if failures_not_redrivable is not None:
+                self._values["failures_not_redrivable"] = failures_not_redrivable
+            if pending is not None:
+                self._values["pending"] = pending
+            if pending_redrive is not None:
+                self._values["pending_redrive"] = pending_redrive
+            if results_written is not None:
+                self._values["results_written"] = results_written
+            if running is not None:
+                self._values["running"] = running
+            if succeeded is not None:
+                self._values["succeeded"] = succeeded
+            if timed_out is not None:
+                self._values["timed_out"] = timed_out
+            if total is not None:
+                self._values["total"] = total
+
+        @builtins.property
+        def aborted(self) -> typing.Optional[jsii.Number]:
+            '''The total number of child workflow executions that were stopped.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-maprun-maprunexecutioncounts.html#cfn-stepfunctions-maprun-maprunexecutioncounts-aborted
+            '''
+            result = self._values.get("aborted")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def failed(self) -> typing.Optional[jsii.Number]:
+            '''The total number of child workflow executions that have failed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-maprun-maprunexecutioncounts.html#cfn-stepfunctions-maprun-maprunexecutioncounts-failed
+            '''
+            result = self._values.get("failed")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def failures_not_redrivable(self) -> typing.Optional[jsii.Number]:
+            '''The number of child workflow executions that cannot be redriven.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-maprun-maprunexecutioncounts.html#cfn-stepfunctions-maprun-maprunexecutioncounts-failuresnotredrivable
+            '''
+            result = self._values.get("failures_not_redrivable")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def pending(self) -> typing.Optional[jsii.Number]:
+            '''The total number of child workflow executions that haven't started executing yet.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-maprun-maprunexecutioncounts.html#cfn-stepfunctions-maprun-maprunexecutioncounts-pending
+            '''
+            result = self._values.get("pending")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def pending_redrive(self) -> typing.Optional[jsii.Number]:
+            '''The number of unsuccessful child workflow executions waiting to be redriven.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-maprun-maprunexecutioncounts.html#cfn-stepfunctions-maprun-maprunexecutioncounts-pendingredrive
+            '''
+            result = self._values.get("pending_redrive")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def results_written(self) -> typing.Optional[jsii.Number]:
+            '''The count of child workflow executions whose results were written by ResultWriter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-maprun-maprunexecutioncounts.html#cfn-stepfunctions-maprun-maprunexecutioncounts-resultswritten
+            '''
+            result = self._values.get("results_written")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def running(self) -> typing.Optional[jsii.Number]:
+            '''The total number of child workflow executions that are currently in-progress.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-maprun-maprunexecutioncounts.html#cfn-stepfunctions-maprun-maprunexecutioncounts-running
+            '''
+            result = self._values.get("running")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def succeeded(self) -> typing.Optional[jsii.Number]:
+            '''The total number of child workflow executions that have completed successfully.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-maprun-maprunexecutioncounts.html#cfn-stepfunctions-maprun-maprunexecutioncounts-succeeded
+            '''
+            result = self._values.get("succeeded")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def timed_out(self) -> typing.Optional[jsii.Number]:
+            '''The total number of child workflow executions that have timed out.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-maprun-maprunexecutioncounts.html#cfn-stepfunctions-maprun-maprunexecutioncounts-timedout
+            '''
+            result = self._values.get("timed_out")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def total(self) -> typing.Optional[jsii.Number]:
+            '''The total number of child workflow executions started by a Map Run.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-maprun-maprunexecutioncounts.html#cfn-stepfunctions-maprun-maprunexecutioncounts-total
+            '''
+            result = self._values.get("total")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MapRunExecutionCountsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_stepfunctions.CfnMapRun.MapRunItemCountsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "aborted": "aborted",
+            "failed": "failed",
+            "failures_not_redrivable": "failuresNotRedrivable",
+            "pending": "pending",
+            "pending_redrive": "pendingRedrive",
+            "results_written": "resultsWritten",
+            "running": "running",
+            "succeeded": "succeeded",
+            "timed_out": "timedOut",
+            "total": "total",
+        },
+    )
+    class MapRunItemCountsProperty:
+        def __init__(
+            self,
+            *,
+            aborted: typing.Optional[jsii.Number] = None,
+            failed: typing.Optional[jsii.Number] = None,
+            failures_not_redrivable: typing.Optional[jsii.Number] = None,
+            pending: typing.Optional[jsii.Number] = None,
+            pending_redrive: typing.Optional[jsii.Number] = None,
+            results_written: typing.Optional[jsii.Number] = None,
+            running: typing.Optional[jsii.Number] = None,
+            succeeded: typing.Optional[jsii.Number] = None,
+            timed_out: typing.Optional[jsii.Number] = None,
+            total: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Contains details about items processed in all child workflow executions started by a Map Run.
+
+            :param aborted: The total number of items processed in child workflow executions that were stopped.
+            :param failed: The total number of items processed in child workflow executions that have failed.
+            :param failures_not_redrivable: The number of items in child workflow executions that cannot be redriven.
+            :param pending: The total number of items to process in child workflow executions that haven't started running yet.
+            :param pending_redrive: The number of unsuccessful items currently waiting to be redriven.
+            :param results_written: The count of items whose results were written by ResultWriter.
+            :param running: The total number of items being processed in child workflow executions that are currently in-progress.
+            :param succeeded: The total number of items processed in child workflow executions that have completed successfully.
+            :param timed_out: The total number of items processed in child workflow executions that have timed out.
+            :param total: The total number of items processed in all the child workflow executions started by a Map Run.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-maprun-maprunitemcounts.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_stepfunctions as stepfunctions
+                
+                map_run_item_counts_property = stepfunctions.CfnMapRun.MapRunItemCountsProperty(
+                    aborted=123,
+                    failed=123,
+                    failures_not_redrivable=123,
+                    pending=123,
+                    pending_redrive=123,
+                    results_written=123,
+                    running=123,
+                    succeeded=123,
+                    timed_out=123,
+                    total=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__155611a06aa229b490cbe732f6434d2d085027a0af56db4ed2fd91e5530dc8d4)
+                check_type(argname="argument aborted", value=aborted, expected_type=type_hints["aborted"])
+                check_type(argname="argument failed", value=failed, expected_type=type_hints["failed"])
+                check_type(argname="argument failures_not_redrivable", value=failures_not_redrivable, expected_type=type_hints["failures_not_redrivable"])
+                check_type(argname="argument pending", value=pending, expected_type=type_hints["pending"])
+                check_type(argname="argument pending_redrive", value=pending_redrive, expected_type=type_hints["pending_redrive"])
+                check_type(argname="argument results_written", value=results_written, expected_type=type_hints["results_written"])
+                check_type(argname="argument running", value=running, expected_type=type_hints["running"])
+                check_type(argname="argument succeeded", value=succeeded, expected_type=type_hints["succeeded"])
+                check_type(argname="argument timed_out", value=timed_out, expected_type=type_hints["timed_out"])
+                check_type(argname="argument total", value=total, expected_type=type_hints["total"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if aborted is not None:
+                self._values["aborted"] = aborted
+            if failed is not None:
+                self._values["failed"] = failed
+            if failures_not_redrivable is not None:
+                self._values["failures_not_redrivable"] = failures_not_redrivable
+            if pending is not None:
+                self._values["pending"] = pending
+            if pending_redrive is not None:
+                self._values["pending_redrive"] = pending_redrive
+            if results_written is not None:
+                self._values["results_written"] = results_written
+            if running is not None:
+                self._values["running"] = running
+            if succeeded is not None:
+                self._values["succeeded"] = succeeded
+            if timed_out is not None:
+                self._values["timed_out"] = timed_out
+            if total is not None:
+                self._values["total"] = total
+
+        @builtins.property
+        def aborted(self) -> typing.Optional[jsii.Number]:
+            '''The total number of items processed in child workflow executions that were stopped.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-maprun-maprunitemcounts.html#cfn-stepfunctions-maprun-maprunitemcounts-aborted
+            '''
+            result = self._values.get("aborted")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def failed(self) -> typing.Optional[jsii.Number]:
+            '''The total number of items processed in child workflow executions that have failed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-maprun-maprunitemcounts.html#cfn-stepfunctions-maprun-maprunitemcounts-failed
+            '''
+            result = self._values.get("failed")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def failures_not_redrivable(self) -> typing.Optional[jsii.Number]:
+            '''The number of items in child workflow executions that cannot be redriven.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-maprun-maprunitemcounts.html#cfn-stepfunctions-maprun-maprunitemcounts-failuresnotredrivable
+            '''
+            result = self._values.get("failures_not_redrivable")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def pending(self) -> typing.Optional[jsii.Number]:
+            '''The total number of items to process in child workflow executions that haven't started running yet.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-maprun-maprunitemcounts.html#cfn-stepfunctions-maprun-maprunitemcounts-pending
+            '''
+            result = self._values.get("pending")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def pending_redrive(self) -> typing.Optional[jsii.Number]:
+            '''The number of unsuccessful items currently waiting to be redriven.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-maprun-maprunitemcounts.html#cfn-stepfunctions-maprun-maprunitemcounts-pendingredrive
+            '''
+            result = self._values.get("pending_redrive")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def results_written(self) -> typing.Optional[jsii.Number]:
+            '''The count of items whose results were written by ResultWriter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-maprun-maprunitemcounts.html#cfn-stepfunctions-maprun-maprunitemcounts-resultswritten
+            '''
+            result = self._values.get("results_written")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def running(self) -> typing.Optional[jsii.Number]:
+            '''The total number of items being processed in child workflow executions that are currently in-progress.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-maprun-maprunitemcounts.html#cfn-stepfunctions-maprun-maprunitemcounts-running
+            '''
+            result = self._values.get("running")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def succeeded(self) -> typing.Optional[jsii.Number]:
+            '''The total number of items processed in child workflow executions that have completed successfully.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-maprun-maprunitemcounts.html#cfn-stepfunctions-maprun-maprunitemcounts-succeeded
+            '''
+            result = self._values.get("succeeded")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def timed_out(self) -> typing.Optional[jsii.Number]:
+            '''The total number of items processed in child workflow executions that have timed out.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-maprun-maprunitemcounts.html#cfn-stepfunctions-maprun-maprunitemcounts-timedout
+            '''
+            result = self._values.get("timed_out")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def total(self) -> typing.Optional[jsii.Number]:
+            '''The total number of items processed in all the child workflow executions started by a Map Run.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-stepfunctions-maprun-maprunitemcounts.html#cfn-stepfunctions-maprun-maprunitemcounts-total
+            '''
+            result = self._values.get("total")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MapRunItemCountsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_stepfunctions.CfnMapRunProps",
+    jsii_struct_bases=[],
+    name_mapping={"execution_arn": "executionArn"},
+)
+class CfnMapRunProps:
+    def __init__(self, *, execution_arn: typing.Optional[builtins.str] = None) -> None:
+        '''Properties for defining a ``CfnMapRun``.
+
+        :param execution_arn: The Amazon Resource Name (ARN) that identifies the execution in which the Map Run was started.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-maprun.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_stepfunctions as stepfunctions
+            
+            cfn_map_run_props = stepfunctions.CfnMapRunProps(
+                execution_arn="executionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a3ec666a3d90e1c736edb84f16701c01a723bbc903b3fb2d39a73f1aff40e14c)
+            check_type(argname="argument execution_arn", value=execution_arn, expected_type=type_hints["execution_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if execution_arn is not None:
+            self._values["execution_arn"] = execution_arn
+
+    @builtins.property
+    def execution_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) that identifies the execution in which the Map Run was started.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-maprun.html#cfn-stepfunctions-maprun-executionarn
+        '''
+        result = self._values.get("execution_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMapRunProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_stepfunctions_322ef9fd.IStateMachineRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnStateMachine(
     _aws_cdk_0cae9daa.CfnResource,
@@ -26760,6 +27427,8 @@ __all__ = [
     "CatchProps",
     "CfnActivity",
     "CfnActivityProps",
+    "CfnMapRun",
+    "CfnMapRunProps",
     "CfnStateMachine",
     "CfnStateMachineAlias",
     "CfnStateMachineAliasProps",
@@ -26999,6 +27668,84 @@ def _typecheckingstub__84792b5435bbf43a453a6bf0f4d6e6d61a7c86759e3f95b4d4af4d4e5
     name: builtins.str,
     encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnActivity.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnActivity.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c901ec5c009dbade0b802cee66959fa664b1593316c176736d78535b9767d72b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    execution_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d127ffdaf2a569c604166c6c5eae05bdcb98e1ccef5ea130aec5265c5d6d92e(
+    resource: _aws_stepfunctions_322ef9fd.IMapRunRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__be1a7bc5396370b18962e425a3946010277b3081b4d6cdd6794bbf2137aa08a1(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__88fc8a6be4b326fd059b930d4b08e2609339418db5a724a64210cdabb40e9e3c(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__995e19168dab4afe71415240ef4909dc4ec1f0a2499e1391a56c815bc3705c4a(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__77feec26a5b340c1a6090ad54b6969f90126b61f3d592c504effc4f00d3ecb19(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0bf89bf21995df2aeaf830fc9af4458a1bae1c3bd7b2569259d17eb565b2581f(
+    *,
+    aborted: typing.Optional[jsii.Number] = None,
+    failed: typing.Optional[jsii.Number] = None,
+    failures_not_redrivable: typing.Optional[jsii.Number] = None,
+    pending: typing.Optional[jsii.Number] = None,
+    pending_redrive: typing.Optional[jsii.Number] = None,
+    results_written: typing.Optional[jsii.Number] = None,
+    running: typing.Optional[jsii.Number] = None,
+    succeeded: typing.Optional[jsii.Number] = None,
+    timed_out: typing.Optional[jsii.Number] = None,
+    total: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__155611a06aa229b490cbe732f6434d2d085027a0af56db4ed2fd91e5530dc8d4(
+    *,
+    aborted: typing.Optional[jsii.Number] = None,
+    failed: typing.Optional[jsii.Number] = None,
+    failures_not_redrivable: typing.Optional[jsii.Number] = None,
+    pending: typing.Optional[jsii.Number] = None,
+    pending_redrive: typing.Optional[jsii.Number] = None,
+    results_written: typing.Optional[jsii.Number] = None,
+    running: typing.Optional[jsii.Number] = None,
+    succeeded: typing.Optional[jsii.Number] = None,
+    timed_out: typing.Optional[jsii.Number] = None,
+    total: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a3ec666a3d90e1c736edb84f16701c01a723bbc903b3fb2d39a73f1aff40e14c(
+    *,
+    execution_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

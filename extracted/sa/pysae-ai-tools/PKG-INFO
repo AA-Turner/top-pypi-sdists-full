@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pysae-ai-tools
-Version: 0.1.1732
+Version: 0.1.1736
 Summary: Shared Python tools for Pysae Claude Code skills
 Project-URL: repository, https://gitlab.com/pysae/tools/ai-tools
 Requires-Python: >=3.11
@@ -178,7 +178,7 @@ Ce que la CLI écrit, par écosystème :
 |-----------|---------------|-------------|
 | Python (uv, pip) | le store d'uv (`uv auth dir`) | credential pour la racine de l'hôte GitLab — uv l'associe par préfixe d'URL, donc tous les index en dessous en bénéficient |
 | Node (npm, pnpm, Yarn 1, bun) | `~/.npmrc` | `@<owner>:registry` et `//<hôte>/api/v4/packages/npm/:_authToken` |
-| Node (Yarn 2+) | `~/.yarnrc.yml` | `npmScopes.<owner>.npmRegistryServer` et `npmRegistries` — Yarn 2+ ignore `.npmrc`, d'où le second fichier — plus `npmMinimalAgeGate: 0`, le délai de carence de Yarn visant le registre public bloquant sinon un paquet privé publié par notre CI quelques minutes plus tôt |
+| Node (Yarn 2+) | `~/.yarnrc.yml` | `npmScopes.<owner>.npmRegistryServer` et `npmRegistries` — Yarn 2+ ignore `.npmrc`, d'où le second fichier — plus `npmScopes.<owner>.npmMinimalAgeGate: 0`, le délai de carence de Yarn visant le registre public bloquant sinon un paquet privé publié par notre CI quelques minutes plus tôt. Le réglage doit être posé dans l'entrée de scope : un scope déclaré n'hérite pas de la valeur racine et conserve un défaut de 1440 minutes tant qu'il n'est pas posé explicitement ([yarnpkg/berry#7192](https://github.com/yarnpkg/berry/issues/7192)) |
 | Docker | `~/.docker/config.json` | login sur `registry.<hôte>`, posé via `docker login --password-stdin` |
 
 La configuration Node est posée au niveau **utilisateur**, jamais du projet : un dépôt qui ne déclare aucune registry installe les paquets privés sans variable d'environnement ni fichier ajouté. Le token est rattaché au seul hôte GitLab et jamais posé en réglage global, donc aucune requête vers un registre public ne peut l'emporter.

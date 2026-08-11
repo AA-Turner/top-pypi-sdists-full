@@ -1116,6 +1116,51 @@ class _INodeRefProxy(
 typing.cast(typing.Any, INodeRef).__jsii_proxy_class__ = lambda : _INodeRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_medialive.IOfferingRef")
+class IOfferingRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Offering.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="offeringRef")
+    def offering_ref(self) -> "OfferingReference":
+        '''(experimental) A reference to a Offering resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IOfferingRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Offering.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_medialive.IOfferingRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="offeringRef")
+    def offering_ref(self) -> "OfferingReference":
+        '''(experimental) A reference to a Offering resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("OfferingReference", jsii.get(self, "offeringRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IOfferingRef).__jsii_proxy_class__ = lambda : _IOfferingRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_medialive.ISdiSourceRef")
 class ISdiSourceRef(
     _constructs_77d1e7e8.IConstruct,
@@ -1574,6 +1619,55 @@ class NodeReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_medialive.OfferingReference",
+    jsii_struct_bases=[],
+    name_mapping={"offering_arn": "offeringArn"},
+)
+class OfferingReference:
+    def __init__(self, *, offering_arn: builtins.str) -> None:
+        '''A reference to a Offering resource.
+
+        :param offering_arn: The Arn of the Offering resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_medialive as interfaces_medialive
+            
+            offering_reference = interfaces_medialive.OfferingReference(
+                offering_arn="offeringArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__58a0bbda7c9ae0274f6a94eb63c124f82959a13399e26d5ba3c692d82def8b3c)
+            check_type(argname="argument offering_arn", value=offering_arn, expected_type=type_hints["offering_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "offering_arn": offering_arn,
+        }
+
+    @builtins.property
+    def offering_arn(self) -> builtins.str:
+        '''The Arn of the Offering resource.'''
+        result = self._values.get("offering_arn")
+        assert result is not None, "Required property 'offering_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OfferingReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_medialive.SdiSourceReference",
     jsii_struct_bases=[],
     name_mapping={"sdi_source_arn": "sdiSourceArn", "sdi_source_id": "sdiSourceId"},
@@ -1724,6 +1818,7 @@ __all__ = [
     "IMultiplexprogramRef",
     "INetworkRef",
     "INodeRef",
+    "IOfferingRef",
     "ISdiSourceRef",
     "ISignalMapRef",
     "InputReference",
@@ -1732,6 +1827,7 @@ __all__ = [
     "MultiplexprogramReference",
     "NetworkReference",
     "NodeReference",
+    "OfferingReference",
     "SdiSourceReference",
     "SignalMapReference",
 ]
@@ -1842,6 +1938,13 @@ def _typecheckingstub__d18d86aae940476ad5c80c1453221ac5e6de9038bc060dc7a9be4a9f1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__58a0bbda7c9ae0274f6a94eb63c124f82959a13399e26d5ba3c692d82def8b3c(
+    *,
+    offering_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f600af46c39ab21e65823f674665253250ef9cc92b937fb0aaf7db85de0951f8(
     *,
     sdi_source_arn: builtins.str,
@@ -1858,5 +1961,5 @@ def _typecheckingstub__99c643daeb09c2839c551125ac2e17246f1f3168fd4c3d255cb377344
     """Type checking stubs"""
     pass
 
-for cls in [IChannelPlacementGroupRef, IChannelRef, ICloudWatchAlarmTemplateGroupRef, ICloudWatchAlarmTemplateRef, IClusterRef, IEventBridgeRuleTemplateGroupRef, IEventBridgeRuleTemplateRef, IInputRef, IInputSecurityGroupRef, IMultiplexRef, IMultiplexprogramRef, INetworkRef, INodeRef, ISdiSourceRef, ISignalMapRef]:
+for cls in [IChannelPlacementGroupRef, IChannelRef, ICloudWatchAlarmTemplateGroupRef, ICloudWatchAlarmTemplateRef, IClusterRef, IEventBridgeRuleTemplateGroupRef, IEventBridgeRuleTemplateRef, IInputRef, IInputSecurityGroupRef, IMultiplexRef, IMultiplexprogramRef, INetworkRef, INodeRef, IOfferingRef, ISdiSourceRef, ISignalMapRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

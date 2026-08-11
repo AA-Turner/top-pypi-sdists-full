@@ -1694,6 +1694,479 @@ class CfnPreparedStatementProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_athena_e10947a6.ISessionRef)
+class CfnSession(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_athena.CfnSession",
+):
+    '''An Athena session is a Spark-based interactive environment for running calculations within a workgroup.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-session.html
+    :cloudformationResource: AWS::Athena::Session
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_athena as athena
+        
+        cfn_session = athena.CfnSession(self, "MyCfnSession",
+            engine_configuration=athena.CfnSession.EngineConfigurationProperty(
+                max_concurrent_dpus=123,
+        
+                # the properties below are optional
+                additional_configs={
+                    "additional_configs_key": "additionalConfigs"
+                },
+                coordinator_dpu_size=123,
+                default_executor_dpu_size=123,
+                spark_properties={
+                    "spark_properties_key": "sparkProperties"
+                }
+            ),
+            work_group="workGroup",
+        
+            # the properties below are optional
+            execution_role="executionRole"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        engine_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSession.EngineConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        work_group: builtins.str,
+        execution_role: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::Athena::Session``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param engine_configuration: Contains engine data processing unit (DPU) configuration settings.
+        :param work_group: The workgroup to which the session belongs.
+        :param execution_role: The ARN of the execution role used to access user resources for Spark sessions and Identity Center enabled workgroups.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__592d3b0d45b9517e180690a9a99ae1caebfdc1e07cc7ceda7ff8a8d9893ea5b7)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnSessionProps(
+            engine_configuration=engine_configuration,
+            work_group=work_group,
+            execution_role=execution_role,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForSession")
+    @builtins.classmethod
+    def arn_for_session(
+        cls,
+        resource: "_aws_athena_e10947a6.ISessionRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__530955539814fac9b237689c5ce0ed363203916b7f9a6fc98f2f40a480764261)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSession", [resource]))
+
+    @jsii.member(jsii_name="isCfnSession")
+    @builtins.classmethod
+    def is_cfn_session(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSession.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__de75460642750a7fc3a5773092583d05bbcf2145c8ff1c4c877b9ec4190344f1)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSession", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8b2f2a2134551589b6e94ffe14987e957eefedaf3fdd7b0e6efce2dcb5f60e97)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__55e62eff3a9af99390643119b3ea9d4eee1063c5c3d20333e66173402e1b7f5f)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the session.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEngineConfigurationAdditionalConfigs")
+    def attr_engine_configuration_additional_configs(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Contains additional notebook engine parameter mappings.
+
+        :cloudformationAttribute: EngineConfiguration.AdditionalConfigs
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrEngineConfigurationAdditionalConfigs"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEngineConfigurationSparkProperties")
+    def attr_engine_configuration_spark_properties(
+        self,
+    ) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Specifies custom jar files and Spark properties.
+
+        :cloudformationAttribute: EngineConfiguration.SparkProperties
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrEngineConfigurationSparkProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEngineVersion")
+    def attr_engine_version(self) -> builtins.str:
+        '''The engine version used by the session.
+
+        :cloudformationAttribute: EngineVersion
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEngineVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSessionId")
+    def attr_session_id(self) -> builtins.str:
+        '''The session ID.
+
+        :cloudformationAttribute: SessionId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSessionId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="sessionRef")
+    def session_ref(self) -> "_aws_athena_e10947a6.SessionReference":
+        '''A reference to a Session resource.'''
+        return typing.cast("_aws_athena_e10947a6.SessionReference", jsii.get(self, "sessionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="engineConfiguration")
+    def engine_configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSession.EngineConfigurationProperty"]:
+        '''Contains engine data processing unit (DPU) configuration settings.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSession.EngineConfigurationProperty"], jsii.get(self, "engineConfiguration"))
+
+    @engine_configuration.setter
+    def engine_configuration(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSession.EngineConfigurationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2f629bd890a67a92403300886023e50513818d13e4b85ce9f97d25d01ae3a606)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "engineConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="workGroup")
+    def work_group(self) -> builtins.str:
+        '''The workgroup to which the session belongs.'''
+        return typing.cast(builtins.str, jsii.get(self, "workGroup"))
+
+    @work_group.setter
+    def work_group(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dbf4a676f9eb2804832935a6ef7f7e629c18497e93272e16b829814ad3c6c551)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workGroup", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="executionRole")
+    def execution_role(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the execution role used to access user resources for Spark sessions and Identity Center enabled workgroups.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "executionRole"))
+
+    @execution_role.setter
+    def execution_role(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a688b8972076c619e6b737485808e8c4cd017e0d36c8ab491d0ce945c93dca5c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "executionRole", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_athena.CfnSession.EngineConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "max_concurrent_dpus": "maxConcurrentDpus",
+            "additional_configs": "additionalConfigs",
+            "coordinator_dpu_size": "coordinatorDpuSize",
+            "default_executor_dpu_size": "defaultExecutorDpuSize",
+            "spark_properties": "sparkProperties",
+        },
+    )
+    class EngineConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            max_concurrent_dpus: jsii.Number,
+            additional_configs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            coordinator_dpu_size: typing.Optional[jsii.Number] = None,
+            default_executor_dpu_size: typing.Optional[jsii.Number] = None,
+            spark_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        ) -> None:
+            '''Contains engine data processing unit (DPU) configuration settings.
+
+            :param max_concurrent_dpus: The maximum number of DPUs that can run concurrently.
+            :param additional_configs: Contains additional notebook engine parameter mappings.
+            :param coordinator_dpu_size: The number of DPUs to use for the coordinator.
+            :param default_executor_dpu_size: The default number of DPUs to use for executors.
+            :param spark_properties: Specifies custom jar files and Spark properties.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-session-engineconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_athena as athena
+                
+                engine_configuration_property = athena.CfnSession.EngineConfigurationProperty(
+                    max_concurrent_dpus=123,
+                
+                    # the properties below are optional
+                    additional_configs={
+                        "additional_configs_key": "additionalConfigs"
+                    },
+                    coordinator_dpu_size=123,
+                    default_executor_dpu_size=123,
+                    spark_properties={
+                        "spark_properties_key": "sparkProperties"
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__6faf040b1ec638adaa799b2cc09ef0e6426bb9cdfaf93f46e445bc18a6615797)
+                check_type(argname="argument max_concurrent_dpus", value=max_concurrent_dpus, expected_type=type_hints["max_concurrent_dpus"])
+                check_type(argname="argument additional_configs", value=additional_configs, expected_type=type_hints["additional_configs"])
+                check_type(argname="argument coordinator_dpu_size", value=coordinator_dpu_size, expected_type=type_hints["coordinator_dpu_size"])
+                check_type(argname="argument default_executor_dpu_size", value=default_executor_dpu_size, expected_type=type_hints["default_executor_dpu_size"])
+                check_type(argname="argument spark_properties", value=spark_properties, expected_type=type_hints["spark_properties"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "max_concurrent_dpus": max_concurrent_dpus,
+            }
+            if additional_configs is not None:
+                self._values["additional_configs"] = additional_configs
+            if coordinator_dpu_size is not None:
+                self._values["coordinator_dpu_size"] = coordinator_dpu_size
+            if default_executor_dpu_size is not None:
+                self._values["default_executor_dpu_size"] = default_executor_dpu_size
+            if spark_properties is not None:
+                self._values["spark_properties"] = spark_properties
+
+        @builtins.property
+        def max_concurrent_dpus(self) -> jsii.Number:
+            '''The maximum number of DPUs that can run concurrently.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-session-engineconfiguration.html#cfn-athena-session-engineconfiguration-maxconcurrentdpus
+            '''
+            result = self._values.get("max_concurrent_dpus")
+            assert result is not None, "Required property 'max_concurrent_dpus' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def additional_configs(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''Contains additional notebook engine parameter mappings.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-session-engineconfiguration.html#cfn-athena-session-engineconfiguration-additionalconfigs
+            '''
+            result = self._values.get("additional_configs")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        @builtins.property
+        def coordinator_dpu_size(self) -> typing.Optional[jsii.Number]:
+            '''The number of DPUs to use for the coordinator.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-session-engineconfiguration.html#cfn-athena-session-engineconfiguration-coordinatordpusize
+            '''
+            result = self._values.get("coordinator_dpu_size")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def default_executor_dpu_size(self) -> typing.Optional[jsii.Number]:
+            '''The default number of DPUs to use for executors.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-session-engineconfiguration.html#cfn-athena-session-engineconfiguration-defaultexecutordpusize
+            '''
+            result = self._values.get("default_executor_dpu_size")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def spark_properties(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''Specifies custom jar files and Spark properties.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-session-engineconfiguration.html#cfn-athena-session-engineconfiguration-sparkproperties
+            '''
+            result = self._values.get("spark_properties")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EngineConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_athena.CfnSessionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "engine_configuration": "engineConfiguration",
+        "work_group": "workGroup",
+        "execution_role": "executionRole",
+    },
+)
+class CfnSessionProps:
+    def __init__(
+        self,
+        *,
+        engine_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSession.EngineConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        work_group: builtins.str,
+        execution_role: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSession``.
+
+        :param engine_configuration: Contains engine data processing unit (DPU) configuration settings.
+        :param work_group: The workgroup to which the session belongs.
+        :param execution_role: The ARN of the execution role used to access user resources for Spark sessions and Identity Center enabled workgroups.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-session.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_athena as athena
+            
+            cfn_session_props = athena.CfnSessionProps(
+                engine_configuration=athena.CfnSession.EngineConfigurationProperty(
+                    max_concurrent_dpus=123,
+            
+                    # the properties below are optional
+                    additional_configs={
+                        "additional_configs_key": "additionalConfigs"
+                    },
+                    coordinator_dpu_size=123,
+                    default_executor_dpu_size=123,
+                    spark_properties={
+                        "spark_properties_key": "sparkProperties"
+                    }
+                ),
+                work_group="workGroup",
+            
+                # the properties below are optional
+                execution_role="executionRole"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0b93a586b22aad9fb1bcf2176566774dc9436e07777144c2a2b2df3973172d03)
+            check_type(argname="argument engine_configuration", value=engine_configuration, expected_type=type_hints["engine_configuration"])
+            check_type(argname="argument work_group", value=work_group, expected_type=type_hints["work_group"])
+            check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "engine_configuration": engine_configuration,
+            "work_group": work_group,
+        }
+        if execution_role is not None:
+            self._values["execution_role"] = execution_role
+
+    @builtins.property
+    def engine_configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSession.EngineConfigurationProperty"]:
+        '''Contains engine data processing unit (DPU) configuration settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-session.html#cfn-athena-session-engineconfiguration
+        '''
+        result = self._values.get("engine_configuration")
+        assert result is not None, "Required property 'engine_configuration' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSession.EngineConfigurationProperty"], result)
+
+    @builtins.property
+    def work_group(self) -> builtins.str:
+        '''The workgroup to which the session belongs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-session.html#cfn-athena-session-workgroup
+        '''
+        result = self._values.get("work_group")
+        assert result is not None, "Required property 'work_group' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def execution_role(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the execution role used to access user resources for Spark sessions and Identity Center enabled workgroups.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-athena-session.html#cfn-athena-session-executionrole
+        '''
+        result = self._values.get("execution_role")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSessionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_athena_e10947a6.IWorkGroupRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnWorkGroup(
     _aws_cdk_0cae9daa.CfnResource,
@@ -4519,6 +4992,8 @@ __all__ = [
     "CfnNamedQueryProps",
     "CfnPreparedStatement",
     "CfnPreparedStatementProps",
+    "CfnSession",
+    "CfnSessionProps",
     "CfnWorkGroup",
     "CfnWorkGroupProps",
 ]
@@ -4851,6 +5326,79 @@ def _typecheckingstub__709f141308344c291dfca2deddc79eabfe04118b21e11aa37c781298b
     statement_name: builtins.str,
     work_group: typing.Union[builtins.str, _aws_athena_e10947a6.IWorkGroupRef],
     description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__592d3b0d45b9517e180690a9a99ae1caebfdc1e07cc7ceda7ff8a8d9893ea5b7(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    engine_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSession.EngineConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    work_group: builtins.str,
+    execution_role: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__530955539814fac9b237689c5ce0ed363203916b7f9a6fc98f2f40a480764261(
+    resource: _aws_athena_e10947a6.ISessionRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__de75460642750a7fc3a5773092583d05bbcf2145c8ff1c4c877b9ec4190344f1(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8b2f2a2134551589b6e94ffe14987e957eefedaf3fdd7b0e6efce2dcb5f60e97(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__55e62eff3a9af99390643119b3ea9d4eee1063c5c3d20333e66173402e1b7f5f(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f629bd890a67a92403300886023e50513818d13e4b85ce9f97d25d01ae3a606(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSession.EngineConfigurationProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dbf4a676f9eb2804832935a6ef7f7e629c18497e93272e16b829814ad3c6c551(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a688b8972076c619e6b737485808e8c4cd017e0d36c8ab491d0ce945c93dca5c(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6faf040b1ec638adaa799b2cc09ef0e6426bb9cdfaf93f46e445bc18a6615797(
+    *,
+    max_concurrent_dpus: jsii.Number,
+    additional_configs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    coordinator_dpu_size: typing.Optional[jsii.Number] = None,
+    default_executor_dpu_size: typing.Optional[jsii.Number] = None,
+    spark_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0b93a586b22aad9fb1bcf2176566774dc9436e07777144c2a2b2df3973172d03(
+    *,
+    engine_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSession.EngineConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    work_group: builtins.str,
+    execution_role: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

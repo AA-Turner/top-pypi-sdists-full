@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import io
+import sys
 import zipfile
 from typing import TYPE_CHECKING
 
@@ -17,6 +18,7 @@ from nab_index.lazy_wheel import (
     RangeCapabilityMemo,
     RangeMetadataResult,
     RangeOutcome,
+    _parse_content_range,
     _SparseFile,
     read_wheel_metadata_over_range,
 )
@@ -27,6 +29,10 @@ if TYPE_CHECKING:
 
 _META = b"Metadata-Version: 2.1\nName: widget\nVersion: 1.0\n\nBody text.\n"
 _URL = "https://files.example.org/packages/widget-1.0-py3-none-any.whl"
+
+# Digit runs at and just past CPython's int-from-string limit.
+_AT_LIMIT_DIGITS = "9" * sys.get_int_max_str_digits()
+_OVERSIZED_DIGITS = _AT_LIMIT_DIGITS + "9"
 
 
 def build_wheel(
@@ -72,6 +78,24 @@ def build_wheel_member_front(padding: int = 20000) -> bytes:
     return buf.getvalue()
 
 
+def build_wheel_big_directory() -> bytes:
+    """Build a wheel whose central directory alone tops a megabyte.
+
+    Thousands of long-named empty members inflate the directory while a
+    stored padding blob keeps it a small slice of the whole file, so the
+    directory can only be read by growing the tail window well past a
+    megabyte.
+    """
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
+        zf.writestr("widget-1.0.dist-info/METADATA", _META)
+        zf.writestr("widget-1.0.dist-info/WHEEL", b"Wheel-Version: 1.0\n")
+        zf.writestr("widget/_pad.bin", b"\x00" * 6_000_000)
+        for i in range(4400):
+            zf.writestr(f"widget/pad/{i:05d}_{'x' * 250}.py", b"")
+    return buf.getvalue()
+
+
 def build_wheel_member_last(metadata: bytes) -> bytes:
     """Build a wheel whose METADATA is the last member by offset.
 
@@ -93,6 +117,11 @@ def _parse_range(value: str) -> tuple[str, int, int]:
         return ("suffix", int(body[1:]), 0)
     start, _, end = body.partition("-")
     return ("absolute", int(start), int(end))
+
+
+def _range_span(rng: str, total: int) -> int:
+    kind, a, b = _parse_range(rng)
+    return min(a, total) if kind == "suffix" else b - a + 1
 
 
 class _FakeResponse:
@@ -341,12 +370,21 @@ def test_growth_loop_when_directory_beyond_tail() -> None:
     assert result.text == _META.decode("utf-8")
 
 
-def test_growth_cap_returns_missing(monkeypatch: pytest.MonkeyPatch) -> None:
-    import nab_index.lazy_wheel as lw
-
-    monkeypatch.setattr(lw, "_MAX_TAIL", 48)
-    wheel = build_wheel(padding=4000)
+def test_directory_over_a_megabyte_is_read_in_ranges() -> None:
+    # Real wheels carry directories this size (torch's tops 1.3 MB), so the
+    # growth loop must keep going rather than give up or fetch the body.
+    wheel = build_wheel_big_directory()
     transport = FakeRangeTransport("well_behaved", wheel)
+    result = _read(transport)
+    assert result.outcome is RangeOutcome.PARTIAL
+    assert result.text == _META.decode("utf-8")
+    assert all(rng is not None for rng, _ in transport.requests)
+    fetched = sum(_range_span(rng, len(wheel)) for rng, _ in transport.requests)
+    assert fetched < len(wheel) // 2
+
+
+def test_unreadable_bytes_exhaust_growth_and_return_missing() -> None:
+    transport = FakeRangeTransport("well_behaved", b"not a zip archive " * 300)
     result = _read(transport, tail_size=16)
     assert result.outcome is RangeOutcome.MISSING
     assert result.text is None
@@ -544,16 +582,21 @@ def test_absolute_probe_200_gzip_is_unsupported() -> None:
 
 @pytest.mark.parametrize(
     "probe_headers",
-    [{}, {"content-range": "bytes 0-0/*"}],
-    ids=["absent", "unknown-length"],
+    [
+        {},
+        {"content-range": "bytes 0-0/*"},
+        {"content-range": f"bytes 0-0/{_OVERSIZED_DIGITS}"},
+    ],
+    ids=["absent", "unknown-length", "oversized-length"],
 )
 def test_absolute_probe_206_without_total_falls_back_to_plain_get(
     probe_headers: dict[str, str],
 ) -> None:
-    """An honoured probe that reports no length steps down to the plain GET.
+    """An honoured probe that reports no usable length steps down to the plain GET.
 
-    RFC 9110 section 14.4 allows ``*`` as the complete-length. It leaves
-    nothing to range against, and says nothing about fetching the wheel whole.
+    RFC 9110 section 14.4 allows ``*`` as the complete-length, and a digit run
+    too long to convert reads the same way. Either leaves nothing to range
+    against, and says nothing about fetching the wheel whole.
     """
 
     def script(t: _ScriptedTransport, kind: str, a: int, b: int) -> _FakeResponse:
@@ -568,14 +611,23 @@ def test_absolute_probe_206_without_total_falls_back_to_plain_get(
     assert result.text == _META.decode("utf-8")
 
 
-def test_absolute_probe_error_raises() -> None:
+@pytest.mark.parametrize(
+    "error_headers",
+    [{}, {"content-encoding": "gzip"}],
+    ids=["identity", "encoded"],
+)
+def test_absolute_probe_error_raises(error_headers: dict[str, str]) -> None:
+    """A content-encoded error body is still an error, not a refused range."""
+
     def script(t: _ScriptedTransport, kind: str, a: int, b: int) -> _FakeResponse:
         if kind == "suffix":
             return _FakeResponse(501, {}, b"")
-        return _FakeResponse(404, {}, b"")
+        return _FakeResponse(404, error_headers, b"")
 
+    memo = RangeCapabilityMemo()
     with pytest.raises(HttpError):
-        _run_scripted(script)
+        _run_scripted(script, memo=memo)
+    assert memo.capability("files.example.org") is RangeCapability.UNKNOWN
 
 
 def test_range_rejected_plain_get_error_raises() -> None:
@@ -680,16 +732,23 @@ def test_absolute_tail_206_gzip_is_unsupported() -> None:
     assert result.outcome is RangeOutcome.UNSUPPORTED
 
 
-def test_absolute_tail_error_raises() -> None:
+@pytest.mark.parametrize(
+    "error_headers",
+    [{}, {"content-encoding": "gzip"}],
+    ids=["identity", "encoded"],
+)
+def test_absolute_tail_error_raises(error_headers: dict[str, str]) -> None:
     def script(t: _ScriptedTransport, kind: str, a: int, b: int) -> _FakeResponse:
         if kind == "suffix":
             return _FakeResponse(501, {}, b"")
         if a == 0 and b == 0:
             return t.partial(0, 0)
-        return _FakeResponse(500, {}, b"")
+        return _FakeResponse(500, error_headers, b"")
 
+    memo = RangeCapabilityMemo()
     with pytest.raises(HttpError):
-        _run_scripted(script)
+        _run_scripted(script, memo=memo)
+    assert memo.capability("files.example.org") is RangeCapability.UNKNOWN
 
 
 def test_growth_200_full_body_recovers() -> None:
@@ -903,6 +962,41 @@ def test_suffix_206_unparseable_content_range_downgrades() -> None:
     result = _run_scripted(script)
     assert result.outcome is RangeOutcome.PARTIAL
     assert result.text == _META.decode("utf-8")
+
+
+def test_suffix_206_oversized_total_downgrades() -> None:
+    """A complete-length too long to convert reads as no length at all."""
+
+    def script(t: _ScriptedTransport, kind: str, a: int, b: int) -> _FakeResponse:
+        if kind == "suffix":
+            start = max(0, t.total - a)
+            headers = {
+                "content-range": f"bytes {start}-{t.total - 1}/{_OVERSIZED_DIGITS}"
+            }
+            return _FakeResponse(206, headers, t.wheel[start:])
+        return t.partial(a, b)
+
+    result = _run_scripted(script, wheel=build_wheel_member_front())
+    assert result.outcome is RangeOutcome.PARTIAL
+    assert result.text == _META.decode("utf-8")
+
+
+def test_parse_content_range_at_int_limit() -> None:
+    parsed = _parse_content_range(f"bytes 0-0/{_AT_LIMIT_DIGITS}")
+    assert parsed == (0, 0, int(_AT_LIMIT_DIGITS))
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        f"bytes 0-0/{_OVERSIZED_DIGITS}",
+        f"bytes 0-{_OVERSIZED_DIGITS}/{_OVERSIZED_DIGITS}",
+        f"bytes {_OVERSIZED_DIGITS}-{_OVERSIZED_DIGITS}/{_OVERSIZED_DIGITS}",
+    ],
+    ids=["total", "end", "start"],
+)
+def test_parse_content_range_past_int_limit(value: str) -> None:
+    assert _parse_content_range(value) is None
 
 
 def test_memo_suffix_ok_no_reprobe() -> None:

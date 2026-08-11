@@ -8283,6 +8283,1124 @@ class CfnIdNamespaceAssociationProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cleanrooms_bf45e42c.IIntermediateTableRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnIntermediateTable(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cleanrooms.CfnIntermediateTable",
+):
+    '''Represents an intermediate table that stores cached query results within a collaboration.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanrooms-intermediatetable.html
+    :cloudformationResource: AWS::CleanRooms::IntermediateTable
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cleanrooms as cleanrooms
+        
+        cfn_intermediate_table = cleanrooms.CfnIntermediateTable(self, "MyCfnIntermediateTable",
+            membership_identifier="membershipIdentifier",
+            name="name",
+            population_analysis_configuration=cleanrooms.CfnIntermediateTable.PopulationAnalysisConfigurationProperty(
+                sql_parameters=cleanrooms.CfnIntermediateTable.PopulationAnalysisSqlParametersProperty(
+                    analysis_template_arn="analysisTemplateArn",
+                    query_string="queryString"
+                )
+            ),
+        
+            # the properties below are optional
+            analysis_rules=[cleanrooms.CfnIntermediateTable.IntermediateTableAnalysisRuleProperty(
+                policy=cleanrooms.CfnIntermediateTable.IntermediateTableAnalysisRulePolicyProperty(
+                    v1=cleanrooms.CfnIntermediateTable.IntermediateTableAnalysisRulePolicyV1Property(
+                        custom=cleanrooms.CfnIntermediateTable.IntermediateTableAnalysisRuleCustomProperty(
+                            allowed_analyses=["allowedAnalyses"],
+        
+                            # the properties below are optional
+                            additional_analyses="additionalAnalyses",
+                            allowed_analysis_providers=["allowedAnalysisProviders"],
+                            allowed_result_receivers=["allowedResultReceivers"],
+                            differential_privacy=cleanrooms.CfnIntermediateTable.DifferentialPrivacyProperty(
+                                columns=[cleanrooms.CfnIntermediateTable.DifferentialPrivacyColumnProperty(
+                                    name="name"
+                                )]
+                            ),
+                            disallowed_output_columns=["disallowedOutputColumns"]
+                        )
+                    )
+                ),
+                type="type"
+            )],
+            description="description",
+            kms_key_arn="kmsKeyArn",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        membership_identifier: builtins.str,
+        name: builtins.str,
+        population_analysis_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntermediateTable.PopulationAnalysisConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        analysis_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntermediateTable.IntermediateTableAnalysisRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CleanRooms::IntermediateTable``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param membership_identifier: 
+        :param name: 
+        :param population_analysis_configuration: 
+        :param analysis_rules: 
+        :param description: 
+        :param kms_key_arn: 
+        :param tags: 
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0b76d0b741802bc200983c7b37308d1c20ff1ce567c974c2ae885e50ba5ee0c2)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnIntermediateTableProps(
+            membership_identifier=membership_identifier,
+            name=name,
+            population_analysis_configuration=population_analysis_configuration,
+            analysis_rules=analysis_rules,
+            description=description,
+            kms_key_arn=kms_key_arn,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForIntermediateTable")
+    @builtins.classmethod
+    def arn_for_intermediate_table(
+        cls,
+        resource: "_aws_cleanrooms_bf45e42c.IIntermediateTableRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e587a0401975794236b466b48b002f162d67997f10a33d687a27cf581c206960)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForIntermediateTable", [resource]))
+
+    @jsii.member(jsii_name="isCfnIntermediateTable")
+    @builtins.classmethod
+    def is_cfn_intermediate_table(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnIntermediateTable.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8e14315e915456d7458e5c23e6e1607b234cf42dbc8912f3173b86578f60eda1)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnIntermediateTable", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ccfe8feec6f1e2884c12efb0523b37c9963c57bf008fbb639f37367ebb1b3750)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__79c2843b67f069cd94fe0fc8e2b73bcfa898639961b06447a38c93ed9b357ff9)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCollaborationArn")
+    def attr_collaboration_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: CollaborationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCollaborationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCollaborationIdentifier")
+    def attr_collaboration_identifier(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: CollaborationIdentifier
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCollaborationIdentifier"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIntermediateTableIdentifier")
+    def attr_intermediate_table_identifier(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: IntermediateTableIdentifier
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrIntermediateTableIdentifier"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMembershipArn")
+    def attr_membership_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: MembershipArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrMembershipArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="intermediateTableRef")
+    def intermediate_table_ref(
+        self,
+    ) -> "_aws_cleanrooms_bf45e42c.IntermediateTableReference":
+        '''A reference to a IntermediateTable resource.'''
+        return typing.cast("_aws_cleanrooms_bf45e42c.IntermediateTableReference", jsii.get(self, "intermediateTableRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="membershipIdentifier")
+    def membership_identifier(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "membershipIdentifier"))
+
+    @membership_identifier.setter
+    def membership_identifier(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b520d26efbed9feb67bb95ee1286a57d68dd8542d4c3e0734d189f054cd01519)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "membershipIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ba94372dfd930f73578c9e34a1b5a5b9832d096b11c12d628c0a02e49cc498e8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="populationAnalysisConfiguration")
+    def population_analysis_configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.PopulationAnalysisConfigurationProperty"]:
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.PopulationAnalysisConfigurationProperty"], jsii.get(self, "populationAnalysisConfiguration"))
+
+    @population_analysis_configuration.setter
+    def population_analysis_configuration(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.PopulationAnalysisConfigurationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a74bc12d8a36778ed446ed66c2f3a52a306f32585b150b487ad861cef42c90c7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "populationAnalysisConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="analysisRules")
+    def analysis_rules(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.IntermediateTableAnalysisRuleProperty"]]]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.IntermediateTableAnalysisRuleProperty"]]]], jsii.get(self, "analysisRules"))
+
+    @analysis_rules.setter
+    def analysis_rules(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.IntermediateTableAnalysisRuleProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ac4f67799867d85c934a7198e03d0cbfa39f239bb6f6bf0a3a291bacf5dbf82e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "analysisRules", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b130c4fa7cce26f88f7bcb0f921135aec5e276efb1f73c243df9aee5d99d0cdb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyArn")
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyArn"))
+
+    @kms_key_arn.setter
+    def kms_key_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__408f5e9e95a382b5d126282ef93103298b7a227f9d3a6ca5070bf7840335298c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__069b08c7309aca84ad2a4f55366e4c42962578ad29e184297dcab9bdf2063ebc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cleanrooms.CfnIntermediateTable.DifferentialPrivacyColumnProperty",
+        jsii_struct_bases=[],
+        name_mapping={"name": "name"},
+    )
+    class DifferentialPrivacyColumnProperty:
+        def __init__(self, *, name: builtins.str) -> None:
+            '''
+            :param name: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-differentialprivacycolumn.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cleanrooms as cleanrooms
+                
+                differential_privacy_column_property = cleanrooms.CfnIntermediateTable.DifferentialPrivacyColumnProperty(
+                    name="name"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__663e7e2a057ec5e46da1a5565885420ea98bcdc4d2c1bbe69333d6b8f0089c3f)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+            }
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-differentialprivacycolumn.html#cfn-cleanrooms-intermediatetable-differentialprivacycolumn-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DifferentialPrivacyColumnProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cleanrooms.CfnIntermediateTable.DifferentialPrivacyProperty",
+        jsii_struct_bases=[],
+        name_mapping={"columns": "columns"},
+    )
+    class DifferentialPrivacyProperty:
+        def __init__(
+            self,
+            *,
+            columns: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntermediateTable.DifferentialPrivacyColumnProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''
+            :param columns: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-differentialprivacy.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cleanrooms as cleanrooms
+                
+                differential_privacy_property = cleanrooms.CfnIntermediateTable.DifferentialPrivacyProperty(
+                    columns=[cleanrooms.CfnIntermediateTable.DifferentialPrivacyColumnProperty(
+                        name="name"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1cb795877e204392b87a052552e5e082294d8e004a977e7bdad47ab8048a53db)
+                check_type(argname="argument columns", value=columns, expected_type=type_hints["columns"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "columns": columns,
+            }
+
+        @builtins.property
+        def columns(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.DifferentialPrivacyColumnProperty"]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-differentialprivacy.html#cfn-cleanrooms-intermediatetable-differentialprivacy-columns
+            '''
+            result = self._values.get("columns")
+            assert result is not None, "Required property 'columns' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.DifferentialPrivacyColumnProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DifferentialPrivacyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cleanrooms.CfnIntermediateTable.IntermediateTableAnalysisRuleCustomProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "allowed_analyses": "allowedAnalyses",
+            "additional_analyses": "additionalAnalyses",
+            "allowed_analysis_providers": "allowedAnalysisProviders",
+            "allowed_result_receivers": "allowedResultReceivers",
+            "differential_privacy": "differentialPrivacy",
+            "disallowed_output_columns": "disallowedOutputColumns",
+        },
+    )
+    class IntermediateTableAnalysisRuleCustomProperty:
+        def __init__(
+            self,
+            *,
+            allowed_analyses: typing.Sequence[builtins.str],
+            additional_analyses: typing.Optional[builtins.str] = None,
+            allowed_analysis_providers: typing.Optional[typing.Sequence[builtins.str]] = None,
+            allowed_result_receivers: typing.Optional[typing.Sequence[builtins.str]] = None,
+            differential_privacy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntermediateTable.DifferentialPrivacyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            disallowed_output_columns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param allowed_analyses: 
+            :param additional_analyses: 
+            :param allowed_analysis_providers: 
+            :param allowed_result_receivers: 
+            :param differential_privacy: 
+            :param disallowed_output_columns: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-intermediatetableanalysisrulecustom.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cleanrooms as cleanrooms
+                
+                intermediate_table_analysis_rule_custom_property = cleanrooms.CfnIntermediateTable.IntermediateTableAnalysisRuleCustomProperty(
+                    allowed_analyses=["allowedAnalyses"],
+                
+                    # the properties below are optional
+                    additional_analyses="additionalAnalyses",
+                    allowed_analysis_providers=["allowedAnalysisProviders"],
+                    allowed_result_receivers=["allowedResultReceivers"],
+                    differential_privacy=cleanrooms.CfnIntermediateTable.DifferentialPrivacyProperty(
+                        columns=[cleanrooms.CfnIntermediateTable.DifferentialPrivacyColumnProperty(
+                            name="name"
+                        )]
+                    ),
+                    disallowed_output_columns=["disallowedOutputColumns"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__976d081a2763017b50cbfff4e2482583d83b0eee53a15c09ec1736fd371b0fae)
+                check_type(argname="argument allowed_analyses", value=allowed_analyses, expected_type=type_hints["allowed_analyses"])
+                check_type(argname="argument additional_analyses", value=additional_analyses, expected_type=type_hints["additional_analyses"])
+                check_type(argname="argument allowed_analysis_providers", value=allowed_analysis_providers, expected_type=type_hints["allowed_analysis_providers"])
+                check_type(argname="argument allowed_result_receivers", value=allowed_result_receivers, expected_type=type_hints["allowed_result_receivers"])
+                check_type(argname="argument differential_privacy", value=differential_privacy, expected_type=type_hints["differential_privacy"])
+                check_type(argname="argument disallowed_output_columns", value=disallowed_output_columns, expected_type=type_hints["disallowed_output_columns"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "allowed_analyses": allowed_analyses,
+            }
+            if additional_analyses is not None:
+                self._values["additional_analyses"] = additional_analyses
+            if allowed_analysis_providers is not None:
+                self._values["allowed_analysis_providers"] = allowed_analysis_providers
+            if allowed_result_receivers is not None:
+                self._values["allowed_result_receivers"] = allowed_result_receivers
+            if differential_privacy is not None:
+                self._values["differential_privacy"] = differential_privacy
+            if disallowed_output_columns is not None:
+                self._values["disallowed_output_columns"] = disallowed_output_columns
+
+        @builtins.property
+        def allowed_analyses(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-intermediatetableanalysisrulecustom.html#cfn-cleanrooms-intermediatetable-intermediatetableanalysisrulecustom-allowedanalyses
+            '''
+            result = self._values.get("allowed_analyses")
+            assert result is not None, "Required property 'allowed_analyses' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def additional_analyses(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-intermediatetableanalysisrulecustom.html#cfn-cleanrooms-intermediatetable-intermediatetableanalysisrulecustom-additionalanalyses
+            '''
+            result = self._values.get("additional_analyses")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def allowed_analysis_providers(
+            self,
+        ) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-intermediatetableanalysisrulecustom.html#cfn-cleanrooms-intermediatetable-intermediatetableanalysisrulecustom-allowedanalysisproviders
+            '''
+            result = self._values.get("allowed_analysis_providers")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def allowed_result_receivers(
+            self,
+        ) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-intermediatetableanalysisrulecustom.html#cfn-cleanrooms-intermediatetable-intermediatetableanalysisrulecustom-allowedresultreceivers
+            '''
+            result = self._values.get("allowed_result_receivers")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def differential_privacy(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.DifferentialPrivacyProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-intermediatetableanalysisrulecustom.html#cfn-cleanrooms-intermediatetable-intermediatetableanalysisrulecustom-differentialprivacy
+            '''
+            result = self._values.get("differential_privacy")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.DifferentialPrivacyProperty"]], result)
+
+        @builtins.property
+        def disallowed_output_columns(
+            self,
+        ) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-intermediatetableanalysisrulecustom.html#cfn-cleanrooms-intermediatetable-intermediatetableanalysisrulecustom-disallowedoutputcolumns
+            '''
+            result = self._values.get("disallowed_output_columns")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IntermediateTableAnalysisRuleCustomProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cleanrooms.CfnIntermediateTable.IntermediateTableAnalysisRulePolicyProperty",
+        jsii_struct_bases=[],
+        name_mapping={"v1": "v1"},
+    )
+    class IntermediateTableAnalysisRulePolicyProperty:
+        def __init__(
+            self,
+            *,
+            v1: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntermediateTable.IntermediateTableAnalysisRulePolicyV1Property", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''
+            :param v1: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-intermediatetableanalysisrulepolicy.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cleanrooms as cleanrooms
+                
+                intermediate_table_analysis_rule_policy_property = cleanrooms.CfnIntermediateTable.IntermediateTableAnalysisRulePolicyProperty(
+                    v1=cleanrooms.CfnIntermediateTable.IntermediateTableAnalysisRulePolicyV1Property(
+                        custom=cleanrooms.CfnIntermediateTable.IntermediateTableAnalysisRuleCustomProperty(
+                            allowed_analyses=["allowedAnalyses"],
+                
+                            # the properties below are optional
+                            additional_analyses="additionalAnalyses",
+                            allowed_analysis_providers=["allowedAnalysisProviders"],
+                            allowed_result_receivers=["allowedResultReceivers"],
+                            differential_privacy=cleanrooms.CfnIntermediateTable.DifferentialPrivacyProperty(
+                                columns=[cleanrooms.CfnIntermediateTable.DifferentialPrivacyColumnProperty(
+                                    name="name"
+                                )]
+                            ),
+                            disallowed_output_columns=["disallowedOutputColumns"]
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5c788e7282085c919f7e74126653b7a85b3909261c8f618f55524c55d3dcf6f8)
+                check_type(argname="argument v1", value=v1, expected_type=type_hints["v1"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "v1": v1,
+            }
+
+        @builtins.property
+        def v1(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.IntermediateTableAnalysisRulePolicyV1Property"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-intermediatetableanalysisrulepolicy.html#cfn-cleanrooms-intermediatetable-intermediatetableanalysisrulepolicy-v1
+            '''
+            result = self._values.get("v1")
+            assert result is not None, "Required property 'v1' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.IntermediateTableAnalysisRulePolicyV1Property"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IntermediateTableAnalysisRulePolicyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cleanrooms.CfnIntermediateTable.IntermediateTableAnalysisRulePolicyV1Property",
+        jsii_struct_bases=[],
+        name_mapping={"custom": "custom"},
+    )
+    class IntermediateTableAnalysisRulePolicyV1Property:
+        def __init__(
+            self,
+            *,
+            custom: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntermediateTable.IntermediateTableAnalysisRuleCustomProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''
+            :param custom: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-intermediatetableanalysisrulepolicyv1.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cleanrooms as cleanrooms
+                
+                intermediate_table_analysis_rule_policy_v1_property = cleanrooms.CfnIntermediateTable.IntermediateTableAnalysisRulePolicyV1Property(
+                    custom=cleanrooms.CfnIntermediateTable.IntermediateTableAnalysisRuleCustomProperty(
+                        allowed_analyses=["allowedAnalyses"],
+                
+                        # the properties below are optional
+                        additional_analyses="additionalAnalyses",
+                        allowed_analysis_providers=["allowedAnalysisProviders"],
+                        allowed_result_receivers=["allowedResultReceivers"],
+                        differential_privacy=cleanrooms.CfnIntermediateTable.DifferentialPrivacyProperty(
+                            columns=[cleanrooms.CfnIntermediateTable.DifferentialPrivacyColumnProperty(
+                                name="name"
+                            )]
+                        ),
+                        disallowed_output_columns=["disallowedOutputColumns"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__32fc2bff66e6380d0f5c02696512cc255033186b6ab432d3fe6c9093e1b0a990)
+                check_type(argname="argument custom", value=custom, expected_type=type_hints["custom"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "custom": custom,
+            }
+
+        @builtins.property
+        def custom(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.IntermediateTableAnalysisRuleCustomProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-intermediatetableanalysisrulepolicyv1.html#cfn-cleanrooms-intermediatetable-intermediatetableanalysisrulepolicyv1-custom
+            '''
+            result = self._values.get("custom")
+            assert result is not None, "Required property 'custom' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.IntermediateTableAnalysisRuleCustomProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IntermediateTableAnalysisRulePolicyV1Property(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cleanrooms.CfnIntermediateTable.IntermediateTableAnalysisRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={"policy": "policy", "type": "type"},
+    )
+    class IntermediateTableAnalysisRuleProperty:
+        def __init__(
+            self,
+            *,
+            policy: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntermediateTable.IntermediateTableAnalysisRulePolicyProperty", typing.Dict[builtins.str, typing.Any]]],
+            type: builtins.str,
+        ) -> None:
+            '''
+            :param policy: 
+            :param type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-intermediatetableanalysisrule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cleanrooms as cleanrooms
+                
+                intermediate_table_analysis_rule_property = cleanrooms.CfnIntermediateTable.IntermediateTableAnalysisRuleProperty(
+                    policy=cleanrooms.CfnIntermediateTable.IntermediateTableAnalysisRulePolicyProperty(
+                        v1=cleanrooms.CfnIntermediateTable.IntermediateTableAnalysisRulePolicyV1Property(
+                            custom=cleanrooms.CfnIntermediateTable.IntermediateTableAnalysisRuleCustomProperty(
+                                allowed_analyses=["allowedAnalyses"],
+                
+                                # the properties below are optional
+                                additional_analyses="additionalAnalyses",
+                                allowed_analysis_providers=["allowedAnalysisProviders"],
+                                allowed_result_receivers=["allowedResultReceivers"],
+                                differential_privacy=cleanrooms.CfnIntermediateTable.DifferentialPrivacyProperty(
+                                    columns=[cleanrooms.CfnIntermediateTable.DifferentialPrivacyColumnProperty(
+                                        name="name"
+                                    )]
+                                ),
+                                disallowed_output_columns=["disallowedOutputColumns"]
+                            )
+                        )
+                    ),
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d300154998d5e94f5dd6755e1f6f1374c60339a5adc1e3d5ae027ec0abed5ed5)
+                check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "policy": policy,
+                "type": type,
+            }
+
+        @builtins.property
+        def policy(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.IntermediateTableAnalysisRulePolicyProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-intermediatetableanalysisrule.html#cfn-cleanrooms-intermediatetable-intermediatetableanalysisrule-policy
+            '''
+            result = self._values.get("policy")
+            assert result is not None, "Required property 'policy' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.IntermediateTableAnalysisRulePolicyProperty"], result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-intermediatetableanalysisrule.html#cfn-cleanrooms-intermediatetable-intermediatetableanalysisrule-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IntermediateTableAnalysisRuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cleanrooms.CfnIntermediateTable.PopulationAnalysisConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"sql_parameters": "sqlParameters"},
+    )
+    class PopulationAnalysisConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            sql_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntermediateTable.PopulationAnalysisSqlParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param sql_parameters: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-populationanalysisconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cleanrooms as cleanrooms
+                
+                population_analysis_configuration_property = cleanrooms.CfnIntermediateTable.PopulationAnalysisConfigurationProperty(
+                    sql_parameters=cleanrooms.CfnIntermediateTable.PopulationAnalysisSqlParametersProperty(
+                        analysis_template_arn="analysisTemplateArn",
+                        query_string="queryString"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__97d211f4a720bb2dfc7a8bae442d844dddb1f6c2e289b2e9a7d35671fde2543a)
+                check_type(argname="argument sql_parameters", value=sql_parameters, expected_type=type_hints["sql_parameters"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if sql_parameters is not None:
+                self._values["sql_parameters"] = sql_parameters
+
+        @builtins.property
+        def sql_parameters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.PopulationAnalysisSqlParametersProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-populationanalysisconfiguration.html#cfn-cleanrooms-intermediatetable-populationanalysisconfiguration-sqlparameters
+            '''
+            result = self._values.get("sql_parameters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.PopulationAnalysisSqlParametersProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PopulationAnalysisConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cleanrooms.CfnIntermediateTable.PopulationAnalysisSqlParametersProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "analysis_template_arn": "analysisTemplateArn",
+            "query_string": "queryString",
+        },
+    )
+    class PopulationAnalysisSqlParametersProperty:
+        def __init__(
+            self,
+            *,
+            analysis_template_arn: typing.Optional[builtins.str] = None,
+            query_string: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param analysis_template_arn: 
+            :param query_string: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-populationanalysissqlparameters.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cleanrooms as cleanrooms
+                
+                population_analysis_sql_parameters_property = cleanrooms.CfnIntermediateTable.PopulationAnalysisSqlParametersProperty(
+                    analysis_template_arn="analysisTemplateArn",
+                    query_string="queryString"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__fb88a59fafc4da6d14b76f0b73469642e9d832b06f3454c9a124159231feaa8b)
+                check_type(argname="argument analysis_template_arn", value=analysis_template_arn, expected_type=type_hints["analysis_template_arn"])
+                check_type(argname="argument query_string", value=query_string, expected_type=type_hints["query_string"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if analysis_template_arn is not None:
+                self._values["analysis_template_arn"] = analysis_template_arn
+            if query_string is not None:
+                self._values["query_string"] = query_string
+
+        @builtins.property
+        def analysis_template_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-populationanalysissqlparameters.html#cfn-cleanrooms-intermediatetable-populationanalysissqlparameters-analysistemplatearn
+            '''
+            result = self._values.get("analysis_template_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def query_string(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-populationanalysissqlparameters.html#cfn-cleanrooms-intermediatetable-populationanalysissqlparameters-querystring
+            '''
+            result = self._values.get("query_string")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PopulationAnalysisSqlParametersProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cleanrooms.CfnIntermediateTableProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "membership_identifier": "membershipIdentifier",
+        "name": "name",
+        "population_analysis_configuration": "populationAnalysisConfiguration",
+        "analysis_rules": "analysisRules",
+        "description": "description",
+        "kms_key_arn": "kmsKeyArn",
+        "tags": "tags",
+    },
+)
+class CfnIntermediateTableProps:
+    def __init__(
+        self,
+        *,
+        membership_identifier: builtins.str,
+        name: builtins.str,
+        population_analysis_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntermediateTable.PopulationAnalysisConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        analysis_rules: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntermediateTable.IntermediateTableAnalysisRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnIntermediateTable``.
+
+        :param membership_identifier: 
+        :param name: 
+        :param population_analysis_configuration: 
+        :param analysis_rules: 
+        :param description: 
+        :param kms_key_arn: 
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanrooms-intermediatetable.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cleanrooms as cleanrooms
+            
+            cfn_intermediate_table_props = cleanrooms.CfnIntermediateTableProps(
+                membership_identifier="membershipIdentifier",
+                name="name",
+                population_analysis_configuration=cleanrooms.CfnIntermediateTable.PopulationAnalysisConfigurationProperty(
+                    sql_parameters=cleanrooms.CfnIntermediateTable.PopulationAnalysisSqlParametersProperty(
+                        analysis_template_arn="analysisTemplateArn",
+                        query_string="queryString"
+                    )
+                ),
+            
+                # the properties below are optional
+                analysis_rules=[cleanrooms.CfnIntermediateTable.IntermediateTableAnalysisRuleProperty(
+                    policy=cleanrooms.CfnIntermediateTable.IntermediateTableAnalysisRulePolicyProperty(
+                        v1=cleanrooms.CfnIntermediateTable.IntermediateTableAnalysisRulePolicyV1Property(
+                            custom=cleanrooms.CfnIntermediateTable.IntermediateTableAnalysisRuleCustomProperty(
+                                allowed_analyses=["allowedAnalyses"],
+            
+                                # the properties below are optional
+                                additional_analyses="additionalAnalyses",
+                                allowed_analysis_providers=["allowedAnalysisProviders"],
+                                allowed_result_receivers=["allowedResultReceivers"],
+                                differential_privacy=cleanrooms.CfnIntermediateTable.DifferentialPrivacyProperty(
+                                    columns=[cleanrooms.CfnIntermediateTable.DifferentialPrivacyColumnProperty(
+                                        name="name"
+                                    )]
+                                ),
+                                disallowed_output_columns=["disallowedOutputColumns"]
+                            )
+                        )
+                    ),
+                    type="type"
+                )],
+                description="description",
+                kms_key_arn="kmsKeyArn",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8309e090785b3ef96f36f4017907247c5d073723e49cb28dac7dcd76873bb57e)
+            check_type(argname="argument membership_identifier", value=membership_identifier, expected_type=type_hints["membership_identifier"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument population_analysis_configuration", value=population_analysis_configuration, expected_type=type_hints["population_analysis_configuration"])
+            check_type(argname="argument analysis_rules", value=analysis_rules, expected_type=type_hints["analysis_rules"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "membership_identifier": membership_identifier,
+            "name": name,
+            "population_analysis_configuration": population_analysis_configuration,
+        }
+        if analysis_rules is not None:
+            self._values["analysis_rules"] = analysis_rules
+        if description is not None:
+            self._values["description"] = description
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def membership_identifier(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanrooms-intermediatetable.html#cfn-cleanrooms-intermediatetable-membershipidentifier
+        '''
+        result = self._values.get("membership_identifier")
+        assert result is not None, "Required property 'membership_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanrooms-intermediatetable.html#cfn-cleanrooms-intermediatetable-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def population_analysis_configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.PopulationAnalysisConfigurationProperty"]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanrooms-intermediatetable.html#cfn-cleanrooms-intermediatetable-populationanalysisconfiguration
+        '''
+        result = self._values.get("population_analysis_configuration")
+        assert result is not None, "Required property 'population_analysis_configuration' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.PopulationAnalysisConfigurationProperty"], result)
+
+    @builtins.property
+    def analysis_rules(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.IntermediateTableAnalysisRuleProperty"]]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanrooms-intermediatetable.html#cfn-cleanrooms-intermediatetable-analysisrules
+        '''
+        result = self._values.get("analysis_rules")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.IntermediateTableAnalysisRuleProperty"]]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanrooms-intermediatetable.html#cfn-cleanrooms-intermediatetable-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanrooms-intermediatetable.html#cfn-cleanrooms-intermediatetable-kmskeyarn
+        '''
+        result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanrooms-intermediatetable.html#cfn-cleanrooms-intermediatetable-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnIntermediateTableProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cleanrooms_bf45e42c.IMembershipRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnMembership(
     _aws_cdk_0cae9daa.CfnResource,
@@ -10550,6 +11668,8 @@ __all__ = [
     "CfnIdMappingTableProps",
     "CfnIdNamespaceAssociation",
     "CfnIdNamespaceAssociationProps",
+    "CfnIntermediateTable",
+    "CfnIntermediateTableProps",
     "CfnMembership",
     "CfnMembershipProps",
     "CfnPrivacyBudgetTemplate",
@@ -11636,6 +12756,163 @@ def _typecheckingstub__82e4c0093759d750139b85493d1dd6c9f0b65aa9075fa72356dbfcee3
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     id_mapping_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIdNamespaceAssociation.IdMappingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0b76d0b741802bc200983c7b37308d1c20ff1ce567c974c2ae885e50ba5ee0c2(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    membership_identifier: builtins.str,
+    name: builtins.str,
+    population_analysis_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntermediateTable.PopulationAnalysisConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    analysis_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntermediateTable.IntermediateTableAnalysisRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e587a0401975794236b466b48b002f162d67997f10a33d687a27cf581c206960(
+    resource: _aws_cleanrooms_bf45e42c.IIntermediateTableRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8e14315e915456d7458e5c23e6e1607b234cf42dbc8912f3173b86578f60eda1(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ccfe8feec6f1e2884c12efb0523b37c9963c57bf008fbb639f37367ebb1b3750(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__79c2843b67f069cd94fe0fc8e2b73bcfa898639961b06447a38c93ed9b357ff9(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b520d26efbed9feb67bb95ee1286a57d68dd8542d4c3e0734d189f054cd01519(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba94372dfd930f73578c9e34a1b5a5b9832d096b11c12d628c0a02e49cc498e8(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a74bc12d8a36778ed446ed66c2f3a52a306f32585b150b487ad861cef42c90c7(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnIntermediateTable.PopulationAnalysisConfigurationProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ac4f67799867d85c934a7198e03d0cbfa39f239bb6f6bf0a3a291bacf5dbf82e(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnIntermediateTable.IntermediateTableAnalysisRuleProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b130c4fa7cce26f88f7bcb0f921135aec5e276efb1f73c243df9aee5d99d0cdb(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__408f5e9e95a382b5d126282ef93103298b7a227f9d3a6ca5070bf7840335298c(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__069b08c7309aca84ad2a4f55366e4c42962578ad29e184297dcab9bdf2063ebc(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__663e7e2a057ec5e46da1a5565885420ea98bcdc4d2c1bbe69333d6b8f0089c3f(
+    *,
+    name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1cb795877e204392b87a052552e5e082294d8e004a977e7bdad47ab8048a53db(
+    *,
+    columns: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntermediateTable.DifferentialPrivacyColumnProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__976d081a2763017b50cbfff4e2482583d83b0eee53a15c09ec1736fd371b0fae(
+    *,
+    allowed_analyses: typing.Sequence[builtins.str],
+    additional_analyses: typing.Optional[builtins.str] = None,
+    allowed_analysis_providers: typing.Optional[typing.Sequence[builtins.str]] = None,
+    allowed_result_receivers: typing.Optional[typing.Sequence[builtins.str]] = None,
+    differential_privacy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntermediateTable.DifferentialPrivacyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    disallowed_output_columns: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5c788e7282085c919f7e74126653b7a85b3909261c8f618f55524c55d3dcf6f8(
+    *,
+    v1: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntermediateTable.IntermediateTableAnalysisRulePolicyV1Property, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__32fc2bff66e6380d0f5c02696512cc255033186b6ab432d3fe6c9093e1b0a990(
+    *,
+    custom: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntermediateTable.IntermediateTableAnalysisRuleCustomProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d300154998d5e94f5dd6755e1f6f1374c60339a5adc1e3d5ae027ec0abed5ed5(
+    *,
+    policy: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntermediateTable.IntermediateTableAnalysisRulePolicyProperty, typing.Dict[builtins.str, typing.Any]]],
+    type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__97d211f4a720bb2dfc7a8bae442d844dddb1f6c2e289b2e9a7d35671fde2543a(
+    *,
+    sql_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntermediateTable.PopulationAnalysisSqlParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb88a59fafc4da6d14b76f0b73469642e9d832b06f3454c9a124159231feaa8b(
+    *,
+    analysis_template_arn: typing.Optional[builtins.str] = None,
+    query_string: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8309e090785b3ef96f36f4017907247c5d073723e49cb28dac7dcd76873bb57e(
+    *,
+    membership_identifier: builtins.str,
+    name: builtins.str,
+    population_analysis_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntermediateTable.PopulationAnalysisConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    analysis_rules: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntermediateTable.IntermediateTableAnalysisRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

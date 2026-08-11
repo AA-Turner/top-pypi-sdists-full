@@ -12,7 +12,6 @@
 
 """Tests for the prepare function."""
 
-import unittest
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -23,12 +22,15 @@ from qiskit.primitives.containers.sampler_pub import SamplerPub
 
 from qiskit_ibm_runtime.exceptions import IBMInputValueError
 from qiskit_ibm_runtime.executor_sampler.prepare import prepare
+from qiskit_ibm_runtime.fake_provider import FakeManilaV2
 from qiskit_ibm_runtime.options_models import SamplerOptions
 from qiskit_ibm_runtime.quantum_program import QuantumProgram
 from qiskit_ibm_runtime.quantum_program.quantum_program import CircuitItem, SamplexItem
 
+from ...ibm_test_case import IBMTestCase
 
-class TestPrepare(unittest.TestCase):
+
+class TestPrepare(IBMTestCase):
     """Tests for prepare method."""
 
     def test_multiple_pubs(self):
@@ -74,6 +76,44 @@ class TestPrepare(unittest.TestCase):
         self.assertEqual(program.items[2].circuit, circuit3)
 
         self.assertIsNotNone(executor_options)
+
+    def test_binding_array_key_order_bound_by_circuit_parameters(self):
+        """Parameter values must be ordered by ``circuit.parameters``.
+
+        Regression: ``prepare`` used to call ``as_array()`` without passing the
+        circuit's parameters, so a dict/BindingsArray whose key order differed
+        from ``circuit.parameters`` bound values to the wrong parameters silently.
+        """
+        a = Parameter("a")
+        b = Parameter("b")
+        circuit = QuantumCircuit(1, 1)
+        circuit.rx(a, 0)
+        circuit.rz(b, 0)
+        circuit.measure(0, 0)
+        # circuit.parameters is canonically sorted -> (a, b).
+        self.assertEqual([p.name for p in circuit.parameters], ["a", "b"])
+
+        # Key the bindings in the opposite order (b, a); intended a=0.1, b=0.7.
+        pub = SamplerPub.coerce((circuit, {("b", "a"): [0.7, 0.1]}), shots=1024)
+
+        # No-twirling path -> CircuitItem.circuit_arguments ordered (a, b).
+        options = options = SamplerOptions(
+            **{"twirling": {"enable_gates": False, "enable_measure": False}}
+        )
+        program, _ = prepare([pub], options, default_shots=1024)
+        self.assertIsInstance(program.items[0], CircuitItem)
+        np.testing.assert_array_equal(program.items[0].circuit_arguments, [0.1, 0.7])
+
+        # Twirling path -> SamplexItem parameter_values ordered (a, b).
+        options = options = SamplerOptions(
+            **{"twirling": {"enable_gates": True, "enable_measure": True}}
+        )
+        program_tw, _ = prepare([pub], options, default_shots=1024)
+        self.assertIsInstance(program_tw.items[0], SamplexItem)
+        np.testing.assert_array_equal(
+            np.asarray(program_tw.items[0].samplex_arguments["parameter_values"]).reshape(-1),
+            [0.1, 0.7],
+        )
 
     def test_default_shots(self):
         """Test that default shots are used when not specified in pub."""
@@ -140,7 +180,7 @@ class TestPrepare(unittest.TestCase):
         self.assertIn("not supported", str(context.exception))
 
 
-class TestPrepareOptionsHandling(unittest.TestCase):
+class TestPrepareOptionsHandling(IBMTestCase):
     """Tests for options handling in prepare() method."""
 
     def test_prepare_returns_executor_options(self):
@@ -297,7 +337,7 @@ class TestPrepareOptionsHandling(unittest.TestCase):
         self.assertEqual(executor_options.environment.image, "full-test:v1")
 
 
-class TestPrepareTwirling(unittest.TestCase):
+class TestPrepareTwirling(IBMTestCase):
     """Unit tests for prepare() method with twirling enabled."""
 
     def test_prepare_creates_samplex_items(self):
@@ -532,7 +572,7 @@ class TestPrepareTwirling(unittest.TestCase):
 
 
 @ddt
-class TestPreparePassthroughData(unittest.TestCase):
+class TestPreparePassthroughData(IBMTestCase):
     """Unit tests for prepare() method, checking passthrough_data."""
 
     @data(True, False)
@@ -578,3 +618,73 @@ class TestPreparePassthroughData(unittest.TestCase):
         self.assertEqual(qp.passthrough_data["post_processor"]["version"], "v0.1")
         self.assertEqual(qp.passthrough_data["post_processor"]["twirling"], True)
         self.assertEqual(qp.passthrough_data["post_processor"]["meas_type"], "kerneled")
+
+
+@ddt
+class TestPrepareDynamicalDecoupling(IBMTestCase):
+    """Tests for the DD logic inside ``prepare``."""
+
+    @data(True, False)
+    def test_dd_applied_when_enabled(self, twirling_enabled):
+        """Test DD inserts X gates into circuit items when enabled."""
+        options = SamplerOptions()
+        options.dynamical_decoupling.enable = True
+        options.twirling.enable_gates = twirling_enabled
+        options.twirling.enable_measure = twirling_enabled
+
+        # Create a circuit with a large delay on qubit 0.
+        circuit = QuantumCircuit(3)
+        for _ in range(10):
+            circuit.cx(1, 2)
+        circuit.cx(0, 1)
+        circuit.measure_all()
+
+        pubs = [SamplerPub.coerce(circuit, shots=100), SamplerPub.coerce(circuit, shots=100)]
+
+        program, _ = prepare(pubs, options, default_shots=100, backend=FakeManilaV2())
+
+        # DD inserts X gates into idle slots of each circuit item
+        for item in program.items:
+            self.assertIn("x", item.circuit.count_ops())
+
+    def test_dd_rejects_dynamic_circuits(self):
+        """Test DD raises an error for circuits with control flow."""
+        options = SamplerOptions()
+        options.dynamical_decoupling.enable = True
+        options.twirling.enable_gates = False
+        options.twirling.enable_measure = False
+
+        circuit = QuantumCircuit(2, 2)
+        circuit.h(0)
+        circuit.measure(0, 0)
+        with circuit.if_test((0, 1)):
+            circuit.x(1)
+        circuit.measure(1, 1)
+
+        pubs = [SamplerPub.coerce(circuit, shots=100)]
+
+        with self.assertRaisesRegex(
+            IBMInputValueError,
+            "Dynamical decoupling is not compatible with dynamic circuits",
+        ):
+            prepare(pubs, options, default_shots=100, backend=FakeManilaV2())
+
+    def test_dd_raises_when_no_backend(self):
+        """Test DD raises an error when no backend is provided."""
+        options = SamplerOptions()
+        options.dynamical_decoupling.enable = True
+        options.twirling.enable_gates = False
+        options.twirling.enable_measure = False
+
+        circuit = QuantumCircuit(2, 2)
+        circuit.h(0)
+        circuit.cx(0, 1)
+        circuit.measure_all()
+
+        pubs = [SamplerPub.coerce(circuit, shots=100)]
+
+        with self.assertRaisesRegex(
+            IBMInputValueError,
+            "A backend must be provided when dynamical decoupling is enabled",
+        ):
+            prepare(pubs, options, default_shots=100)

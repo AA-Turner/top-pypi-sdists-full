@@ -37,7 +37,8 @@ class TestCreateAnthropicConfig(unittest.TestCase):
             return CreateAnthropicConfig(
                 is_function_calling_enabled = True,
                 provider = 'ANTHROPIC',
-                api_key = ''
+                api_key = '',
+                base_url = ''
             )
         else:
             return CreateAnthropicConfig(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import io
 import json
 import logging
@@ -10,6 +11,9 @@ from typing import Any, cast, get_type_hints
 
 import pytest
 from openai.types.responses import ResponseCustomToolCall, ResponseFunctionToolCall
+from openai.types.responses.response_function_tool_call import CallerProgram
+from openai.types.responses.response_input_item_param import FunctionCallOutput
+from openai.types.responses.response_output_item import Program, ProgramOutput
 from openai.types.responses.response_output_message import ResponseOutputMessage
 from openai.types.responses.response_reasoning_item import ResponseReasoningItem
 
@@ -32,6 +36,8 @@ from agents.items import (
     CompactionItem,
     MessageOutputItem,
     ToolApprovalItem,
+    ToolCallItem,
+    ToolCallOutputItem,
     TResponseOutputItem,
 )
 from agents.result import RunResult, RunResultStreaming
@@ -276,6 +282,120 @@ def test_build_rollout_payload_filters_developer_and_noisy_items() -> None:
         assistant_message.model_dump(exclude_unset=True),
     ]
     assert payload["final_output"] == "done"
+
+
+def test_build_rollout_payload_keeps_programmatic_tool_calling_items() -> None:
+    agent = Agent(name="test")
+    program = Program(
+        id="program_item",
+        call_id="call_prog_1",
+        code='lookup_inventory(sku="A-1")',
+        fingerprint="fingerprint",
+        type="program",
+    )
+    function_call = ResponseFunctionToolCall(
+        id="function_item",
+        call_id="call_fn_1",
+        name="lookup_inventory",
+        arguments='{"sku":"A-1"}',
+        caller=CallerProgram(type="program", caller_id="call_prog_1"),
+        type="function_call",
+    )
+    function_call_output = cast(
+        FunctionCallOutput,
+        {
+            "type": "function_call_output",
+            "call_id": "call_fn_1",
+            "output": '{"available_units":42}',
+        },
+    )
+    program_output = ProgramOutput(
+        id="program_output_item",
+        call_id="call_prog_1",
+        result='{"sku":"A-1","available_units":42}',
+        status="completed",
+        type="program_output",
+    )
+
+    payload = build_rollout_payload(
+        input="what is in stock?",
+        new_items=[
+            ToolCallItem(agent=agent, raw_item=program),
+            ToolCallItem(agent=agent, raw_item=function_call),
+            ToolCallOutputItem(agent=agent, raw_item=function_call_output, output="42"),
+            ToolCallOutputItem(agent=agent, raw_item=program_output, output="42"),
+        ],
+        final_output="done",
+        interruptions=[],
+        terminal_metadata=RolloutTerminalMetadata(
+            terminal_state="completed",
+            has_final_output=True,
+        ),
+    )
+
+    generated_items = payload["generated_items"]
+    assert [item["type"] for item in generated_items] == [
+        "program",
+        "function_call",
+        "function_call_output",
+        "program_output",
+    ]
+    # The retained function call points back at the program that issued it, so the program
+    # it names has to survive alongside it.
+    assert generated_items[1]["caller"] == {"type": "program", "caller_id": "call_prog_1"}
+    assert generated_items[0]["call_id"] == "call_prog_1"
+    assert generated_items[0]["code"] == 'lookup_inventory(sku="A-1")'
+    assert generated_items[3]["call_id"] == "call_prog_1"
+    assert generated_items[3]["result"] == '{"sku":"A-1","available_units":42}'
+
+
+def test_build_rollout_payload_keeps_program_items_from_input() -> None:
+    payload = build_rollout_payload(
+        input=[
+            cast(
+                TResponseInputItem,
+                {
+                    "type": "program",
+                    "call_id": "call_prog_1",
+                    "code": 'lookup_inventory(sku="A-1")',
+                    "fingerprint": "fingerprint",
+                },
+            ),
+            cast(
+                TResponseInputItem,
+                {
+                    "type": "program_output",
+                    "call_id": "call_prog_1",
+                    "result": '{"available_units":42}',
+                    "status": "completed",
+                },
+            ),
+        ],
+        new_items=[],
+        final_output=None,
+        interruptions=[],
+        terminal_metadata=RolloutTerminalMetadata(terminal_state="completed"),
+    )
+
+    assert [item["type"] for item in payload["input"]] == ["program", "program_output"]
+
+
+def test_build_rollout_payload_still_drops_hosted_items_outside_the_included_set() -> None:
+    """Program items are included because every other call/output pair is; hosted tool calls
+    with no output half stay out."""
+    payload = build_rollout_payload(
+        input=[
+            cast(TResponseInputItem, {"type": "file_search_call", "id": "fs_1", "queries": []}),
+            cast(TResponseInputItem, {"type": "image_generation_call", "id": "ig_1"}),
+            cast(TResponseInputItem, {"type": "program", "call_id": "call_prog_1", "code": "x()"}),
+        ],
+        new_items=[],
+        final_output=None,
+        interruptions=[],
+        terminal_metadata=RolloutTerminalMetadata(terminal_state="completed"),
+    )
+
+    assert [item["type"] for item in payload["input"]] == ["program"]
 
 
 def test_build_rollout_payload_serializes_model_interruptions_as_dicts() -> None:
@@ -1493,6 +1613,112 @@ async def test_sandbox_memory_unregisters_manager_on_session_close() -> None:
         await session.aclose()
 
         assert memory_manager_module._MEMORY_GENERATION_MANAGERS.get(session) is None
+    finally:
+        await client.delete(session)
+
+
+class _FatalMemoryWorkerError(BaseException):
+    pass
+
+
+@pytest.mark.parametrize(
+    "worker_error",
+    [_FatalMemoryWorkerError("fatal"), asyncio.CancelledError()],
+    ids=["base_exception", "cancelled_error"],
+)
+@pytest.mark.asyncio
+async def test_sandbox_memory_flush_propagates_worker_base_exception_without_hanging(
+    monkeypatch: pytest.MonkeyPatch,
+    worker_error: BaseException,
+) -> None:
+    client = UnixLocalSandboxClient()
+    session = await client.create(manifest=Manifest())
+    memory = _memory_config()
+    manager = get_or_create_memory_generation_manager(session=session, memory=memory)
+
+    async def fail_processing(_rollout_file_name: str) -> None:
+        raise worker_error
+
+    monkeypatch.setattr(manager, "_process_rollout_file", fail_processing)
+
+    try:
+        await manager.enqueue_rollout_payload(
+            {
+                "updated_at": "2026-08-05T00:00:00+00:00",
+                "input": [],
+                "generated_items": [],
+                "terminal_metadata": {
+                    "terminal_state": "completed",
+                    "has_final_output": False,
+                },
+            },
+            rollout_id="fatal-worker",
+        )
+
+        with pytest.raises(type(worker_error)):
+            await asyncio.wait_for(manager.flush(), timeout=1.0)
+
+        assert manager._worker_task is None
+        assert memory_manager_module._MEMORY_GENERATION_MANAGERS.get(session) is None
+    finally:
+        await client.delete(session)
+
+
+@pytest.mark.asyncio
+async def test_sandbox_memory_flush_parent_cancellation_stops_worker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = UnixLocalSandboxClient()
+    session = await client.create(manifest=Manifest())
+    memory = _memory_config()
+    manager = get_or_create_memory_generation_manager(session=session, memory=memory)
+    worker_started = asyncio.Event()
+    worker_cancelled = asyncio.Event()
+    phase_two_called = False
+
+    async def block_processing(_rollout_file_name: str) -> None:
+        worker_started.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            worker_cancelled.set()
+
+    async def record_phase_two() -> None:
+        nonlocal phase_two_called
+        phase_two_called = True
+
+    monkeypatch.setattr(manager, "_process_rollout_file", block_processing)
+    monkeypatch.setattr(manager, "_run_phase_two", record_phase_two)
+
+    try:
+        await manager.enqueue_rollout_payload(
+            {
+                "updated_at": "2026-08-05T00:00:00+00:00",
+                "input": [],
+                "generated_items": [],
+                "terminal_metadata": {
+                    "terminal_state": "completed",
+                    "has_final_output": False,
+                },
+            },
+            rollout_id="cancelled-flush",
+        )
+        flush_task = asyncio.create_task(manager.flush())
+        await asyncio.wait_for(worker_started.wait(), timeout=1.0)
+        flush_task.cancel()
+
+        try:
+            with pytest.raises(asyncio.CancelledError):
+                await asyncio.wait_for(flush_task, timeout=1.0)
+        finally:
+            if not flush_task.done():
+                flush_task.cancel()
+            await asyncio.gather(flush_task, return_exceptions=True)
+
+        assert worker_cancelled.is_set()
+        assert manager._worker_task is None
+        assert memory_manager_module._MEMORY_GENERATION_MANAGERS.get(session) is None
+        assert not phase_two_called
     finally:
         await client.delete(session)
 

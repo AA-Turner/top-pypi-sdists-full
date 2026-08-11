@@ -10,8 +10,8 @@ The phase functions live in :mod:`nab_resolver.propagate`,
 :mod:`nab_resolver.incompat_index`.  ``Resolver`` is a thin coordinator that
 holds shared state and delegates to those modules.  State attributes are
 named without leading underscores so the phase modules can read and mutate
-them directly; the supported public API is ``__init__``, ``resolve``, and
-``stats``.
+them directly; the supported public API is ``__init__``, ``resolve``,
+``solve``, and ``stats``.
 
 Specification: https://github.com/dart-lang/pub/blob/master/doc/solver.md
 Original blog post: https://nex3.medium.com/pubgrub-2fb6470504f
@@ -21,6 +21,7 @@ Rust implementation: https://github.com/pubgrub-rs/pubgrub
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Generic, Protocol
 
@@ -28,7 +29,7 @@ from . import conflict, decide, incompat_index, propagate
 from .errors import ResolutionError
 from .partial_solution import PartialSolution
 from .ranges import Range
-from .result import build_reachable_decisions
+from .result import build_solution_data
 from .root import ROOT
 from .types import (
     Incompatibility,
@@ -36,16 +37,18 @@ from .types import (
     IncompatibilityState,
     PackageType,
     RangeProtocol,
+    RootRequirement,
     SetRelation,
     Term,
     VersionType,
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
+    from typing_extensions import TypeIs
 
 __all__ = [
+    "DEFAULT_MAX_ITERATIONS",
+    "BaseProvider",
     "Incompatibility",
     "IncompatibilityCause",
     "IncompatibilityState",
@@ -54,9 +57,29 @@ __all__ = [
     "ResolverObserver",
     "ResolverProvider",
     "ResolverStats",
+    "RootRequirement",
     "SetRelation",
+    "Solution",
     "Term",
 ]
+
+DEFAULT_MAX_ITERATIONS = 200_000
+
+
+@dataclass(frozen=True)
+class Solution(Generic[PackageType, VersionType]):
+    """Pins and dependency relationships from a finished resolution.
+
+    ``pins`` maps every transitively reachable package to its decided
+    version.  ``edges`` are distinct ``(parent, child)`` pairs in
+    breadth-first order from ``roots``.  Both endpoints of each edge are
+    keys of ``pins``.  ``roots`` are the packages the caller required
+    directly, in requirement order.
+    """
+
+    pins: dict[PackageType, VersionType]
+    edges: tuple[tuple[PackageType, PackageType], ...]
+    roots: tuple[PackageType, ...]
 
 
 class ResolverProvider(Protocol[PackageType, VersionType]):
@@ -204,6 +227,60 @@ class ResolverProvider(Protocol[PackageType, VersionType]):
         ...
 
 
+class BaseProvider(Generic[PackageType, VersionType]):
+    """Defaults for the six provider methods a synchronous provider does not need.
+
+    Supplies ``begin_decision_scan``, ``is_ready``,
+    ``receive_partial_solution_hint``, ``consume_pending_clauses``,
+    ``consume_force_backtrack_targets`` and ``narrow_for_display``, the six
+    :class:`ResolverProvider` methods with nothing to do when there is no async
+    layer, no queued clauses and no widening.  A subclass still owes
+    ``choose_version``, ``has_satisfying_version``, ``get_dependencies``,
+    ``prioritize`` and ``widen_decision``.
+
+    Subclassing is optional; the resolver accepts anything that satisfies the
+    protocol.  Nothing re-exports this, so import it as
+    ``from nab_resolver.resolver import BaseProvider``.
+    """
+
+    def begin_decision_scan(self) -> None:
+        """Freeze nothing: no state moves between scans."""
+
+    def is_ready(self, package: PackageType) -> bool:
+        """Report every package ready, since answers do not wait on a fetch."""
+        del package
+        return True
+
+    def receive_partial_solution_hint(
+        self,
+        positive_ranges: Mapping[PackageType, RangeProtocol[VersionType]],
+        decisions: Mapping[PackageType, VersionType],
+    ) -> None:
+        """Drop the snapshot: nothing here forward-checks against it."""
+        del positive_ranges, decisions
+
+    def consume_pending_clauses(
+        self,
+    ) -> list[Incompatibility[PackageType, VersionType]]:
+        """Return no clauses: ``choose_version`` queues none."""
+        return []
+
+    def consume_force_backtrack_targets(self) -> list[PackageType]:
+        """Return no targets: there is no force-backtrack signal to give."""
+        return []
+
+    def narrow_for_display(
+        self, package: PackageType, constraint: RangeProtocol[VersionType]
+    ) -> RangeProtocol[VersionType]:
+        """Return the constraint unchanged, as a provider that never widens does.
+
+        A subclass whose ``widen_decision`` widens overrides this as well, or
+        its error text carries widened ranges instead of known versions.
+        """
+        del package
+        return constraint
+
+
 @dataclass
 class ResolverStats(Generic[PackageType]):
     """Running statistics for resolution observability.
@@ -277,6 +354,37 @@ class ResolverObserver(Generic[PackageType, VersionType]):
         """Handle one iteration of the conflict resolution loop."""
 
 
+def _is_root_sequence(
+    requirements: Mapping[PackageType, RangeProtocol[VersionType]]
+    | Sequence[RootRequirement[PackageType, VersionType]],
+) -> TypeIs[Sequence[RootRequirement[PackageType, VersionType]]]:
+    """Return whether the caller passed the one-clause-per-requirement form.
+
+    A ``TypeIs`` rather than a bare ``isinstance``: one type can satisfy both
+    members of the union, so plain narrowing can leave an intersection that
+    has lost the mapping's value type.  ty needs the sequence rather than the
+    mapping as the narrowed side to keep those parameters, while the test
+    itself stays on ``Mapping`` so every non-mapping iterable is still taken
+    as the sequence form.
+    """
+    return not isinstance(requirements, Mapping)
+
+
+def _as_root_requirements(
+    requirements: Mapping[PackageType, RangeProtocol[VersionType]]
+    | Sequence[RootRequirement[PackageType, VersionType]],
+) -> Sequence[RootRequirement[PackageType, VersionType]]:
+    """Accept either shape ``Resolver.resolve`` takes and return the sequence."""
+    if _is_root_sequence(requirements):
+        return requirements
+    # The parameters are spelled out because ``constraint`` is a contravariant
+    # protocol, which gives the version parameter no inference site.
+    return [
+        RootRequirement[PackageType, VersionType](package, required_range)
+        for package, required_range in requirements.items()
+    ]
+
+
 class Resolver(Generic[PackageType, VersionType]):
     """PubGrub dependency resolver.
 
@@ -302,9 +410,10 @@ class Resolver(Generic[PackageType, VersionType]):
         self,
         provider: ResolverProvider[PackageType, VersionType],
         observer: ResolverObserver[PackageType, VersionType] | None = None,
-        max_iterations: int = 200_000,
+        max_iterations: int = DEFAULT_MAX_ITERATIONS,
         range_type: type[RangeProtocol[Any]] = Range,
         root_version: Any = 1,
+        format_range: Callable[[Any], str] = str,
     ) -> None:
         """Create a resolver with the given provider and optional observer.
 
@@ -314,6 +423,11 @@ class Resolver(Generic[PackageType, VersionType]):
         comparable type) but a PEP 440 range type such as
         :class:`packaging.ranges.VersionRange` requires a parseable
         version string or :class:`~packaging.version.Version` here.
+
+        ``format_range`` renders a constraint in a failure report.  It travels
+        with ``range_type``: the default ``str`` reads well for
+        :class:`~nab_resolver.ranges.Range`, while a range type whose ``str``
+        is a debug representation needs its own.
         """
         self.provider = provider
         self.observer: ResolverObserver[PackageType, VersionType] = (
@@ -322,6 +436,7 @@ class Resolver(Generic[PackageType, VersionType]):
         self.max_iterations = max_iterations
         self.range_type = range_type
         self.root_version = root_version
+        self.format_range = format_range
 
         self.incompatibilities: list[Incompatibility[Any, Any]] = []
         self.package_to_incompatibilities: defaultdict[Any, list[int]] = defaultdict(
@@ -352,10 +467,29 @@ class Resolver(Generic[PackageType, VersionType]):
 
     def resolve(
         self,
-        requirements: Mapping[PackageType, RangeProtocol[VersionType]],
+        requirements: Mapping[PackageType, RangeProtocol[VersionType]]
+        | Sequence[RootRequirement[PackageType, VersionType]],
         constraints: Mapping[PackageType, RangeProtocol[VersionType]] | None = None,
     ) -> dict[PackageType, VersionType]:
         """Resolve requirements and return ``{package: version}``.
+
+        The pins of :meth:`solve`, for a caller that has no use for the
+        dependency graph.
+        """
+        return self.solve(requirements, constraints).pins
+
+    def solve(
+        self,
+        requirements: Mapping[PackageType, RangeProtocol[VersionType]]
+        | Sequence[RootRequirement[PackageType, VersionType]],
+        constraints: Mapping[PackageType, RangeProtocol[VersionType]] | None = None,
+    ) -> Solution[PackageType, VersionType]:
+        """Resolve requirements and return the pins, roots, and edges.
+
+        ``requirements`` is either one range per package, or a sequence of
+        :class:`~nab_resolver.types.RootRequirement` when the caller has more
+        than one requirement on a package and wants each named as written in
+        the failure report.
 
         Constraints restrict a package's version range but do not cause
         it to be installed.  They are injected lazily: only when the
@@ -365,7 +499,7 @@ class Resolver(Generic[PackageType, VersionType]):
         Raises ``ResolutionError`` if no solution exists.
         """
         self._reset(constraints)
-        self._add_root_requirements(requirements)
+        self._add_root_requirements(_as_root_requirements(requirements))
 
         # Threshold doubles each restart (geometric schedule).
         restart_threshold = self._RESTART_THRESHOLD
@@ -484,18 +618,19 @@ class Resolver(Generic[PackageType, VersionType]):
                 )
         return next_package
 
-    def _build_result(self) -> dict[PackageType, VersionType]:
+    def _build_result(self) -> Solution[PackageType, VersionType]:
         """Build the final result, including only reachable packages.
 
         Per the PubGrub spec, the solution must not contain extra packages:
         "all selected packages are transitively reachable from the root."
         """
-        return build_reachable_decisions(
+        pins, edges, roots = build_solution_data(
             self.solution.decisions(),
             self.incompatibilities,
             self.provider.get_dependencies,
             root_sentinel=ROOT,
         )
+        return Solution(pins=pins, edges=edges, roots=roots)
 
     def _reset(
         self,
@@ -515,20 +650,23 @@ class Resolver(Generic[PackageType, VersionType]):
         self.relation_cache.clear()
 
     def _add_root_requirements(
-        self, requirements: Mapping[PackageType, RangeProtocol[VersionType]]
+        self, requirements: Sequence[RootRequirement[PackageType, VersionType]]
     ) -> None:
-        """Create root incompatibilities and decide the root package."""
-        for idx, (package, required_range) in enumerate(requirements.items()):
+        """Create one root incompatibility per requirement, and decide root."""
+        for idx, root in enumerate(requirements):
             root_term: Term[Any, Any] = Term(
                 ROOT, self.range_type.singleton(self.root_version), positive=True
             )
             incompat_index.add_incompatibility(
                 self,
                 Incompatibility(
-                    [root_term, Term(package, required_range, positive=False)],
+                    [root_term, Term(root.package, root.constraint, positive=False)],
                     cause=IncompatibilityCause.ROOT,
+                    origin=root.origin,
                 ),
             )
-            self.root_package_order[package] = (0, idx, "")
+            # First mention fixes the tiebreak, so naming a package twice
+            # does not push its decision later.
+            self.root_package_order.setdefault(root.package, (0, idx, ""))
         self.solution.decide(ROOT, self.root_version)
         self.stats.decisions += 1

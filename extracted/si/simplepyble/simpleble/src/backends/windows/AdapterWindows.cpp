@@ -14,6 +14,7 @@
 #include "winrt/Windows.Devices.Radios.h"
 #include "winrt/Windows.Devices.Enumeration.h"
 #include "winrt/Windows.Foundation.Collections.h"
+#include "winrt/Windows.Foundation.Metadata.h"
 #include "winrt/Windows.Foundation.h"
 #include "winrt/base.h"
 
@@ -42,6 +43,11 @@ AdapterWindows::AdapterWindows(std::string device_id)
 
     // Configure the scanner object
     scanner_ = Advertisement::BluetoothLEAdvertisementWatcher();
+    if (Foundation::Metadata::ApiInformation::IsPropertyPresent(
+            L"Windows.Devices.Bluetooth.Advertisement.BluetoothLEAdvertisementWatcher",
+            L"AllowExtendedAdvertisements")) {
+        scanner_.AllowExtendedAdvertisements(true);
+    }
 
     // Register member functions directly as callback handlers
     radio_state_changed_token_ = radio_.StateChanged({this, &AdapterWindows::on_power_state_changed});
@@ -249,6 +255,11 @@ void AdapterWindows::_on_scanner_received(
     std::lock_guard<std::mutex> lock(this->scan_update_mutex_);
     if (!this->scan_is_active_) return;
 
+    // WinRT emits a synthetic event with RSSI -127 when a device goes out of range.
+    // It is not a newly received advertisement, so don't expose it as a scan update.
+    const int16_t rssi = args.RawSignalStrengthInDBm();
+    if (rssi == -127) return;
+
     advertising_data_t data;
     data.mac_address = _mac_address_to_str(args.BluetoothAddress());
     Bluetooth::BluetoothAddressType addr_type_enum = args.BluetoothAddressType();
@@ -268,7 +279,7 @@ void AdapterWindows::_on_scanner_received(
 
     data.identifier = winrt::to_string(args.Advertisement().LocalName());
     data.connectable = args.IsConnectable();
-    data.rssi = args.RawSignalStrengthInDBm();
+    data.rssi = rssi;
 
     if (args.TransmitPowerLevelInDBm()) {
         data.tx_power = args.TransmitPowerLevelInDBm().Value();

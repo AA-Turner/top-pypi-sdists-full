@@ -9,7 +9,6 @@ from mcp.types import (
     GetPromptResult,
     ListPromptsResult,
     ListResourcesResult,
-    ListResourceTemplatesResult,
     ReadResourceResult,
     Tool as MCPTool,
 )
@@ -18,6 +17,10 @@ from agents import _debug
 from agents.mcp import MCPServer, MCPServerManager, manager as manager_module
 from agents.mcp._logging import get_mcp_server_log_name
 from agents.run_context import RunContextWrapper
+
+from .model_compat import ListResourceTemplatesResult
+
+TEST_TIMEOUT_SECONDS = 1
 
 
 class TaskBoundServer(MCPServer):
@@ -71,6 +74,54 @@ class TaskBoundServer(MCPServer):
 
     async def read_resource(self, uri: str) -> ReadResourceResult:
         return ReadResourceResult(contents=[])
+
+
+class BlockingCleanupServer(TaskBoundServer):
+    def __init__(self) -> None:
+        super().__init__()
+        self.cleanup_started = asyncio.Event()
+        self.allow_cleanup = asyncio.Event()
+        self.cleanup_finished = asyncio.Event()
+        self.connect_calls = 0
+        self.cleanup_calls = 0
+        self.active_generation: int | None = None
+
+    async def connect(self) -> None:
+        await super().connect()
+        self.connect_calls += 1
+        self.active_generation = self.connect_calls
+        self.cleaned = False
+
+    async def cleanup(self) -> None:
+        self.cleanup_calls += 1
+        self.cleanup_started.set()
+        await self.allow_cleanup.wait()
+        self.active_generation = None
+        try:
+            await super().cleanup()
+        finally:
+            self.cleanup_finished.set()
+
+
+class BlockingCleanupFailureServer(TaskBoundServer):
+    def __init__(self) -> None:
+        super().__init__()
+        self.cleanup_started = asyncio.Event()
+        self.allow_cleanup = asyncio.Event()
+        self.connect_calls = 0
+        self.cleanup_calls = 0
+
+    async def connect(self) -> None:
+        await super().connect()
+        self.connect_calls += 1
+        if self.connect_calls == 1:
+            raise RuntimeError("connect failed")
+
+    async def cleanup(self) -> None:
+        self.cleanup_calls += 1
+        self.cleanup_started.set()
+        await self.allow_cleanup.wait()
+        raise RuntimeError("cleanup failed")
 
 
 class FlakyServer(MCPServer):
@@ -426,6 +477,13 @@ def test_manager_validates_lifecycle_timeout_assignment() -> None:
     assert manager.connect_timeout_seconds is None
 
 
+def test_manager_defaults_to_finite_lifecycle_timeouts() -> None:
+    manager = MCPServerManager([])
+
+    assert manager.connect_timeout_seconds == 10.0
+    assert manager.cleanup_timeout_seconds == 10.0
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("connect_in_parallel", [False, True])
 async def test_manager_uses_current_lifecycle_timeouts(
@@ -479,6 +537,304 @@ async def test_manager_connects_in_worker_tasks_when_parallel() -> None:
         assert server._connect_task is not asyncio.current_task()
 
     assert server.cleaned is True
+
+
+@pytest.mark.asyncio
+async def test_manager_serializes_overlapping_parallel_cleanup_calls() -> None:
+    server = BlockingCleanupServer()
+    manager = MCPServerManager([server], connect_in_parallel=True)
+    await manager.connect_all()
+
+    first_cleanup = asyncio.create_task(manager.cleanup_all())
+    second_cleanup: asyncio.Task[None] | None = None
+    try:
+        await asyncio.wait_for(server.cleanup_started.wait(), timeout=TEST_TIMEOUT_SECONDS)
+        second_cleanup = asyncio.create_task(manager.cleanup_all())
+
+        server.allow_cleanup.set()
+        await asyncio.wait_for(
+            asyncio.gather(first_cleanup, second_cleanup), timeout=TEST_TIMEOUT_SECONDS
+        )
+
+        assert server.cleanup_calls == 1
+        assert manager._workers == {}
+        assert manager._connected_servers == set()
+    finally:
+        server.allow_cleanup.set()
+        tasks = [first_cleanup]
+        if second_cleanup is not None:
+            tasks.append(second_cleanup)
+        await asyncio.wait_for(
+            asyncio.gather(*tasks, return_exceptions=True), timeout=TEST_TIMEOUT_SECONDS
+        )
+        await asyncio.wait_for(manager.cleanup_all(), timeout=TEST_TIMEOUT_SECONDS)
+
+
+@pytest.mark.asyncio
+async def test_manager_serializes_parallel_cleanup_and_full_reconnect() -> None:
+    server = BlockingCleanupServer()
+    manager = MCPServerManager([server], connect_in_parallel=True)
+    await manager.connect_all()
+
+    cleanup_task = asyncio.create_task(manager.cleanup_all())
+    reconnect_task: asyncio.Task[list[MCPServer]] | None = None
+    try:
+        await asyncio.wait_for(server.cleanup_started.wait(), timeout=TEST_TIMEOUT_SECONDS)
+        reconnect_task = asyncio.create_task(manager.reconnect(failed_only=False))
+        await asyncio.sleep(0)
+
+        assert not reconnect_task.done()
+        assert server.connect_calls == 1
+
+        server.allow_cleanup.set()
+        await asyncio.wait_for(
+            asyncio.gather(cleanup_task, reconnect_task), timeout=TEST_TIMEOUT_SECONDS
+        )
+
+        assert server.connect_calls == 2
+        assert server.cleanup_calls == 1
+        assert server.active_generation == 2
+        assert manager.active_servers == [server]
+        assert manager._connected_servers == {server}
+    finally:
+        server.allow_cleanup.set()
+        tasks: list[asyncio.Task[Any]] = [cleanup_task]
+        if reconnect_task is not None:
+            tasks.append(reconnect_task)
+        await asyncio.wait_for(
+            asyncio.gather(*tasks, return_exceptions=True), timeout=TEST_TIMEOUT_SECONDS
+        )
+        await asyncio.wait_for(manager.cleanup_all(), timeout=TEST_TIMEOUT_SECONDS)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["connect_all", "reconnect", "cleanup_all"])
+@pytest.mark.parametrize("suppress_cancelled_error", [True, False])
+async def test_manager_applies_cancellation_policy_while_waiting_for_lifecycle_lock(
+    operation: str,
+    suppress_cancelled_error: bool,
+) -> None:
+    server = BlockingCleanupServer()
+    manager = MCPServerManager(
+        [server],
+        connect_in_parallel=True,
+        suppress_cancelled_error=suppress_cancelled_error,
+    )
+    await manager.connect_all()
+
+    lock_owner = asyncio.create_task(manager.cleanup_all())
+    waiter: asyncio.Task[Any] | None = None
+    try:
+        await asyncio.wait_for(server.cleanup_started.wait(), timeout=TEST_TIMEOUT_SECONDS)
+        if operation == "connect_all":
+            waiter = asyncio.create_task(manager.connect_all())
+        elif operation == "reconnect":
+            waiter = asyncio.create_task(manager.reconnect(failed_only=False))
+        else:
+            waiter = asyncio.create_task(manager.cleanup_all())
+        await asyncio.sleep(0)
+
+        assert not waiter.done()
+        waiter.cancel()
+        result = await asyncio.wait_for(
+            asyncio.gather(waiter, return_exceptions=True), timeout=TEST_TIMEOUT_SECONDS
+        )
+
+        if suppress_cancelled_error:
+            if operation == "cleanup_all":
+                assert result[0] is None
+            else:
+                assert result[0] == [server]
+        else:
+            assert isinstance(result[0], asyncio.CancelledError)
+    finally:
+        server.allow_cleanup.set()
+        tasks: list[asyncio.Task[Any]] = [lock_owner]
+        if waiter is not None:
+            tasks.append(waiter)
+        await asyncio.wait_for(
+            asyncio.gather(*tasks, return_exceptions=True), timeout=TEST_TIMEOUT_SECONDS
+        )
+        await asyncio.wait_for(manager.cleanup_all(), timeout=TEST_TIMEOUT_SECONDS)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("suppress_cancelled_error", [True, False])
+async def test_manager_retains_parallel_cleanup_worker_after_caller_cancellation(
+    suppress_cancelled_error: bool,
+) -> None:
+    server = BlockingCleanupServer()
+    manager = MCPServerManager(
+        [server],
+        connect_in_parallel=True,
+        suppress_cancelled_error=suppress_cancelled_error,
+    )
+    await manager.connect_all()
+
+    original_worker = manager._workers[server]
+    cleanup_task = asyncio.create_task(manager.cleanup_all())
+    connect_task: asyncio.Task[list[MCPServer]] | None = None
+    try:
+        await asyncio.wait_for(server.cleanup_started.wait(), timeout=TEST_TIMEOUT_SECONDS)
+        cleanup_task.cancel()
+        cleanup_result = await asyncio.wait_for(
+            asyncio.gather(cleanup_task, return_exceptions=True),
+            timeout=TEST_TIMEOUT_SECONDS,
+        )
+
+        if suppress_cancelled_error:
+            assert cleanup_result[0] is None
+        else:
+            assert isinstance(cleanup_result[0], asyncio.CancelledError)
+        assert manager._workers[server] is original_worker
+        assert not original_worker.is_done
+
+        connect_task = asyncio.create_task(manager.connect_all())
+        await asyncio.sleep(0)
+
+        assert not connect_task.done()
+        assert manager._workers[server] is original_worker
+        assert server.connect_calls == 1
+
+        server.allow_cleanup.set()
+        await asyncio.wait_for(connect_task, timeout=TEST_TIMEOUT_SECONDS)
+
+        assert original_worker.is_done
+        assert manager._workers[server] is not original_worker
+        assert manager._connected_servers == {server}
+        assert manager.active_servers == [server]
+        assert manager.failed_servers == []
+        assert manager.errors == {}
+        assert server.connect_calls == 2
+        assert server.cleanup_calls == 1
+        assert server.active_generation == 2
+    finally:
+        server.allow_cleanup.set()
+        tasks: list[asyncio.Task[Any]] = [cleanup_task]
+        if connect_task is not None:
+            tasks.append(connect_task)
+        await asyncio.wait_for(
+            asyncio.gather(*tasks, return_exceptions=True), timeout=TEST_TIMEOUT_SECONDS
+        )
+        await asyncio.wait_for(manager.cleanup_all(), timeout=TEST_TIMEOUT_SECONDS)
+
+
+@pytest.mark.asyncio
+async def test_manager_discards_parallel_cleanup_worker_after_cancelled_caller() -> None:
+    server = BlockingCleanupServer()
+    manager = MCPServerManager([server], connect_in_parallel=True)
+    await manager.connect_all()
+
+    original_worker = manager._workers[server]
+    cleanup_task = asyncio.create_task(manager.cleanup_all())
+    try:
+        await asyncio.wait_for(server.cleanup_started.wait(), timeout=TEST_TIMEOUT_SECONDS)
+        cleanup_task.cancel()
+        cleanup_result = await asyncio.wait_for(
+            asyncio.gather(cleanup_task, return_exceptions=True), timeout=TEST_TIMEOUT_SECONDS
+        )
+        assert cleanup_result[0] is None
+
+        assert manager._workers[server] is original_worker
+        assert not original_worker.is_done
+
+        server.allow_cleanup.set()
+        await asyncio.wait_for(asyncio.shield(original_worker._task), timeout=TEST_TIMEOUT_SECONDS)
+        await asyncio.sleep(0)
+
+        assert manager._workers == {}
+        assert manager._connected_servers == set()
+    finally:
+        server.allow_cleanup.set()
+        await asyncio.wait_for(
+            asyncio.gather(cleanup_task, return_exceptions=True), timeout=TEST_TIMEOUT_SECONDS
+        )
+        await asyncio.wait_for(manager.cleanup_all(), timeout=TEST_TIMEOUT_SECONDS)
+
+
+@pytest.mark.asyncio
+async def test_manager_preserves_cleanup_failure_after_cancelled_retry() -> None:
+    server = BlockingCleanupFailureServer()
+    manager = MCPServerManager([server], connect_in_parallel=True)
+    await manager.connect_all()
+
+    first_retry = asyncio.create_task(manager.reconnect())
+    second_retry: asyncio.Task[list[MCPServer]] | None = None
+    try:
+        await asyncio.wait_for(server.cleanup_started.wait(), timeout=TEST_TIMEOUT_SECONDS)
+        first_retry.cancel()
+        assert await asyncio.wait_for(first_retry, timeout=TEST_TIMEOUT_SECONDS) == []
+
+        second_retry = asyncio.create_task(manager.reconnect())
+        await asyncio.sleep(0)
+        assert not second_retry.done()
+
+        server.allow_cleanup.set()
+        assert await asyncio.wait_for(second_retry, timeout=TEST_TIMEOUT_SECONDS) == []
+
+        assert server.connect_calls == 1
+        assert server.cleanup_calls == 1
+        assert manager.active_servers == []
+        assert manager.failed_servers == [server]
+        assert str(manager.errors[server]) == "cleanup failed"
+        worker = manager._workers[server]
+        assert worker.is_done
+        assert str(worker.cleanup_error) == "cleanup failed"
+
+        assert await asyncio.wait_for(manager.connect_all(), timeout=TEST_TIMEOUT_SECONDS) == []
+        assert server.connect_calls == 1
+    finally:
+        server.allow_cleanup.set()
+        tasks: list[asyncio.Task[Any]] = [first_retry]
+        if second_retry is not None:
+            tasks.append(second_retry)
+        await asyncio.wait_for(
+            asyncio.gather(*tasks, return_exceptions=True), timeout=TEST_TIMEOUT_SECONDS
+        )
+        await asyncio.wait_for(manager.cleanup_all(), timeout=TEST_TIMEOUT_SECONDS)
+
+
+@pytest.mark.asyncio
+async def test_manager_bounds_wait_for_stopping_parallel_worker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def run_without_internal_timeout(
+        func: Callable[[], Awaitable[Any]], timeout_seconds: float | None
+    ) -> None:
+        del timeout_seconds
+        await func()
+
+    monkeypatch.setattr(manager_module, "_run_with_timeout_in_task", run_without_internal_timeout)
+    server = BlockingCleanupServer()
+    manager = MCPServerManager(
+        [server],
+        connect_in_parallel=True,
+        cleanup_timeout_seconds=0.05,
+    )
+    await manager.connect_all()
+
+    original_worker = manager._workers[server]
+    try:
+        await asyncio.wait_for(manager.cleanup_all(), timeout=TEST_TIMEOUT_SECONDS)
+
+        assert isinstance(manager.errors[server], asyncio.TimeoutError)
+        assert manager._workers[server] is original_worker
+        assert not original_worker.is_done
+
+        assert await asyncio.wait_for(manager.connect_all(), timeout=TEST_TIMEOUT_SECONDS) == []
+
+        assert isinstance(manager.errors[server], asyncio.TimeoutError)
+        assert manager._workers[server] is original_worker
+        assert server.connect_calls == 1
+    finally:
+        server.allow_cleanup.set()
+        await asyncio.wait_for(asyncio.shield(original_worker._task), timeout=TEST_TIMEOUT_SECONDS)
+        await asyncio.sleep(0)
+        await asyncio.wait_for(manager.cleanup_all(), timeout=TEST_TIMEOUT_SECONDS)
+
+    assert manager._workers == {}
+    assert manager._connected_servers == set()
+    assert server.cleanup_calls == 1
 
 
 @pytest.mark.asyncio
@@ -552,7 +908,12 @@ async def test_manager_reconnect_does_not_retry_after_cleanup_failure(
     assert server.cleanup_calls == 1
     assert server.resource_open is True
     assert str(manager.errors[server]) == "cleanup failed"
-    assert manager._workers == {}
+    if connect_in_parallel:
+        worker = manager._workers[server]
+        assert worker.is_done
+        assert str(worker.cleanup_error) == "cleanup failed"
+    else:
+        assert manager._workers == {}
 
 
 @pytest.mark.asyncio
@@ -699,29 +1060,36 @@ async def test_manager_strict_connect_parallel_cleans_up_workers() -> None:
 
 
 @pytest.mark.asyncio
-async def test_manager_parallel_cleanup_clears_worker_on_failure() -> None:
+async def test_manager_parallel_cleanup_retains_worker_outcome_on_failure() -> None:
     server = CleanupFailingServer()
     manager = MCPServerManager([server], connect_in_parallel=True)
     await manager.connect_all()
     await manager.cleanup_all()
 
-    assert server not in manager._workers
+    worker = manager._workers[server]
+    assert worker.is_done
+    assert str(worker.cleanup_error) == "cleanup failed"
     assert server not in manager._connected_servers
 
 
 @pytest.mark.asyncio
-async def test_manager_parallel_cleanup_drops_worker_after_error() -> None:
+async def test_manager_parallel_cleanup_retains_worker_after_error() -> None:
     class HangingCleanupWorker:
         def __init__(self) -> None:
             self.cleanup_calls = 0
+            self.error = RuntimeError("cleanup failed")
 
         @property
         def is_done(self) -> bool:
-            return False
+            return self.cleanup_calls > 0
 
-        async def cleanup(self) -> None:
+        @property
+        def cleanup_error(self) -> BaseException | None:
+            return self.error if self.is_done else None
+
+        async def cleanup(self, timeout_seconds: float | None) -> None:
             self.cleanup_calls += 1
-            raise RuntimeError("cleanup failed")
+            raise self.error
 
     server = FlakyServer(failures=0)
     manager = MCPServerManager([server], connect_in_parallel=True)
@@ -729,7 +1097,7 @@ async def test_manager_parallel_cleanup_drops_worker_after_error() -> None:
 
     await manager.cleanup_all()
 
-    assert manager._workers == {}
+    assert manager._workers[server].cleanup_error is not None
 
 
 @pytest.mark.asyncio
@@ -832,3 +1200,38 @@ async def test_manager_async_with_cleans_cancelled_server_when_unsuppressed() ->
     assert server.cleanup_calls == 1
     assert cancelled_server.cleanup_calls == 1
     assert cancelled_server.resource_open is False
+
+
+def test_manager_accepts_one_shot_iterables() -> None:
+    server_a = FlakyServer(failures=0)
+    server_b = FlakyServer(failures=0)
+
+    manager = MCPServerManager(iter([server_a, server_b]))
+
+    assert manager.all_servers == [server_a, server_b]
+    assert manager.active_servers == [server_a, server_b]
+
+
+@pytest.mark.asyncio
+async def test_manager_connects_servers_from_a_one_shot_iterable() -> None:
+    server_a = CleanupAwareServer()
+    server_b = CleanupAwareServer()
+
+    async with MCPServerManager(server for server in (server_a, server_b)) as manager:
+        assert manager.active_servers == [server_a, server_b]
+        assert server_a.connect_calls == 1
+        assert server_b.connect_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_manager_restores_one_shot_iterable_servers_after_a_failed_connect() -> None:
+    server = FlakyServer(failures=1)
+
+    manager = MCPServerManager(iter([server]), strict=True, drop_failed_servers=False)
+
+    with pytest.raises(RuntimeError):
+        await manager.connect_all()
+
+    # drop_failed_servers=False keeps failed servers active, so the restored list must match
+    # what an equivalent list argument produces.
+    assert manager.active_servers == [server]

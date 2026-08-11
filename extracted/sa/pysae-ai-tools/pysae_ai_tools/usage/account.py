@@ -5,14 +5,20 @@ log, notification dedup levels, spend history, unblock override). A user jugglin
 Claude plans needs those metrics kept apart, one plan never bleeding into the other.
 
 The OAuth access token in ``~/.claude/.credentials.json`` rotates, so it cannot key an
-account. The stable identity lives in ``~/.claude.json`` under ``oauthAccount``
-(``accountUuid`` / ``emailAddress`` / ``organizationName``) and survives token rotation.
+account. The identity lives in ``~/.claude.json`` under ``oauthAccount`` (``accountUuid`` /
+``emailAddress`` / ``organizationName``) and survives token rotation.
 
 Each account owns a directory ``<data>/assistants/claude/accounts/<key>/`` (XDG data dir)
-where ``key`` is ``{org}-{email}-{uuid}`` sanitized to be filesystem-safe (the org/email
-head only makes the directory recognisable at a glance; uniqueness comes from the uuid, kept
-intact as the suffix). State files are written under the *active* account's directory; a
-non-active account can only be *read* (no token to fetch with), via :func:`resolve`.
+where ``key`` is the ``accountUuid`` alone. Only the uuid is stable: Claude Code rewrites
+``oauthAccount`` field by field during a ``/login``, so ``organizationName`` and
+``emailAddress`` are briefly absent, or mismatched (the previous org next to the new email).
+Mixing them into the key made the *same* account resolve to different directories from one
+hook invocation to the next — splitting its state and, worst of all, hiding the unblock
+override so a lifted block silently came back. The org/email only survive as a display label
+in ``account.json``. :func:`ensure_dir` writes that label the first time a directory appears.
+
+State files are written under the *active* account's directory; a non-active account can only
+be *read* (no token to fetch with), via :func:`resolve`.
 """
 
 import json
@@ -35,7 +41,6 @@ DEFAULT_KEY = "default"
 META_FILE = "account.json"
 
 _SANITIZE_RE = re.compile(r"[^0-9A-Za-z._-]+")
-_KEY_MAX_LEN = 128
 
 
 @dataclass
@@ -58,14 +63,13 @@ def _sanitize(value: str) -> str:
     return _SANITIZE_RE.sub("-", value).strip("-").lower()
 
 
-def _compose_key(uuid: str, email: str | None, org_name: str | None) -> str:
-    head = "-".join(s for s in (_sanitize(org_name or ""), _sanitize(email or "")) if s)
-    # The uuid carries the uniqueness and stays as the suffix; only the org/email head is capped.
-    head = head[:_KEY_MAX_LEN].strip("-")
-    # Sanitize the uuid too: a real uuid ([0-9a-f-]) passes through untouched, but a malformed
-    # accountUuid must never inject a path separator into the on-disk key (path traversal).
-    safe_uuid = _sanitize(uuid) or DEFAULT_KEY
-    return f"{head}-{safe_uuid}" if head else safe_uuid
+def _compose_key(uuid: str) -> str:
+    """On-disk key for an account: its ``accountUuid``, the only field stable across a login.
+
+    Sanitized because a real uuid (``[0-9a-f-]``) passes through untouched, but a malformed
+    ``accountUuid`` must never inject a path separator into the key (path traversal).
+    """
+    return _sanitize(uuid) or DEFAULT_KEY
 
 
 def _read_settings() -> dict[str, object]:
@@ -92,9 +96,7 @@ def _account_from_oauth(oauth: dict[str, object]) -> Account | None:
     email = _str_or_none(oauth.get("emailAddress"))
     org_name = _str_or_none(oauth.get("organizationName"))
     org_type = _str_or_none(oauth.get("organizationType"))
-    return Account(
-        key=_compose_key(uuid, email, org_name), uuid=uuid, email=email, org_name=org_name, org_type=org_type
-    )
+    return Account(key=_compose_key(uuid), uuid=uuid, email=email, org_name=org_name, org_type=org_type)
 
 
 def current_account() -> Account | None:
@@ -129,6 +131,24 @@ def state_dir(account: Account | None = None) -> Path:
 def active_state_dir() -> Path:
     """State directory for the active account — the base of every write path."""
     return state_dir(current_account())
+
+
+def ensure_dir(directory: Path) -> None:
+    """Create ``directory``, and name it the first time it appears.
+
+    Every write path goes through here. A uuid-keyed directory says nothing about whose state
+    it holds, so ``account.json`` is what lets :func:`list_accounts` name it later; writing it
+    only when it is missing keeps the identity lookup off the repeated write path.
+    """
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        if (directory / META_FILE).exists():
+            return
+    except OSError:
+        return
+    active = current_account()
+    if active is not None and active.key == directory.name:
+        write_account_meta(active)
 
 
 def write_account_meta(account: Account) -> None:
@@ -170,7 +190,11 @@ def _account_from_meta(directory: Path) -> Account | None:
 
 
 def list_accounts() -> list[Account]:
-    """Every account with a state directory, from its persisted ``account.json``."""
+    """Every account with a state directory, from its persisted ``account.json``.
+
+    A directory with no readable meta still counts: its name *is* the uuid, so it can be named
+    and resolved by uuid even though nothing ever wrote a label into it.
+    """
     out: list[Account] = []
     try:
         entries = sorted(p for p in ACCOUNTS_DIR.iterdir() if p.is_dir())
@@ -178,9 +202,34 @@ def list_accounts() -> list[Account]:
         return out
     for directory in entries:
         account = _account_from_meta(directory)
+        if account is None and directory.name != DEFAULT_KEY:
+            account = Account(key=directory.name, uuid=directory.name, email=None, org_name=None, org_type=None)
         if account is not None:
             out.append(account)
     return out
+
+
+def legacy_dirs_for(uuid: str) -> list[Path]:
+    """Directories holding ``uuid``'s state under a pre-uuid key (``{org}-{email}-{uuid}``).
+
+    Matched on the uuid suffix, which every legacy key ended with. Oldest first, so a merge
+    replays them in the order they were written and the freshest state wins.
+    """
+    key = _compose_key(uuid)
+    try:
+        candidates = [p for p in ACCOUNTS_DIR.iterdir() if p.is_dir() and p.name != key and p.name.endswith(key)]
+    except OSError:
+        return []
+    # `-` separated the head from the uuid: without it, `…-2<uuid>` would pass as a legacy key.
+    legacy = [p for p in candidates if p.name.endswith(f"-{key}")]
+    return sorted(legacy, key=_mtime)
+
+
+def _mtime(path: Path) -> float:
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return 0.0
 
 
 def resolve(ref: str | None) -> Account | None:

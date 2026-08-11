@@ -18,6 +18,7 @@ from .._internal.utils import deprecated
 from .._utils import tag_assignment_to_tag_tuple, tag_resource_to_tag_reference, tag_tuple_to_tag_assignment
 from ..alert import AlertCollection
 from ..artifact_repository import ArtifactRepositoryCollection
+from ..code_bundle import CodeBundleCollection
 from ..cortex.search_service import CortexSearchServiceCollection
 from ..dynamic_table import DynamicTableCollection
 from ..event_table import EventTableCollection
@@ -713,6 +714,18 @@ class SchemaResource(DatabaseObjectReferenceMixin[SchemaCollection]):
         >>> my_db.schemas["my_schema"].iceberg_tables
         """
         return IcebergTableCollection(self)
+
+    @cached_property
+    def code_bundles(self) -> CodeBundleCollection:
+        """The CodeBundleCollection of all code bundles contained in this schema.
+
+        Examples
+        ________
+        Getting all code bundles in ``my_schema``:
+
+        >>> my_db.schemas["my_schema"].code_bundles
+        """
+        return CodeBundleCollection(self)
 
     @cached_property
     def stages(self) -> StageCollection:

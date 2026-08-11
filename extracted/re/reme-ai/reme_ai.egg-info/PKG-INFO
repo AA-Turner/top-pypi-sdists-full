@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: reme-ai
-Version: 0.4.1.4
+Version: 0.4.1.5
 Summary: Remember Me, Refine Me.
 Author-email: EconML team of Alibaba Tongyi Lab <jinli.yl@alibaba-inc.com>
 License-Expression: Apache-2.0
@@ -35,6 +35,7 @@ Requires-Dist: rich>=14.3.3
 Requires-Dist: uvicorn>=0.41.0
 Requires-Dist: watchfiles>=1.1.1
 Requires-Dist: zstandard>=0.23.0
+Requires-Dist: pypdf>=5.0.0
 Provides-Extra: core
 Requires-Dist: agentscope==2.0.4.post1; extra == "core"
 Requires-Dist: claude-agent-sdk>=0.2.126; extra == "core"
@@ -47,7 +48,6 @@ Requires-Dist: jieba>=0.42.1; extra == "core"
 Requires-Dist: rjieba>=0.2.1; extra == "core"
 Requires-Dist: neo4j>=6.2.0; extra == "core"
 Requires-Dist: networkx>=3.4.2; extra == "core"
-Requires-Dist: pypdf>=5.0.0; extra == "core"
 Requires-Dist: polars>=1.43.0; extra == "core"
 Requires-Dist: tushare>=1.4.29; extra == "core"
 Provides-Extra: dev

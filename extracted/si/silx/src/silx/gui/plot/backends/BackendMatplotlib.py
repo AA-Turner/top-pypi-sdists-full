@@ -23,17 +23,17 @@
 # ###########################################################################*/
 """Matplotlib Plot backend."""
 
-from __future__ import annotations
-
 __authors__ = ["V.A. Sole", "T. Vincent, H. Payno"]
 __license__ = "MIT"
 __date__ = "21/12/2018"
 
 
+from typing import Literal
 import logging
 import datetime as dt
 import numpy
 
+from .utils import Range, ensureAspectRatio, findDimToKeep
 from ... import qt
 
 # First of all init matplotlib and set its backend
@@ -57,11 +57,11 @@ from matplotlib import path as mpath
 
 from . import BackendBase
 from .. import items
+from ..items.types import AxisScaleType
 from .._utils import FLOAT32_MINPOS
 from .._utils.dtime_ticklayout import (
     calcTicks,
     formatDatetimes,
-    timestamp,
 )
 from ...qt import inspect as qt_inspect
 from .... import config
@@ -202,7 +202,7 @@ class NiceDateLocator(Locator):
         dtTicks, self._spacing, self._unit = calcTicks(dtMin, dtMax, self.numTicks)
 
         # Convert datetime back to time stamps.
-        ticks = [timestamp(dtTick) for dtTick in dtTicks]
+        ticks = [dtTick.timestamp() for dtTick in dtTicks]
         return ticks
 
 
@@ -519,13 +519,6 @@ class BackendMatplotlib(BackendBase.BackendBase):
     def __init__(self, plot, parent=None):
         super().__init__(plot, parent)
 
-        # matplotlib is handling keep aspect ratio at draw time
-        # When keep aspect ratio is on, and one changes the limits and
-        # ask them *before* next draw has been performed he will get the
-        # limits without applying keep aspect ratio.
-        # This attribute is used to ensure consistent values returned
-        # when getting the limits at the expense of a replot
-        self._dirtyLimits = True
         self._axesDisplayed = True
 
         self.fig = Figure(
@@ -567,8 +560,9 @@ class BackendMatplotlib(BackendBase.BackendBase):
         for axis in (self.ax.yaxis, self.ax.xaxis, self.ax2.yaxis, self.ax2.xaxis):
             axis.set_major_formatter(DefaultTickFormatter())
 
-        self.ax.set_autoscaley_on(False)
-        self.ax2.set_autoscaley_on(False)
+        # Autoscale is handled manually by the backend
+        self.ax.autoscale(enable=False)
+        self.ax2.autoscale(enable=False)
 
         # this works but the figure color is left
         self.ax.set_facecolor("none")
@@ -1137,7 +1131,6 @@ class BackendMatplotlib(BackendBase.BackendBase):
         # TODO images, markers? scatter plot? move in remove?
         # Right Y axis only support curve for now
         # Hide right Y axis if no line is present
-        self._dirtyLimits = False
         if not self.ax2.lines:
             self._enableAxis("right", False)
 
@@ -1200,73 +1193,82 @@ class BackendMatplotlib(BackendBase.BackendBase):
 
     # Graph limits
 
-    def _setXLimits(self, xmin: float, xmax: float):
-        xmin = min(xmin, xmax)
-        xmax = max(xmin, xmax)
-        if self.isXAxisInverted():
-            left, right = xmax, xmin
+    def setLimits(
+        self,
+        xmin: float,
+        xmax: float,
+        ymin: float,
+        ymax: float,
+        y2min: float | None = None,
+        y2max: float | None = None,
+    ):
+        if y2min is None or y2max is None:
+            y2Range = None
         else:
-            left, right = xmin, xmax
-        self.ax.set_xlim(left, right)
+            y2Range = (y2min, y2max)
+        self._setPlotBounds(xRange=(xmin, xmax), yRange=(ymin, ymax), y2Range=y2Range)
 
-    def setLimits(self, xmin, xmax, ymin, ymax, y2min=None, y2max=None):
-        # Let matplotlib taking care of keep aspect ratio if any
-        self._dirtyLimits = True
-        self._setXLimits(xmin, xmax)
-
-        if y2min is not None and y2max is not None:
-            self.ax2.set_ybound(min(y2min, y2max), max(y2min, y2max))
-
-        self.ax.set_ybound(min(ymin, ymax), max(ymin, ymax))
-
-        self._updateMarkers()
-
-    def getGraphXLimits(self):
-        if self._dirtyLimits and self.isKeepDataAspectRatio():
-            self.ax.apply_aspect()
-            self.ax2.apply_aspect()
-            self._dirtyLimits = False
+    def getGraphXLimits(self) -> Range:
         return self.ax.get_xbound()
 
-    def setGraphXLimits(self, xmin, xmax):
-        self._dirtyLimits = True
-        self._setXLimits(xmin, xmax)
-        self._updateMarkers()
+    def setGraphXLimits(self, xmin: float, xmax: float):
+        self._setPlotBounds(xRange=(xmin, xmax), keepDim="x")
 
-    def getGraphYLimits(self, axis):
+    def getGraphYLimits(self, axis: Literal["left", "right"]) -> Range | None:
         assert axis in ("left", "right")
         ax = self.ax2 if axis == "right" else self.ax
 
         if not ax.get_visible():
             return None
 
-        if self._dirtyLimits and self.isKeepDataAspectRatio():
-            self.ax.apply_aspect()
-            self.ax2.apply_aspect()
-            self._dirtyLimits = False
-
         return ax.get_ybound()
 
-    def setGraphYLimits(self, ymin, ymax, axis):
-        ax = self.ax2 if axis == "right" else self.ax
-        if ymax < ymin:
-            ymin, ymax = ymax, ymin
-        self._dirtyLimits = True
+    def setGraphYLimits(self, ymin: float, ymax: float, axis: Literal["left", "right"]):
+        if axis == "right":
+            self._setPlotBounds(y2Range=(ymin, ymax), keepDim="y")
+        else:
+            self._setPlotBounds(yRange=(ymin, ymax), keepDim="y")
 
-        if self.isKeepDataAspectRatio():
-            # matplotlib keeps limits of shared axis when keeping aspect ratio
-            # So x limits are kept when changing y limits....
-            # Change x limits first by taking into account aspect ratio
-            # and then change y limits.. so matplotlib does not need
-            # to make change (to y) to keep aspect ratio
-            xmin, xmax = ax.get_xbound()
-            curYMin, curYMax = ax.get_ybound()
+    def _setPlotBounds(
+        self,
+        xRange: Range | None = None,
+        yRange: Range | None = None,
+        y2Range: Range | None = None,
+        keepDim: Literal["x", "y"] | None = None,
+    ):
+        # Keep data aspect ratio
+        if xRange is None:
+            xRange = self.ax.get_xbound()
+        if yRange is None:
+            yRange = self.ax.get_ybound()
+        if y2Range is None:
+            y2Range = self.ax2.get_ybound()
 
-            newXRange = (xmax - xmin) * (ymax - ymin) / (curYMax - curYMin)
-            xcenter = 0.5 * (xmin + xmax)
-            self._setXLimits(xcenter - 0.5 * newXRange, xcenter + 0.5 * newXRange)
-
-        ax.set_ybound(ymin, ymax)
+        if not self.isKeepDataAspectRatio():
+            newXRange, newYRange, newY2Range = xRange, yRange, y2Range
+        else:
+            bbox = self.fig.get_window_extent()
+            if keepDim is None:
+                xDataRange, yDataRange, _ = self._plot.getDataRange()
+                keepDim = findDimToKeep(bbox.width, bbox.height, xDataRange, yDataRange)
+            newXRange, newYRange, newY2Range = ensureAspectRatio(
+                bbox.width,
+                bbox.height,
+                xRange,
+                yRange,
+                y2Range,
+                keepDim=keepDim,
+            )
+        self.ax.set_xbound(*newXRange)
+        self.ax.set_ybound(*newYRange)
+        self.ax2.set_ybound(*newY2Range)
+        # If plot range has changed, then emit signal
+        if xRange != newXRange:
+            self._plot.getXAxis()._emitLimitsChanged()
+        if yRange != newYRange:
+            self._plot.getYAxis(axis="left")._emitLimitsChanged()
+        if y2Range != newY2Range:
+            self._plot.getYAxis(axis="right")._emitLimitsChanged()
 
         self._updateMarkers()
 
@@ -1302,25 +1304,23 @@ class BackendMatplotlib(BackendBase.BackendBase):
         self._isXAxisTimeSeries = isTimeSeries
         self.__initXAxisFormatterAndLocator()
 
-    def setXAxisLogarithmic(self, flag):
-        # Workaround for matplotlib 2.1.0 when one tries to set an axis
-        # to log scale with both limits <= 0
-        # In this case a draw with positive limits is needed first
-        if flag:
+    def setXAxisScale(self, scale: AxisScaleType):
+        if scale == "log":
+            # Workaround for matplotlib 2.1.0 when one tries to set an axis
+            # to log scale with both limits <= 0
+            # In this case a draw with positive limits is needed first
             xlim = self.ax.get_xbound()
             if xlim[0] <= 0 and xlim[1] <= 0:
-                self._setXLimits(1, 10)
+                self._setPlotBounds(xRange=(1, 10))
                 self.draw()
-
-        xscale = "log" if flag else "linear"
-        self.ax2.set_xscale(xscale)
-        self.ax.set_xscale(xscale)
+        self.ax2.set_xscale(scale)
+        self.ax.set_xscale(scale)
         self.__initXAxisFormatterAndLocator()
 
-    def setYAxisLogarithmic(self, flag):
-        # Workaround for matplotlib 2.0 issue with negative bounds
-        # before switching to log scale
-        if flag:
+    def setYAxisScale(self, scale: AxisScaleType):
+        if scale == "log":
+            # Workaround for matplotlib 2.0 issue with negative bounds
+            # before switching to log scale
             redraw = False
             for axis, dataRangeIndex in ((self.ax, 1), (self.ax2, 2)):
                 ylim = axis.get_ylim()
@@ -1332,15 +1332,14 @@ class BackendMatplotlib(BackendBase.BackendBase):
                     redraw = True
             if redraw:
                 self.draw()
-
             self.ax2.set_yscale("log")
             self.ax.set_yscale("log")
             return
-
-        self.ax2.set_yscale("linear")
-        self.ax2.yaxis.set_major_formatter(DefaultTickFormatter())
-        self.ax.set_yscale("linear")
-        self.ax.yaxis.set_major_formatter(DefaultTickFormatter())
+        self.ax2.set_yscale(scale)
+        self.ax.set_yscale(scale)
+        if scale == "linear":
+            self.ax2.yaxis.set_major_formatter(DefaultTickFormatter())
+            self.ax.yaxis.set_major_formatter(DefaultTickFormatter())
 
     def setYAxisInverted(self, flag: bool):
         if self.ax.yaxis_inverted() != bool(flag):
@@ -1360,13 +1359,6 @@ class BackendMatplotlib(BackendBase.BackendBase):
 
     def isYRightAxisVisible(self):
         return self.ax2.yaxis.get_visible()
-
-    def isKeepDataAspectRatio(self):
-        return self.ax.get_aspect() in (1.0, "equal")
-
-    def setKeepDataAspectRatio(self, flag):
-        self.ax.set_aspect(1.0 if flag else "auto")
-        self.ax2.set_aspect(1.0 if flag else "auto")
 
     def setGraphGrid(self, which):
         self.ax.grid(False, which="both")  # Disable all grid first
@@ -1508,8 +1500,6 @@ class BackendMatplotlibQt(BackendMatplotlib, FigureCanvasQTAgg):
         FigureCanvasQTAgg.__init__(self, self.fig)
         self.setParent(parent)
 
-        self._limitsBeforeResize = None
-
         FigureCanvasQTAgg.setSizePolicy(
             self, qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding
         )
@@ -1629,19 +1619,10 @@ class BackendMatplotlibQt(BackendMatplotlib, FigureCanvasQTAgg):
     # replot control
 
     def resizeEvent(self, event):
-        # Store current limits
-        self._limitsBeforeResize = (
-            self.ax.get_xbound(),
-            self.ax.get_ybound(),
-            self.ax2.get_ybound(),
-        )
-        self.ax.set_autoscaley_on(True)
-        self.ax2.set_autoscaley_on(True)
-
         FigureCanvasQTAgg.resizeEvent(self, event)
-        if self.isKeepDataAspectRatio() or self._hasOverlays():
-            # This is needed with matplotlib 1.5.x and 2.0.x
-            self._plot._setDirtyPlot()
+        self._setPlotBounds(
+            self.ax.get_xbound(), self.ax.get_ybound(), self.ax2.get_ybound()
+        )
 
     def draw(self):
         """Overload draw
@@ -1666,7 +1647,7 @@ class BackendMatplotlibQt(BackendMatplotlib, FigureCanvasQTAgg):
             FigureCanvasQTAgg.draw(self)
         except ValueError as err:
             _logger.debug(
-                "ValueError caught while calling FigureCanvasQTAgg.draw: " "'%s'",
+                "ValueError caught while calling FigureCanvasQTAgg.draw: '%s'",
                 err,
             )
 
@@ -1675,24 +1656,6 @@ class BackendMatplotlibQt(BackendMatplotlib, FigureCanvasQTAgg):
             self._background = self.copy_from_bbox(self.fig.bbox)
         else:
             self._background = None  # Reset background
-
-        # Check if limits changed due to a resize of the widget
-        if self._limitsBeforeResize is not None:
-            xLimits, yLimits, yRightLimits = self._limitsBeforeResize
-            self._limitsBeforeResize = None
-
-            if xLimits != self.ax.get_xbound() or yLimits != self.ax.get_ybound():
-                self._updateMarkers()
-
-            self.ax.set_autoscaley_on(False)
-            self.ax2.set_autoscaley_on(False)
-
-            if xLimits != self.ax.get_xbound():
-                self._plot.getXAxis()._emitLimitsChanged()
-            if yLimits != self.ax.get_ybound():
-                self._plot.getYAxis(axis="left")._emitLimitsChanged()
-            if yRightLimits != self.ax2.get_ybound():
-                self._plot.getYAxis(axis="right")._emitLimitsChanged()
 
         self._drawOverlays()
 
@@ -1733,3 +1696,40 @@ class BackendMatplotlibQt(BackendMatplotlib, FigureCanvasQTAgg):
         else:
             cursor = self._QT_CURSORS[cursor]
             FigureCanvasQTAgg.setCursor(self, qt.QCursor(cursor))
+
+    def wheelEvent(self, event):
+        #  https://github.com/qt/qtbase/blob/120883a028a59864dc7691dd1efa318bd602755d/src/plugins/platforms/xcb/qxcbwindow.cpp#L1955-L1956
+        # qt xcb plugin put angleDelta in x rather than in y when alt modifier is pressed.
+        # matplotlib/matplotlib#25671 marked as 'won't fix'
+        # Fix here as we want to be able to use alt modifier in silx plot.
+        # https://github.com/silx-kit/silx/pull/4631
+        if event.angleDelta().y() == 0:
+            if qt.BINDING == "PyQt5":
+                event = qt.QWheelEvent(
+                    event.position(),
+                    event.globalPosition(),
+                    event.pixelDelta(),
+                    qt.QPoint(0, event.angleDelta().x()),
+                    event.buttons(),
+                    event.modifiers(),
+                    event.phase(),
+                    event.inverted(),
+                    qt.Qt.MouseEventSynthesizedByApplication,
+                )
+            else:
+                event = qt.QWheelEvent(
+                    event.position(),
+                    event.globalPosition(),
+                    event.pixelDelta(),
+                    qt.QPoint(0, event.angleDelta().x()),
+                    event.buttons(),
+                    event.modifiers(),
+                    event.phase(),
+                    event.inverted(),
+                    qt.Qt.MouseEventSynthesizedByApplication,
+                    event.pointingDevice(),
+                )
+            super().wheelEvent(event)
+            return
+
+        super().wheelEvent(event)

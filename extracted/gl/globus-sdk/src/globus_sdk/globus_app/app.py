@@ -25,6 +25,7 @@ from globus_sdk.scopes import AuthScopes, Scope, ScopeParser
 from globus_sdk.token_storage import (
     ScopeRequirementsValidator,
     TokenStorage,
+    TokenStorageData,
     TokenValidationError,
     ValidatingTokenStorage,
 )
@@ -385,21 +386,36 @@ class GlobusApp(metaclass=abc.ABCMeta):
                 return True
         return False
 
-    def logout(self) -> None:
+    def logout(self, *, sweep: bool = False) -> None:
         """
         Log the current user or client out of the app.
 
-        This will remove and revoke all tokens stored for the current app user.
+        This will remove and revoke tokens stored for the current app user.
+
+        :param sweep: Set to ``True`` in order to clear all tokens in storage. By
+            default, only tokens for currently in-use services are cleared.
         """
-        # Revoke all tokens, removing them from the underlying token storage
+        # Revoke tokens, removing them from the underlying token storage
         inner_token_storage = self.token_storage.token_storage
-        for resource_server in self._scope_requirements.keys():
-            token_data = inner_token_storage.get_token_data(resource_server)
-            if token_data:
-                self._login_client.oauth2_revoke_token(token_data.access_token)
-                if token_data.refresh_token:
-                    self._login_client.oauth2_revoke_token(token_data.refresh_token)
-                inner_token_storage.remove_token_data(resource_server)
+
+        # collect tokens to clear, either all of them or a subset based on scope reqs
+        if sweep:
+            to_clear: t.Iterable[TokenStorageData] = (
+                inner_token_storage.get_token_data_by_resource_server().values()
+            )
+        else:
+            to_clear = [
+                token_data
+                for resource_server in self._scope_requirements.keys()
+                if (token_data := inner_token_storage.get_token_data(resource_server))
+                is not None
+            ]
+
+        for token_data in to_clear:
+            self._login_client.oauth2_revoke_token(token_data.access_token)
+            if token_data.refresh_token:
+                self._login_client.oauth2_revoke_token(token_data.refresh_token)
+            inner_token_storage.remove_token_data(token_data.resource_server)
 
         # Invalidate any cached authorizers
         self._authorizer_factory.clear_cache()

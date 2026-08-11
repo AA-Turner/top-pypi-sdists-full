@@ -57,10 +57,11 @@ pub fn validate<'a: 'b, 'b>(
                 .as_deref()
                 .and_then(|root_schema| {
                     root_schema
-                        .value_schema
+                        .schema_view
                         .as_ref()
-                        .map(|value_schema| CurrentSchema {
-                            value_schema: value_schema.clone(),
+                        .map(|schema_view| CurrentSchema {
+                            schema_view: schema_view.clone(),
+                            semantic_schema: root_schema.semantic_schema.clone(),
                             schema_uri: Cow::Borrowed(&root_schema.schema_uri),
                             definitions: Cow::Borrowed(&root_schema.definitions),
                             strict: root_schema.strict,
@@ -68,7 +69,7 @@ pub fn validate<'a: 'b, 'b>(
                 })
         });
 
-        if let Err(crate::Error { diagnostics, .. }) = tree
+        if let Err(crate::Invalid { diagnostics, .. }) = tree
             .validate(&[], current_schema.as_ref(), schema_context)
             .await
         {
@@ -86,7 +87,96 @@ pub trait Validate {
         accessors: &'a [tombi_schema_store::Accessor],
         current_schema: Option<&'a tombi_schema_store::CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
-    ) -> BoxFuture<'b, Result<crate::EvaluatedLocations, crate::Error>>;
+    ) -> BoxFuture<'b, Result<crate::Valid, crate::Invalid>>;
+}
+
+pub fn project_current_schema_for_value(
+    value: &impl tombi_document_tree::ValueImpl,
+    current_schema: Option<&tombi_schema_store::CurrentSchema<'_>>,
+    schema_context: &tombi_schema_store::SchemaContext<'_>,
+) -> Option<tombi_schema_store::CurrentSchema<'static>> {
+    let current_schema = current_schema?;
+    let is_boolean_schema = matches!(
+        current_schema.semantic_schema.as_deref(),
+        Some(tombi_schema_store::SemanticSchema::Boolean(_))
+    );
+    let matches_instance = match value.value_type() {
+        tombi_document_tree::ValueType::Boolean => {
+            matches!(
+                current_schema.schema_view.as_ref(),
+                tombi_schema_store::SchemaView::Boolean(_)
+            )
+        }
+        tombi_document_tree::ValueType::Integer => matches!(
+            current_schema.schema_view.as_ref(),
+            tombi_schema_store::SchemaView::Integer(_) | tombi_schema_store::SchemaView::Float(_)
+        ),
+        tombi_document_tree::ValueType::Float => {
+            matches!(
+                current_schema.schema_view.as_ref(),
+                tombi_schema_store::SchemaView::Float(_)
+            )
+        }
+        tombi_document_tree::ValueType::String => matches!(
+            current_schema.schema_view.as_ref(),
+            tombi_schema_store::SchemaView::String(_)
+                | tombi_schema_store::SchemaView::LocalDate(_)
+                | tombi_schema_store::SchemaView::LocalDateTime(_)
+                | tombi_schema_store::SchemaView::LocalTime(_)
+                | tombi_schema_store::SchemaView::OffsetDateTime(_)
+        ),
+        tombi_document_tree::ValueType::OffsetDateTime => matches!(
+            current_schema.schema_view.as_ref(),
+            tombi_schema_store::SchemaView::OffsetDateTime(_)
+        ),
+        tombi_document_tree::ValueType::LocalDateTime => matches!(
+            current_schema.schema_view.as_ref(),
+            tombi_schema_store::SchemaView::LocalDateTime(_)
+        ),
+        tombi_document_tree::ValueType::LocalDate => matches!(
+            current_schema.schema_view.as_ref(),
+            tombi_schema_store::SchemaView::LocalDate(_)
+        ),
+        tombi_document_tree::ValueType::LocalTime => matches!(
+            current_schema.schema_view.as_ref(),
+            tombi_schema_store::SchemaView::LocalTime(_)
+        ),
+        tombi_document_tree::ValueType::Array => {
+            matches!(
+                current_schema.schema_view.as_ref(),
+                tombi_schema_store::SchemaView::Array(_)
+            )
+        }
+        tombi_document_tree::ValueType::Table => {
+            matches!(
+                current_schema.schema_view.as_ref(),
+                tombi_schema_store::SchemaView::Table(_)
+            )
+        }
+        tombi_document_tree::ValueType::Incomplete => true,
+    } || matches!(
+        current_schema.schema_view.as_ref(),
+        tombi_schema_store::SchemaView::Anything(_) | tombi_schema_store::SchemaView::Nothing(_)
+            if is_boolean_schema
+    );
+    if matches_instance {
+        return None;
+    }
+
+    let instance_type = tombi_schema_store::SchemaType::from_value_type(value.value_type())?;
+    if matches!(
+        current_schema.schema_view.as_ref(),
+        tombi_schema_store::SchemaView::OneOf(_)
+            | tombi_schema_store::SchemaView::AnyOf(_)
+            | tombi_schema_store::SchemaView::AllOf(_)
+    ) && !current_schema
+        .semantic_schema
+        .as_deref()
+        .is_some_and(|schema| schema.has_direct_constraints_for_type(instance_type))
+    {
+        return None;
+    }
+    current_schema.for_instance_type(instance_type, schema_context.string_formats())
 }
 
 fn resolve_deprecated_lint_level(
@@ -199,7 +289,7 @@ fn handle_type_mismatch(
     actual: tombi_document_tree::ValueType,
     range: tombi_text::Range,
     common_rules: Option<&tombi_comment_directive::value::CommonLintRules>,
-) -> Result<crate::EvaluatedLocations, crate::Error> {
+) -> Result<crate::Valid, crate::Invalid> {
     let mut diagnostics = vec![];
 
     let level = common_rules
@@ -217,30 +307,27 @@ fn handle_type_mismatch(
     }
     .push_diagnostic_with_level(level, &mut diagnostics);
 
-    if diagnostics.is_empty() {
-        Ok(crate::EvaluatedLocations::new())
-    } else {
-        Err(crate::Error {
-            score: 0,
-            diagnostics,
-            evaluated_locations: crate::EvaluatedLocations::default(),
-        })
-    }
+    let mut match_evidence = Box::<crate::MatchEvidence>::default();
+    match_evidence.mark_type_assertion(false);
+    Err(crate::Invalid {
+        assertion_failed: true,
+        match_evidence,
+        diagnostics,
+        local_evaluated_locations: crate::Valid::default(),
+    })
 }
 
 #[allow(clippy::result_large_err)]
 #[inline]
-pub(crate) fn handle_anything_schema<T>(
-    _value: &T,
-) -> Result<crate::EvaluatedLocations, crate::Error>
+pub(crate) fn handle_anything_schema<T>(_value: &T) -> Result<crate::Valid, crate::Invalid>
 where
     T: tombi_document_tree::ValueImpl,
 {
-    Ok(crate::EvaluatedLocations::new())
+    Ok(crate::Valid::new())
 }
 
 #[allow(clippy::result_large_err)]
-pub(crate) fn handle_nothing_schema<T>(value: &T) -> Result<crate::EvaluatedLocations, crate::Error>
+pub(crate) fn handle_nothing_schema<T>(value: &T) -> Result<crate::Valid, crate::Invalid>
 where
     T: tombi_document_tree::ValueImpl,
 {
@@ -308,18 +395,19 @@ fn handle_unused_noqa<'a>(
 
 #[allow(clippy::result_large_err)]
 pub(crate) fn with_lint_diagnostics(
-    result: Result<crate::EvaluatedLocations, crate::Error>,
+    result: Result<crate::Valid, crate::Invalid>,
     lint_rules_diagnostics: Vec<tombi_diagnostic::Diagnostic>,
-) -> Result<crate::EvaluatedLocations, crate::Error> {
+) -> Result<crate::Valid, crate::Invalid> {
     match result {
         Ok(result) => {
             if lint_rules_diagnostics.is_empty() {
                 Ok(result)
             } else {
-                Err(crate::Error {
-                    score: crate::error::TYPE_MATCHED_SCORE,
+                Err(crate::Invalid {
+                    assertion_failed: false,
+                    match_evidence: Default::default(),
                     diagnostics: lint_rules_diagnostics,
-                    evaluated_locations: result,
+                    local_evaluated_locations: result,
                 })
             }
         }
@@ -342,20 +430,37 @@ pub(crate) fn schema_resolution_diagnostic(
     .then(|| error.to_warning_diagnostic(range))
 }
 
-pub(crate) fn has_error_level_diagnostics(error: &crate::Error) -> bool {
-    error
-        .diagnostics
-        .iter()
-        .any(|diagnostic| diagnostic.level() == tombi_diagnostic::Level::ERROR)
-}
-
-pub(crate) fn is_assertion_success(
-    result: &Result<crate::EvaluatedLocations, crate::Error>,
-) -> bool {
+pub(crate) fn is_assertion_success(result: &Result<crate::Valid, crate::Invalid>) -> bool {
     match result {
         Ok(_) => true,
-        Err(error) => !has_error_level_diagnostics(error),
+        Err(error) => !error.assertion_failed,
     }
+}
+
+#[inline]
+pub(crate) fn match_evidence(
+    result: &Result<crate::Valid, crate::Invalid>,
+) -> &crate::MatchEvidence {
+    match result {
+        Ok(valid) => &valid.match_evidence,
+        Err(invalid) => &invalid.match_evidence,
+    }
+}
+
+#[inline]
+#[allow(clippy::result_large_err)]
+fn mark_type_match(
+    mut result: Result<crate::Valid, crate::Invalid>,
+    has_type_assertion: bool,
+    matched: bool,
+) -> Result<crate::Valid, crate::Invalid> {
+    if has_type_assertion {
+        match &mut result {
+            Ok(valid) => valid.match_evidence.mark_type_assertion(matched),
+            Err(invalid) => invalid.match_evidence.mark_type_assertion(matched),
+        }
+    }
+    result
 }
 
 fn is_multiple_of_with_tolerance(value: f64, multiple_of: f64) -> bool {
@@ -383,7 +488,7 @@ fn validate_deprecated<'a, T>(
         impl IntoIterator<Item = &'a tombi_ast::TombiValueCommentDirective> + 'a,
     >,
     common_rules: Option<&tombi_comment_directive::value::CommonLintRules>,
-) -> Result<crate::EvaluatedLocations, crate::Error>
+) -> Result<crate::Valid, crate::Invalid>
 where
     T: tombi_document_tree::ValueImpl,
 {
@@ -400,7 +505,7 @@ where
     );
 
     if diagnostics.is_empty() {
-        Ok(crate::EvaluatedLocations::new())
+        Ok(crate::Valid::new())
     } else {
         Err(diagnostics.into())
     }
@@ -408,23 +513,24 @@ where
 
 #[allow(clippy::result_large_err)]
 pub(crate) fn merge_validation_results(
-    primary: Result<crate::EvaluatedLocations, crate::Error>,
-    secondary: Result<crate::EvaluatedLocations, crate::Error>,
-) -> Result<crate::EvaluatedLocations, crate::Error> {
+    primary: Result<crate::Valid, crate::Invalid>,
+    secondary: Result<crate::Valid, crate::Invalid>,
+) -> Result<crate::Valid, crate::Invalid> {
     match (primary, secondary) {
         (Ok(mut left), Ok(right)) => {
             left.merge_from(right);
             Ok(left)
         }
         (Err(mut error), Ok(result)) | (Ok(result), Err(mut error)) => {
-            error.evaluated_locations.merge_from(result);
+            error.local_evaluated_locations.merge_from(result);
             Err(error)
         }
         (Err(mut left), Err(right)) => {
-            left.score = left.score.max(right.score);
+            left.assertion_failed |= right.assertion_failed;
+            left.match_evidence.merge_from(*right.match_evidence);
             left.diagnostics.extend(right.diagnostics);
-            left.evaluated_locations
-                .merge_from(right.evaluated_locations);
+            left.local_evaluated_locations
+                .merge_from(right.local_evaluated_locations);
             Err(left)
         }
     }
@@ -432,14 +538,14 @@ pub(crate) fn merge_validation_results(
 
 #[allow(clippy::result_large_err)]
 pub(crate) fn filter_table_strict_additional_diagnostics(
-    mut error: crate::Error,
-) -> Result<crate::EvaluatedLocations, crate::Error> {
+    mut error: crate::Invalid,
+) -> Result<crate::Valid, crate::Invalid> {
     error
         .diagnostics
         .retain(|diagnostic| diagnostic.code() != "table-strict-additional-keys");
 
-    if error.diagnostics.is_empty() {
-        Ok(error.evaluated_locations)
+    if error.diagnostics.is_empty() && !error.assertion_failed {
+        Ok(error.local_evaluated_locations)
     } else {
         Err(error)
     }
@@ -456,7 +562,7 @@ pub fn validate_adjacent_applicators<'a: 'b, 'b, T>(
     schema_context: &'a tombi_schema_store::SchemaContext<'a>,
     comment_directives: Option<&'a [tombi_ast::TombiValueCommentDirective]>,
     common_rules: Option<&'a tombi_comment_directive::value::CommonLintRules>,
-) -> BoxFuture<'b, Result<crate::EvaluatedLocations, crate::Error>>
+) -> BoxFuture<'b, Result<crate::Valid, crate::Invalid>>
 where
     T: Validate + tombi_document_tree::ValueImpl + Sync + Send + std::fmt::Debug,
 {
@@ -466,10 +572,10 @@ where
             && all_of_schema.is_none()
             && not_schema.is_none()
         {
-            return Ok(crate::EvaluatedLocations::new());
+            return Ok(crate::Valid::new());
         }
 
-        let mut result = Ok(crate::EvaluatedLocations::new());
+        let mut result = Ok(crate::Valid::new());
 
         if let Some(one_of_schema) = one_of_schema {
             let adjacent_result = validate_one_of(
@@ -531,6 +637,49 @@ where
     .boxed()
 }
 
+pub fn validate_mismatched_schema<'a: 'b, 'b, T>(
+    value: &'a T,
+    accessors: &'a [tombi_schema_store::Accessor],
+    current_schema: &'a tombi_schema_store::CurrentSchema<'a>,
+    schema_context: &'a tombi_schema_store::SchemaContext<'a>,
+    comment_directives: Option<&'a [tombi_ast::TombiValueCommentDirective]>,
+    common_rules: Option<&'a tombi_comment_directive::value::CommonLintRules>,
+) -> BoxFuture<'b, Result<crate::Valid, crate::Invalid>>
+where
+    T: Validate + tombi_document_tree::ValueImpl + Sync + Send + std::fmt::Debug,
+{
+    async move {
+        if current_schema
+            .semantic_schema
+            .as_deref()
+            .is_some_and(|schema| !schema.has_type_assertion())
+        {
+            let (one_of, any_of, all_of, not) = current_schema.schema_view.adjacent_applicators();
+            validate_adjacent_applicators(
+                value,
+                accessors,
+                one_of,
+                any_of,
+                all_of,
+                not,
+                current_schema,
+                schema_context,
+                comment_directives,
+                common_rules,
+            )
+            .await
+        } else {
+            handle_type_mismatch(
+                current_schema.schema_view.value_type().await,
+                value.value_type(),
+                value.range(),
+                common_rules,
+            )
+        }
+    }
+    .boxed()
+}
+
 pub fn validate_resolved_schema<'a: 'b, 'b, T>(
     value: &'a T,
     accessors: &'a [tombi_schema_store::Accessor],
@@ -538,69 +687,101 @@ pub fn validate_resolved_schema<'a: 'b, 'b, T>(
     schema_context: &'a tombi_schema_store::SchemaContext<'a>,
     comment_directives: Option<&'a [tombi_ast::TombiValueCommentDirective]>,
     common_rules: Option<&'a tombi_comment_directive::value::CommonLintRules>,
-) -> BoxFuture<'b, Option<Result<crate::EvaluatedLocations, crate::Error>>>
+) -> BoxFuture<'b, Option<Result<crate::Valid, crate::Invalid>>>
 where
     T: Validate + tombi_document_tree::ValueImpl + Sync + Send + std::fmt::Debug,
 {
     async move {
         let _cycle_guard = schema_context
             .schema_visits
-            .get_value_schema_cycle_guard(&resolved_schema.value_schema)?;
+            .get_schema_view_cycle_guard(&resolved_schema.schema_view)?;
 
-        match (value.value_type(), resolved_schema.value_schema.as_ref()) {
-            (tombi_document_tree::ValueType::Boolean, tombi_schema_store::ValueSchema::Boolean(_))
+        match (value.value_type(), resolved_schema.schema_view.as_ref()) {
+            (
+                tombi_document_tree::ValueType::Boolean,
+                tombi_schema_store::SchemaView::Boolean(_),
+            )
             | (
                 tombi_document_tree::ValueType::Integer,
-                tombi_schema_store::ValueSchema::Integer(_)
-                | tombi_schema_store::ValueSchema::Float(_),
+                tombi_schema_store::SchemaView::Integer(_)
+                | tombi_schema_store::SchemaView::Float(_),
             )
-            | (tombi_document_tree::ValueType::Float, tombi_schema_store::ValueSchema::Float(_))
-            | (tombi_document_tree::ValueType::String, tombi_schema_store::ValueSchema::String(_))
+            | (tombi_document_tree::ValueType::Float, tombi_schema_store::SchemaView::Float(_))
+            | (tombi_document_tree::ValueType::String, tombi_schema_store::SchemaView::String(_))
             | (
                 tombi_document_tree::ValueType::OffsetDateTime,
-                tombi_schema_store::ValueSchema::OffsetDateTime(_),
+                tombi_schema_store::SchemaView::OffsetDateTime(_),
             )
             | (
                 tombi_document_tree::ValueType::LocalDateTime,
-                tombi_schema_store::ValueSchema::LocalDateTime(_),
+                tombi_schema_store::SchemaView::LocalDateTime(_),
             )
             | (
                 tombi_document_tree::ValueType::LocalDate,
-                tombi_schema_store::ValueSchema::LocalDate(_),
+                tombi_schema_store::SchemaView::LocalDate(_),
             )
             | (
                 tombi_document_tree::ValueType::LocalTime,
-                tombi_schema_store::ValueSchema::LocalTime(_),
+                tombi_schema_store::SchemaView::LocalTime(_),
             )
-            | (tombi_document_tree::ValueType::Table, tombi_schema_store::ValueSchema::Table(_))
-            | (tombi_document_tree::ValueType::Array, tombi_schema_store::ValueSchema::Array(_)) => {
-                Some(
-                    value
-                        .validate(accessors, Some(resolved_schema), schema_context)
-                        .await,
-                )
+            | (tombi_document_tree::ValueType::Table, tombi_schema_store::SchemaView::Table(_))
+            | (tombi_document_tree::ValueType::Array, tombi_schema_store::SchemaView::Array(_)) => {
+                let result = value
+                    .validate(accessors, Some(resolved_schema), schema_context)
+                    .await;
+                Some(mark_type_match(
+                    result,
+                    resolved_schema
+                        .semantic_schema
+                        .as_deref()
+                        .is_some_and(|schema| schema.has_direct_type_assertion()),
+                    true,
+                ))
             }
-            (_, tombi_schema_store::ValueSchema::Null) => None,
-            (_, tombi_schema_store::ValueSchema::Anything(_)) => Some(handle_anything_schema(value)),
-            (_, tombi_schema_store::ValueSchema::Nothing(_)) => Some(handle_nothing_schema(value)),
-            (_, tombi_schema_store::ValueSchema::Boolean(_))
-            | (_, tombi_schema_store::ValueSchema::Integer(_))
-            | (_, tombi_schema_store::ValueSchema::Float(_))
-            | (_, tombi_schema_store::ValueSchema::String(_))
-            | (_, tombi_schema_store::ValueSchema::OffsetDateTime(_))
-            | (_, tombi_schema_store::ValueSchema::LocalDateTime(_))
-            | (_, tombi_schema_store::ValueSchema::LocalDate(_))
-            | (_, tombi_schema_store::ValueSchema::LocalTime(_))
-            | (_, tombi_schema_store::ValueSchema::Table(_))
-            | (_, tombi_schema_store::ValueSchema::Array(_)) => Some(
-                handle_type_mismatch(
-                    resolved_schema.value_schema.value_type().await,
-                    value.value_type(),
-                    value.range(),
+            (_, tombi_schema_store::SchemaView::Null) => None,
+            (_, tombi_schema_store::SchemaView::Anything(_)) => {
+                if let Some(projected_schema) =
+                    project_current_schema_for_value(value, Some(resolved_schema), schema_context)
+                {
+                    Some(
+                        value
+                            .validate(accessors, Some(&projected_schema), schema_context)
+                            .await,
+                    )
+                } else {
+                    Some(handle_anything_schema(value))
+                }
+            }
+            (_, tombi_schema_store::SchemaView::Nothing(_)) => Some(handle_nothing_schema(value)),
+            (_, tombi_schema_store::SchemaView::Boolean(_))
+            | (_, tombi_schema_store::SchemaView::Integer(_))
+            | (_, tombi_schema_store::SchemaView::Float(_))
+            | (_, tombi_schema_store::SchemaView::String(_))
+            | (_, tombi_schema_store::SchemaView::OffsetDateTime(_))
+            | (_, tombi_schema_store::SchemaView::LocalDateTime(_))
+            | (_, tombi_schema_store::SchemaView::LocalDate(_))
+            | (_, tombi_schema_store::SchemaView::LocalTime(_))
+            | (_, tombi_schema_store::SchemaView::Table(_))
+            | (_, tombi_schema_store::SchemaView::Array(_)) => {
+                let result = validate_mismatched_schema(
+                    value,
+                    accessors,
+                    resolved_schema,
+                    schema_context,
+                    comment_directives,
                     common_rules,
-                ),
-            ),
-            (_, tombi_schema_store::ValueSchema::OneOf(one_of_schema)) => Some(
+                )
+                .await;
+                Some(mark_type_match(
+                    result,
+                    resolved_schema
+                        .semantic_schema
+                        .as_deref()
+                        .is_some_and(|schema| schema.has_direct_type_assertion()),
+                    false,
+                ))
+            }
+            (_, tombi_schema_store::SchemaView::OneOf(one_of_schema)) => Some(
                 validate_one_of(
                     value,
                     accessors,
@@ -612,7 +793,7 @@ where
                 )
                 .await,
             ),
-            (_, tombi_schema_store::ValueSchema::AnyOf(any_of_schema)) => Some(
+            (_, tombi_schema_store::SchemaView::AnyOf(any_of_schema)) => Some(
                 validate_any_of(
                     value,
                     accessors,
@@ -624,7 +805,7 @@ where
                 )
                 .await,
             ),
-            (_, tombi_schema_store::ValueSchema::AllOf(all_of_schema)) => Some(
+            (_, tombi_schema_store::SchemaView::AllOf(all_of_schema)) => Some(
                 validate_all_of(
                     value,
                     accessors,
@@ -651,18 +832,19 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     #[test]
-    fn assertion_success_allows_warning_only_errors() {
-        let warning_only_error = crate::Error {
-            score: 0,
+    fn assertion_success_allows_warning_only_invalid() {
+        let warning_only_invalid = crate::Invalid {
+            assertion_failed: false,
+            match_evidence: Default::default(),
             diagnostics: vec![tombi_diagnostic::Diagnostic::new_warning(
                 "warn",
                 "warn-code",
                 tombi_text::Range::default(),
             )],
-            evaluated_locations: crate::EvaluatedLocations::default(),
+            local_evaluated_locations: crate::Valid::default(),
         };
-        assert!(is_assertion_success(&Ok(crate::EvaluatedLocations::new())));
-        assert!(is_assertion_success(&Err(warning_only_error)));
+        assert!(is_assertion_success(&Ok(crate::Valid::new())));
+        assert!(is_assertion_success(&Err(warning_only_invalid)));
     }
 
     #[test]
@@ -674,8 +856,9 @@ mod tests {
 
     #[test]
     fn filter_drops_only_table_strict_additional_diagnostics() {
-        let result = filter_table_strict_additional_diagnostics(crate::Error {
-            score: 1,
+        let result = filter_table_strict_additional_diagnostics(crate::Invalid {
+            assertion_failed: false,
+            match_evidence: Default::default(),
             diagnostics: vec![
                 tombi_diagnostic::Diagnostic::new_warning(
                     "strict additional",
@@ -688,7 +871,7 @@ mod tests {
                     tombi_text::Range::default(),
                 ),
             ],
-            evaluated_locations: crate::EvaluatedLocations::default(),
+            local_evaluated_locations: crate::Valid::default(),
         });
 
         let err = result.expect_err("non-strict diagnostics should remain");
@@ -697,26 +880,39 @@ mod tests {
     }
 
     #[test]
-    fn filter_turns_strict_additional_only_error_into_success() {
-        let result = filter_table_strict_additional_diagnostics(crate::Error {
-            score: 1,
+    fn filter_turns_strict_additional_only_invalid_into_success() {
+        let result = filter_table_strict_additional_diagnostics(crate::Invalid {
+            assertion_failed: false,
+            match_evidence: Default::default(),
             diagnostics: vec![tombi_diagnostic::Diagnostic::new_warning(
                 "strict additional",
                 "table-strict-additional-keys",
                 tombi_text::Range::default(),
             )],
-            evaluated_locations: crate::EvaluatedLocations::default(),
+            local_evaluated_locations: crate::Valid::default(),
         });
 
         assert!(result.is_ok());
     }
 
     #[test]
+    fn filter_keeps_suppressed_assertion_failure_invalid() {
+        let result = filter_table_strict_additional_diagnostics(crate::Invalid {
+            assertion_failed: true,
+            match_evidence: Default::default(),
+            diagnostics: vec![],
+            local_evaluated_locations: crate::Valid::default(),
+        });
+
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn merge_validation_results_combines_evaluated_locations() {
-        let mut left = crate::EvaluatedLocations::new();
+        let mut left = crate::Valid::new();
         left.mark_property("foo");
 
-        let mut right = crate::EvaluatedLocations::new();
+        let mut right = crate::Valid::new();
         right.mark_index(2);
 
         let merged = merge_validation_results(Ok(left), Ok(right)).expect("merge should succeed");
@@ -727,7 +923,7 @@ mod tests {
 
     #[test]
     fn with_lint_diagnostics_preserves_evaluated_locations() {
-        let mut evaluated_locations = crate::EvaluatedLocations::new();
+        let mut evaluated_locations = crate::Valid::new();
         evaluated_locations.mark_property("foo");
 
         let result = with_lint_diagnostics(
@@ -740,6 +936,6 @@ mod tests {
         )
         .expect_err("lint warnings should still surface");
 
-        assert!(result.evaluated_locations.properties.contains("foo"));
+        assert!(result.local_evaluated_locations.properties.contains("foo"));
     }
 }

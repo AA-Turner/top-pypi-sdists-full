@@ -7,9 +7,16 @@ the one running the suite.  One smoke test uses the live sources.
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 import pytest
 
-from nab_python._vendor.packaging.markers import InvalidMarker, Marker
+from nab_python._vendor.packaging.markers import (
+    InvalidMarker,
+    Marker,
+    default_environment,
+)
 from nab_python._vendor.packaging.ranges import VersionRange
 from nab_python._vendor.packaging.specifiers import SpecifierSet
 from nab_python._vendor.packaging.tags import Tag
@@ -25,6 +32,7 @@ from nab_python.target import (
     ResolveTarget,
     apply_python_axis_overlay,
     declared_environment,
+    declared_range_marker,
     environment_declaration,
     host_environment,
     marker_variables,
@@ -205,6 +213,22 @@ class TestForHostPython:
                 "not-a-version", env_source=_host_env, tags_source=_host_tags
             )
 
+    def test_zero_micro_pins_whole(self) -> None:
+        """A ``3.13.0`` target names one micro, resolved whole."""
+        target = ResolveTarget.for_host_python(
+            "3.13.0", env_source=_host_env, tags_source=_host_tags
+        )
+        assert not target.is_minor_interval
+        assert not target.admits_requires_python(SpecifierSet(">=3.13.5"))
+
+    def test_bare_minor_is_an_interval(self) -> None:
+        """A bare ``3.13`` target is a micro interval off its ``.0`` floor."""
+        target = ResolveTarget.for_host_python(
+            "3.13", env_source=_host_env, tags_source=_host_tags
+        )
+        assert target.is_minor_interval
+        assert target.admits_requires_python(SpecifierSet(">=3.13.5"))
+
     def test_live_sources_smoke(self) -> None:
         """The default sources are the running interpreter's."""
         target = ResolveTarget.for_host_python("3.10")
@@ -308,6 +332,17 @@ class TestAdmitsRequiresPython:
         )
         assert not target.is_minor_interval
         assert target.admits_requires_python(SpecifierSet(">=3.13.2"))
+        assert not target.admits_requires_python(SpecifierSet(">=3.13.5"))
+
+    def test_a_python_patches_zero_micro_is_whole(self) -> None:
+        """A ``.0`` pin is a concrete deployment micro, not a bare minor floor."""
+        target = ResolveTarget.for_declared(
+            python_version="3.13",
+            spec=PlatformSpec("linux_x86_64"),
+            python_full_version="3.13.0",
+        )
+        assert not target.is_minor_interval
+        assert target.admits_requires_python(SpecifierSet(">=3.13.0"))
         assert not target.admits_requires_python(SpecifierSet(">=3.13.5"))
 
     def test_every_slice_of_a_split_minor_agrees(self) -> None:
@@ -755,6 +790,15 @@ class TestMarkerVariables:
         target = ResolveTarget.for_host(env_source=_host_env, tags_source=_host_tags)
         assert target.marker_env.keys() >= PEP508_MARKER_VARIABLES
 
+    def test_variables_are_exactly_the_ones_packaging_defines(self) -> None:
+        """The filter set is packaging's environment, not a subset of it.
+
+        ``marker_variables`` intersects with it, so a variable missing here
+        drops out of the lock's ``environments`` declaration and the lock
+        claims to cover an installer that answers the marker the other way.
+        """
+        assert set(default_environment()) == PEP508_MARKER_VARIABLES
+
 
 class TestEnvironmentDeclaration:
     """A single-environment lock declares the environment it was resolved
@@ -992,6 +1036,136 @@ class TestUnboundableVariables:
         )
 
 
+class TestEnvironmentDeclarationDocumented:
+    """The lockfile reference names every variable an ``environments`` row
+    singles out: one it never pins by value, and one it carries as a slice
+    bound.
+    """
+
+    def _documented_names(self) -> set[str]:
+        doc = Path(__file__).resolve().parents[2] / "docs" / "reference" / "lockfile.md"
+        text = doc.read_text(encoding="utf-8")
+
+        start = text.index("### The environments the lock is for")
+        end = text.index("\n### ", start + 1)
+        section = text[start:end]
+
+        # Backticks wrap whole clauses, so split each span into bare names.
+        return {
+            token
+            for span in re.findall(r"`([^`]+)`", section)
+            for token in re.findall(r"[a-z_]+", span)
+        }
+
+    def _target(self, implementation: str) -> ResolveTarget:
+        return ResolveTarget.for_declared(
+            python_version="3.11",
+            spec=PlatformSpec("linux_x86_64"),
+            implementation=implementation,
+        )
+
+    def _never_pinned(self, target: ResolveTarget) -> set[str]:
+        """Return the variables a consulted marker does not pin by value."""
+        never: set[str] = set()
+        for name in PEP508_MARKER_VARIABLES:
+            value = target.marker_env[name]
+            row = environment_declaration(target, [Marker(f'{name} == "{value}"')])
+            if f'{name} == "{value}"' not in row:
+                never.add(name)
+
+        return never
+
+    @pytest.mark.parametrize("implementation", ["cpython", "pypy"])
+    def test_a_variable_the_row_never_pins_is_documented(
+        self, implementation: str
+    ) -> None:
+        missing = self._never_pinned(self._target(implementation))
+        missing -= self._documented_names()
+
+        assert not missing, f"undocumented on {implementation}: {sorted(missing)}"
+
+    def test_a_slice_bound_the_row_carries_is_documented(self) -> None:
+        target = self._target("cpython")
+        consulted = [Marker('implementation_version >= "3.11.4"')]
+
+        carried: set[str] = set()
+        for slice_ in slices_from_points(
+            target, micro_boundary_points(target, consulted)
+        ):
+            carried |= marker_variables(environment_declaration(slice_, consulted))
+
+        missing = carried - self._documented_names()
+        assert not missing, f"undocumented clause variables: {sorted(missing)}"
+
+
+class TestDeclaredRangeMarker:
+    """The environment a target stands for on its whole declared range."""
+
+    def test_a_minor_interval_leaves_the_micro_open(self) -> None:
+        target = ResolveTarget.for_declared(
+            python_version="3.13", spec=PlatformSpec("linux_x86_64")
+        )
+        assert target.is_minor_interval
+        assert declared_range_marker(target) == (
+            'implementation_name == "cpython" and os_name == "posix"'
+            ' and platform_machine == "x86_64"'
+            ' and platform_python_implementation == "CPython"'
+            ' and platform_system == "Linux" and python_version == "3.13"'
+            ' and sys_platform == "linux"'
+        )
+
+    def test_a_host_target_pins_the_full_version(self) -> None:
+        target = ResolveTarget.for_host(env_source=_host_env, tags_source=_host_tags)
+        assert not target.is_minor_interval
+        assert declared_range_marker(target) == (
+            'implementation_name == "cpython" and os_name == "posix"'
+            ' and platform_machine == "x86_64"'
+            ' and platform_python_implementation == "CPython"'
+            ' and platform_system == "Linux" and python_version == "3.13"'
+            ' and sys_platform == "linux"'
+            ' and python_full_version == "3.13.2"'
+        )
+
+    def test_a_python_patches_micro_pins_the_full_version(self) -> None:
+        target = ResolveTarget.for_declared(
+            python_version="3.13",
+            spec=PlatformSpec("linux_x86_64"),
+            python_full_version="3.13.4",
+        )
+        assert not target.is_minor_interval
+        assert declared_range_marker(target).endswith(
+            'and python_full_version == "3.13.4"'
+        )
+
+    def test_the_kernel_and_by_constraint_axes_are_never_pinned(self) -> None:
+        target = ResolveTarget.for_host(env_source=_host_env, tags_source=_host_tags)
+        marker = declared_range_marker(target)
+        assert "platform_release" not in marker
+        assert "platform_version" not in marker
+        assert "implementation_version" not in marker
+
+    def test_a_non_cpython_target_pins_its_implementation(self) -> None:
+        target = ResolveTarget.for_declared(
+            python_version="3.11",
+            spec=PlatformSpec("linux_x86_64"),
+            implementation="pypy",
+        )
+        assert target.is_minor_interval
+        assert declared_range_marker(target) == (
+            'implementation_name == "pypy" and os_name == "posix"'
+            ' and platform_machine == "x86_64"'
+            ' and platform_python_implementation == "PyPy"'
+            ' and platform_system == "Linux" and python_version == "3.11"'
+            ' and sys_platform == "linux"'
+        )
+
+    def test_the_marker_evaluates_true_on_the_target_environment(self) -> None:
+        target = ResolveTarget.for_declared(
+            python_version="3.13", spec=PlatformSpec("linux_x86_64")
+        )
+        assert Marker(declared_range_marker(target)).evaluate(target.marker_env)
+
+
 class TestMicroBoundarySplitting:
     """A declared target names a minor and synthesizes its ``.0`` micro.  A
     consulted marker with an in-minor python_full_version boundary cuts the
@@ -1130,6 +1304,39 @@ class TestMicroBoundarySplitting:
         ]
         assert micro_boundary_points(self._target(), markers) == []
 
+    @pytest.mark.parametrize(
+        "marker",
+        [
+            'python_full_version < "1!3.12.4"',
+            'python_full_version >= "1!3.12.4"',
+            'python_full_version <= "1!3.12.4"',
+            'python_full_version > "1!3.12.4"',
+            'python_full_version == "1!3.12.4"',
+            'python_full_version != "1!3.12.4"',
+            'python_full_version ~= "1!3.12.4"',
+            'python_full_version == "1!3.12.*"',
+            'python_full_version < "1!3.12.4rc1"',
+            'python_full_version >= "1!3.12.4.post1"',
+            '"1!3.12.4" > python_full_version',
+            'implementation_version >= "1!3.12.4"',
+        ],
+    )
+    def test_an_epoch_tagged_literal_does_not_split(self, marker: str) -> None:
+        """An epoch-tagged literal is outside ``[3.12.0, 3.13.0)`` whatever
+        its release says, and no interpreter reports an epoch, so the clause
+        is uniform across the real minor and splits nothing.
+        """
+        assert micro_boundary_points(self._target(), [Marker(marker)]) == []
+
+    def test_an_epoch_tagged_literal_reads_the_same_on_every_micro(self) -> None:
+        """The clause a split would have cut at reads the same on the slice
+        representative as on every real micro of the minor.
+        """
+        marker = Marker('python_full_version >= "1!3.12.4"')
+        assert not marker.evaluate(self._probe("3.12.0"))
+        assert not marker.evaluate(self._probe("3.12.4"))
+        assert not marker.evaluate(self._probe("3.12.19"))
+
     def test_a_prerelease_literal_below_the_floor_does_not_split(self) -> None:
         """``>= "3.12.0a1"`` names a prerelease of the floor, so it is uniform
         across the real minor under the rides-with-X convention and crashes
@@ -1150,6 +1357,35 @@ class TestMicroBoundarySplitting:
             == []
         )
 
+    def test_a_post_release_literal_of_the_floor_crashes(self) -> None:
+        """A post release sorts above its release, so ``>= "3.12.0.post1"``
+        splits 3.12.0 (False) off 3.12.1 (True) at a boundary no micro sits on.
+        Unlike the prerelease of the floor ``>= "3.12.0a1"``, which is uniform,
+        the post-release of the floor is a loud crash."""
+        with pytest.raises(NonIntervalMarkerError):
+            micro_boundary_points(
+                self._target(), [Marker('python_full_version >= "3.12.0.post1"')]
+            )
+
+    def test_a_post_release_literal_outside_the_minor_does_not_split(self) -> None:
+        """A post release of another minor is uniform across this one, so it
+        crashes nothing: ``>= "3.13.4.post1"`` is False for every 3.12 micro."""
+        assert (
+            micro_boundary_points(
+                self._target(), [Marker('python_full_version >= "3.13.4.post1"')]
+            )
+            == []
+        )
+
+    def test_a_before_literal_post_release_splits_at_the_next_micro(self) -> None:
+        """A post release sorts above its release, so the exclusive-upper
+        ``< "3.12.4.post1"`` pushes its boundary to the next real micro and
+        tiles cleanly, cutting at 3.12.5 like ``<= "3.12.4"``."""
+        found = micro_boundary_points(
+            self._target(), [Marker('python_full_version < "3.12.4.post1"')]
+        )
+        assert [str(point) for point in found] == ["3.12.5"]
+
     @pytest.mark.parametrize(
         "marker",
         [
@@ -1165,12 +1401,46 @@ class TestMicroBoundarySplitting:
             'python_full_version ~= "3.12.4b1"',
             '"3.12.4" ~= python_full_version',
             '"3.12.4rc1" == python_full_version',
+            'python_full_version >= "3.12.4.post1"',
+            'python_full_version ~= "3.12.4.post1"',
+            'python_full_version == "3.12.4.post1"',
+            'python_full_version != "3.12.4.post1"',
+            '"3.12.4.post1" == python_full_version',
         ],
     )
     def test_an_untileable_marker_crashes(self, marker: str) -> None:
         """A membership, verbatim ===, non-version, variable, or interior
-        prerelease comparison on a minor interval is a loud crash: the
-        whole-minor pin that once absorbed it is gone."""
+        pre- or post-release comparison on a minor interval is a loud crash:
+        the whole-minor pin that once absorbed it is gone. ``>= "3.12.4.post1"``
+        flips between the 3.12.4 and 3.12.5 micros just as ``>= "3.12.4rc1"``
+        flips between 3.12.3 and 3.12.4, so neither lands on a release the lock
+        can render."""
+        with pytest.raises(NonIntervalMarkerError):
+            micro_boundary_points(self._target(), [Marker(marker)])
+
+    @pytest.mark.parametrize(
+        "marker",
+        [
+            'python_full_version < "3.12.*"',
+            'python_full_version <= "3.12.*"',
+            'python_full_version > "3.12.*"',
+            'python_full_version >= "3.12.*"',
+            'python_full_version < "3.13.*"',
+            'python_full_version < "3.11.0rc1.*"',
+            'python_full_version ~= "3"',
+            'python_full_version ~= "3.12.*"',
+            'implementation_version >= "3.12.*"',
+        ],
+    )
+    def test_a_literal_the_operator_rejects_crashes(self, marker: str) -> None:
+        """A ``.*`` suffix is a valid marker literal, but a valid specifier
+        only under ``==``/``!=``, and ``~=`` needs two release components.
+        The clause parses and the literal is a version either way, so the
+        mismatch shows up only when the specifier is built.
+
+        The literal names no interval under its operator whatever minor reads
+        it, so a literal outside the target's own minor is refused too.
+        """
         with pytest.raises(NonIntervalMarkerError):
             micro_boundary_points(self._target(), [Marker(marker)])
 

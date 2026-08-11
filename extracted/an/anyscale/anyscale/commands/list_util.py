@@ -1,4 +1,5 @@
 import itertools
+import sys
 from typing import Any, Callable, Dict, Iterator, List, Optional
 
 import click
@@ -11,6 +12,41 @@ from anyscale.util import validate_non_negative_arg
 
 MAX_PAGE_SIZE = 50
 NON_INTERACTIVE_DEFAULT_MAX_ITEMS = 10
+
+
+def is_interactive_terminal() -> bool:
+    """Whether both stdin and stdout are attached to a real terminal.
+
+    Read at call time (not import) so runtime redirection is honored. A closed
+    or missing stream is treated as non-interactive rather than raising.
+    """
+    for stream in (sys.stdin, sys.stdout):
+        isatty = getattr(stream, "isatty", None)
+        if not callable(isatty):
+            return False
+        try:
+            if not isatty():
+                return False
+        except (ValueError, OSError):
+            # isatty() raises on a closed file descriptor.
+            return False
+    return True
+
+
+def resolve_interactive(interactive: bool, json_output: bool) -> bool:
+    """Resolve the effective interactive mode against the terminal.
+
+    A non-terminal wins over an explicit --interactive so piped list commands
+    cannot hang on input(). JSON output is likewise treated as non-interactive
+    (batch): it is machine-readable, so it is capped by --max-items /
+    NON_INTERACTIVE_DEFAULT_MAX_ITEMS like any other batch run rather than
+    draining every page, while still emitting a single valid JSON array.
+
+    Call this before the "--max-items only allowed with --no-interactive" guard
+    so the guard tests the resolved value: a piped or --json run accepts
+    --max-items instead of rejecting it against its own "use --max-items" hint.
+    """
+    return interactive and not json_output and is_interactive_terminal()
 
 
 def validate_page_size(ctx, param, value):
@@ -87,6 +123,11 @@ def _should_continue_pagination(
     """Prompt user to continue pagination if needed."""
     if current_page_size < page_size:
         return False  # Last page, no need to prompt
+
+    # Defense-in-depth: never block on input() when not attached to a terminal
+    # (e.g. piped), even if a caller passed interactive=True.
+    if not is_interactive_terminal():
+        return False
 
     console.print()
     console.print(

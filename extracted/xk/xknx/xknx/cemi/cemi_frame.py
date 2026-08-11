@@ -275,7 +275,7 @@ class CEMILData(CEMIData):
             )
         except ConversionError as err:
             raise UnsupportedCEMIMessage(
-                f"TPCI not supported: {_tpdu[0]:#10b} "
+                f"TPCI not supported: {err.description} - {_tpdu[0]:#10b} "
                 f"from {src_addr} in CEMI: {raw.hex()}"
             ) from err
 
@@ -297,16 +297,19 @@ class CEMILData(CEMIData):
             payload = APCI.from_knx(_apdu)
         except UnsupportedAPCIService as err:
             # Recognized but not implemented (or reserved) APCI service - benign,
-            # to be ignored per KNX spec 03_03_07 §2.2. Logged at info level.
+            # to be ignored per KNX v02.01.01 - Application Layer 03.03.07 -
+            # §2.2. Logged at info level.
+            # The cause names the offending service - keep it in the message.
             raise UnsupportedCEMIMessage(
-                f"APDU not supported from {src_addr} to {dst_addr} "
+                f"APDU not supported: {err.description} - from {src_addr} to {dst_addr} "
                 f"with TPCI {tpci} in CEMI: {raw.hex()}"
             ) from err
         except ConversionError as err:
             # Malformed/truncated APDU of a recognized service - a genuine parse
-            # error worth surfacing at warning level.
+            # error worth surfacing at warning level. Only the cause tells what
+            # was actually wrong with the APDU, so it is part of the message.
             raise CouldNotParseCEMI(
-                f"APDU invalid from {src_addr} to {dst_addr} "
+                f"APDU invalid: {err.description} - from {src_addr} to {dst_addr} "
                 f"with TPCI {tpci} in CEMI: {raw.hex()}"
             ) from err
 
@@ -682,6 +685,11 @@ class CEMIFrame:
             return CEMIFrame(code=code, data=CEMIMPropWriteRequest.from_knx(raw[1:]))
         if code == CEMIMessageCode.M_PROP_WRITE_CON:
             return CEMIFrame(code=code, data=CEMIMPropWriteResponse.from_knx(raw[1:]))
+        if code == CEMIMessageCode.M_PROP_INFO_IND:
+            # Same payload as M_PropRead.con. The spec defines only the positive
+            # form (number of elements > 0, see 3/6/3 EMI_IMI §4.1.7.3.6); a
+            # number of elements == 0 error payload is parsed leniently as well.
+            return CEMIFrame(code=code, data=CEMIMPropReadResponse.from_knx(raw[1:]))
 
         raise UnsupportedCEMIMessage(
             f"Could not handle CEMIMessageCode: {code} / {raw[0]} in CEMI: {raw.hex()}"

@@ -25,6 +25,9 @@ dependencies = [
 [project.scripts]
 fivetran = "fivetran_connector_sdk.fivetran_shim:main"
 
+[project.entry-points."fivetran_cli.plugins"]
+connector_sdk = "fivetran_connector_sdk.plugin:PLUGIN"
+
 [project.urls]
 Homepage = "https://fivetran.com/docs/connectors/connector-sdk"
 Github = "https://github.com/fivetran/connector_sdk"

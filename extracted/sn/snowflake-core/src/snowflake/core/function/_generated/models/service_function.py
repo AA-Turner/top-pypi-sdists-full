@@ -1,7 +1,7 @@
 """
 Snowflake Function API.
 
-The Snowflake Function API is a REST API that allows caller to create, execute and drop functions in a Snowflake database.  # noqa: E501
+The Snowflake Function API is a REST API that allows caller to create, execute and drop service functions in a Snowflake database.  # noqa: E501
 
 The version of the OpenAPI document: 0.0.1
 Contact: support@snowflake.com
@@ -40,7 +40,7 @@ class ServiceFunction(Function):
     arguments : list[FunctionArgument]
 
     service : str
-        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
+        Service's name
     endpoint : str
         Function's endpoint
     path : str
@@ -65,9 +65,9 @@ class ServiceFunction(Function):
         Function's body.
 
     service_database : str, optional
-        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
+        Service's database name
     service_schema : str, optional
-        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
+        Service's schema name
     """
 
     service: Annotated[str, Field(strict=True)]
@@ -94,12 +94,14 @@ class ServiceFunction(Function):
 
     @field_validator("service")
     def service_validate_regular_expression(cls, v):
+
         if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$""", v):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
     @field_validator("service_database")
     def service_database_validate_regular_expression(cls, v):
+
         if v is None:
             return v
         if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$""", v):
@@ -108,6 +110,7 @@ class ServiceFunction(Function):
 
     @field_validator("service_schema")
     def service_schema_validate_regular_expression(cls, v):
+
         if v is None:
             return v
         if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$""", v):
@@ -215,7 +218,7 @@ class ServiceFunctionModel(Function):
         arguments : list[FunctionArgument]
 
         service : str
-            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
+            Service's name
         endpoint : str
             Function's endpoint
         path : str
@@ -240,9 +243,9 @@ class ServiceFunctionModel(Function):
             Function's body.
 
         service_database : str, optional
-            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
+            Service's database name
         service_schema : str, optional
-            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
+            Service's schema name
         """
         super().__init__(
             name=name,

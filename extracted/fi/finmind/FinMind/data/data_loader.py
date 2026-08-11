@@ -2172,6 +2172,50 @@ class DataLoader(FinMindApi):
         )
         return tw_total_exchange_mMargin_maintenance
 
+    def taiwan_stock_margin_maintenance(
+        self,
+        stock_id: str = "",
+        start_date: str = "",
+        end_date: str = "",
+        timeout: int = None,
+        use_async: bool = False,
+        stock_id_list: typing.List[str] = None,
+    ) -> pd.DataFrame:
+        """get 個股融資維持率（Sponsor）
+
+        個股融資維持率為估算指標：僅個股融資餘額張數為公開資訊，個股融資
+        金額並未公開，因此本資料集無官方真值可對照，與其他服務的估算結果
+        不會完全一致。融資成數以法定上限計（上市六成；上櫃 2014-11-10 起
+        六成、之前五成），警示股／處置股實際成數可能較低。融資成本線為
+        名目值，已調整股數事件（分割／面額變更／減資／配股）並扣除現金
+        股利。上市自 2001-01-05 起、上櫃自 2007-01-04 起。
+
+        :param stock_id (str): 股票代號("2330")
+        :param start_date (str): 起始日期("2024-01-02")
+        :param end_date (str): 結束日期("2024-01-31")
+        :param timeout (int): timeout seconds, default None
+
+        :return: 個股融資維持率 TaiwanStockMarginMaintenance
+        :rtype pd.DataFrame
+        :rtype column date (str): 日期
+        :rtype column stock_id (str): 股票代號
+        :rtype column margin_balance (int): 融資餘額（張）
+        :rtype column margin_cost (float): 融資成本線，
+            估算的融資部位移動加權平均成本
+        :rtype column margin_ratio (float): 融資成數，實際採用值(0.6 / 0.5)
+        :rtype column margin_maintenance (float): 融資維持率(%)，例 156.1
+        """
+        stock_margin_maintenance = self.get_data(
+            dataset=Dataset.TaiwanStockMarginMaintenance,
+            data_id=stock_id,
+            start_date=start_date,
+            end_date=end_date,
+            timeout=timeout,
+            use_async=use_async,
+            data_id_list=stock_id_list,
+        )
+        return stock_margin_maintenance
+
     def us_stock_info(self, timeout: int = None) -> pd.DataFrame:
         """get 美國股票代碼總覽
         :param timeout (int): timeout seconds, default None
@@ -2755,6 +2799,38 @@ class DataLoader(FinMindApi):
         )
         return stock_industry_chain
 
+    def taiwan_stock_industry_chain_money_flow(
+        self,
+        date: str = "",
+        timeout: int = None,
+    ) -> pd.DataFrame:
+        """get 台股產業鏈資金流向（Sponsor）
+
+        計算每日交易資金在各產業鏈的分佈：以個體公司所屬產業鏈
+        （industry／sub_industry）彙總每日個股成交。sub_industry 為空字串的
+        列為該產業鏈總計（成分股不重複計算，不等於子產業列加總）；一檔股票
+        可屬多條產業鏈，各產業鏈佔比加總會超過 100%。
+
+        :param date (str): 資料日期("2026-07-17")；資料量大，一次提供一天
+        :param timeout (int): timeout seconds, default None
+
+        :return: 台股產業鏈資金流向 TaiwanStockIndustryChainMoneyFlow
+        :rtype pd.DataFrame
+        :rtype column date (str): 日期
+        :rtype column industry (str): 產業鏈
+        :rtype column sub_industry (str): 子產業；空字串代表該產業鏈總計列
+        :rtype column stock_count (int): 成分股數（當日有成交）
+        :rtype column trading_volume (int): 成交股數合計
+        :rtype column trading_money (int): 成交金額合計
+        :rtype column trading_money_pct (float): 佔當日全市場個股成交金額比重(%)
+        """
+        industry_chain_money_flow = self.get_data(
+            dataset=Dataset.TaiwanStockIndustryChainMoneyFlow,
+            start_date=date,
+            timeout=timeout,
+        )
+        return industry_chain_money_flow
+
     def cnn_fear_greed_index(
         self,
         start_date: str = "",
@@ -3052,6 +3128,36 @@ class DataLoader(FinMindApi):
             timeout=timeout,
         )
         return taiwan_stock_convertible_bond_monthly_analysis
+
+    def taiwan_stock_convertible_bond_put_provision(
+        self,
+        cb_id: str = "",
+        start_date: str = "",
+        end_date: str = "",
+        timeout: int = None,
+    ) -> pd.DataFrame:
+        """get 可轉債賣回權時程（含未來已公告場次）
+        :param cb_id (str): 可轉債代號("14773")
+        :param start_date (str): 起始日期("2011-06-01")
+        :param end_date (str): 結束日期("2011-06-30")，可設未來日期查詢即將到來的賣回場次
+        :param timeout (int): timeout seconds, default None
+
+        :return: 可轉債賣回權時程 TaiwanStockConvertibleBondPutProvision
+        :rtype pd.DataFrame
+        :rtype column date (str): 賣回基準日
+        :rtype column cb_id (str): 可轉債代號
+        :rtype column cb_name (str): 可轉債名稱
+        :rtype column PutPrice (float): 賣回金額
+        :rtype column PutYieldRate (float): 賣回收益率
+        """
+        taiwan_stock_convertible_bond_put_provision = self.get_data(
+            dataset=Dataset.TaiwanStockConvertibleBondPutProvision,
+            data_id=cb_id,
+            start_date=start_date,
+            end_date=end_date,
+            timeout=timeout,
+        )
+        return taiwan_stock_convertible_bond_put_provision
 
     def taiwan_option_vix(
         self,

@@ -23,8 +23,6 @@
 # ###########################################################################*/
 """This module provides API to manage colors."""
 
-from __future__ import annotations
-
 __authors__ = ["T. Vincent", "H.Payno"]
 __license__ = "MIT"
 __date__ = "29/01/2019"
@@ -255,7 +253,7 @@ class _Colormappable:
 
     def _getColormapAutoscaleRange(
         self,
-        colormap: Colormap | None,
+        colormap: "Colormap | None",
     ) -> tuple[float | None, float | None]:
         """Returns the autoscale range for given colormap.
 
@@ -396,7 +394,7 @@ class Colormap(qt.QObject):
         self.__warnBadVmin = True
         self.__warnBadVmax = True
 
-    def setFromColormap(self, other: Colormap):
+    def setFromColormap(self, other: "Colormap"):
         """Set this colormap using information from the `other` colormap.
 
         :param other: Colormap to use as reference.
@@ -451,7 +449,7 @@ class Colormap(qt.QObject):
         :param name: The name of the colormap.
             At least the following names are supported: 'gray',
             'reversed gray', 'temperature', 'red', 'green', 'blue', 'jet',
-            'viridis', 'magma', 'inferno', 'plasma'.
+            'viridis', 'magma', 'inferno', 'plasma', 'twilight', 'twilight_shifted'.
         """
         name = str(name)
         if self._name == name:
@@ -498,7 +496,7 @@ class Colormap(qt.QObject):
             )
         assert len(colors) != 0
         assert colors.ndim >= 2
-        colors.shape = -1, colors.shape[-1]
+        colors = colors.reshape(-1, colors.shape[-1])
         self._colors = _colormap.array_to_rgba8888(colors)
         self._name = None
         self.sigChanged.emit()
@@ -618,7 +616,7 @@ class Colormap(qt.QObject):
             raise NotEditableError("Colormap is not editable")
         if vmin is not None:
             if self._vmax is not None and vmin > self._vmax:
-                err = "Can't set vmin because vmin >= vmax. " "vmin = %s, vmax = %s" % (
+                err = "Can't set vmin because vmin >= vmax. vmin = %s, vmax = %s" % (
                     vmin,
                     self._vmax,
                 )
@@ -645,7 +643,7 @@ class Colormap(qt.QObject):
             raise NotEditableError("Colormap is not editable")
         if vmax is not None:
             if self._vmin is not None and vmax < self._vmin:
-                err = "Can't set vmax because vmax <= vmin. " "vmin = %s, vmax = %s" % (
+                err = "Can't set vmax because vmax <= vmin. vmin = %s, vmax = %s" % (
                     self._vmin,
                     vmax,
                 )
@@ -894,7 +892,7 @@ class Colormap(qt.QObject):
         colormap._setFromDict(dic)
         return colormap
 
-    def copy(self) -> Colormap:
+    def copy(self) -> "Colormap":
         """Return a copy of the Colormap."""
         colormap = Colormap(
             name=self._name,
@@ -941,7 +939,7 @@ class Colormap(qt.QObject):
         The list should at least contain and start by:
 
          ('gray', 'reversed gray', 'temperature', 'red', 'green', 'blue',
-         'viridis', 'magma', 'inferno', 'plasma')
+         'viridis', 'magma', 'inferno', 'plasma', 'twilight', 'twilight_shifted')
         """
         registered_colormaps = _colormap.get_registered_colormaps()
         colormaps = set(registered_colormaps)
@@ -1097,6 +1095,8 @@ _DEFAULT_PREFERRED_COLORMAPS = (
     "temperature",
     "jet",
     "hsv",
+    "twilight",
+    "twilight_shifted",
 )
 
 

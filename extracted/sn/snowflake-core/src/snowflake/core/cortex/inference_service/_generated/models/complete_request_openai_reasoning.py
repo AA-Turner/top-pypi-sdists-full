@@ -38,6 +38,7 @@ class CompleteRequestOpenaiReasoning(BaseModel):
 
     @field_validator("effort")
     def effort_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("low", "medium", "high"):

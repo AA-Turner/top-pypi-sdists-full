@@ -72,6 +72,20 @@ class LogsController(BaseController):
         job_run = last_job_run.result
         return job_run.cluster_id, last_job_run_id
 
+    def get_kuberay_cr_id_for_prodjob(self, prodjob_id: str) -> Optional[str]:
+        """Return the KubeRay CR id backing a production job, or None.
+
+        A KubeRay workload has no job-run row, so `_get_job_run_id` raises
+        NoJobRunError for it. Callers use this afterwards to tell "imported KubeRay
+        workload" apart from "job that genuinely has not run yet"; only the former has
+        logs reachable through the production job id.
+        """
+        decorated_job = self.api_client.get_job_api_v2_decorated_ha_jobs_production_job_id_get(
+            production_job_id=prodjob_id
+        ).result
+        state = getattr(decorated_job, "state", None)
+        return getattr(state, "kuberay_cr_id", None)
+
     def get_cluster_id_for_workspace(self, workspace_id: str):
         try:
             workspace = self.api_client.get_workspace_api_v2_experimental_workspaces_workspace_id_get(
@@ -271,10 +285,17 @@ class LogsController(BaseController):
         return log_group
 
     def get_job_log_group(
-        self, job_run_id: str, page_size: Optional[int], timeout: timedelta,
+        self,
+        job_run_id: str,
+        page_size: Optional[int],
+        timeout: timedelta,
+        is_kuberay_job: bool = False,
     ) -> LogGroup:
         chunks, bearer_token = self._list_job_log_chunks(
-            job_run_id=job_run_id, page_size=page_size, timeout=timeout,
+            job_run_id=job_run_id,
+            page_size=page_size,
+            timeout=timeout,
+            is_kuberay_job=is_kuberay_job,
         )
         return self._group_log_chunk_list(chunks, bearer_token)
 
@@ -323,8 +344,11 @@ class LogsController(BaseController):
         write_to_stdout: bool = False,
         unpack: bool = True,
         resource_id: Optional[str] = None,
+        is_kuberay_job: bool = False,
     ) -> None:
-        log_group = self.get_job_log_group(job_run_id, page_size, timeout)
+        log_group = self.get_job_log_group(
+            job_run_id, page_size, timeout, is_kuberay_job=is_kuberay_job
+        )
         self.console.log(
             f"Discovered {len(log_group.get_files())} log files across {len(log_group.get_chunks())} chunks."
         )
@@ -528,7 +552,11 @@ class LogsController(BaseController):
         return all_log_chunks, bearer_token
 
     def _list_job_log_chunks(
-        self, job_run_id: str, page_size: Optional[int], timeout: timedelta,
+        self,
+        job_run_id: str,
+        page_size: Optional[int],
+        timeout: timedelta,
+        is_kuberay_job: bool = False,
     ) -> Tuple[List[LogFileChunk], Optional[str]]:
         # Job logs are served newest-first (streaming logs use a reverse-timestamp key
         # prefix so the most recent chunks sort first). To download the *entire* log we
@@ -541,14 +569,22 @@ class LogsController(BaseController):
 
         with self.console.status("Scanning available logs...") as status:
             while True:
-                result: LogDownloadResult = (
-                    self.api_client.get_job_logs_download_v2_api_v2_logs_job_logs_download_v2_job_id_get(
+                if is_kuberay_job:
+                    # `job_run_id` is the production job id here: a KubeRay workload
+                    # has no job run, and this endpoint locates objects from the CR.
+                    result: LogDownloadResult = self.api_client.get_kuberay_job_logs_download_api_v2_logs_kuberay_job_logs_download_production_job_id_get(
+                        production_job_id=job_run_id,
+                        page_size=page_size,
+                        previous_page_token=previous_page_token,
+                        _request_timeout=timeout,
+                    ).result
+                else:
+                    result = self.api_client.get_job_logs_download_v2_api_v2_logs_job_logs_download_v2_job_id_get(
                         job_id=job_run_id,
                         page_size=page_size,
                         previous_page_token=previous_page_token,
                         _request_timeout=timeout,
                     ).result
-                )
                 bearer_token = result.bearer_token
                 all_log_chunks.extend(result.log_chunks)
                 if status:

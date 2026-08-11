@@ -1834,6 +1834,7 @@ __all__ = (
     "PipelineVersionTypeDef",
     "PlacementSpecificationTypeDef",
     "PredefinedMetricSpecificationTypeDef",
+    "PrefixAwareRoutingConfigTypeDef",
     "PresignedUrlAccessConfigTypeDef",
     "PriorityClassTypeDef",
     "ProcessingClusterConfigTypeDef",
@@ -5246,9 +5247,6 @@ class RoleGroupAssignmentTypeDef(TypedDict):
     RoleName: str
     GroupPatterns: Sequence[str]
 
-class ProductionVariantRoutingConfigTypeDef(TypedDict):
-    RoutingStrategy: RoutingStrategyType
-
 class ProductionVariantStatusTypeDef(TypedDict):
     Status: VariantStatusType
     StatusMessage: NotRequired[str]
@@ -5288,6 +5286,10 @@ class TuningJobStepMetaDataTypeDef(TypedDict):
 
 class SelectiveExecutionResultTypeDef(TypedDict):
     SourcePipelineExecutionArn: NotRequired[str]
+
+class PrefixAwareRoutingConfigTypeDef(TypedDict):
+    PrefixLength: NotRequired[int]
+    ConcurrencyThreshold: NotRequired[int]
 
 class PriorityClassTypeDef(TypedDict):
     Name: str
@@ -10043,6 +10045,10 @@ class PartnerAppConfigTypeDef(TypedDict):
     Arguments: NotRequired[Mapping[str, str]]
     AssignedGroupPatterns: NotRequired[Sequence[str]]
     RoleGroupAssignments: NotRequired[Sequence[RoleGroupAssignmentTypeDef]]
+
+class ProductionVariantRoutingConfigTypeDef(TypedDict):
+    RoutingStrategy: RoutingStrategyType
+    PrefixAwareRoutingConfig: NotRequired[PrefixAwareRoutingConfigTypeDef]
 
 class SchedulerConfigOutputTypeDef(TypedDict):
     PriorityClasses: NotRequired[list[PriorityClassTypeDef]]

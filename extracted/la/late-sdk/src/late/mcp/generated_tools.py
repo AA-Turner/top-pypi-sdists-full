@@ -1515,6 +1515,54 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Schedule a budget increase",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_accounts_create_high_demand_period(
+        account_id: str,
+        budget_value: float,
+        budget_value_type: str,
+        time_start: int,
+        time_end: int,
+        campaign_id: str | None = None,
+        ad_set_id: str | None = None,
+        recurrence_type: str | None = None,
+        currency: str | None = None,
+    ) -> str:
+        """Schedule a budget increase
+
+        Args:
+            account_id: Zernio SocialAccount id used to resolve the Meta token. (required)
+            campaign_id: Platform campaign id. Exactly one of campaignId / adSetId.
+            ad_set_id: Platform ad set id. Exactly one of campaignId / adSetId.
+            budget_value: With ABSOLUTE, a budget in the ad account's currency in WHOLE units (50 = $50.00). With MULTIPLIER, a factor of the existing budget (2 = double it) and NOT a currency amount. (required)
+            budget_value_type: (required)
+            time_start: Unix seconds, on a 15-minute boundary (:00, :15, :30, :45). (required)
+            time_end: Unix seconds, on a 15-minute boundary and after timeStart. (required)
+            recurrence_type
+            currency: Ad account currency, for the ABSOLUTE minor-unit conversion. Ignored for MULTIPLIER."""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.create_high_demand_period(
+                account_id=account_id,
+                campaign_id=campaign_id,
+                ad_set_id=ad_set_id,
+                budget_value=budget_value,
+                budget_value_type=budget_value_type,
+                time_start=time_start,
+                time_end=time_end,
+                recurrence_type=recurrence_type,
+                currency=currency,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="List value rule sets",
             readOnlyHint=True,
             destructiveHint=False,
@@ -1780,6 +1828,68 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.ad_accounts.get_dsa_recommendations(
                 account_id=account_id, ad_account_id=ad_account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List custom conversions",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_accounts_list_custom_conversions(account_id: str, ad_account_id: str) -> str:
+        """List custom conversions
+
+        Args:
+            account_id: Meta ads SocialAccount id. (required)
+            ad_account_id: Meta ad account id (act_<n>). (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.list_custom_conversions(
+                account_id=account_id, ad_account_id=ad_account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create or reuse a custom conversion",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_accounts_create_custom_conversion(
+        account_id: str,
+        ad_account_id: str,
+        name: str,
+        pixel_id: str,
+        custom_event_type: str,
+        rule: dict[str, Any] | None,
+    ) -> str:
+        """Create or reuse a custom conversion
+
+        Args:
+            account_id: Meta ads SocialAccount id. (required)
+            ad_account_id: Meta ad account id (act_<n>). (required)
+            name: Also the reuse key, together with pixelId. (required)
+            pixel_id: Meta pixel id (event_source_id). From GET /v1/accounts/{accountId}/tracking-tags. (required)
+            custom_event_type: Meta custom_event_type, e.g. LEAD, PURCHASE, OTHER. (required)
+            rule: Meta conversion rule, forwarded verbatim. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.create_custom_conversion(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                name=name,
+                pixel_id=pixel_id,
+                custom_event_type=custom_event_type,
+                rule=rule,
             )
             return _format_response(response)
         except Exception as e:
@@ -2144,7 +2254,7 @@ def register_generated_tools(mcp, _get_client):
             budget_type
             status
             bid_strategy: Campaign bid strategy. Meta stores `bid_strategy` alongside the budget, so this REQUIRES `budgetAmount` + `budgetType` on the same request; sending it without a campaign budget is a 400. A campaign carrying a strategy without its `bid_amount` makes every ad set created under it fail with an error that names the ad set (code 100, subcode 1815857), so the bad state is rejected up front rather than accepted. To bid at ad-set level, set the strategy there instead.
-            bid_amount: Whole currency units (USD: 5 = $5.00). Required for LOWEST_COST_WITH_BID_CAP and COST_CAP; ignored otherwise.
+            bid_amount: Whole currency units (USD: 5 = $5.00). Required for LOWEST_COST_WITH_BID_CAP and COST_CAP; ignored otherwise. Validated here but NOT stored by Meta: the campaign object has no bid_amount field, only bid_strategy lives on it. The amount takes effect once an ad set joins this campaign (existingCampaignId on POST /v1/ads/create) and supplies its own bidAmount there.
             roas_average_floor: Decimal ROAS multiplier (2.0 = 2.0x). Required for LOWEST_COST_WITH_MIN_ROAS."""
         client = _get_client()
         try:
@@ -2502,7 +2612,10 @@ def register_generated_tools(mcp, _get_client):
         Not Implemented when bidStrategy is set.
                 bid_amount: Bid cap in WHOLE currency units (USD: 5 = $5.00; JPY: 100 = ¥100). Required when
         bidStrategy is LOWEST_COST_WITH_BID_CAP or COST_CAP. Internally converted to Meta's
-        smallest-denomination integer, or (on OpenAI) to micros (× 1,000,000).
+        smallest-denomination integer, or (on OpenAI) to micros (× 1,000,000). Meta only:
+        may be sent alone, WITHOUT bidStrategy, to update the cap amount on an ad set whose
+        parent campaign is COST_CAP or LOWEST_COST_WITH_BID_CAP (the strategy is inherited
+        from the campaign and is left untouched).
                 roas_average_floor: Minimum ROAS as a decimal multiplier (2.0 = 2.0x). Required when bidStrategy is
         LOWEST_COST_WITH_MIN_ROAS. Sent to Meta as `bid_constraints.roas_average_floor` × 10000.
         Not supported on OpenAI (422).
@@ -2847,18 +2960,29 @@ def register_generated_tools(mcp, _get_client):
         `targeting_automation` on ad set creation, so include it in the raw spec,
         or send `targeting.advantage_audience` (0 or 1), which is merged over raw
         as `targeting_automation`.
-                bid_strategy: Meta bid strategy applied to the ad set. On TikTok, mapped to
+                bid_strategy: Deprecated: send it inside `platformSpecificData` instead (Meta today; TikTok's nested shape is planned). The flat field keeps working during the deprecation window; sending both shapes returns a 400.
+
+        Meta bid strategy applied to the ad set. On TikTok, mapped to
         `bid_type` / `bid_price` / `deep_bid_type` automatically.
-                bid_amount: Bid cap in WHOLE currency units (USD: 5 = $5.00; JPY: 100 = ¥100). Required when
+                bid_amount: Deprecated: send it inside `platformSpecificData` instead (Meta today; TikTok's nested shape is planned). The flat field keeps working during the deprecation window; sending both shapes returns a 400.
+
+        Bid cap in WHOLE currency units (USD: 5 = $5.00; JPY: 100 = ¥100). Required when
         `bidStrategy` is `LOWEST_COST_WITH_BID_CAP` or `COST_CAP`. Backward-compat: providing
         `bidAmount` without `bidStrategy` is treated as `LOWEST_COST_WITH_BID_CAP`.
-                roas_average_floor: Minimum ROAS as a decimal multiplier (e.g. 2.0 = 2.0x ROAS). Required when
+                roas_average_floor: Deprecated: send it inside `platformSpecificData` instead (Meta today; TikTok's nested shape is planned). The flat field keeps working during the deprecation window; sending both shapes returns a 400.
+
+        Minimum ROAS as a decimal multiplier (e.g. 2.0 = 2.0x ROAS). Required when
         `bidStrategy` is `LOWEST_COST_WITH_MIN_ROAS`. Sent to Meta as
         `bid_constraints.roas_average_floor` × 10000 (Meta uses fixed-point integers).
                 platform_specific_data: Platform-specific options. The platform is derived from `accountId`;
         sending options for a different platform returns a 400. LinkedIn
-        (campaign bidding and delivery controls) is the only platform with
-        options today.
+        (campaign bidding and delivery controls) and Meta (the bid trio)
+        have options today.
+
+        **Meta**: `bidStrategy`, `bidAmount` and `roasAverageFloor` may be
+        sent here instead of at the root — the preferred home going forward.
+        Sending the bid fields in BOTH places returns a 400
+        (`mutually_exclusive_fields`).
                 tracking: Meta only. Tracking specs (pixel, URL tags).
                 special_ad_categories: Meta only. Required for housing, employment, credit, or political ads.
                 special_ad_category_country: Meta (metaads) only. 2-letter ISO country codes the special ad category applies to. Requires specialAdCategories to be set (400 otherwise).
@@ -2963,6 +3087,7 @@ def register_generated_tools(mcp, _get_client):
         buying_type: str | None = None,
         rf_prediction_id: str | None = None,
         creative_features: dict[str, Any] | None = None,
+        multi_advertiser: str | None = None,
         validate_only: bool | None = None,
         budget_amount: float | None = None,
         budget_type: str | None = None,
@@ -3066,6 +3191,7 @@ def register_generated_tools(mcp, _get_client):
                 buying_type: Meta only. RESERVED = Reach & Frequency: requires `rfPredictionId` (a RESERVED prediction from /v1/ads/rf-predictions + /reserve). Budget, schedule and pricing come from the reservation, so budgetAmount/budgetType are not required and bid fields are ignored. Only the plain single-ad shape (no creatives[], adSetId, existingCampaignId or dynamicCreative).
                 rf_prediction_id: Meta only. The RESERVED prediction id the R&F ad set runs on (reserving mints a new id — pass that one). Requires buyingType RESERVED.
                 creative_features: Meta only. Advantage+ creative enhancements: a partial map of Meta creative feature keys (snake_case, e.g. enhance_cta, image_brightness_and_contrast, text_optimizations) to enroll status, forwarded as degrees_of_freedom_spec.creative_features_spec. Meta validates the keys; unspecified features default to OPT_OUT. The legacy standard_enhancements bundle is deprecated by Meta and rejected.
+                multi_advertiser: Meta only. Multi-advertiser ads: whether Meta may show this ad alongside other advertisers' in one unit. Meta auto-enrols since Aug 2024, so send OPT_OUT to leave. It is a top-level creative field, NOT a `creativeFeatures` key — Meta rejects it there.
                 validate_only: Meta only, single standalone shape only (no creatives[], adSetId, or RESERVED). Dry-run: each node runs Meta's execution_options validate_only and NOTHING is created or persisted. Children need real parents, so a fresh tree validates the campaign + creative (the ad set needs its campaign to exist — pass existingCampaignId to validate it too; the ad itself is never validatable pre-create). A Meta validation failure returns the 400 verbatim; success returns 200 with per-node results instead of an ad.
                 budget_amount: Budget in WHOLE currency units (USD: 50 = $50.00), NOT cents — Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Required on legacy + multi-creative shapes. Inherited on attach. OpenAI Ads requires a $1 minimum (its budget is lifetime-only, see budgetType).
                 budget_type: Required on legacy + multi-creative shapes. Inherited on attach. OpenAI Ads accepts lifetime only (no daily-budget concept on the platform); sending daily returns 422. OpenAI Ads lifetime budgets require `endDate` to give the lifetime cap a spend window.
@@ -3293,12 +3419,28 @@ def register_generated_tools(mcp, _get_client):
         surface as a Meta 400.
         Example: `[{ "eventType": "CLICK_THROUGH", "windowDays": 7 }, { "eventType": "VIEW_THROUGH", "windowDays": 1 }]`
                 gender: Restrict the audience by gender. 'male' targets men only, 'female' targets women only, 'all' (default) targets everyone. Applied on Meta, TikTok and Pinterest. Ignored on Google, LinkedIn and X.
-                bid_strategy: Meta bid strategy applied to the ad set.
-                bid_amount: Bid cap in WHOLE currency units (USD: 5 = $5.00; JPY: 100 = ¥100). Required when
-        `bidStrategy` is `LOWEST_COST_WITH_BID_CAP` or `COST_CAP`.
-                roas_average_floor: Minimum ROAS as a decimal multiplier (e.g. 2.0 = 2.0x ROAS). Required when
-        `bidStrategy` is `LOWEST_COST_WITH_MIN_ROAS`. Sent to Meta as
-        `bid_constraints.roas_average_floor` × 10000.
+                bid_strategy: Deprecated: send it inside `platformSpecificData` instead (Meta today; TikTok's nested shape is planned). The flat field keeps working during the deprecation window; sending both shapes returns a 400.
+
+        Meta bid strategy applied to the ad set.
+                bid_amount: Deprecated: send it inside `platformSpecificData` instead (Meta today; TikTok's nested shape is planned). The flat field keeps working during the deprecation window; sending both shapes returns a 400.
+
+        Bid cap in WHOLE currency units (USD: 5 = $5.00; JPY: 100 = ¥100). Required when
+        `bidStrategy` is `LOWEST_COST_WITH_BID_CAP` or `COST_CAP`. Meta only: sending
+        `bidAmount` WITHOUT `bidStrategy` requires `existingCampaignId` (400 otherwise),
+        and sets the new ad set's cap under the joined campaign's COST_CAP /
+        LOWEST_COST_WITH_BID_CAP parent. The strategy itself is inherited from the
+        campaign. Restating bidStrategy here is accepted but has no effect on the ad set.
+
+        Rejected with 400 in `adSetId` attach mode: that shape inherits its cap from
+        the platform. Use `PUT /v1/ads/ad-sets/{adSetId}` there instead.
+                roas_average_floor: Deprecated: send it inside `platformSpecificData` instead (Meta today; TikTok's nested shape is planned). The flat field keeps working during the deprecation window; sending both shapes returns a 400.
+
+        Minimum ROAS as a decimal multiplier (e.g. 2.0 = 2.0x ROAS). Required when
+        `bidStrategy` is `LOWEST_COST_WITH_MIN_ROAS`. Sending it without `bidStrategy`
+        is a 400. Sent to Meta as
+        `bid_constraints.roas_average_floor` × 10000. Known gap: a CBO campaign's
+        ROAS floor lives on the campaign only (set via `POST /v1/ads/campaigns`);
+        there is no supported way to set it while joining a CBO campaign here.
                 value_rule_set_id: Meta only (facebook, instagram; other platforms return 400). Value rule set
         to attach to the new ad set, from `/v1/ads/value-rule-sets`. Attachment is
         driven by this id, so `valueRulesApplied` is optional alongside it.
@@ -3319,8 +3461,14 @@ def register_generated_tools(mcp, _get_client):
         `PUT /v1/ads/ad-sets/{adSetId}`.
                 platform_specific_data: Platform-specific options. The platform is derived from `accountId`;
         sending options for a different platform returns a 400. LinkedIn
-        (campaign bidding and delivery controls) is the only platform with
-        options today.
+        (campaign bidding and delivery controls) and Meta (the bid trio)
+        have options today.
+
+        **Meta**: `bidStrategy`, `bidAmount` and `roasAverageFloor` may be
+        sent here instead of at the root — the preferred home going forward.
+        Sending the bid fields in BOTH places returns a 400
+        (`mutually_exclusive_fields`), and sending any of them in
+        `adSetId` attach mode is a 400 too (the ad set already has its bid).
                 dsa_beneficiary: Legal entity that benefits from the ad. Required when targeting EU users
         (EU DSA, Article 26). Optional if the ad account has a default beneficiary:
         set it once via `PATCH /v1/ads/accounts` or in Meta Ads Manager, and Meta
@@ -3391,6 +3539,7 @@ def register_generated_tools(mcp, _get_client):
                 buying_type=buying_type,
                 rf_prediction_id=rf_prediction_id,
                 creative_features=creative_features,
+                multi_advertiser=multi_advertiser,
                 validate_only=validate_only,
                 budget_amount=budget_amount,
                 budget_type=budget_type,
@@ -3580,6 +3729,7 @@ def register_generated_tools(mcp, _get_client):
         carousel_cards: list[dict[str, Any]] | None = None,
         url_tags: str | None = None,
         creative_features: dict[str, Any] | None = None,
+        multi_advertiser: str | None = None,
     ) -> str:
         """Create a standalone creative
 
@@ -3595,7 +3745,8 @@ def register_generated_tools(mcp, _get_client):
             image_hash: Existing library image hash (POST /v1/ads/images or GET /v1/ads/images).
             carousel_cards
             url_tags: Appended to every outbound URL (e.g. utm_source=fb).
-            creative_features: Advantage+ creative enhancements: partial map of Meta creative feature keys (snake_case) to enroll status, forwarded as degrees_of_freedom_spec.creative_features_spec. Unspecified features default to OPT_OUT."""
+            creative_features: Advantage+ creative enhancements: partial map of Meta creative feature keys (snake_case) to enroll status, forwarded as degrees_of_freedom_spec.creative_features_spec. Unspecified features default to OPT_OUT.
+            multi_advertiser: Meta only. Multi-advertiser ads: whether Meta may show this ad alongside other advertisers' in one unit. Meta auto-enrols since Aug 2024, so send OPT_OUT to leave. It is a top-level creative field, NOT a `creativeFeatures` key — Meta rejects it there."""
         client = _get_client()
         try:
             response = client.ad_creatives.create_ad_creative(
@@ -3611,6 +3762,7 @@ def register_generated_tools(mcp, _get_client):
                 carousel_cards=carousel_cards,
                 url_tags=url_tags,
                 creative_features=creative_features,
+                multi_advertiser=multi_advertiser,
             )
             return _format_response(response)
         except Exception as e:
@@ -3809,6 +3961,48 @@ def register_generated_tools(mcp, _get_client):
             return f"Error: {e}"
 
     # AD_INSIGHTS
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Google Ads search terms report",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_insights_get_ads_search_terms(
+        account_id: str,
+        customer_id: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
+        campaign_id: str | None = None,
+        ad_group_id: str | None = None,
+        page_token: str | None = None,
+    ) -> str:
+        """Google Ads search terms report
+
+        Args:
+            account_id: Google ads SocialAccount id. (required)
+            customer_id: Numeric Google Ads customer id (no dashes). Defaults to the account's connected customer.
+            from_date: Defaults to 30 days ago.
+            to_date: Defaults to today.
+            campaign_id: Numeric Google campaign id filter.
+            ad_group_id: Numeric Google ad group id filter.
+            page_token: Cursor from paging.nextPageToken of the previous page."""
+        client = _get_client()
+        try:
+            response = client.ad_insights.get_ads_search_terms(
+                account_id=account_id,
+                customer_id=customer_id,
+                from_date=from_date,
+                to_date=to_date,
+                campaign_id=campaign_id,
+                ad_group_id=ad_group_id,
+                page_token=page_token,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -9879,6 +10073,55 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.instagram.get_instagram_publishing_limit(
                 account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Search Instagram audio",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def instagram_search_instagram_audio(
+        account_id: str, audio_type: str, q: str | None = None
+    ) -> str:
+        """Search Instagram audio
+
+        Args:
+            account_id: The ID of the Instagram account (required)
+            audio_type: Catalog to search: licensed music or original sounds from Reels. (required)
+            q: Search keywords. Omit to get the current trending list."""
+        client = _get_client()
+        try:
+            response = client.instagram.search_instagram_audio(
+                account_id=account_id, audio_type=audio_type, q=q
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get Instagram audio metadata",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def instagram_get_instagram_audio(account_id: str, audio_id: str) -> str:
+        """Get Instagram audio metadata
+
+        Args:
+            account_id: The ID of the Instagram account (required)
+            audio_id: Instagram audio asset ID (required)"""
+        client = _get_client()
+        try:
+            response = client.instagram.get_instagram_audio(
+                account_id=account_id, audio_id=audio_id
             )
             return _format_response(response)
         except Exception as e:

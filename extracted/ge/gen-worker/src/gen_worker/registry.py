@@ -31,7 +31,7 @@ from .families.base import GenerationDefaults
 from .warmup import validate_class_warmup
 import dataclasses
 from .api.compile_axis import warm_guidance_values
-from .cell_key import contract_digest
+from .cell_key import facts_digest
 from .api.export_contract import register_export_declaration, registered_entry
 
 logger = logging.getLogger(__name__)
@@ -83,11 +83,14 @@ class CompileCell:
         return (int(self.text_len),) if self.text_len is not None else ()
 
     def contract_facts(self) -> Dict[str, Any]:
-        """Canonical declared-shape-contract facts — the ck2 ``contract``
-        axis digests exactly this (pgw#647: a worker on a newer contract
-        must never consume an older cell)."""
+        """Canonical DECLARED compile-contract facts (pgw#647). Since
+        pgw#1059 this is NOT a key-axis input — the exported-cell key reads
+        recorded artifact blocks only. Its one serialized consumer is the
+        SDK v2 manifest's opaque ``shape_contract_digest`` (the wire field
+        name is hub-consumed and deliberately unchanged; the digest value is
+        opaque hub-side)."""
         return {
-            "v": 3,
+            "v": 1,
             "shapes": sorted([int(v) for v in row] for row in self.shapes),
             "targets": [str(t) for t in self.targets],
             "text_lens": [int(v) for v in self.contract_text_lens()],
@@ -100,8 +103,7 @@ class CompileCell:
         }
 
     def contract_digest(self) -> str:
-
-        return contract_digest(self.contract_facts())
+        return facts_digest(self.contract_facts())
 
 
 @dataclass(frozen=True)
@@ -150,7 +152,6 @@ class EndpointSpec:
     payload_axes: tuple = ()
     # SDK v2: resident traced LoRA rank bucket (decorator-level; 0 = branchless).
     lora_bucket: int = 0
-    timeout_ms: Optional[int] = None
     runtime: Optional[str] = None
     compile: Optional[Compile] = None  # opt-in torch.compile spec (#384)
     # th#826: the function makes endpoint-to-endpoint child calls; emitted
@@ -170,6 +171,9 @@ class EndpointSpec:
     # None = undeclared, which resolves NO quant approval hub-side.
     tasks: Optional[tuple] = None
     distilled: Optional[bool] = None
+    # th#1757: this handler's opt-in reference contract (@worker_function).
+    # None = it never participates in the platform reference layer.
+    accepts_references: Optional[Any] = None
     # pgw#654 gap #6: this handler's effective text pin
     # (@worker_function(text_len=) else the class Compile.text_len).
     text_len: Optional[int] = None
@@ -609,6 +613,7 @@ def _spec_for_handler(
         objectives=(tuple(wf.objectives) if wf is not None and wf.objectives is not None else None),
         tasks=(tuple(wf.tasks) if wf is not None and wf.tasks is not None else None),
         distilled=(wf.distilled if wf is not None else None),
+        accepts_references=(wf.accepts_references if wf is not None else None),
         text_len=(wf_text_len if wf_text_len is not None
                   else (decl.compile.text_len if decl.compile is not None else None)),
         warm_overrides=warm_overrides,

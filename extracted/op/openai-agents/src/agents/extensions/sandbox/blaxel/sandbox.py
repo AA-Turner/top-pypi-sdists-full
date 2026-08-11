@@ -25,11 +25,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal, cast
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlencode, urlsplit
 
 from pydantic import BaseModel, Field
 
 from ....logger import log_tool_action_debug, log_tool_action_warning
+from ....sandbox._mount_security import redact_mount_error_data
 from ....sandbox.entries import Mount
 from ....sandbox.errors import (
     ExecTimeoutError,
@@ -433,7 +434,9 @@ class BlaxelSandboxSession(BaseSandboxSession):
 
     # -- lifecycle -----------------------------------------------------------
 
+    @redact_mount_error_data
     async def start(self) -> None:
+        await self._validate_manifest_application()
         # When resuming a paused sandbox, _skip_start is set by the client to
         # avoid reapplying the full manifest over files that may have changed
         # while the sandbox was paused.
@@ -1052,10 +1055,13 @@ class BlaxelSandboxClient(BaseSandboxClient["BlaxelSandboxClientOptions"]):
     ) -> None:
         # Validate that the Blaxel SDK is importable.
         _import_blaxel_sdk()
-        self._instrumentation = instrumentation or Instrumentation()
+        self._instrumentation = (
+            instrumentation if instrumentation is not None else Instrumentation()
+        )
         self._dependencies = dependencies
         self._token = token or os.environ.get("BL_API_KEY")
 
+    @redact_mount_error_data
     async def create(
         self,
         *,
@@ -1065,6 +1071,7 @@ class BlaxelSandboxClient(BaseSandboxClient["BlaxelSandboxClientOptions"]):
     ) -> SandboxSession:
         if manifest is None:
             manifest = Manifest(root=DEFAULT_BLAXEL_WORKSPACE_ROOT)
+        self._validate_manifest_for_create(manifest)
 
         timeouts_in = options.timeouts
         if isinstance(timeouts_in, BlaxelTimeouts):
@@ -1132,6 +1139,7 @@ class BlaxelSandboxClient(BaseSandboxClient["BlaxelSandboxClientOptions"]):
             log_tool_action_warning(logger, "Shutdown failed during delete (non-fatal)", e)
         return session
 
+    @redact_mount_error_data
     async def resume(
         self,
         state: SandboxSessionState,
@@ -1146,7 +1154,6 @@ class BlaxelSandboxClient(BaseSandboxClient["BlaxelSandboxClientOptions"]):
         if not isinstance(state, BlaxelSandboxSessionState):
             raise TypeError("BlaxelSandboxClient.resume expects a BlaxelSandboxSessionState")
         state.assert_path_grants_rebound()
-
         SandboxInstance = _import_blaxel_sdk()
         blaxel_sandbox = None
         reconnected = False
@@ -1280,15 +1287,32 @@ def _build_ws_url(
 ) -> str:
     """Build the WebSocket URL for a Blaxel terminal session."""
     base = sandbox_url.rstrip("/")
-    ws_base = base.replace("https://", "wss://").replace("http://", "ws://")
-    return (
-        f"{ws_base}/terminal/ws"
-        f"?token={token}"
-        f"&cols={cols}"
-        f"&rows={rows}"
-        f"&sessionId={session_id}"
-        f"&workingDir={cwd}"
+    # Rewrite only the scheme. `replace` would also rewrite an occurrence inside the path,
+    # such as a proxied URL.
+    if base.startswith("https://"):
+        ws_base = f"wss://{base.removeprefix('https://')}"
+    elif base.startswith("http://"):
+        ws_base = f"ws://{base.removeprefix('http://')}"
+    else:
+        ws_base = base
+    # Percent-encode the values. The workspace path and session id are caller-controlled and
+    # may contain characters that are structural in a query string, so interpolating them
+    # raw lets a path such as `/w/a&rows=1` add or override parameters, and lets a `#`
+    # silently truncate the rest into a fragment. A `+` in a token would also decode back as
+    # a space.
+    # `/` stays literal because it is legal in a query value and keeps paths readable.
+    query = urlencode(
+        {
+            "token": token,
+            "cols": cols,
+            "rows": rows,
+            "sessionId": session_id,
+            "workingDir": cwd,
+        },
+        quote_via=quote,
+        safe="/",
     )
+    return f"{ws_base}/terminal/ws?{query}"
 
 
 __all__ = [

@@ -12,9 +12,13 @@ Reference: https://github.com/dart-lang/pub/blob/master/doc/solver.md#definition
 from __future__ import annotations
 
 import enum
-from typing import Generic, Protocol, TypeVar
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar
 
-from typing_extensions import Self, override
+from ._compat import override
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 __all__ = [
     "Incompatibility",
@@ -22,6 +26,9 @@ __all__ = [
     "IncompatibilityState",
     "PackageType",
     "RangeProtocol",
+    "RangeRelation",
+    "RelationProtocol",
+    "RootRequirement",
     "SetRelation",
     "Term",
     "VersionType",
@@ -94,6 +101,13 @@ class RangeProtocol(Protocol[VersionType_contra]):
 
     def is_disjoint(self, other: Self) -> bool:
         """Return whether self and other share no version."""
+        ...
+
+    def relation(self, other: Self) -> RelationProtocol:
+        """Return how self's members sit against other's.
+
+        Both flags hold at once only for an empty self.
+        """
         ...
 
     # __eq__ and __hash__ come from object; redeclaring them in the
@@ -186,6 +200,70 @@ class Term(Generic[PackageType, VersionType]):
         return f"Term({sign}{self.package!r}, {self.constraint})"
 
 
+class RangeRelation(enum.Enum):
+    """How one range's members sit against another's.
+
+    The four members partition the ``(is_subset, is_disjoint)`` space: both
+    hold together only for an empty range, which is a subset of everything
+    and shares a member with nothing. A provider's range type may return its
+    own structurally equivalent relation type; cross-package consumers read
+    the two flags through :class:`RelationProtocol` rather than comparing
+    members.
+    """
+
+    EMPTY = (True, True)
+    SUBSET = (True, False)
+    DISJOINT = (False, True)
+    OVERLAPPING = (False, False)
+
+    def __init__(self, is_subset: bool, is_disjoint: bool) -> None:  # noqa: FBT001 - enum passes the member value positionally
+        """Stamp the member's two flags as attributes."""
+        self.is_subset = is_subset
+        self.is_disjoint = is_disjoint
+
+    @override
+    def __repr__(self) -> str:
+        """Return the member's qualified name."""
+        return f"RangeRelation.{self.name}"
+
+
+class RelationProtocol(Protocol):
+    """How one range's members sit against another's, read as two flags."""
+
+    @property
+    def is_subset(self) -> bool:
+        """Whether every version of the left range is in the right."""
+        ...
+
+    @property
+    def is_disjoint(self) -> bool:
+        """Whether the two ranges share no version."""
+        ...
+
+
+# No ``slots=True``: on 3.10 a frozen slotted dataclass raises TypeError when
+# ``typing._GenericAlias.__call__`` sets ``__orig_class__``, which the
+# subscripted construction in ``resolver._as_root_requirements`` triggers.
+@dataclass(frozen=True)
+class RootRequirement(Generic[PackageType, VersionType]):
+    """One requirement as the caller wrote it, kept as its own clause.
+
+    A caller that passes a mapping has to intersect its requirements on a
+    package first, and the resolver then proves the failure against the
+    intersection, naming a range nobody wrote.  Passing a sequence of these
+    keeps each requirement separate all the way into the report.
+
+    ``origin`` is opaque to the resolver and travels onto the ROOT
+    incompatibility, so a caller's own error reporter can identify the
+    requirement behind a clause.  Two requirements on one package can share a
+    range, so the range alone cannot tell them apart.
+    """
+
+    package: PackageType
+    constraint: RangeProtocol[VersionType]
+    origin: Any = None
+
+
 class SetRelation(enum.Enum):
     """How the partial solution relates to a term.
 
@@ -244,10 +322,20 @@ class Incompatibility(Generic[PackageType, VersionType]):
     clause. The clause's term carries the requirement range that backtracking
     needs, so the user's constraint is kept here for the message.
 
+    ``origin`` holds the caller's :class:`RootRequirement` origin for a
+    ``ROOT`` clause, opaque to the resolver and never read by it.
+
     Reference: https://github.com/dart-lang/pub/blob/master/doc/solver.md#incompatibility
     """
 
-    __slots__ = ("cause", "cause_left", "cause_right", "constraint_range", "terms")
+    __slots__ = (
+        "cause",
+        "cause_left",
+        "cause_right",
+        "constraint_range",
+        "origin",
+        "terms",
+    )
 
     def __init__(
         self,
@@ -256,6 +344,7 @@ class Incompatibility(Generic[PackageType, VersionType]):
         cause_left: Incompatibility[PackageType, VersionType] | None = None,
         cause_right: Incompatibility[PackageType, VersionType] | None = None,
         constraint_range: RangeProtocol[VersionType] | None = None,
+        origin: Any = None,
     ) -> None:
         """Create an incompatibility with terms and a cause."""
         self.terms = terms
@@ -263,6 +352,7 @@ class Incompatibility(Generic[PackageType, VersionType]):
         self.cause_left = cause_left
         self.cause_right = cause_right
         self.constraint_range = constraint_range
+        self.origin = origin
 
     @override
     def __repr__(self) -> str:

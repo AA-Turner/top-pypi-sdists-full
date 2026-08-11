@@ -65,6 +65,7 @@ from ..pb import worker_scheduler_pb2 as pb
 from ..transport import FatalTransportError, Transport
 from ..topology import ExecutionTopology
 from .. import postmortem
+from .. import proc_evidence
 from .. import config, worker_credential, worker_goals
 from .. import worker_fatal
 from . import (
@@ -141,12 +142,33 @@ _EVIDENCE_EPS = 0.05
 # out of `/proc/<ppid>/environ` (WORKER_JWT) or `/proc/1/environ` (the RunPod
 # key). Both, and the strip, are guarded by test_pod_privilege_isolation_pgw858.
 _CHILD_FORBIDDEN_ENVS = ("WORKER_JWT", "RUNPOD_API_KEY", "PUBLIC_KEY")
-# A mediated hub call must not hold the parent's control loop open forever.
-_ACTION_HARD_TIMEOUT_S = 120.0
 _ACTION_REFUSAL_REPORT_MIN_INTERVAL_S = 300.0
+# A mediated hub call runs on a parent thread-pool slot, and the CHILD supplies
+# the request's `timeout` field — so without a ceiling tenant code pins slots
+# for as long as it likes and the mediation surface dies for everything else.
+# `HubAction.timeout_s` in the allowlist IS that ceiling (`_perform_action`
+# min()s the child's number against it), which is why pgw#973 deleted the
+# separate `_ACTION_HARD_TIMEOUT_S = 120.0` that sat beside it: every declared
+# action is 30 s or 60 s, so a third term 60 s above the highest declared value
+# could only ever reject nothing (§4.24 item 1 — say which bound is
+# load-bearing and delete the rest). The count axis is bounded here:
 _MAX_CONCURRENT_ACTIONS = 16
+# pgw#973 (§4.24 item 4): the parent beat's cadence when NOBODY declared one —
+# `beat_interval_s=0.0` means "adopt the child's" and every child Hello may
+# carry `heartbeat_interval_ms=0`. The fallback used to be a bare `10.0` at the
+# loop, i.e. a real bound reachable only by reading the loop body. It is the
+# hub's own liveness expectation (a worker silent for a multiple of this is
+# called dead), so it is a DECLARED default, not a guess.
+_BEAT_INTERVAL_FALLBACK_S = 10.0
 # The host canary is a real benchmark (memcpy/D2H/CPU); on a cold pod with a
-# large card it is seconds, not milliseconds. Generous, and bounded.
+# large card it is seconds, not milliseconds.
+#
+# gw#666 exemption, stated rather than assumed (§4.24): the measure subprocess
+# reports through `communicate()` — one write, at the end — so it emits NO
+# progress signal a SilenceWindow could key on, and giving up here KILLS NO
+# WORK: the Hello ships without parent-measured resources and the pod serves.
+# A progress signal would have to be invented in the canary's own protocol,
+# which is a change to it and not to this bound.
 _MEASURE_TIMEOUT_S = 180.0
 _MEASURE_BEFORE_SPAWN_S = 60.0
 _ATTESTATION_REPORT_MIN_INTERVAL_S = 300.0
@@ -1075,43 +1097,10 @@ class _ChildSlot:
                 pass
 
     def _child_evidence(self, pid: int) -> Optional[float]:
-        """This child tree's kernel-accounted work: CPU seconds for the whole
-        tree — live AND already-reaped descendants (pgw#964) — plus process
-        disk I/O MB (the same combination ``activity._default_evidence``
-        trusts, measured from /proc).
-
-        The reaped half is not optional. A descendant's CPU moves into its
-        parent's ``cutime/cstime`` when it is waited for, so a tree summed
-        over live members only goes DOWN whenever a subprocess finishes, and
-        every caller compares this against a high-water mark."""
-        try:
-            import psutil
-        except Exception:
-            return None
-
-        def _cpu(p: Any) -> float:
-            t = p.cpu_times()
-            return (
-                float(t.user) + float(t.system)
-                + float(getattr(t, "children_user", 0.0) or 0.0)
-                + float(getattr(t, "children_system", 0.0) or 0.0))
-
-        try:
-            proc = psutil.Process(pid)
-            total = _cpu(proc)
-            try:
-                io = proc.io_counters()
-                total += (io.read_bytes + io.write_bytes) / float(1 << 20)
-            except (psutil.Error, AttributeError, NotImplementedError):
-                pass
-            for child in proc.children(recursive=True):
-                try:
-                    total += _cpu(child)
-                except psutil.Error:
-                    continue
-            return total
-        except psutil.Error:
-            return None
+        """This child tree's kernel-accounted work — see
+        :func:`gen_worker.proc_evidence.tree_evidence`, which this grew into
+        and which `parallel.group` now shares (pgw#892)."""
+        return proc_evidence.tree_evidence(pid)
 
     def _sample_child_evidence(self, pid: int, now: float) -> None:
         evidence = self._child_evidence(pid)
@@ -2183,8 +2172,10 @@ class ParentControl:
         token = self.transport.current_worker_jwt
         if not token:
             raise actions.ActionRefused(f"{action.name}: this pod holds no worker JWT")
+        # The child's number is advisory and may only ever LOWER the call's
+        # budget; the allowlist's own `timeout_s` is the ceiling.
         timeout = min(float(req.get("timeout") or action.timeout_s),
-                      action.timeout_s, _ACTION_HARD_TIMEOUT_S)
+                      action.timeout_s)
         status, text = await asyncio.to_thread(
             _http_call, action.method, base + str(req.get("path") or ""),
             token, query, body, timeout,
@@ -2323,7 +2314,9 @@ class ParentControl:
         made by the control plane that nothing tenant-side can starve.
         """
         while not self._stopping.is_set():
-            interval = self._beat_interval if self._beat_interval > 0 else 10.0
+            interval = (
+                self._beat_interval if self._beat_interval > 0
+                else _BEAT_INTERVAL_FALLBACK_S)
             await self._sleep_or_stop(max(0.25, interval / 2.0))
             if self._stopping.is_set() or self._child_exited_clean:
                 return

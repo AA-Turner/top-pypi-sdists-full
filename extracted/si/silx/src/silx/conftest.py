@@ -80,6 +80,8 @@ _FILTERWARNINGS = (
     "ignore::DeprecationWarning:matplotlib._fontconfig_pattern",
     "ignore::DeprecationWarning:matplotlib._mathtext",
     "ignore::DeprecationWarning:pyparsing.util",
+    # fabio<2025.10 sets ndarray.shape in-place, deprecated since numpy 2.5.0
+    "ignore::DeprecationWarning:fabio.fit2dmaskimage",
 )
 
 
@@ -210,10 +212,7 @@ def qWidgetFactory(qapp, qapp_utils):
     qapp.processEvents()
 
     # Wait some time for all widgets to be deleted
-    for _ in range(10):
-        validWidgets = [widget for widget in widgets if isValid(widget)]
-        if validWidgets:
-            qapp_utils.qWait(10)
+    qapp_utils.waitAsLongAs(lambda: any(isValid(w) for w in widgets))
 
     validWidgets = [widget for widget in widgets if isValid(widget)]
     assert not validWidgets, f"Some widgets were not destroyed: {validWidgets}"

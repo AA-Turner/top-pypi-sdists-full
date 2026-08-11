@@ -157,6 +157,7 @@ class CfnBroker(
             ),
             resource_share_arns=["resourceShareArns"],
             security_groups=["securityGroups"],
+            storage_size=123,
             storage_type="storageType",
             subnet_ids=["subnetIds"],
             tags=[amazonmq.CfnBroker.TagsEntryProperty(
@@ -197,6 +198,7 @@ class CfnBroker(
         maintenance_window_start_time: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBroker.MaintenanceWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         resource_share_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+        storage_size: typing.Optional[jsii.Number] = None,
         storage_type: typing.Optional[builtins.str] = None,
         subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["CfnBroker.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -223,6 +225,7 @@ class CfnBroker(
         :param maintenance_window_start_time: The parameters that determine the WeeklyStartTime.
         :param resource_share_arns: The ARNs of the resource shares to be associated with the broker.
         :param security_groups: The list of rules (1 minimum, 125 maximum) that authorize connections to brokers.
+        :param storage_size: The broker's storage size in GB.
         :param storage_type: The broker's storage type.
         :param subnet_ids: The list of groups that define which subnets and IP ranges the broker can use from different Availability Zones. If you specify more than one subnet, the subnets must be in different Availability Zones. Amazon MQ will not be able to create VPC endpoints for your broker with multiple subnets in the same Availability Zone. A SINGLE_INSTANCE deployment requires one subnet (for example, the default subnet). An ACTIVE_STANDBY_MULTI_AZ Amazon MQ for ActiveMQ deployment requires two subnets. A CLUSTER_MULTI_AZ Amazon MQ for RabbitMQ deployment has no subnet requirements when deployed with public accessibility. Deployment without public accessibility requires at least one subnet. .. epigraph:: If you specify subnets in a `shared VPC <https://docs.aws.amazon.com/vpc/latest/userguide/vpc-sharing.html>`_ for a RabbitMQ broker, the associated VPC to which the specified subnets belong must be owned by your AWS account . Amazon MQ will not be able to create VPC endpoints in VPCs that are not owned by your AWS account .
         :param tags: Create tags when creating the broker.
@@ -250,6 +253,7 @@ class CfnBroker(
             maintenance_window_start_time=maintenance_window_start_time,
             resource_share_arns=resource_share_arns,
             security_groups=security_groups,
+            storage_size=storage_size,
             storage_type=storage_type,
             subnet_ids=subnet_ids,
             tags=tags,
@@ -726,6 +730,19 @@ class CfnBroker(
             type_hints = cached_type_hints(_typecheckingstub__e87ea78ee8e3d556f9e322090479023fa17920888ca10cd4413f4e00c942ffec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "securityGroups", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="storageSize")
+    def storage_size(self) -> typing.Optional[jsii.Number]:
+        '''The broker's storage size in GB.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "storageSize"))
+
+    @storage_size.setter
+    def storage_size(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__97a7962ed51f13a712cd18411dcd3213561a82aca36f3c91c59d081db9efd70e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "storageSize", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="storageType")
@@ -1550,6 +1567,7 @@ class CfnBroker(
         "maintenance_window_start_time": "maintenanceWindowStartTime",
         "resource_share_arns": "resourceShareArns",
         "security_groups": "securityGroups",
+        "storage_size": "storageSize",
         "storage_type": "storageType",
         "subnet_ids": "subnetIds",
         "tags": "tags",
@@ -1577,6 +1595,7 @@ class CfnBrokerProps:
         maintenance_window_start_time: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBroker.MaintenanceWindowProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         resource_share_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+        storage_size: typing.Optional[jsii.Number] = None,
         storage_type: typing.Optional[builtins.str] = None,
         subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["CfnBroker.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1601,6 +1620,7 @@ class CfnBrokerProps:
         :param maintenance_window_start_time: The parameters that determine the WeeklyStartTime.
         :param resource_share_arns: The ARNs of the resource shares to be associated with the broker.
         :param security_groups: The list of rules (1 minimum, 125 maximum) that authorize connections to brokers.
+        :param storage_size: The broker's storage size in GB.
         :param storage_type: The broker's storage type.
         :param subnet_ids: The list of groups that define which subnets and IP ranges the broker can use from different Availability Zones. If you specify more than one subnet, the subnets must be in different Availability Zones. Amazon MQ will not be able to create VPC endpoints for your broker with multiple subnets in the same Availability Zone. A SINGLE_INSTANCE deployment requires one subnet (for example, the default subnet). An ACTIVE_STANDBY_MULTI_AZ Amazon MQ for ActiveMQ deployment requires two subnets. A CLUSTER_MULTI_AZ Amazon MQ for RabbitMQ deployment has no subnet requirements when deployed with public accessibility. Deployment without public accessibility requires at least one subnet. .. epigraph:: If you specify subnets in a `shared VPC <https://docs.aws.amazon.com/vpc/latest/userguide/vpc-sharing.html>`_ for a RabbitMQ broker, the associated VPC to which the specified subnets belong must be owned by your AWS account . Amazon MQ will not be able to create VPC endpoints in VPCs that are not owned by your AWS account .
         :param tags: Create tags when creating the broker.
@@ -1664,6 +1684,7 @@ class CfnBrokerProps:
                 ),
                 resource_share_arns=["resourceShareArns"],
                 security_groups=["securityGroups"],
+                storage_size=123,
                 storage_type="storageType",
                 subnet_ids=["subnetIds"],
                 tags=[amazonmq.CfnBroker.TagsEntryProperty(
@@ -1700,6 +1721,7 @@ class CfnBrokerProps:
             check_type(argname="argument maintenance_window_start_time", value=maintenance_window_start_time, expected_type=type_hints["maintenance_window_start_time"])
             check_type(argname="argument resource_share_arns", value=resource_share_arns, expected_type=type_hints["resource_share_arns"])
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
+            check_type(argname="argument storage_size", value=storage_size, expected_type=type_hints["storage_size"])
             check_type(argname="argument storage_type", value=storage_type, expected_type=type_hints["storage_type"])
             check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -1735,6 +1757,8 @@ class CfnBrokerProps:
             self._values["resource_share_arns"] = resource_share_arns
         if security_groups is not None:
             self._values["security_groups"] = security_groups
+        if storage_size is not None:
+            self._values["storage_size"] = storage_size
         if storage_type is not None:
             self._values["storage_type"] = storage_type
         if subnet_ids is not None:
@@ -1941,6 +1965,15 @@ class CfnBrokerProps:
         '''
         result = self._values.get("security_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def storage_size(self) -> typing.Optional[jsii.Number]:
+        '''The broker's storage size in GB.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-amazonmq-broker.html#cfn-amazonmq-broker-storagesize
+        '''
+        result = self._values.get("storage_size")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def storage_type(self) -> typing.Optional[builtins.str]:
@@ -2894,6 +2927,7 @@ def _typecheckingstub__d16f84aeefdd69c636acf0c8b4d958b93ded39c1da5d5eecb39ce8753
     maintenance_window_start_time: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBroker.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     resource_share_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+    storage_size: typing.Optional[jsii.Number] = None,
     storage_type: typing.Optional[builtins.str] = None,
     subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnBroker.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3028,6 +3062,12 @@ def _typecheckingstub__e87ea78ee8e3d556f9e322090479023fa17920888ca10cd4413f4e00c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__97a7962ed51f13a712cd18411dcd3213561a82aca36f3c91c59d081db9efd70e(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__cc1a4f009fd81070f5c68b6193804c7fd4733299a2c55d2e81fd5c11f62da6ec(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -3140,6 +3180,7 @@ def _typecheckingstub__d255f8718bac4d1453cb7e2ae3f8fb5a5ac0ed5b3551f73d52e4123fa
     maintenance_window_start_time: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBroker.MaintenanceWindowProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     resource_share_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+    storage_size: typing.Optional[jsii.Number] = None,
     storage_type: typing.Optional[builtins.str] = None,
     subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnBroker.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

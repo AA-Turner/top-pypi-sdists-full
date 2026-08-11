@@ -3937,7 +3937,7 @@ class BaseTargetGroupProps:
         )
 
 
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticloadbalancingv2_1283aa87.IListenerRef)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_elasticloadbalancingv2_1283aa87.IListenerRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnListener(
     _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
@@ -3951,6 +3951,7 @@ class CfnListener(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_elasticloadbalancingv2 as elbv2
@@ -4052,7 +4053,11 @@ class CfnListener(
             ),
             port=123,
             protocol="protocol",
-            ssl_policy="sslPolicy"
+            ssl_policy="sslPolicy",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
         )
     '''
 
@@ -4070,6 +4075,7 @@ class CfnListener(
         port: typing.Optional[jsii.Number] = None,
         protocol: typing.Optional[builtins.str] = None,
         ssl_policy: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::ElasticLoadBalancingV2::Listener``.
 
@@ -4084,6 +4090,7 @@ class CfnListener(
         :param port: The port on which the load balancer is listening. You can't specify a port for a Gateway Load Balancer.
         :param protocol: The protocol for connections from clients to the load balancer. For Application Load Balancers, the supported protocols are HTTP and HTTPS. For Network Load Balancers, the supported protocols are TCP, TLS, UDP, TCP_UDP, QUIC, and TCP_QUIC. You can’t specify the UDP, TCP_UDP, QUIC, or TCP_QUIC protocol if dual-stack mode is enabled. You can't specify a protocol for a Gateway Load Balancer.
         :param ssl_policy: [HTTPS and TLS listeners] The security policy that defines which protocols and ciphers are supported. For more information, see `Security policies <https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html>`_ in the *Application Load Balancers Guide* and `Security policies <https://docs.aws.amazon.com/elasticloadbalancing/latest/network/describe-ssl-policies.html>`_ in the *Network Load Balancers Guide* . [HTTPS listeners] Updating the security policy can result in interruptions if the load balancer is handling a high volume of traffic. To decrease the possibility of an interruption if your load balancer is handling a high volume of traffic, create an additional load balancer or request an LCU reservation.
+        :param tags: 
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__da6c6bab97eae93f0a1595d72a25ac890e7034cc701e7cf76b58f5c6a2170048)
@@ -4099,6 +4106,7 @@ class CfnListener(
             port=port,
             protocol=protocol,
             ssl_policy=ssl_policy,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -4167,6 +4175,12 @@ class CfnListener(
         :cloudformationAttribute: ListenerArn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrListenerArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -4323,6 +4337,21 @@ class CfnListener(
             type_hints = cached_type_hints(_typecheckingstub__6a4d4e17d27d6eb1fbeff688c8a6d8662f00a037f04bbda99b92a25346810d87)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sslPolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__44bc8e012bca651ba2a05eba462dcbb8774c0eff984a8390f62b865279f36e6a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListener.ActionProperty",
@@ -6283,6 +6312,7 @@ class CfnListenerCertificateProps:
         "port": "port",
         "protocol": "protocol",
         "ssl_policy": "sslPolicy",
+        "tags": "tags",
     },
 )
 class CfnListenerProps:
@@ -6298,6 +6328,7 @@ class CfnListenerProps:
         port: typing.Optional[jsii.Number] = None,
         protocol: typing.Optional[builtins.str] = None,
         ssl_policy: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnListener``.
 
@@ -6310,12 +6341,14 @@ class CfnListenerProps:
         :param port: The port on which the load balancer is listening. You can't specify a port for a Gateway Load Balancer.
         :param protocol: The protocol for connections from clients to the load balancer. For Application Load Balancers, the supported protocols are HTTP and HTTPS. For Network Load Balancers, the supported protocols are TCP, TLS, UDP, TCP_UDP, QUIC, and TCP_QUIC. You can’t specify the UDP, TCP_UDP, QUIC, or TCP_QUIC protocol if dual-stack mode is enabled. You can't specify a protocol for a Gateway Load Balancer.
         :param ssl_policy: [HTTPS and TLS listeners] The security policy that defines which protocols and ciphers are supported. For more information, see `Security policies <https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html>`_ in the *Application Load Balancers Guide* and `Security policies <https://docs.aws.amazon.com/elasticloadbalancing/latest/network/describe-ssl-policies.html>`_ in the *Network Load Balancers Guide* . [HTTPS listeners] Updating the security policy can result in interruptions if the load balancer is handling a high volume of traffic. To decrease the possibility of an interruption if your load balancer is handling a high volume of traffic, create an additional load balancer or request an LCU reservation.
+        :param tags: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listener.html
         :exampleMetadata: fixture=_generated
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_elasticloadbalancingv2 as elbv2
@@ -6417,7 +6450,11 @@ class CfnListenerProps:
                 ),
                 port=123,
                 protocol="protocol",
-                ssl_policy="sslPolicy"
+                ssl_policy="sslPolicy",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
             )
         '''
         if __debug__:
@@ -6431,6 +6468,7 @@ class CfnListenerProps:
             check_type(argname="argument port", value=port, expected_type=type_hints["port"])
             check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
             check_type(argname="argument ssl_policy", value=ssl_policy, expected_type=type_hints["ssl_policy"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "default_actions": default_actions,
             "load_balancer_arn": load_balancer_arn,
@@ -6449,6 +6487,8 @@ class CfnListenerProps:
             self._values["protocol"] = protocol
         if ssl_policy is not None:
             self._values["ssl_policy"] = ssl_policy
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def default_actions(
@@ -6560,6 +6600,14 @@ class CfnListenerProps:
         '''
         result = self._values.get("ssl_policy")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-listener.html#cfn-elasticloadbalancingv2-listener-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6700,6 +6748,7 @@ class CfnListenerRule(
                 ),
                 regex_values=["regexValues"],
                 source_ip_config=elbv2.CfnListenerRule.SourceIpConfigProperty(
+                    ip_address_type="ipAddressType",
                     values=["values"]
                 ),
                 values=["values"]
@@ -8856,6 +8905,7 @@ class CfnListenerRule(
                     ),
                     regex_values=["regexValues"],
                     source_ip_config=elbv2.CfnListenerRule.SourceIpConfigProperty(
+                        ip_address_type="ipAddressType",
                         values=["values"]
                     ),
                     values=["values"]
@@ -9043,18 +9093,20 @@ class CfnListenerRule(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.CfnListenerRule.SourceIpConfigProperty",
         jsii_struct_bases=[],
-        name_mapping={"values": "values"},
+        name_mapping={"ip_address_type": "ipAddressType", "values": "values"},
     )
     class SourceIpConfigProperty:
         def __init__(
             self,
             *,
+            ip_address_type: typing.Optional[builtins.str] = None,
             values: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''Information about a source IP condition.
 
             You can use this condition to route based on the IP address of the source that connects to the load balancer. If a client is behind a proxy, this is the IP address of the proxy not the IP address of the client.
 
+            :param ip_address_type: 
             :param values: The source IP addresses, in CIDR format. You can use both IPv4 and IPv6 addresses. Wildcards are not supported. If you specify multiple addresses, the condition is satisfied if the source IP address of the request matches one of the CIDR blocks. This condition is not satisfied by the addresses in the X-Forwarded-For header.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-sourceipconfig.html
@@ -9067,15 +9119,27 @@ class CfnListenerRule(
                 from aws_cdk import aws_elasticloadbalancingv2 as elbv2
                 
                 source_ip_config_property = elbv2.CfnListenerRule.SourceIpConfigProperty(
+                    ip_address_type="ipAddressType",
                     values=["values"]
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__f82542f60cdc9bc09df73f03ec43349f8d892484ca0c8ca1b5b000da864857de)
+                check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if ip_address_type is not None:
+                self._values["ip_address_type"] = ip_address_type
             if values is not None:
                 self._values["values"] = values
+
+        @builtins.property
+        def ip_address_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancingv2-listenerrule-sourceipconfig.html#cfn-elasticloadbalancingv2-listenerrule-sourceipconfig-ipaddresstype
+            '''
+            result = self._values.get("ip_address_type")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def values(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -9494,6 +9558,7 @@ class CfnListenerRuleProps:
                     ),
                     regex_values=["regexValues"],
                     source_ip_config=elbv2.CfnListenerRule.SourceIpConfigProperty(
+                        ip_address_type="ipAddressType",
                         values=["values"]
                     ),
                     values=["values"]
@@ -29529,6 +29594,7 @@ def _typecheckingstub__da6c6bab97eae93f0a1595d72a25ac890e7034cc701e7cf76b58f5c6a
     port: typing.Optional[jsii.Number] = None,
     protocol: typing.Optional[builtins.str] = None,
     ssl_policy: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29607,6 +29673,12 @@ def _typecheckingstub__e94f2f9141dca7e98cc3bbfd7f9228e6fe04fa5e5461ab23babd49ab9
 
 def _typecheckingstub__6a4d4e17d27d6eb1fbeff688c8a6d8662f00a037f04bbda99b92a25346810d87(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__44bc8e012bca651ba2a05eba462dcbb8774c0eff984a8390f62b865279f36e6a(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29812,6 +29884,7 @@ def _typecheckingstub__aab6d22e7b936da7d57033477b79897453525b2ac292509d47ddac8e9
     port: typing.Optional[jsii.Number] = None,
     protocol: typing.Optional[builtins.str] = None,
     ssl_policy: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30057,6 +30130,7 @@ def _typecheckingstub__ac8481b9d3e9b96b0aa37f48f9477db265b5e8adfee281cb486821b04
 
 def _typecheckingstub__f82542f60cdc9bc09df73f03ec43349f8d892484ca0c8ca1b5b000da864857de(
     *,
+    ip_address_type: typing.Optional[builtins.str] = None,
     values: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""

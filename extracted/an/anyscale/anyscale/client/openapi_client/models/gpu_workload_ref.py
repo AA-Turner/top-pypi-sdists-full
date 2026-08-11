@@ -36,17 +36,21 @@ class GpuWorkloadRef(object):
         'type': 'str',
         'id': 'str',
         'name': 'str',
-        'job_attempt_id': 'str'
+        'job_attempt_id': 'str',
+        'cloud_id': 'str',
+        'project_id': 'str'
     }
 
     attribute_map = {
         'type': 'type',
         'id': 'id',
         'name': 'name',
-        'job_attempt_id': 'job_attempt_id'
+        'job_attempt_id': 'job_attempt_id',
+        'cloud_id': 'cloud_id',
+        'project_id': 'project_id'
     }
 
-    def __init__(self, type=None, id=None, name=None, job_attempt_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, type=None, id=None, name=None, job_attempt_id=None, cloud_id=None, project_id=None, local_vars_configuration=None):  # noqa: E501
         """GpuWorkloadRef - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -56,6 +60,8 @@ class GpuWorkloadRef(object):
         self._id = None
         self._name = None
         self._job_attempt_id = None
+        self._cloud_id = None
+        self._project_id = None
         self.discriminator = None
 
         self.type = type
@@ -65,6 +71,10 @@ class GpuWorkloadRef(object):
             self.name = name
         if job_attempt_id is not None:
             self.job_attempt_id = job_attempt_id
+        if cloud_id is not None:
+            self.cloud_id = cloud_id
+        if project_id is not None:
+            self.project_id = project_id
 
     @property
     def type(self):
@@ -159,6 +169,52 @@ class GpuWorkloadRef(object):
         """
 
         self._job_attempt_id = job_attempt_id
+
+    @property
+    def cloud_id(self):
+        """Gets the cloud_id of this GpuWorkloadRef.  # noqa: E501
+
+        The ID of the cloud the workload runs in. Populated on the cloud GPU-status response so a workload URL can be built deterministically.  # noqa: E501
+
+        :return: The cloud_id of this GpuWorkloadRef.  # noqa: E501
+        :rtype: str
+        """
+        return self._cloud_id
+
+    @cloud_id.setter
+    def cloud_id(self, cloud_id):
+        """Sets the cloud_id of this GpuWorkloadRef.
+
+        The ID of the cloud the workload runs in. Populated on the cloud GPU-status response so a workload URL can be built deterministically.  # noqa: E501
+
+        :param cloud_id: The cloud_id of this GpuWorkloadRef.  # noqa: E501
+        :type: str
+        """
+
+        self._cloud_id = cloud_id
+
+    @property
+    def project_id(self):
+        """Gets the project_id of this GpuWorkloadRef.  # noqa: E501
+
+        The ID of the project the workload runs in. Populated on the cloud GPU-status response so a workload URL can be built deterministically.  # noqa: E501
+
+        :return: The project_id of this GpuWorkloadRef.  # noqa: E501
+        :rtype: str
+        """
+        return self._project_id
+
+    @project_id.setter
+    def project_id(self, project_id):
+        """Sets the project_id of this GpuWorkloadRef.
+
+        The ID of the project the workload runs in. Populated on the cloud GPU-status response so a workload URL can be built deterministically.  # noqa: E501
+
+        :param project_id: The project_id of this GpuWorkloadRef.  # noqa: E501
+        :type: str
+        """
+
+        self._project_id = project_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

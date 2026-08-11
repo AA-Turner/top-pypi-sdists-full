@@ -10,6 +10,7 @@ asyncio loop; sync tenant code runs in threads via asyncio.to_thread.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import contextvars
 import functools
 import gc
@@ -26,24 +27,42 @@ import uuid
 from contextlib import AsyncExitStack, asynccontextmanager, contextmanager
 from dataclasses import dataclass, field as dc_field, replace as dc_replace
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, cast
+from typing import Any, Awaitable, Callable, Dict, List, Mapping, Optional, Tuple, cast
 
 
 import msgspec
 
 from . import activity as activity_mod
+from . import aot_declaration, aot_delivery, aot_identity, aot_mint
+from . import boot_adopt
 from . import boot_phases as boot_mod
 from . import cell_adopt
+from . import dispatch
+from .plan import (
+    InputAssetRef,
+    Plan,
+    PlanConflict,
+    PlanFactory,
+    PlanLedger,
+    PlanRefusal,
+)
+from .transport import FatalTransportError
 from . import cpu_budget
 from . import kernel_path
 from . import mint_budget
+from . import settings_authority
 from . import progress as progress_mod
 from . import serving_mode as serving_mode_mod
 from . import warmup
 from . import worker_credential
 from . import mint_goal as mint_goal_mod
 from . import worker_goals
-from .api.binding import ModelRef, wire_ref
+from .api.binding import (
+    ModelRef,
+    binding_wire_refs,
+    component_overrides,
+    wire_ref,
+)
 from .convert.hub import HubPublishError
 from .mint_process import MintSlot
 from .api.errors import (
@@ -73,12 +92,16 @@ from .capability import (
     InsufficientDiskError,
     InsufficientHostRamError,
 )
-from .input_assets import cleanup_input_assets, manifest_from_run_job, materialize_input_assets
+from .input_assets import (
+    InputManifestEntry,
+    cleanup_input_assets,
+    manifest_from_run_job,
+    materialize_input_assets,
+)
 from .intent_registry import IntentRegistry
 from .models import cozy_snapshot
 from .models import disk_gc
 from .models import disk_telemetry
-from .models import loading
 from .models import provision
 from .models import residency as residency_mod
 from .models import staging as staging_mod
@@ -91,6 +114,7 @@ from .models.memory import (
     flush_memory,
     get_available_vram_gb,
     is_cuda_oom,
+    keeps_weights_in_host_ram,
     low_vram_mode,
     next_offload_rung,
     release_unused_pinned_host_cache,
@@ -98,7 +122,7 @@ from .models.memory import (
 from .models.cache_paths import tensorhub_cas_dir, tensorhub_fill_source_dir
 from .models.download import ensure_local, lookup_provider_for_ref
 from .models.errors import MissingSnapshotError, UrlExpiredError
-from .models.execution_lanes import ExecutionLaneUnavailableError
+from .models.execution_lanes import ExecutionLaneUnavailableError, mandatory_traced_lane_of
 from .models.residency import Residency
 from .topology import (
     ExecutionTopology,
@@ -135,10 +159,14 @@ import inspect as _inspect
 import struct as _struct
 from .models.refs import DEFAULT_REF_TAG, parse_model_ref
 from .models.hub_client import WorkerResolvedChunk, WorkerResolvedRepo, WorkerResolvedRepoFile
-from . import cell_key, compile_cache
+from . import compile_cache
 from .models.config_identity import CANONICAL_JSON_MAX_BYTES, canonical_json_digest
 from .models.cozy_snapshot import _norm_rel_path
-from .models.loading import safetensors_file_valid
+from .models.loading import (
+    is_modular_pipeline_class,
+    plan_streamed_hydration,
+    safetensors_file_valid,
+)
 from .models.volume_verify import snapshot_verify_targets, verify_files
 from .models.cozy_snapshot import delete_blobs
 from .compile_cache import CompiledExecutionLaneUnavailableError
@@ -226,6 +254,11 @@ async def _to_thread_complete(func: Callable[..., Any], /, *args: Any, **kwargs:
 # them to /v1/requests/:id/events SSE as output.delta envelopes whose
 # payload.delta carries this JSON verbatim (th#640).
 EVENT_CONTENT_TYPE = "application/x-request-event+json"
+# How often `_execute` re-consults `progress.self_diagnosis()` while a handler
+# runs. A poll cadence, not a limit: it bounds how quickly a confession is
+# NOTICED, never the work itself (§4.24 — the stall windows live per-phase in
+# `progress.STALL_WINDOW_S`).
+_STALL_POLL_S = 5.0
 _STUCK_THREAD_RECYCLE_S = 30.0
 # pgw#687: a cancel that never unwinds. Cancellation of a SYNC handler is
 # cooperative — the thread cannot be killed — so a handler that never polls
@@ -412,17 +445,6 @@ def _hub_binding_for_wire_ref(ref: str) -> ModelRef:
     )
 
 
-def _component_overrides(binding: Any) -> Tuple[Tuple[str, str], ...]:
-    """(component, canonical ref) substitutions the binding carries (pgw#617)."""
-    return tuple(getattr(binding, "component_overrides", ()) or ())
-
-
-def _binding_wire_refs(binding: Any) -> List[str]:
-    """The base wire ref plus every component-override ref (pgw#617): the
-    full set of refs materializing this binding pins/downloads."""
-    return [wire_ref(binding), *(ref for _, ref in _component_overrides(binding))]
-
-
 def _snapshot_files_without_components(
     snapshot: "Optional[pb.Snapshot]", exclude: typing.Sequence[str],
 ) -> "List[pb.SnapshotFile]":
@@ -465,7 +487,7 @@ def _alias_binding_matches(alias: "EndpointSpec", slot_key: str, ref: str) -> bo
         return False
     if not comp:
         return wire_ref(binding).strip() == ref
-    return (comp, ref) in _component_overrides(binding)
+    return (comp, ref) in component_overrides(binding)
 
 
 def _map_exception(exc: BaseException) -> Tuple["pb.JobStatus", str]:
@@ -671,38 +693,10 @@ _BG_COMPILE_QUIESCENCE_S = 5.0
 _BG_THREAD_ADMIT_WAIT_S = 0.5
 
 
-def _cell_execution_lane_matches(
-    ref: str,
-    family: str,
-    *,
-    want_execution_lane: str,
-    want_bucket: int,
-    candidate_keys: typing.AbstractSet[str] = frozenset(),
-) -> bool:
-    """Whether an inductor cell ref serves this endpoint's graph family
-    (gw#561): the declared rank bucket is half of the identity — a
-    lora_bucket endpoint needs exactly a ``-lora<bucket>`` cell of its base
-    lane, and a branchless endpoint must never fetch one (either mismatch is
-    a guaranteed lane_drift that would shadow the right cell and serve
-    eager). Key-flavored cells (th#883 pull-by-key, ``#ck1-…``) match only
-    when their key is one this runtime computed for itself."""
-
-    if not compile_cache.is_cache_ref(ref, family):
-        return False
-    _fam, flavor = compile_cache.parse_cell_ref(ref)
-    if cell_key.is_key(flavor):
-        return flavor in candidate_keys
-    base, bucket = compile_cache.execution_lane_bucket(compile_cache.cell_execution_lane(ref))
-    if bucket != int(want_bucket or 0):
-        return False
-    if want_execution_lane:
-        return base == want_execution_lane
-    return base not in _MANDATORY_EXECUTION_LANES
-
-
 def _ref_mandatory_execution_lane(ref: str) -> str:
     """The traced weight lane one canonical Tensorhub model ref MANDATES:
-    "w8a8" for `#fp8-w8a8` flavors, "w4a4" for `#nvfp4-w4a4`, "" otherwise."""
+    "w8a8" for `#fp8-w8a8` flavors, "w4a4" for `#nvfp4-w4a4`, "" otherwise.
+    The token parse itself lives in execution_lanes (one spelling, th#1361)."""
 
     try:
         parsed = parse_model_ref(ref).tensorhub
@@ -710,12 +704,7 @@ def _ref_mandatory_execution_lane(ref: str) -> str:
         return ""
     if parsed is None or parsed.owner == "root":
         return ""
-    flavor = parsed.flavor or ""
-    if flavor == "fp8-w8a8" or flavor.startswith("fp8-w8a8-"):
-        return "w8a8"
-    if flavor == "nvfp4-w4a4" or flavor.startswith("nvfp4-w4a4-"):
-        return "w4a4"
-    return ""
+    return mandatory_traced_lane_of(parsed.flavor or "")
 
 
 def _mandatory_execution_lane_of(refs: typing.Iterable[str]) -> str:
@@ -1879,7 +1868,7 @@ class ModelStore:
         Only components the snapshot ACTUALLY carries as a subfolder are
         excluded, so the value is a fetch fact and not a guess — and a
         narrowed tree therefore keys on exactly what was left out."""
-        overrides = _component_overrides(binding)
+        overrides = component_overrides(binding)
         if not overrides:
             return ()
         present = {
@@ -2162,7 +2151,9 @@ class ModelStore:
             # total known up front, so the wire never shows total=0 for
             # tensorhub refs.
             known_total = sum(int(f.size_bytes) for f in fetch_files)
-            dl_counter = progress_mod.counter(
+            # pgw#894: owned by the activity this download is FOR when there
+            # is one, so it advances that scope's clock and no other.
+            dl_counter = activity_mod.scoped_counter(
                 f"download:{ref}", progress_mod.UNIT_BYTES, total=known_total)
 
             def _progress(done: int, total: Optional[int]) -> None:
@@ -2221,7 +2212,16 @@ class ModelStore:
                         resolved = None
                         if snapshot is not None and snapshot.digest:
                             resolved = _snapshot_to_resolved(snapshot)
-                        with net_scope:
+                        # pgw#1087: name this span as the parent for the
+                        # per-component rows opened inside the downloader.
+                        # `open_span` cannot push the nesting stack itself
+                        # (its close is in another frame), and a component row
+                        # that lands top-level is counted twice.
+                        with net_scope, (
+                            boot_mod.parent_scope(fetch_span.ordinal)
+                            if fetch_span is not None
+                            else contextlib.nullcontext()
+                        ):
                             path = await ensure_local(
                                 ref,
                                 provider=getattr(binding, "source", None),
@@ -2516,22 +2516,6 @@ class ModelStore:
         return "download_failed"
 
 
-# pgw#686: base lanes speculated for pre-load pull-by-key cell lookups (no
-# pipeline exists yet to probe). Must cover every base lane a loader can
-# leave a pipeline on, or a cold worker can never pull the very cell its own
-# boot would mint — the ie#546 burst published on "w8a8" while lookups
-# speculated only ""/"fp8-hooks", so the armed cell was unreachable and all
-# 9 workers re-minted. Verify-on-receipt remains the arming gate; a wrong
-# speculation is only ever a benign extra lookup key.
-#
-# pgw#918: this was a SECOND authored copy of the lane vocabulary and it was
-# missing "w4a4" and "svdq-native" — the identical ie#546 defect, unrepaired
-# for two more lanes, in the constant whose own comment describes the
-# incident. It is now the loader's own list, so a new lane cannot be stamped
-# without appearing here.
-_SPECULATIVE_CELL_BASE_EXECUTION_LANES: Tuple[str, ...] = loading.STAMPABLE_BASE_EXECUTION_LANES
-
-
 # ---------------------------------------------------------------------------
 # Endpoint instances (setup/warmup lifecycle)
 # ---------------------------------------------------------------------------
@@ -2560,6 +2544,59 @@ class _CompileTargetRecord:
     # cell identity.
     state_lock: threading.Lock = dc_field(
         default_factory=threading.Lock, repr=False, compare=False)
+
+
+@dataclass(frozen=True)
+class _ArmOrder:
+    """The hub-resolved arming decision for one Plan-dispatched attempt
+    (pgw#904). The worker OBEYS it: ``aot_cell`` arms exactly ``selection``
+    (already materialized and content-digest-verified), ``dynamo`` arms JIT
+    intake, ``eager_only`` arms nothing. No discovery, ranking or self-mint
+    fallback exists on this path — a failed exact arm is a typed refusal.
+    """
+
+    backend: str
+    selection: Optional["_CompileArtifactSelection"] = None
+    expected: Optional["aot_identity.ExpectedIdentity"] = None
+    publisher_org: str = ""
+
+
+@dataclass(frozen=True)
+class _JobOrder:
+    """The NEUTRAL per-attempt order the dispatch driver executes (pgw#904).
+
+    Produced only by a wire head — ``_legacy_order`` (from ``pb.RunJob``,
+    dies with it) or ``_plan_order`` (from the immutable Plan). The driver
+    and every shared helper read this value and never a wire message; the
+    per-head semantics that cannot be neutral (the legacy
+    ``required_compile`` fence, the Plan's arm fence) ride ``fence`` as a
+    head-owned closure, and per-head config snapshotting rides
+    ``config_snapshot``.
+
+    ``snapshots`` is TRANSPORT (ref-keyed presigned material for the store),
+    never identity — identity lives in the derived spec's bindings.
+    """
+
+    request_id: str
+    attempt: int
+    function_name: str
+    payload: bytes
+    group: int
+    slots: Mapping[str, dispatch.SlotOrder]
+    adapters: Mapping[str, Tuple[dispatch.AdapterOrder, ...]]
+    snapshots: Dict[str, pb.Snapshot]
+    input_manifest: Tuple[InputManifestEntry, ...]
+    fence: Callable[[EndpointSpec], None]
+    config_snapshot: Callable[[str, Dict[str, Any]], Optional[Any]]
+    org: str = ""
+    invoker_id: str = ""
+    capability_token: str = ""
+    inline_output: bool = False
+    accelerator: str = ""  # "" = unstated (the spec decides), "cuda" | "none"
+    gpu_index: int = 0
+    lane_report: str = ""  # instruction surfaced to ctx.lane/metrics only
+    stamped_config: Optional[Mapping[str, Any]] = None
+    arm: Optional[_ArmOrder] = None
 
 
 @dataclass(frozen=True)
@@ -2923,6 +2960,13 @@ class _InjectionResult:
     # resolve. Kept separately because shared-lane residency may replace the
     # bookkeeping object with a ModuleDict while setup receives the pipeline.
     compile_objects: List[_CompileObjectCandidate] = dc_field(default_factory=list)
+    # pgw#1093: the ARM FACT — every object an arm RETURNED TRUE for, on
+    # either scope (slot injection or `arm_compile()` inside setup()).
+    # Recorded before any later re-scan can drop it, and never re-derived
+    # from `is_compile_armed()`: a permanent degrade flips that probe to
+    # False, which would let the end-of-setup invariant excuse exactly the
+    # boot it exists to catch.
+    armed_objects: List[Any] = dc_field(default_factory=list)
     # id(pipeline) -> exact attached artifact that successfully armed it.
     # Installed only after the setup warmup completes.
     active_compile_artifacts: Dict[int, _CompileArtifactSelection] = dc_field(
@@ -3238,11 +3282,12 @@ class Executor:
         self._settings = settings
         self.store = store or ModelStore(send)
         # pgw#654: TF32 is PROCESS-GLOBAL state — set once at executor
-        # bootstrap, never inside per-instance endpoint setup. Largely moot
-        # on the bf16 compute path (it affects residual fp32 matmuls only).
-        if torch is not None and torch.cuda.is_available():
-            torch.backends.cuda.matmul.allow_tf32 = True
-            torch.backends.cudnn.allow_tf32 = True
+        # bootstrap, never inside per-instance endpoint setup. pgw#1049: the
+        # write is the settings authority's (its declared table IS the
+        # pgw#654 posture); calling it here keeps embedder/test processes
+        # that never ran env_seal.establish on the declared posture too.
+        if torch is not None:
+            settings_authority.impose_torch()
         self.intent_registry: Optional[IntentRegistry] = None
         for s in specs:
             for b in s.models.values():
@@ -3353,6 +3398,9 @@ class Executor:
         )
         self.draining = False
         self.jobs: Dict[Tuple[str, int], _Job] = {}
+        # pgw#904: per-attempt Plan identity — the digest-conflict refusal
+        # and identical-replay dedupe for the RunAttempt head.
+        self.plans = PlanLedger()
         # pgw#687 cancel-unwind quarantine: (request_id, attempt) -> detail for
         # every cancel that has not reached a terminal result within the grace,
         # and the function names WE marked unavailable for them.
@@ -3459,15 +3507,15 @@ class Executor:
             detail=f"prepare function {spec.name}",
         )
 
-    def _job_intent(self, run: pb.RunJob) -> str:
+    def _job_intent(self, request_id: str, attempt: int, function_name: str) -> str:
         registry = self.intent_registry
         if registry is None:
             return ""
         return registry.ensure_local_intent(
             "job",
-            f"{run.request_id}\0{run.attempt}",
-            function_name=run.function_name,
-            detail=f"run request {run.request_id} attempt {run.attempt}",
+            f"{request_id}\0{attempt}",
+            function_name=function_name,
+            detail=f"run request {request_id} attempt {attempt}",
         )
 
     def _intent_transition(
@@ -3799,7 +3847,18 @@ class Executor:
         self._gate_owned = set()
 
         total_vram_gb = float(gpu_info.get("gpu_total_mem") or 0) / (1024 ** 3)
-        free_vram_gb = float(gpu_info.get("gpu_free_mem") or gpu_info.get("gpu_total_mem") or 0) / (1024 ** 3)
+        # pgw#940: no substitution. `or gpu_total_mem` treated a legitimate 0
+        # as "absent" and replaced it with the largest plausible number — and
+        # `gpu_free_mem` is genuinely 0 on a SATURATED card, which is exactly
+        # the state where the native/fp8/4-bit/offload/CPU ladder must engage
+        # and exactly the state that then read as "all of VRAM is free". This
+        # figure feeds `plan_serve`/`variant_fit` and what the pod advertises
+        # to the hub, so an unmeasured card must present as no room, not as an
+        # empty one. `lifecycle.probe_hardware` initialises the key to 0 and
+        # wraps its whole CUDA probe in `except Exception: pass`, so "the
+        # probe raised" arrives here indistinguishable from "the card is
+        # full" — both are non-permissive now, which is the point.
+        free_vram_gb = float(gpu_info.get("gpu_free_mem") or 0) / (1024 ** 3)
         detected_sm = str(gpu_info.get("gpu_sm") or "")
         libs = {str(x) for x in (gpu_info.get("installed_libs") or [])}
         caps = TensorhubWorkerCapabilities(
@@ -4071,6 +4130,30 @@ class Executor:
         """
         if rec.compile_targets.get(target.incarnation_id) is not target:
             raise RuntimeError("compiled target is no longer live")
+        # pgw#1082: classify BEFORE the active-ref gate below. A JIT INTAKE
+        # arm names no artifact by construction (pgw#1010), so that gate
+        # returns early for exactly the lane this defect lives on — and the
+        # graph-broken pod would keep reporting an empty `fallback_reason`.
+        broke = compile_cache.graph_break_reason(target.pipeline)
+        out_of_range = compile_cache.declared_range_refusal(target.pipeline)
+        if broke:
+            self._note_eager_posture(
+                rec, cell_adopt.EagerPhase.GRAPH_BREAK.value,
+                f"the declared regional target did not trace WHOLE under "
+                f"fullgraph; serving eager rather than eager-glued fragments "
+                f"reported as compiled: {broke}")
+        elif out_of_range:
+            self._note_eager_posture(
+                rec, cell_adopt.EagerPhase.DECLARED_RANGE_EXCEEDED.value,
+                out_of_range)
+        elif detail:
+            # pgw#1082: ANY permanent guard degrade must reach the request
+            # row. The gate below returns early for a JIT INTAKE arm (it
+            # names no artifact by construction, pgw#1010) — which is the
+            # only JIT lane the fleet has — so before this, a degraded
+            # intake pod recorded nothing at all and served eager silently.
+            self._note_eager_posture(
+                rec, cell_adopt.EagerPhase.JIT_ARM_FAILED.value, detail)
         with target.state_lock:
             if not (
                 target.active_compile_ref
@@ -4308,6 +4391,7 @@ class Executor:
 
     def _note_eager_posture(
         self, rec: _ClassRecord, token: str, detail: str = "",
+        *, override: bool = False,
     ) -> None:
         """pgw#824: record (and, once, confess) WHY this record has no cell.
 
@@ -4315,9 +4399,17 @@ class Executor:
         one. The typed event fires only on the transition, so a decline that
         happens per-object on a many-slot record coalesces to ONE row instead
         of N identical ones — counts, not silence, and not a flood.
+
+        pgw#1093 ``override``: for the ONE token that is never a competing
+        cause but the CAUSE OF the causes already recorded. "An arm returned
+        True and nothing owns it" makes "no compile candidates survived" a
+        consequence, not a rival — and first-token-wins would otherwise leave
+        the record naming its own symptom.
         """
         token = str(token or "").strip()
-        if not token or rec.eager_posture:
+        if not token or (rec.eager_posture and not override):
+            return
+        if override and rec.eager_posture == token:
             return
         rec.eager_posture = token
         activity_mod.emit_event(
@@ -4326,6 +4418,85 @@ class Executor:
             f"serves EAGER — {detail or token}. Every request it serves "
             f"reports fallback_reason={token}.",
             phase=token,
+        )
+
+    def _note_boot_degrade(self, rec: _ClassRecord, pipeline: Any) -> None:
+        """pgw#1093: confess a degrade that happened BEFORE any guard was bound.
+
+        `_bind_compile_guard` installs the revocation callback in
+        `_install_compile_targets`, which runs AFTER the boot warmup. So a
+        target that armed, compiled, and then broke DURING that warmup has no
+        callback to fire and no record to write on: pgw#1082's whole
+        confession path is unreachable for it, and every reader afterwards
+        falls through to the generic `uncompiled`. This reads the reason
+        straight off the pipeline's own failure signal instead.
+        """
+        broke = compile_cache.graph_break_reason(pipeline)
+        out_of_range = compile_cache.declared_range_refusal(pipeline)
+        reason = compile_cache.degrade_reason(pipeline)
+        if broke:
+            self._note_eager_posture(
+                rec, cell_adopt.EagerPhase.GRAPH_BREAK.value,
+                f"the declared regional target did not trace WHOLE under "
+                f"fullgraph during the boot warmup: {broke}")
+        elif out_of_range:
+            self._note_eager_posture(
+                rec, cell_adopt.EagerPhase.DECLARED_RANGE_EXCEEDED.value,
+                out_of_range)
+        elif reason:
+            self._note_eager_posture(
+                rec, cell_adopt.EagerPhase.COMPILED_DEGRADED.value,
+                f"the compiled target was ARMED and a call during the boot "
+                f"warmup failed permanently, so this instance is eager for "
+                f"the rest of its life: {reason}")
+
+    def _assert_armed_targets_installed(
+        self, rec: _ClassRecord, spec: EndpointSpec,
+        armed_objects: typing.Iterable[Any],
+    ) -> None:
+        """pgw#1093 THE INVARIANT: armed at setup => an installed target owns it.
+
+        "``compile_cache`` minted graphs into this object and nothing on this
+        record can dispatch to them" is not a degraded state — it is an
+        IMPOSSIBLE one, and it has now cost two releases (pgw#1078 D2, this
+        issue) because every route to it was a log line or a bare ``continue``.
+
+        Keyed on the ARM FACT — what ``arm_compile()``/the injection scan
+        RETURNED — never on a live ``is_compile_armed()`` probe. A permanent
+        degrade flips that probe to False, so probing would let the invariant
+        excuse exactly the boot it exists to catch.
+
+        Not fatal (pgw#672: a broken optimization never kills a serving
+        worker). It is a TYPED, wire-visible refusal with a named cause, which
+        is what the pod telemetry did not have.
+        """
+        owned = {id(t.pipeline) for t in rec.compile_targets.values()}
+        orphans = [p for p in armed_objects if id(p) not in owned]
+        if not orphans:
+            return
+        detail = "; ".join(
+            f"{type(p).__name__} armed={compile_cache.is_compile_armed(p)} "
+            f"targets_resolve="
+            f"{compile_cache.has_compile_target(p, spec.compile_cell())} "
+            f"degrade={compile_cache.degrade_reason(p) or '-'}"
+            for p in orphans
+        )
+        logger.error(
+            "%s: %d ARMED compile object(s) own NO installed target — this "
+            "boot compiled graphs nothing can dispatch to (%s)",
+            spec.name, len(orphans), detail)
+        self._note_eager_posture(
+            rec, cell_adopt.EagerPhase.ARMED_TARGET_UNRESOLVED.value,
+            f"{len(orphans)} object(s) armed during setup own no installed "
+            f"compile target, so the compiled graphs this boot paid for are "
+            f"undispatchable: {detail}",
+            override=True)
+        activity_mod.emit_event(
+            activity_mod.KIND_SERVE_DEGRADE,
+            detail=(
+                f"fn={spec.name}: {len(orphans)} ARMED compile object(s) own "
+                f"no installed target after setup — {detail}"),
+            phase=cell_adopt.EagerPhase.ARMED_TARGET_UNRESOLVED.value,
         )
 
     def _install_compile_targets(
@@ -4365,6 +4536,25 @@ class Executor:
             else _CompileObjectCandidate(item, set(all_slots))
             for item in objects
         ]
+        # pgw#1093: a permanent degrade that happened during the BOOT WARMUP
+        # has no record to confess on — `_bind_compile_guard` installs the
+        # revocation callback HERE, after the warmup, so pgw#1082's whole
+        # confession path is structurally unreachable for a target that broke
+        # while it was being warmed. This is the late confession: read the
+        # reason off the pipeline's own failure signal, at the first moment a
+        # record exists to carry it.
+        for candidate in candidates:
+            self._note_boot_degrade(rec, candidate.pipeline)
+        if not candidates:
+            # The candidate loop below never runs, so not one of its omission
+            # tokens can fire — the exact shape that reached pgw#1093 as zero
+            # rows and a generic `uncompiled` on every request.
+            self._note_eager_posture(
+                rec, cell_adopt.EagerPhase.NO_COMPILE_CANDIDATES.value,
+                f"setup produced no compile-capable object for declared "
+                f"family {str(getattr(cfg, 'family', '') or '?')!r} "
+                f"targets={[str(t) for t in (getattr(cfg, 'targets', ()) or ())]} "
+                f"over held slots {sorted(all_slots)}")
         requested_execution_lane = self._mandatory_execution_lane_of_bound(
             wire_ref(spec.models[slot]) for slot in self._setup_slots(spec)
         )
@@ -4379,6 +4569,28 @@ class Executor:
                 continue
             seen.add(id(pipeline))
             if not compile_cache.has_compile_target(pipeline, cfg):
+                # pgw#1093: NOT a bare `continue` any more. An object reaches
+                # this list only because something already decided it was
+                # compile-capable — the injection scan or an `arm_compile()`
+                # that RETURNED TRUE. Resolving no target here therefore means
+                # the object changed under the arm (a lazily-hydrated
+                # component replaced after setup, a slot swapped by the
+                # endpoint), which is a WIRING fact and has to say so. It was
+                # one of exactly three exits from this method that emitted
+                # nothing at all, and this issue burned a $1.15 pod because of
+                # it.
+                self._note_eager_posture(
+                    rec, cell_adopt.EagerPhase.ARMED_TARGET_UNRESOLVED.value
+                    if compile_cache.is_compile_armed(pipeline)
+                    else cell_adopt.EagerPhase.NO_COMPILE_TARGET.value,
+                    f"{type(pipeline).__name__} owning slots "
+                    f"{sorted(candidate.slots)} resolves none of the declared "
+                    f"targets "
+                    f"{[str(t) for t in (getattr(cfg, 'targets', ()) or ())]} "
+                    f"at install time"
+                    + (" — yet compile_cache reports it ARMED, so this boot "
+                       "compiled graphs it can never dispatch to"
+                       if compile_cache.is_compile_armed(pipeline) else ""))
                 continue
             bindings = tuple(sorted(
                 binding for binding in rec.held_bindings
@@ -4850,62 +5062,48 @@ class Executor:
             self.store.register_binding(wire_ref(binding), binding)
         return binding
 
-    def _slot_dispatch_binding(
-        self, spec: EndpointSpec, slot: str, run_ref: str
-    ) -> ModelRef:
-        """The binding a declared Slot materializes for THIS dispatch.
-
-        Precedence (pgw#532): the hub-resolved pick from
-        ``RunJob.models[slot]`` > the code-declared ``default_checkpoint``
-        when it is itself a CAS ref. A hub-connected worker NEVER
-        materializes a Slot's raw upstream default (mirror-first, gw#465):
-        when neither source yields a CAS ref the dispatch fails RETRYABLE —
-        the hub must resolve the slot to a ref this worker can load, not
-        the worker self-fetching Civitai/HF.
-
-        Identity gate (gw#583, the ie#518 silence): a FIXED slot — one whose
-        declared ``Slot`` carries no ``selected_by=`` catalog, or a bare
-        binding — has exactly one code-declared repo. A hub-resolved pick
-        that differs only in tag/flavor is the ordinary case above; a pick
-        naming a DIFFERENT REPO for a fixed slot is silent drift, not a
-        legitimate choice, and refuses closed. ``selected_by=`` slots opt
-        into hub-catalog picks explicitly — those are exempt by design.
-        """
+    def _bound_slot(self, spec: EndpointSpec, slot: str, ref: str) -> ModelRef:
+        """Refuse-never-default slot binding (pgw#904): the hub is the only
+        resolver. A dispatch-named CAS ref binds; the declared tensorhub
+        binding stands when the dispatch names nothing; anything else is a
+        typed refusal — never an upstream fetch, never a fallback. The gw#583
+        fixed-slot identity gate stays: a dispatch naming a DIFFERENT repo for
+        a slot with no ``selected_by=`` catalog is silent drift, refused."""
         declared = spec.models.get(slot)
-        if run_ref:
+        if ref:
             if (
                 declared is not None
                 and declared.source == "tensorhub"
-                and run_ref == wire_ref(declared)
+                and ref == wire_ref(declared)
             ):
                 return declared
             try:
-                binding = self._hub_binding(run_ref)
+                binding = self._hub_binding(ref)
             except ValueError:
-                logger.warning(
-                    "slot %r of %s: resolved_models ref %r is not a CAS ref; "
-                    "falling back to the declared default", slot, spec.name, run_ref)
-            else:
-                catalog_slot = spec.slots.get(slot)
-                fixed_repo = (
-                    declared is not None
-                    and declared.source == "tensorhub"
-                    and not (catalog_slot is not None and catalog_slot.selected_by)
+                raise RetryableError(
+                    f"slot {slot!r} of {spec.name!r}: dispatched ref {ref!r} "
+                    "is not a tensorhub-CAS ref; a connected worker resolves "
+                    "nothing itself (pgw#904)") from None
+            catalog_slot = spec.slots.get(slot)
+            fixed_repo = (
+                declared is not None
+                and declared.source == "tensorhub"
+                and not (catalog_slot is not None and catalog_slot.selected_by)
+            )
+            if fixed_repo and declared is not None and binding.path != declared.path:
+                raise ModelSlotIdentityError(
+                    spec.name, slot,
+                    declared_ref=wire_ref(declared), dispatched_ref=ref,
                 )
-                if fixed_repo and declared is not None and binding.path != declared.path:
-                    raise ModelSlotIdentityError(
-                        spec.name, slot,
-                        declared_ref=wire_ref(declared), dispatched_ref=run_ref,
-                    )
-                return binding
+            return binding
         if declared is not None and declared.source == "tensorhub":
             return declared
         raise RetryableError(
             f"slot {slot!r} of {spec.name!r} has no loadable hub ref for this "
-            f"request (resolved_models[{slot!r}]={run_ref!r}, declared "
-            f"default source={getattr(declared, 'source', None)!r}); a "
-            "hub-connected worker never fetches a Slot's raw upstream "
-            "default (pgw#532/gw#465) — the hub must resolve the slot to a "
+            f"request (dispatched ref={ref!r}, declared default "
+            f"source={getattr(declared, 'source', None)!r}); a connected "
+            "worker never fetches a Slot's raw upstream default "
+            "(pgw#532/gw#465) — the hub must resolve the slot to a "
             "tensorhub-CAS ref"
         )
 
@@ -5029,39 +5227,36 @@ class Executor:
             return spec
         return dc_replace(spec, device_group_ordinal=int(group))
 
-    def _effective_spec(self, spec: EndpointSpec, run: "pb.RunJob") -> EndpointSpec:
+    def _dispatched_spec(
+        self, spec: EndpointSpec, slots: Mapping[str, dispatch.SlotOrder],
+    ) -> EndpointSpec:
         """The spec THIS dispatch runs (pgw#532): every declared Slot rebound
-        to the hub-resolved pick in ``RunJob.models``. A pick that differs
-        from the declared binding derives a NEW instance key — one resident
-        instance per (class, resolved binding set), so ``setup()`` re-runs
-        for the pick and setup-held state (``self.pipeline``) stays coherent
-        per checkpoint while the LRU machinery evicts whole instances.
-        Function-shaped (``cls=None``) specs rebind too — their slots inject
-        via ``_handler_kwargs``, which reads the same ``spec.models``."""
+        to the hub-resolved pick in the neutral slot orders. A pick that
+        differs from the declared binding derives a NEW instance key — one
+        resident instance per (class, resolved binding set), so ``setup()``
+        re-runs for the pick and setup-held state (``self.pipeline``) stays
+        coherent per checkpoint while the LRU machinery evicts whole
+        instances. Function-shaped (``cls=None``) specs rebind too — their
+        slots inject via ``_handler_kwargs``, which reads ``spec.models``."""
         if not spec.slots:
             return spec
         run_refs = {
-            b.slot: b.ref.strip() for b in run.models if b.slot and b.ref.strip()
+            slot: so.ref for slot, so in slots.items() if slot and so.ref
         }
         # pgw#617 hierarchical bindings: per-component substitutions ride the
         # dispatch binding and become part of the derived spec's identity —
         # a component-only rebind derives a NEW instance (reload), a flat
         # binding (empty map) is byte-identical to the pre-#617 path.
         run_comps: Dict[str, Dict[str, str]] = {}
-        for b in run.models:
-            comps = {
-                str(k).strip(): str(v).strip()
-                for k, v in b.components.items()
-                if str(k).strip() and str(v).strip()
-            }
-            if not comps:
+        for slot, so in slots.items():
+            if not so.components:
                 continue
-            if b.slot not in spec.slots:
+            if slot not in spec.slots:
                 logger.warning(
                     "component substitutions on %s slot %r ignored: not a "
-                    "declared Slot", spec.name, b.slot)
+                    "declared Slot", spec.name, slot)
                 continue
-            run_comps[b.slot] = comps
+            run_comps[slot] = dict(so.components)
         effective = dict(spec.models)
         for slot, decl in spec.slots.items():
             if decl.optional and not run_refs.get(slot, ""):
@@ -5074,8 +5269,7 @@ class Executor:
                 # the parameter's own default.
                 effective.pop(slot, None)
                 continue
-            binding = self._slot_dispatch_binding(
-                spec, slot, run_refs.get(slot, ""))
+            binding = self._bound_slot(spec, slot, run_refs.get(slot, ""))
             slot_comps = run_comps.get(slot) or {}
             if slot_comps:
                 for comp, comp_ref in slot_comps.items():
@@ -5093,120 +5287,16 @@ class Executor:
             return spec
         return dc_replace(spec, models=effective)
 
-    def _execution_lane_effective_spec(self, spec: EndpointSpec, execution_lane_str: str) -> EndpointSpec:
-        """th#913/gw#596: rebind the spec's declared tensorhub models to the
-        instructed lane. A family instruction expands through the hub's
-        per-card resolution picks (or the local cast lane for fp8-w8a16); a
-        full descriptor demands exactly that lane. An unserveable lane raises
-        :class:`gen_worker.models.lanes.LaneUnavailableError` (typed refusal
-        naming the lane — never a silent fallback). The rebound spec derives
-        a new instance key, so warm workers keep both variants resident and
-        cycle them via the gw#551 lane machinery."""
-
-        raw = str(execution_lane_str or "").strip()
-        if not raw:
-            return spec
-        try:
-            req = lanespec.parse_execution_lane_spec(raw)
-        except ValueError as exc:
-            raise ValidationError(str(exc)) from None
-        if req.is_zero:
-            return spec
-        # th#1050: a lane the endpoint DECLARES (handles=) is served by the
-        # author's own code branching on ctx.lane — satisfiable with no
-        # laddered rebind (custom loaders/kernels have nothing to rebind).
-        declared_execution_lane = (
-            req.execution_lane is not None
-            and lanespec.execution_lane_body_id(req.execution_lane) in getattr(spec, "handles", ())
-        )
-        def pick_execution_lane_of(pick: "Optional[Tuple[Any, ...]]") -> "Optional[Any]":
-            if pick is None or not pick[2]:
-                return None
-            try:
-                return lanespec.parse_execution_lane(pick[2])
-            except ValueError:
-                return None
-
-        # Only hub-LADDERED refs participate: a ref without a resolution pick
-        # (ancillary VAE/encoder, flavor-pinned author override) keeps its
-        # binding — the hub never laddered it, so no lane applies to it.
-        declared = self._declared_models.get(spec.name) or {}
-        effective = dict(spec.models)
-        changed = False
-        # bf16 is trivially serveable (the declared base IS bf16); quantized
-        # lanes must find at least one laddered ref that can serve them —
-        # unless the endpoint declares the lane (author code serves it).
-        satisfied = req.family == lanespec.FAMILY_BF16 or declared_execution_lane
-        want_w8a8 = req.execution_lane is not None and req.execution_lane.activation == lanespec.ACT_W8A8
-        for slot, base_binding in declared.items():
-            if slot not in effective:
-                continue
-            if getattr(base_binding, "source", "") != "tensorhub":
-                continue
-            base_ref = wire_ref(base_binding)
-            pick = self._model_resolutions.get(base_ref)
-            if pick is None:
-                continue
-            plane = pick_execution_lane_of(pick)
-            new_binding = base_binding  # bf16 family: revert to the declared base
-            if req.family == lanespec.FAMILY_BF16:
-                satisfied = True
-            elif req.family == lanespec.FAMILY_FP8:
-                if plane is not None and lanespec.family_of(plane) == lanespec.FAMILY_FP8 and (
-                    req.execution_lane is None or plane.activation == req.execution_lane.activation
-                ):
-                    resolved_ref, cast, _ = pick
-                    new_binding = rebind_pick(
-                        base_binding,
-                        resolved_ref=(resolved_ref if resolved_ref != base_ref else ""),
-                        cast=cast)
-                    satisfied = True
-                elif want_w8a8:
-                    continue  # this ref cannot serve w8a8; refusal decided below
-                else:
-                    # family fp8 / explicit w8a16 without a stored fp8 pick:
-                    # the local cast lane (per-layer upcast at inference).
-                    new_binding = rebind_pick(base_binding, cast="fp8")
-                    satisfied = True
-            elif req.family == lanespec.FAMILY_4BIT:
-                if plane is None or lanespec.family_of(plane) != lanespec.FAMILY_4BIT or (
-                    req.execution_lane is not None and plane.weights != req.execution_lane.weights
-                ):
-                    continue
-                resolved_ref, cast, _ = pick
-                new_binding = rebind_pick(
-                    base_binding,
-                    resolved_ref=(resolved_ref if resolved_ref != base_ref else ""),
-                    cast=cast)
-                satisfied = True
-            if wire_ref(effective[slot]) != wire_ref(new_binding) or (
-                getattr(effective[slot], "storage_dtype", "")
-                != getattr(new_binding, "storage_dtype", "")
-            ):
-                effective[slot] = new_binding
-                self.store.register_binding(wire_ref(new_binding), new_binding)
-                changed = True
-        if not satisfied:
-            raise lanespec.ExecutionLaneUnavailableError(
-                raw, f"no laddered binding of {spec.name!r} can serve this lane "
-                     "on this worker (flavor never resolved for its card)")
-        if not changed:
-            return spec
-        derived = dc_replace(spec, models=effective)
-        logger.info(
-            "LANE_INSTRUCTION function=%s lane=%s rebound=%s",
-            spec.name, raw,
-            {s: wire_ref(b) for s, b in effective.items()
-             if wire_ref(spec.models[s]) != wire_ref(b)})
-        return derived
-
     def _effective_config(
-        self, spec: EndpointSpec, run: Optional["pb.RunJob"] = None,
+        self, spec: EndpointSpec,
+        stamped: Optional[Mapping[str, Any]] = None,
     ) -> Dict[str, Any]:
         """th#1087 effective declared-parameter values for one dispatch:
-        declared defaults <- worker's current config store <- RunJob-stamped
-        values (read-at-dispatch class; a stamped job keeps its values even
-        if a gen bump lands mid-flight)."""
+        declared defaults <- worker's current config store <- the head's
+        dispatch-stamped values (read-at-dispatch class; a stamped job keeps
+        its values even if a gen bump lands mid-flight). Wire extraction —
+        and the legacy store advance — is HEAD code, not this function's
+        (pgw#904)."""
         if not spec.config:
             return {}
         values = {p.name: p.default for p in spec.config}
@@ -5214,18 +5304,9 @@ class Executor:
         for name, v in self.runtime_config.parameters_for(spec.name).items():
             if name in declared:
                 values[name] = v
-        if run is not None:
-            gen, stamped = extract_job_config(run)
-            if stamped is not None:
-                stamped = {
-                    name: value
-                    for name, value in stamped.items()
-                    if name in declared
-                }
-                # Advance the worker store + snapshot file to this dispatch's
-                # stamped values, so subprocesses read the latest on invoke.
-                self.runtime_config.stamp_function(spec.name, stamped, gen)
-            values.update(stamped or {})
+        if stamped:
+            values.update(
+                {name: v for name, v in stamped.items() if name in declared})
         return values
 
     def _served_identity(
@@ -5248,14 +5329,24 @@ class Executor:
         if spec is not None and spec.cls is not None:
             rec = self._classes.get(spec.instance_key)
             if rec is not None:
+                armed_pipeline = None
                 for target in rec.compile_targets.values():
                     with target.state_lock:
                         active = str(target.active_compile_ref or "")
                     if active:
                         ref, pipeline = active, target.pipeline
                         break
+                    # pgw#1078: a JIT INTAKE arm names no artifact — that is
+                    # the whole point of pgw#1010's `is_compile_armed` — so a
+                    # ref-only scan reports every intake-served request as
+                    # eager. Carry the pipeline so `classify_mode` can ask it.
+                    if armed_pipeline is None and compile_cache.is_compile_armed(
+                            target.pipeline):
+                        armed_pipeline = target.pipeline
                 if not ref:
-                    posture = self._eager_posture(spec, rec)
+                    pipeline = armed_pipeline
+                    if pipeline is None:
+                        posture = self._eager_posture(spec, rec)
         return serving_mode_mod.resolve(
             active_compile_ref=ref,
             pipeline=pipeline,
@@ -5282,6 +5373,14 @@ class Executor:
         stored = str(rec.eager_posture or "")
         if stored:
             return stored
+        # pgw#1093: a target that ARMED and then degraded is not "uncompiled"
+        # — it is a named execution failure, and reporting it as the generic
+        # terminal token is what made an installed-then-degraded target read
+        # identically to a never-installed one. Live, because a degrade can
+        # land after boot on a target whose guard callback was never bound.
+        for target in rec.compile_targets.values():
+            if compile_cache.degrade_reason(target.pipeline):
+                return cell_adopt.EagerPhase.COMPILED_DEGRADED.value
         if not any(
             s.compile is not None and s.compile.family for s in rec.specs
         ):
@@ -5291,6 +5390,29 @@ class Executor:
         if not rec.ready:
             return serving_mode_mod.POSTURE_ARM_PENDING
         return serving_mode_mod.POSTURE_UNCOMPILED
+
+    def _refuse_unservable_lane(self, spec: EndpointSpec, instructed: str) -> None:
+        """A lane instruction is honored only when it needs NO worker-side
+        resolution: the bf16 family (the declared base) or a lane the endpoint
+        declares (``handles=``, author code). Everything else used to run the
+        coarse-family ladder twin pgw#904 deleted, so it refuses typed —
+        never a silent fallback, never a rebind."""
+        raw = str(instructed or "").strip()
+        if not raw:
+            return
+        try:
+            req = lanespec.parse_execution_lane_spec(raw)
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from None
+        if req.is_zero or req.family == lanespec.FAMILY_BF16:
+            return
+        if self._handled_execution_lane_body(spec, raw):
+            return
+        raise lanespec.ExecutionLaneUnavailableError(
+            raw,
+            "worker-side lane expansion is deleted (pgw#904): this endpoint "
+            "does not declare the lane and the worker rebinds nothing — the "
+            "hub dispatches resolved bindings")
 
     def _handled_execution_lane_body(self, spec: EndpointSpec, instructed: str) -> str:
         """th#1050: the instructed lane's body when the endpoint DECLARES it
@@ -5314,12 +5436,18 @@ class Executor:
         Fixed-mode bodies override it; a declared (handles=) instruction owns
         the full lane outright."""
 
+        # pgw#1082: the SAME reading `serving_mode.classify_mode` takes. A
+        # ref-only test made `metrics.lane` report `+eager` while
+        # `serving_mode` correctly reported `jit_cell` on the same request —
+        # a contradiction `_served_identity`'s docstring says cannot happen,
+        # because a JIT INTAKE arm names no artifact by construction.
         compiled = False
         if spec.cls is not None:
             rec = self._classes.get(spec.instance_key)
             if rec is not None:
                 compiled = any(
                     getattr(t, "active_compile_ref", "")
+                    or compile_cache.is_compile_armed(t.pipeline)
                     for t in rec.compile_targets.values())
         handled = self._handled_execution_lane_body(spec, instructed)
         if handled:
@@ -5431,8 +5559,17 @@ class Executor:
                 f"{sorted(spec.models)!r}); got {sorted(bindings)!r}"
             )
 
-        run = pb.RunJob(function_name=desired.function_name, models=remapped)
-        effective = self._effective_spec(spec, run)
+        orders = {
+            m.slot: dispatch.SlotOrder(
+                ref=m.ref,
+                components=tuple(sorted(
+                    (str(k).strip(), str(v).strip())
+                    for k, v in m.components.items()
+                    if str(k).strip() and str(v).strip())),
+            )
+            for m in remapped
+        }
+        effective = self._dispatched_spec(spec, orders)
         mismatched = {
             slot: wire_ref(effective.models[slot])
             for slot, ref in bindings.items()
@@ -5460,14 +5597,15 @@ class Executor:
         return list(dict.fromkeys(
             [
                 r for s in slots
-                for r in _binding_wire_refs(spec.models[s])
+                for r in binding_wire_refs(spec.models[s])
                 if r not in execution_lane_refs
             ]
             + shared_ids
         ))
 
     def _job_admission_sizes(
-        self, spec: EndpointSpec, slots: List[str], run: "pb.RunJob",
+        self, spec: EndpointSpec, slots: List[str],
+        snapshots: Mapping[str, pb.Snapshot],
     ) -> Dict[str, int]:
         """ref -> expected VRAM bytes for one job's admission lease (pgw#641
         Stage 2). Same ref set as :meth:`_job_pin_refs`; bytes follow the
@@ -5475,7 +5613,7 @@ class Executor:
         own snapshot byte total (honest for a never-seen pick), else the
         banked snapshot's total, else 0 (lease-protected, no reservation)."""
         res = self.store.residency
-        run_snapshots = dict(run.snapshots) if run.snapshots else {}
+        run_snapshots = dict(snapshots)
 
         def _expect(ref: str) -> int:
             hint = res.vram_hint(ref)
@@ -5576,6 +5714,7 @@ class Executor:
         spec: EndpointSpec,
         snapshots: Optional[Dict[str, pb.Snapshot]] = None,
         promote_slots: Optional[List[str]] = None,
+        arm: Optional[_ArmOrder] = None,
     ) -> Any:
         if spec.cls is None:
             return None  # function-shaped endpoint: no instance, no setup
@@ -5589,7 +5728,7 @@ class Executor:
             if rec.ready and not rec.stale:
                 setup_refs = [
                     r for slot in self._setup_slots(spec)
-                    for r in _binding_wire_refs(spec.models[slot])
+                    for r in binding_wire_refs(spec.models[slot])
                 ]
                 for ref in setup_refs:
                     wanted = self.store.snapshot_digest(
@@ -5605,101 +5744,6 @@ class Executor:
                         )
                         rec.stale = True
                         break
-            if rec.ready and not rec.stale and spec.compile is not None:
-                mandatory_execution_lane = self._mandatory_execution_lane_of_bound(
-                    wire_ref(spec.models[slot])
-                    for slot in self._setup_slots(spec)
-                )
-
-                try:
-                    desired_cell = await self._fetch_compile_snapshot(
-                        spec, snapshots)
-                except compile_cache.CompiledExecutionLaneUnavailableError as exc:
-                    if mandatory_execution_lane:
-                        # Desired state no longer supplies a mandatory exact
-                        # cell. Remove the old READY incarnation before
-                        # reporting the state-driven failure; it must not keep
-                        # serving under superseded scheduler evidence.
-                        rec.stale = True
-                        async with self._intent_lock(
-                            intent_id,
-                            self._load_lock,
-                            operation=f"vacate stale setup for {spec.name}",
-                            stage=pb.LIFECYCLE_INTENT_STAGE_WAIT_LOAD_LOCK,
-                            reason=pb.LIFECYCLE_WAIT_REASON_LOAD_LOCK,
-                            resume_stage=pb.LIFECYCLE_INTENT_STAGE_LOADING_HOST,
-                        ):
-                            await self._vacate_record(rec)
-                        self._mark_compile_setup_unavailable(
-                            rec, spec, str(exc))
-                        self._on_state_change()
-                        raise
-                    desired_cell = None
-                if desired_cell is not None:
-                    live_targets = list(rec.compile_targets.values())
-                    target_identities = []
-                    for target in live_targets:
-                        with target.state_lock:
-                            target_identities.append((
-                                target.active_compile_ref,
-                                target.active_compile_snapshot_digest,
-                                target.active_self_mint,
-                            ))
-                    identity_moved = not target_identities
-                    digest_aligned = False
-                    for active_ref, active_digest, is_self_mint in (
-                            target_identities):
-                        if active_ref != desired_cell.ref:
-                            identity_moved = True
-                            break
-                        if active_digest == desired_cell.snapshot_digest:
-                            continue
-                        if not is_self_mint:
-                            # Delivered target: a same-ref digest move is a
-                            # genuine republish (mutable label cells) — the
-                            # pre-gw#604 vacate/rebuild convergence stands
-                            # (the rebuild loads a FRESH pipe, whose re-trace
-                            # produces honest FX lookups).
-                            identity_moved = True
-                            break
-                        # gw#604: for the worker's OWN self-mint, cell
-                        # identity IS the key (gw#581), and the ref encodes
-                        # it — the desired cell is the SAME cell this live
-                        # object already proved, published, and serves; the
-                        # digests differ only in transport FORM
-                        # (self-attested tar digest vs the store's snapshot
-                        # manifest digest, th#910 ruling). A passed proof on
-                        # a live object stays valid for that object's
-                        # lifetime; a warm-process re-proof cannot produce
-                        # honest FX lookups (dynamo serves from in-memory
-                        # code, hits stay 0 — the live fail-closed re-arm
-                        # loop). NEVER vacate; align the advertised digest to
-                        # the store's so gw#577 receipts/fences line up
-                        # fleet-wide.
-                        for target in live_targets:
-                            with target.state_lock:
-                                if (target.active_compile_ref
-                                        == desired_cell.ref):
-                                    target.active_compile_snapshot_digest = (
-                                        desired_cell.snapshot_digest)
-                        digest_aligned = True
-                        logger.info(
-                            "self-mint cell %s confirmed by the store; "
-                            "advertised digest aligned %s -> %s (no re-arm)",
-                            desired_cell.ref, active_digest,
-                            desired_cell.snapshot_digest,
-                        )
-                    if identity_moved:
-                        logger.info(
-                            "desired compile identity moved for %s -> %s@%s; "
-                            "vacating stale instance",
-                            spec.name,
-                            desired_cell.ref,
-                            desired_cell.snapshot_digest,
-                        )
-                        rec.stale = True
-                    elif digest_aligned:
-                        self._on_state_change()
             if rec.ready and rec.stale:
                 # gw#494: the instance was loaded for a superseded pick —
                 # vacate (releasing its OLD-ref bookings) and set up fresh
@@ -5756,6 +5800,7 @@ class Executor:
                             rec,
                             snapshots,
                             intent_id=intent_id,
+                            arm=arm,
                         )
             except BaseException as exc:
                 # gw#661: a will-retry condition is not a failure. Only
@@ -5820,6 +5865,15 @@ class Executor:
             rec.transient_setup_failures = 0
             rec.instance = instance
             rec.ready = True
+            # pgw#1087: the FIRST user-visible timestamp. A ready record is an
+            # instance that can answer a request — armed or eager — and on the
+            # pgw#671 eager-first boot below it is reached long before any cell
+            # exists. Paired with `compiled_swap` it gives the eager-serving
+            # window, which is the interval the compiled-serving campaign is
+            # trying to shrink and which nothing measured. Distinct from
+            # `first_request_servable`, which additionally requires the hub to
+            # have been told (a worker the hub cannot reach is not servable).
+            boot_mod.mark_once(boot_mod.PHASE_EAGER_READY, function=spec.name)
             bg = rec.background_mint
             if bg is not None and bg.task is None:
                 # pgw#671 eager-first boot: READY is advertised now (eager
@@ -5866,9 +5920,19 @@ class Executor:
         part that was always real: the mint-goal latch and the pgw#805 backstop
         below.
         """
+        # pgw#1082: "is this record serving compiled" is ONE question with
+        # ONE answer. Reading only `active_compile_ref` asks "does it serve a
+        # NAMED artifact", and a JIT INTAKE arm names none BY CONSTRUCTION
+        # (pgw#1010) — so this row could never clear for an intake pod even
+        # while it served compiled, and 0.4.3 emitted `boot_ended_uncompiled`
+        # on a healthy H100. `is_compile_armed` is the same reading
+        # `_served_identity` and `serving_mode` take.
         armed = next(
             (t.active_compile_ref for t in rec.compile_targets.values()
-             if t.active_compile_ref), "")
+             if t.active_compile_ref), "") or (
+            "jit_intake" if any(
+                compile_cache.is_compile_armed(t.pipeline)
+                for t in rec.compile_targets.values()) else "")
         # th#1359: reaching here means this boot's mint disposition is FINAL
         # on every path (inline setup, adopted cell, eager-without-mint, and
         # the background mint's own `finally`). The mint-goal driver waits on
@@ -5964,7 +6028,7 @@ class Executor:
                 # th#1322's numeric home, so the boot span and the activity
                 # stream agree on one number rather than two derivations.
                 activity_mod.emit_event(
-                    "warmup",
+                    activity_mod.KIND_WARMUP_SUMMARY,
                     f"boot warmup for {spec.name} "
                     f"({'armed' if armed else 'unarmed'}, {ran} forward"
                     f"{'' if ran == 1 else 's'})",
@@ -6014,7 +6078,7 @@ class Executor:
                 getattr(b, "flavor", "") or "",
                 getattr(b, "storage_dtype", "") or "",
                 getattr(b, "dtype", "") or "",
-                tuple(getattr(b, "component_overrides", ()) or ()),
+                component_overrides(b),
             )
             for slot, b in sorted(spec.models.items())
         )
@@ -6133,8 +6197,8 @@ class Executor:
         # is proven on an object once ALL of its graph classes proved there.
         proven_keys: Dict[int, set] = {}
         # pgw#844: which objects proved through the EXPORTED lane. An exported
-        # artifact refuses an out-of-contract shape BY NAME and serves that one
-        # call eager while staying armed, so a graph class it did not serve is
+        # artifact refuses a shape outside its declared envelope BY NAME and
+        # serves that call eager while staying armed, so a class it did not serve is
         # a per-shape posture, not a silent recompile — which is what lets the
         # attribution below be per-class for this lane and stay all-or-nothing
         # for dynamo, where an unproven class means an unannounced recompile.
@@ -6447,7 +6511,7 @@ class Executor:
         gated: List[str] = []
         for name, spec in self.specs.items():
             bound = any(
-                ref in _binding_wire_refs(binding)
+                ref in binding_wire_refs(binding)
                 for slot, binding in spec.models.items()
                 if slot not in spec.slots
             )
@@ -6525,6 +6589,7 @@ class Executor:
         snapshots: Optional[Dict[str, pb.Snapshot]],
         *,
         intent_id: str = "",
+        arm: Optional[_ArmOrder] = None,
     ) -> Any:
         assert spec.cls is not None  # guarded by ensure_setup
         setup_slots = self._setup_slots(spec)
@@ -6547,7 +6612,7 @@ class Executor:
         try:
             return await self._setup_locked_inner(
                 spec, rec, snapshots, intent_id=intent_id,
-                setup_slots=setup_slots)
+                setup_slots=setup_slots, arm=arm)
         finally:
             _cc_execution_lane._SETUP_EXEC_EXECUTION_LANE_PINNED.reset(_pin_token)
             _cc_execution_lane._SETUP_EXEC_EXECUTION_LANE.reset(_execution_lane_token)
@@ -6558,6 +6623,7 @@ class Executor:
         *,
         intent_id: str = "",
         setup_slots: List[str],
+        arm: Optional[_ArmOrder] = None,
     ) -> Any:
         assert spec.cls is not None
         # gw#494: residency keys for this setup are derived ONCE, here, in
@@ -6589,7 +6655,7 @@ class Executor:
                 ref, snap, binding=binding)
             slot_identities[slot] = materialized.identity
             comps: Dict[str, str] = {}
-            for comp, comp_ref in _component_overrides(binding):
+            for comp, comp_ref in component_overrides(binding):
                 try:
                     comp_binding = self._hub_binding(comp_ref)
                 except ValueError:
@@ -6614,11 +6680,45 @@ class Executor:
         eager_only = self._eager_only_reason()
         if eager_only and spec.compile is not None:
             logger.info("%s: %s", spec.name, eager_only)
-        compile_selection = (
-            None if eager_only
-            else await self._fetch_compile_snapshot(spec, snapshots)
-        )
+        # pgw#904: the ONLY source of a pre-materialized artifact is a Plan's
+        # exact `Arm.artifact` (the RunAttempt head materialized and
+        # digest-verified it). The connected snapshot scan that used to run
+        # here is deleted — the hub no longer attaches cells to snapshots, and
+        # a worker that could pick one would be a second resolver.
+        if arm is not None and arm.backend == "aot_cell" and eager_only:
+            raise compile_cache.CompiledExecutionLaneUnavailableError(
+                f"the spec names an exact cell but this pod cannot arm one: "
+                f"{eager_only}")
+        compile_selection = arm.selection if arm is not None else None
         compile_artifact = compile_selection.path if compile_selection else None
+        # §4.27 steps 1-3 (pgw#1089/pgw#1090): with no Plan-named artifact, this
+        # pod derives its OWN cell key from code alone and asks the hub by that
+        # key BEFORE `setup()` puts a weight in this process. On a hit the
+        # answer becomes an ordinary `_ArmOrder`, so the adopted cell runs the
+        # Plan path's gates and not one gate fewer.
+        #
+        # This is what makes boot-time adoption possible at all: the hub's other
+        # resolver only VERIFIES a cell the worker already armed, so a cold pod
+        # advertises nothing, is named nothing, and never adopts.
+        #
+        # OWED (pgw#1091's overlap box): the derivation runs HERE, after
+        # `_materialize_local` finished the weights download, so it does not yet
+        # RACE the fetch the way §4.27 step 4 asks. It is already off the
+        # request path — no dispatch has occurred — and moving it earlier is a
+        # restructure of this method's await order, not of the derivation.
+        if arm is None and spec.compile is not None and not eager_only:
+            adopt = await asyncio.to_thread(
+                self._boot_adopt, spec, resolved_slots)
+            if adopt is not None and adopt.adoption is not None:
+                got = adopt.adoption
+                compile_selection = _CompileArtifactSelection(
+                    path=got.artifact, ref=got.ref,
+                    snapshot_digest=got.snapshot_digest)
+                compile_artifact = got.artifact
+                arm = _ArmOrder(
+                    backend="aot_cell", selection=compile_selection,
+                    expected=got.expected,
+                    publisher_org=got.cell.publisher_org)
         # pgw#947: the serving-kernel lane comes from the CELL, and it has to
         # be pinned BEFORE setup() — the linears are swapped at model load, so
         # a verdict read afterwards would arrive one whole pipeline too late.
@@ -6662,7 +6762,7 @@ class Executor:
                 | {
                     comp_ref
                     for slot in setup_slots
-                    for _, comp_ref in _component_overrides(spec.models[slot])
+                    for _, comp_ref in component_overrides(spec.models[slot])
                 }
             )
             rec.held_snapshot_digests = {
@@ -6689,7 +6789,7 @@ class Executor:
                         rec.held_snapshot_digests.get(comp_ref, ""),
                     )
                     for slot in setup_slots
-                    for comp, comp_ref in _component_overrides(spec.models[slot])
+                    for comp, comp_ref in component_overrides(spec.models[slot])
                 ]
             )
             setup = getattr(instance, "setup", None)
@@ -6704,7 +6804,8 @@ class Executor:
                     compile_selection=compile_selection,
                     snapshots=snapshots,
                     slot_identities=slot_identities,
-                    component_paths=component_paths)
+                    component_paths=component_paths,
+                    arm=arm)
                 rec.shared_keys.extend(inj.shared_keys)
                 # pgw#517: a self-loading (str/Path-slot) endpoint builds its
                 # own pipeline inside setup() and the executor never sees it
@@ -6735,6 +6836,25 @@ class Executor:
                     slot for slot in setup_slots
                     if isinstance(inj.kwargs.get(slot), (str, Path))
                 )
+                # pgw#1078: …and a WORKER-loaded slot object that only became
+                # compile-capable DURING setup owns itself. A lazy loader (a
+                # `ModularPipeline` whose weight-bearing components hydrate
+                # inside setup) has no compile target at injection time, so the
+                # automatic branch skips it; the endpoint then hydrates and
+                # calls `arm_compile(pipeline)`, which lands here. Attributing
+                # that pipeline to `self_loaded_slots` — EMPTY for a
+                # class-annotated slot — gave `_install_compile_targets` a
+                # candidate with no owned slots, hence no bindings, hence
+                # `target_applicability_incomplete`: the arm succeeded and NO
+                # target was installed, so the guard was never bound, the
+                # hot-swap router was never enabled, and every request reported
+                # `+eager` (ie#632, minimax-h3 0.4.2).
+                injected_slot_of = {
+                    id(obj): slot
+                    for slot in setup_slots
+                    if (obj := inj.kwargs.get(slot)) is not None
+                    and not isinstance(obj, (str, Path))
+                }
                 scope_mints = arming_scope.self_mints
                 for bug in arming_scope.selection_bugs.values():
                     # th#1031: the fleet policy already self-minted a working
@@ -6743,9 +6863,31 @@ class Executor:
                     await self._report_cell_selection_bug(
                         spec, compile_selection, bug)
                 for pipe, armed in arming_scope.objects:
+                    if armed:
+                        if not any(p is pipe for p in inj.armed_objects):
+                            # pgw#1093: BEFORE the re-scan below can drop it.
+                            # This object is armed compiled code; if nothing
+                            # ends up owning it, that is the impossible state
+                            # the end-of-setup invariant refuses — never a
+                            # silent skip.
+                            inj.armed_objects.append(pipe)
+                        # pgw#1078: this arm DISPROVES whatever the injection-
+                        # time attempt concluded about the same object — that
+                        # attempt ran before setup hydrated it.
+                        #
+                        # pgw#1093 moved the clear ABOVE the re-scan gate. It
+                        # used to sit after it, so an armed object that failed
+                        # the re-scan kept the stale injection-time
+                        # `no_compile_target` — and first-token-wins then let
+                        # that stale token outrank the REAL cause the install
+                        # was about to name. Same wrong-cause defect pgw#1078
+                        # fixed, on the one path its fix could not reach.
+                        inj.eager_postures.clear()
                     if not compile_cache.has_compile_target(pipe, spec.compile):
                         continue
-                    inj.add_compile_object(pipe, self_loaded_slots)
+                    owning = injected_slot_of.get(id(pipe))
+                    inj.add_compile_object(
+                        pipe, (owning,) if owning else self_loaded_slots)
                     mint = scope_mints.get(id(pipe))
                     selection = _selection_for(compile_selection, mint)
                     if getattr(mint, "delegated", False):
@@ -6976,6 +7118,10 @@ class Executor:
             # remaining dynamo compile on the platform would have been the one
             # nobody timed. A counter read costs nothing.
             compile_seconds_before = compile_cache.compile_wall_seconds()
+            # pgw#1082: dynamo's own graph/break counters across the SAME
+            # window. "How many graphs did this arm produce, and what cut
+            # them" was unanswerable over our telemetry until this sample.
+            graph_audit_before = compile_cache.graph_audit()
             # pgw#797: THE warmup split. `pipeline_load` used to be
             # load+warmup as one number, so "what does a cell save on warmup"
             # was only ever an estimate (`pipeline_load` minus a guessed
@@ -7041,6 +7187,7 @@ class Executor:
                     family=str(getattr(spec.compile, "family", "") or ""),
                     execution_lane=self._served_execution_lane(spec),
                     route="intake",
+                    audit=compile_cache.graph_audit_delta(graph_audit_before),
                 )
             if proves_inductor or proves_exported:
                 # gw#595 per-object provability: the proof scopes to objects
@@ -7437,6 +7584,11 @@ class Executor:
                 inj.active_compile_artifacts,
                 function_proofs,
             )
+            # pgw#1093: the terminus. Every route from "an arm returned True"
+            # to "no installed target owns it" now ends on ONE typed,
+            # wire-visible refusal instead of a log line nobody on a
+            # hub-spawned pod can read.
+            self._assert_armed_targets_installed(rec, spec, inj.armed_objects)
             rec.stale = False
             await self._clear_host_ram_capacity(list(slot_refs.values()))
         return instance
@@ -7659,24 +7811,29 @@ class Executor:
             res.touch(ref)
 
     @staticmethod
-    def _worker_loaded_slots(spec: EndpointSpec) -> set:
+    def _worker_loaded_slot_types(spec: EndpointSpec) -> Dict[str, type]:
         """Setup slots the WORKER materializes in host RAM (class-typed
-        annotations loaded via ``from_pretrained``). str/Path slots and
-        engine runtimes (vllm/llama-server) stream weights themselves and
-        must not be counted against the host-RAM admission gate."""
+        annotations loaded via ``from_pretrained``), with their annotated
+        classes. str/Path slots and engine runtimes (vllm/llama-server)
+        stream weights themselves and must not be counted against the
+        host-RAM admission gate."""
         if spec.cls is None or spec.runtime:
-            return set()
+            return {}
         setup = getattr(spec.cls, "setup", None)
         if setup is None:
-            return set()
+            return {}
         try:
             hints = typing.get_type_hints(setup)
         except Exception:
-            return set()
+            return {}
         return {
-            name for name, ann in hints.items()
+            name: ann for name, ann in hints.items()
             if isinstance(ann, type) and callable(getattr(ann, "from_pretrained", None))
         }
+
+    @staticmethod
+    def _worker_loaded_slots(spec: EndpointSpec) -> set:
+        return set(Executor._worker_loaded_slot_types(spec))
 
     async def _record_host_ram_failure(
         self, refs: List[str],
@@ -7925,8 +8082,17 @@ class Executor:
         slot's weights move to VRAM (freeing host RAM) before the next slot
         loads — so the honest staging requirement is the LARGEST slot, not
         the sum (gw#479 live: two 28GiB fp8 lanes were refused as "56.2GiB
-        incoming" on a 61GiB host that stages at most 28GiB at once)."""
-        slots = self._worker_loaded_slots(spec)
+        incoming" on a 61GiB host that stages at most 28GiB at once).
+
+        pgw#1026 applies the SAME rule one level down for a modular slot the
+        loader will stage component-by-component onto the device: its
+        requirement is its largest COMPONENT, not its tree. That is the only
+        thing standing between a tree the card holds and a structural
+        `HostRamCapacityError` (ie#615's H3: 134.1 GiB tree, 116.4 GiB host).
+        The verdict comes from `plan_streamed_hydration`, which the loader
+        re-reads — one authority, and it engages only when the whole tree
+        does not fit while the card does."""
+        slots = self._worker_loaded_slot_types(spec)
         if not paths or not slots:
             return
         incoming = 0
@@ -7939,10 +8105,31 @@ class Executor:
                 # slot's true staging requirement is their sum. ie#615:
                 # counting only the base under-admitted by the override's
                 # 27.6 GB.
-                for comp_path in ((component_paths or {}).get(slot) or {}).values():
+                comp_paths = dict((component_paths or {}).get(slot) or {})
+                for comp_path in comp_paths.values():
                     slot_bytes += await asyncio.to_thread(
                         disk_gc.tree_bytes, Path(comp_path))
                 ref = wire_ref(spec.models[slot])
+                if is_modular_pipeline_class(slots[slot]):
+                    # pgw#1063: the discount below is the loader's promise
+                    # that each component LEAVES the host for the card. The
+                    # rung decides whether that promise can be kept, so the
+                    # admission and the loader read the same one — a
+                    # CPU-offload rung (including the sticky floor an OOM
+                    # degrade learned) is charged its whole tree here and
+                    # stages whole-tree there.
+                    plan = await asyncio.to_thread(
+                        functools.partial(
+                            plan_streamed_hydration, Path(p),
+                            component_trees=comp_paths,
+                            placement_mode=self._placement_mode(spec, ref)),
+                    )
+                    if plan.engaged:
+                        logger.info(
+                            "host-RAM admission charges %s slot %s its "
+                            "largest COMPONENT, not its tree: %s",
+                            spec.name, slot, plan.summary())
+                        slot_bytes = plan.largest_unit_bytes
                 if slot_bytes > incoming:
                     incoming = slot_bytes
                     incoming_refs = [ref]
@@ -8176,151 +8363,6 @@ class Executor:
         proc = factory(model_path)
         return await asyncio.to_thread(proc.start)
 
-    async def _fetch_compile_snapshot(
-        self, spec: EndpointSpec, snapshots: Optional[Dict[str, pb.Snapshot]]
-    ) -> Optional[_CompileArtifactSelection]:
-        """Tensorhub-delivered compiled artifact for this endpoint family.
-
-        Plain acceleration remains optional and explicitly prefers a compatible
-        TRT engine (#390) over an Inductor cell. W8A8 delivery is mandatory:
-        setup fails retryably before pipeline/GPU load unless Tensorhub attaches
-        one exact immutable Forge cell. Returns the selected ref/digest/path or
-        ``None`` only for an ordinary eager-compatible lane.
-        """
-        ccell = spec.compile_cell()
-        if ccell is None or not snapshots:
-            return None
-        family = ccell.family
-        # The effective spec is already rebound to this RunJob's selected
-        # checkpoints. Snapshot maps also contain attached cells and may carry
-        # unrelated/prepositioned models, so they must not choose the lane.
-        model_refs = [wire_ref(binding) for binding in spec.models.values()]
-        want_execution_lane = self._mandatory_execution_lane_of_bound(model_refs)
-        want_bucket = int(ccell.lora_bucket or 0)
-        # th#883 pull-by-key: a key-flavored cell is selected only when its
-        # key is one this runtime computed for itself.
-        #
-        # pgw#1032/th#1702: this whole consumer is DARK. The hub no longer
-        # attaches a cell to anything — both snapshot attach sites are deleted
-        # hub-side — so no `snapshots` map reaching here carries one. A cell is
-        # ACQUIRED by `aot_cells` fetch-and-filter at arm time instead. Left
-        # standing (not deleted) because pgw#904 replaces it with a
-        # hub-RESOLVED `Arm.artifact`, and that lane owns the cut.
-
-        candidate_keys: set[str] = set()
-        for execution_lane in (
-                (want_execution_lane,) if want_execution_lane else _SPECULATIVE_CELL_BASE_EXECUTION_LANES):
-            try:
-                candidate_keys.add(cell_key.compute(
-                    family, execution_lane, want_bucket,
-                    contract=ccell.contract_digest(),
-                    regional=bool(ccell.regional),
-                ).digest)
-            except Exception:
-                continue
-        if want_execution_lane:
-            # TensorRT cells currently expose only their plain fp16 contract.
-            # A Forge Inductor cell of the mandated lane is the sole artifact
-            # proven to preserve the scaled_mm semantics (gw#534/gw#540).
-            candidates = [
-                (ref, snap) for ref, snap in snapshots.items()
-                if _cell_execution_lane_matches(
-                    ref, family, want_execution_lane=want_execution_lane, want_bucket=want_bucket,
-                    candidate_keys=candidate_keys)
-            ]
-        else:
-            trt_candidates = [
-                (ref, snap) for ref, snap in snapshots.items()
-                if trt_engine.is_engine_ref(ref, family)
-            ] if not want_bucket else []
-            inductor_candidates = [
-                (ref, snap) for ref, snap in snapshots.items()
-                if _cell_execution_lane_matches(
-                    ref, family, want_execution_lane="", want_bucket=want_bucket,
-                    candidate_keys=candidate_keys)
-            ]
-            # Explicit kind policy, then uniqueness within that kind. A map's
-            # iteration order never chooses the artifact, while the existing
-            # measured plain-lane TRT preference remains intact.
-            candidates = trt_candidates or inductor_candidates
-        # pgw#672: never re-select an identity whose serve/finalize proof
-        # already failed in this process — one boot must not loop
-        # adopt-fail on the same cell.
-        quarantined = [
-            ref for ref, _snap in candidates
-            if compile_cache.cell_quarantined_in_process(ref)
-        ]
-        if quarantined:
-            logger.warning(
-                "skipping %d compiled-cell candidate(s) quarantined by a "
-                "failed proof in this process: %s (pgw#672)",
-                len(quarantined), ", ".join(sorted(quarantined)))
-            candidates = [
-                (ref, snap) for ref, snap in candidates
-                if ref not in set(quarantined)
-            ]
-        candidates = sorted(candidates, key=lambda item: item[0])
-        if want_execution_lane and not candidates:
-            # gw#587: the fail-closed cell WAIT is retired. A mandatory-lane
-            # key with no delivered cell proceeds to load and SELF-MINTS in
-            # _enable_compiled (the boot warmup is the mint); the quantized
-            # lane's typed refusal now fires only when the mint itself is
-            # impossible (fleet_cells._fail_closed).
-            logger.info(
-                "no %s cell attached for family=%r lora_bucket=%d — "
-                "proceeding to self-mint (gw#587)",
-                want_execution_lane.upper(), family, want_bucket)
-            return None
-        if len(candidates) > 1:
-            refs = ", ".join(ref for ref, _snap in candidates)
-            detail = (
-                "multiple compatible compiled artifacts were attached for "
-                f"family={family!r} lane={want_execution_lane or 'plain'}: "
-                f"{refs}; refusing map-order selection"
-            )
-            if want_execution_lane:
-                # Mandated lanes have no eager-compatible fallback: setup's
-                # lane gate must surface this as retryable before GPU load.
-                raise compile_cache.CompiledExecutionLaneUnavailableError(detail)
-            logger.warning("%s; serving eager", detail)
-            return None
-        if candidates:
-            ref, snap = candidates[0]
-            digest = str(snap.digest or "").strip()
-            if not digest:
-                detail = f"compiled-artifact snapshot {ref!r} has no immutable digest"
-                if want_execution_lane:
-                    raise compile_cache.CompiledExecutionLaneUnavailableError(detail)
-                logger.warning("%s; serving eager", detail)
-                return None
-            try:
-                local = await self.store.ensure_local(ref, snap)
-                artifact = compile_cache.find_artifact(local)
-                if artifact is None:
-                    if want_execution_lane:
-                        raise compile_cache.CompiledExecutionLaneUnavailableError(
-                            f"{want_execution_lane.upper()} Forge snapshot {ref!r} "
-                            "contains no artifact")
-                    logger.warning(
-                        "compiled-artifact snapshot %s contains no artifact; "
-                        "serving eager", ref)
-                    return None
-                return _CompileArtifactSelection(
-                    path=artifact, ref=ref, snapshot_digest=digest)
-            except Exception as exc:
-                if want_execution_lane and isinstance(
-                    exc, compile_cache.CompiledExecutionLaneUnavailableError
-                ):
-                    raise
-                if want_execution_lane:
-                    raise compile_cache.CompiledExecutionLaneUnavailableError(
-                        f"{want_execution_lane.upper()} Forge snapshot {ref!r} is "
-                        f"unusable: {exc}") from exc
-                logger.warning(
-                    "compiled-artifact snapshot %s unusable (%s); serving eager", ref, exc
-                )
-        return None
-
     def _component_share_plan(
         self, spec: EndpointSpec, paths: Dict[str, str], hints: Dict[str, Any]
     ) -> Optional[Dict[str, Dict[str, Any]]]:
@@ -8451,6 +8493,7 @@ class Executor:
         snapshots: Optional[Dict[str, pb.Snapshot]] = None,
         slot_identities: Optional[Dict[str, _ResidencyIdentity]] = None,
         component_paths: Optional[Dict[str, Dict[str, str]]] = None,
+        arm: Optional[_ArmOrder] = None,
     ) -> "_InjectionResult":
         """Typed injection: each slot receives exactly what its ``setup``
         annotation says — a ``str``/``Path`` local path, or a constructed
@@ -8702,7 +8745,7 @@ class Executor:
                             outcome = await _to_thread_complete(
                                 self._enable_compiled,
                                 pipe, spec.compile_cell(), compile_artifact,
-                                compile_selection,
+                                compile_selection, arm,
                             )
                         except compile_cache.CompiledExecutionLaneUnavailableError as exc:
                             # Mandatory (w8a8/w4a4) lane: self-mint also hit a
@@ -8717,6 +8760,11 @@ class Executor:
                                     spec, compile_selection, bug)
                             raise
                         armed = outcome.armed
+                        if armed and not any(
+                                p is pipe for p in result.armed_objects):
+                            # pgw#1093: the injection-scope half of the arm
+                            # fact (the scope half is in `_setup_instance`).
+                            result.armed_objects.append(pipe)
                         pipe_mint = outcome.self_mint
                         result.adoptions.extend(outcome.adoptions)
                         # pgw#824: the arming brain already classified WHY it
@@ -9479,7 +9527,7 @@ class Executor:
                 # classification (no cell was produced at all).
                 activity_mod.emit_event(
                     "self_mint_abort",
-                    f"family={pending.family} key={pending.cell_key}: the "
+                    f"family={pending.family} key={pending.arm_token}: the "
                     f"delegated child produced no adoptable cell "
                     f"({result.detail or result.status}); this object stays "
                     f"eager and nothing is published",
@@ -9546,9 +9594,57 @@ class Executor:
             )
         ))
 
+    def _boot_adopt(
+        self, spec: EndpointSpec, slots: Dict[str, MintSlot],
+    ) -> "Optional[boot_adopt.BootAdoptOutcome]":
+        """§4.27 steps 1-3 for one boot, off the event loop.
+
+        Returns ``None`` when this pod cannot even ATTEMPT the derivation (no
+        declaration for the family, no hub credential yet) — which is not a
+        failure, it is the state every pod was in before this seam existed.
+        Everything past that point is a :class:`BootAdoptOutcome`, and every
+        one of its non-hit outcomes means "boot as this pod booted yesterday".
+        """
+        cfg = spec.compile_cell()
+        family = str(getattr(cfg, "family", "") or "")
+        decl = aot_mint.export_declaration(family)
+        if decl is None:
+            return None
+        try:
+            declared_hint = len(list(aot_declaration.cell_plans(decl)))
+        except Exception:  # noqa: BLE001 — never fatal
+            return None
+        base_url = str(self.file_base_url or "")
+        bearer = str(self.worker_jwt_provider() or "")
+        if not base_url or not bearer:
+            # Pre-Hello, or an embedded worker with no hub. There is nobody to
+            # ask, and deriving a key nobody will answer is pure boot latency.
+            return None
+        work_root = Path(
+            self.store._cache_dir or Path.home() / ".cache" / "gen-worker"
+        ) / "boot-key" / (spec.name or "endpoint")
+        return boot_adopt.attempt(
+            function=spec.name,
+            modules=_mint_modules(spec),
+            cfg=cfg,
+            slots=slots,
+            declared_hint=declared_hint,
+            envelope=fleet_cells.declared_envelope_block(cfg),
+            work_root=work_root,
+            # The memo lives beside the cell cache and OUTLIVES one boot on a
+            # pod with a volume — which is the whole point (§4.28's
+            # compile-once-run-forever promise for cozy-local reads the same
+            # memo through the same closure digest).
+            memo_dir=Path(self.store._cache_dir) if self.store._cache_dir else None,
+            cache_dir=self.store._cache_dir,
+            base_url=base_url,
+            bearer=bearer,
+        )
+
     def _enable_compiled(
         self, pipe: Any, cfg: Any, artifact: Optional[Path],
         delivered: Optional["_CompileArtifactSelection"] = None,
+        arm: Optional[_ArmOrder] = None,
     ) -> "fleet_cells.ArmOutcome":
         """Arm the best available compiled path for a freshly loaded pipeline.
 
@@ -9571,8 +9667,23 @@ class Executor:
         verifies against its own store. The older "self-attested" spelling —
         ``ActiveCompileRef == KeyRef(family, requested_cell_key)`` — compared a
         stamped key against a COMPUTED one, disjoint spaces since pgw#1010, so
-        it could never match; it is retired with the requested key itself."""
+        it could never match; it is retired with the requested key itself.
 
+        pgw#904: with an ``_ArmOrder`` (a Plan dispatch) the fleet POLICY does
+        not run at all. The hub already decided: ``aot_cell`` arms exactly the
+        named artifact or refuses typed, ``dynamo`` arms JIT intake,
+        ``eager_only`` arms nothing."""
+
+        if arm is not None:
+            return fleet_cells.arm_ordered(
+                pipe, cfg, self.store._cache_dir,
+                backend=arm.backend,
+                artifact=artifact,
+                delivered_ref=delivered.ref if delivered else "",
+                delivered_digest=delivered.snapshot_digest if delivered else "",
+                expected=arm.expected,
+                publisher_org=arm.publisher_org,
+            )
         return fleet_cells.enable_compiled(
             pipe, cfg, self.store._cache_dir, artifact,
             publisher=self._cell_publisher(),
@@ -9668,7 +9779,7 @@ class Executor:
         handler and no stack has ever issued that operation. Every adoption
         that actually happens is armed at boot — "boot attach" names WHEN, not
         a hub push; since th#1702 nothing is pushed to a pod at all and the
-        cell is ACQUIRED by `aot_cells` fetch-and-filter — and that arm
+        cell arrives as a Plan's exact `Arm.artifact` (pgw#904) — and that arm
         reported itself in prose (`aot_adopt`, `duration_ms=0`) on a lane with
         no numbers in it. Two builders, one fact, and only the unmeasured builder
         reached the consumer.
@@ -9870,22 +9981,107 @@ class Executor:
     # ---- job intake --------------------------------------------------------
 
     async def handle_run_job(self, run: pb.RunJob) -> None:
-        key = (run.request_id, run.attempt)
+        """The LEGACY wire head. Dies whole with ``RunJob`` at th#1457's cut:
+        it and the ``_legacy_order`` projection it schedules are the only
+        frames on the dispatch path that read ``pb.RunJob``."""
+        job = await self._admit_dispatch(
+            run.request_id, int(run.attempt), run.function_name)
+        if job is None:
+            return
+        job.task = asyncio.create_task(
+            self._supervise_job(
+                job, functools.partial(self._legacy_order, job, run)),
+            name=f"job-{run.request_id}")
+        # pgw#674: the serving set may have changed — re-derive what to
+        # stage next while this job computes.
+        self.preloader.poke()
+
+    async def handle_run_attempt(self, msg: pb.RunAttempt) -> None:
+        """The Plan head (pgw#904): ``RunAttempt`` -> immutable Plan ->
+        ledger admission -> the neutral order the shared driver executes.
+
+        The Plan is built and admitted BEFORE anything materializes: a spec
+        that cannot become a Plan, or an attempt re-dispatched under a
+        different spec digest, refuses without touching a store, a device or
+        the network.
+        """
+        try:
+            plan = PlanFactory.from_run_attempt(msg)
+        except PlanRefusal as exc:
+            if not (msg.HasField("attempt") and msg.attempt.request_id):
+                # No fencing token — nothing to address a JobResult to, and
+                # the contract (accepted-or-result) is unsatisfiable.
+                raise FatalTransportError(
+                    f"run_attempt carries no addressable AttemptId: {exc}")
+            await self._send_result(
+                msg.attempt.request_id, int(msg.attempt.attempt),
+                pb.JOB_STATUS_INVALID, safe_message=_sanitize(str(exc)))
+            return
+        try:
+            self.plans.admit(plan)
+        except PlanConflict as exc:
+            activity_mod.emit_event(
+                "plan_conflict",
+                f"request {plan.attempt.request_id} attempt "
+                f"{plan.attempt.attempt}: {exc}",
+                phase="admission",
+            )
+            # Fail the ATTEMPT closed, in one result. The hub changed what
+            # this fencing token asks for without bumping it, so neither
+            # execution's output may stand — an in-flight job for the same
+            # key is aborted into the refusal rather than allowed to produce
+            # a second, differently-derived result.
+            live = self.jobs.get(plan.key)
+            if live is not None and not live.finished:
+                live.cancel_requested = True
+                if live.ctx is not None:
+                    live.ctx._cancel()
+                if live.exec_task is not None:
+                    live.exec_task.cancel()
+                await self._finish(
+                    live, pb.JOB_STATUS_INVALID,
+                    safe_message=_sanitize(str(exc)))
+            else:
+                await self._send_result(
+                    plan.attempt.request_id, plan.attempt.attempt,
+                    pb.JOB_STATUS_INVALID, safe_message=_sanitize(str(exc)))
+            return
+        job = await self._admit_dispatch(
+            plan.attempt.request_id, plan.attempt.attempt, plan.function_name)
+        if job is None:
+            return
+        grant = msg.grant if msg.HasField("grant") else pb.DeliveryGrant()
+        payload = bytes(msg.input_payload)
+        job.task = asyncio.create_task(
+            self._supervise_job(
+                job,
+                functools.partial(self._plan_order, job, plan, grant, payload)),
+            name=f"job-{plan.attempt.request_id}")
+        self.preloader.poke()
+
+    async def _admit_dispatch(
+        self, request_id: str, attempt: int, function_name: str,
+    ) -> Optional[_Job]:
+        """Shared admission preamble for both wire heads: retransmit re-ack,
+        stale-attempt supersede, serve-goal/drain/function gates. Returns the
+        admitted job with ``JobAccepted`` sent, or ``None`` when this
+        dispatch was answered (re-acked or refused) here."""
+        key = (request_id, attempt)
         existing = self.jobs.get(key)
         if existing is not None and not existing.superseded:
             if not existing.finished:
                 await self._send(pb.WorkerMessage(job_accepted=pb.JobAccepted(
-                    request_id=run.request_id, attempt=run.attempt)))
-            return
+                    request_id=request_id, attempt=attempt)))
+            return None
         # Same request, different attempt: abort the old attempt silently.
         for (rid, att), job in list(self.jobs.items()):
-            if rid == run.request_id and att != run.attempt and not job.finished:
+            if rid == request_id and att != attempt and not job.finished:
                 job.superseded = True
                 self._intent_transition(
                     job.intent_id,
                     pb.LIFECYCLE_INTENT_STATUS_SUPERSEDED,
                     pb.LIFECYCLE_INTENT_STAGE_FINALIZING,
-                    detail=f"superseded by attempt {run.attempt}",
+                    detail=f"superseded by attempt {attempt}",
                 )
                 job.cancel_requested = True
                 if job.ctx is not None:
@@ -9894,7 +10090,7 @@ class Executor:
                     job.exec_task.cancel()
                 self._arm_cancel_unwind_watch(job)
 
-        intent_id = self._job_intent(run)
+        intent_id = self._job_intent(request_id, attempt, function_name)
         if not worker_goals.current().serve_admitted():
             # pgw#930 (§1.17): this pod holds no SERVE goal. It is not a mode
             # check — a pod holding BOTH a serve and a mint goal passes here,
@@ -9917,17 +10113,17 @@ class Executor:
             )
             activity_mod.emit_event(
                 "serve_goal_absent_dispatch_refused",
-                f"request {run.request_id} attempt {run.attempt} for "
-                f"{run.function_name!r} reached a worker holding no serve "
+                f"request {request_id} attempt {attempt} for "
+                f"{function_name!r} reached a worker holding no serve "
                 f"goal — the hub placed tenant work on a mint-only pod "
                 f"(pgw#930)",
                 phase="goal_admission",
             )
             await self._send_result(
-                run.request_id, run.attempt, pb.JOB_STATUS_RETRYABLE,
+                request_id, attempt, pb.JOB_STATUS_RETRYABLE,
                 safe_message="worker holds no serve goal",
             )
-            return
+            return None
         if self.draining:
             self._intent_transition(
                 intent_id,
@@ -9936,26 +10132,27 @@ class Executor:
                 detail="worker draining",
             )
             await self._send_result(
-                run.request_id, run.attempt, pb.JOB_STATUS_RETRYABLE, safe_message="worker draining"
+                request_id, attempt, pb.JOB_STATUS_RETRYABLE,
+                safe_message="worker draining",
             )
-            return
-        spec = self.specs.get(run.function_name)
+            return None
+        spec = self.specs.get(function_name)
         if spec is None:
             self._intent_transition(
                 intent_id,
                 pb.LIFECYCLE_INTENT_STATUS_FAILED,
                 pb.LIFECYCLE_INTENT_STAGE_VALIDATING,
-                detail=f"unknown function {run.function_name!r}",
+                detail=f"unknown function {function_name!r}",
             )
             await self._send_result(
-                run.request_id,
-                run.attempt,
+                request_id,
+                attempt,
                 pb.JOB_STATUS_INVALID,
-                safe_message=f"unknown function {run.function_name!r}",
+                safe_message=f"unknown function {function_name!r}",
             )
-            return
-        if run.function_name in self.unavailable:
-            reason, detail, _ = self.unavailable[run.function_name]
+            return None
+        if function_name in self.unavailable:
+            reason, detail, _ = self.unavailable[function_name]
             self._intent_transition(
                 intent_id,
                 pb.LIFECYCLE_INTENT_STATUS_FAILED,
@@ -9963,16 +10160,16 @@ class Executor:
                 detail=f"function unavailable: {reason}",
             )
             await self._send_result(
-                run.request_id,
-                run.attempt,
+                request_id,
+                attempt,
                 pb.JOB_STATUS_RETRYABLE,
                 safe_message=f"function unavailable: {reason}",
             )
-            return
+            return None
 
         job = _Job(
-            request_id=run.request_id,
-            attempt=run.attempt,
+            request_id=request_id,
+            attempt=attempt,
             spec=spec,
             intent_id=intent_id,
         )
@@ -9984,14 +10181,338 @@ class Executor:
         self._bg_quiet.clear()
         self._bg_last_tenant_activity = time.monotonic()
         self._preempt_background_seeds()
-        logger.info("job admitted %s attempt=%d", run.request_id, run.attempt)
+        logger.info("job admitted %s attempt=%d", request_id, attempt)
         await self._send(pb.WorkerMessage(job_accepted=pb.JobAccepted(
-            request_id=run.request_id, attempt=run.attempt)))
-        job.task = asyncio.create_task(
-            self._supervise_job(job, run), name=f"job-{run.request_id}")
-        # pgw#674: the serving set may have changed — re-derive what to
-        # stage next while this job computes.
-        self.preloader.poke()
+            request_id=request_id, attempt=attempt)))
+        return job
+
+    async def _legacy_order(self, job: _Job, run: pb.RunJob) -> _JobOrder:
+        """Project ``pb.RunJob`` into the neutral order. LEGACY head code —
+        the last dispatch-path frame that reads the wire message, deleted
+        whole with ``RunJob`` at th#1457's cut.
+
+        Note what is NOT projected: ``timeout_ms`` (retired — kill/condemn
+        authority is liveness + progress-staleness, never a clock) and any
+        coarse lane to expand (the ladder twin is deleted; an instruction the
+        endpoint does not itself serve refuses typed in
+        ``_refuse_unservable_lane``)."""
+        spec = job.spec
+        assert spec is not None
+        for undeclared in _undeclared_model_slots(spec, run):
+            logger.warning(
+                "UNDECLARED_MODEL_SLOT function=%s slot=%s request_id=%s: "
+                "dispatched model param not declared in @endpoint(models={...}) "
+                "— ignored, not loaded", spec.name, undeclared, run.request_id)
+        self._refuse_unservable_lane(spec, run.lane)
+        group = self._dispatch_group(run)
+
+        slots: Dict[str, dispatch.SlotOrder] = {}
+        adapters: Dict[str, Tuple[dispatch.AdapterOrder, ...]] = {}
+        for b in run.models:
+            if not b.slot:
+                continue
+            comps = tuple(sorted(
+                (str(k).strip(), str(v).strip())
+                for k, v in b.components.items()
+                if str(k).strip() and str(v).strip()))
+            slots[b.slot] = dispatch.SlotOrder(
+                ref=str(b.ref or "").strip(),
+                components=comps,
+                inference_defaults=str(b.inference_defaults or ""),
+                objective=str(b.objective or ""),
+                distilled=bool(b.distilled),
+                distilled_status=str(b.distilled_status or ""),
+            )
+            if b.loras:
+                adapters[b.slot] = tuple(
+                    dispatch.AdapterOrder(
+                        ref=str(o.ref or "").strip(),
+                        weight=float(o.weight),
+                        inference_defaults=str(o.inference_defaults or ""),
+                    )
+                    for o in b.loras)
+
+        stamped: Optional[Dict[str, Any]] = None
+        if spec.config:
+            gen, raw_stamped = extract_job_config(run)
+            if raw_stamped is not None:
+                declared = {p.name for p in spec.config}
+                stamped = {
+                    k: v for k, v in raw_stamped.items() if k in declared}
+                # Advance the worker store + snapshot file to this dispatch's
+                # stamped values, so subprocesses read the latest on invoke.
+                self.runtime_config.stamp_function(spec.name, stamped, gen)
+
+        def _config_snapshot(name: str, values: Dict[str, Any]) -> Optional[Any]:
+            generation = int(
+                run.config_generation or self.runtime_config.generation)
+            return self.runtime_config.invocation_snapshot(
+                name, values, generation)
+
+        compute = run.compute if run.HasField("compute") else None
+        return _JobOrder(
+            request_id=run.request_id,
+            attempt=int(run.attempt),
+            function_name=run.function_name,
+            payload=bytes(run.input_payload),
+            group=group,
+            slots=slots,
+            adapters=adapters,
+            snapshots=dict(run.snapshots) if run.snapshots else {},
+            input_manifest=manifest_from_run_job(run.input_assets),
+            # Positional call through the LIVE method (tests and tooling
+            # observe/replace `_validate_required_compile` by name).
+            fence=lambda s: self._validate_required_compile(s, run),
+            config_snapshot=_config_snapshot,
+            org=str(run.org or ""),
+            invoker_id=str(run.invoker_id or ""),
+            capability_token=str(run.capability_token or ""),
+            inline_output=run.output_mode == pb.OUTPUT_MODE_INLINE,
+            accelerator=str(compute.accelerator) if compute is not None else "",
+            gpu_index=int(compute.gpu_index) if compute is not None else 0,
+            lane_report=str(run.lane or ""),
+            stamped_config=stamped,
+            arm=None,
+        )
+
+    async def _plan_order(
+        self, job: _Job, plan: Plan, grant: pb.DeliveryGrant, payload: bytes,
+    ) -> _JobOrder:
+        """Project one immutable Plan (+ its rotatable grant) into the
+        neutral order — the Plan head's whole resolution surface (pgw#904).
+
+        There is nothing to resolve: every ref is final, the lane is the
+        bindings, the artifact is named or absent. What happens here is
+        COMPLETENESS checking (a required slot the manifest does not bind
+        refuses typed) and DELIVERY (the grant's digest-keyed transport is
+        joined to the digests the spec pinned; the named cell's bytes are
+        materialized and digest-verified). A grant rotation changes none of
+        the identity inputs, so re-dispatching the same spec under a fresh
+        grant produces an equivalent order.
+        """
+        spec = job.spec
+        assert spec is not None
+        what = (
+            f"request {plan.attempt.request_id} attempt {plan.attempt.attempt} "
+            f"spec {plan.digest}")
+
+        gpu_index = (
+            int(plan.topology.device_ordinals[0])
+            if plan.topology.device_ordinals else 0)
+        if self.topology.execution_groups <= 1:
+            group = 0
+        else:
+            try:
+                group = self.topology.group_ordinal_exact(gpu_index)
+            except TopologyError as exc:
+                raise DispatchGroupUnresolved(
+                    f"{what}: topology device ordinal {gpu_index} is not a "
+                    f"rank-0 device of {self.topology}: {exc}") from exc
+
+        slots: Dict[str, dispatch.SlotOrder] = {}
+        for binding in plan.slots:
+            if binding.slot not in spec.models and binding.slot not in spec.slots:
+                logger.warning(
+                    "UNDECLARED_MODEL_SLOT function=%s slot=%s request_id=%s: "
+                    "spec-bound slot not declared by the endpoint — ignored, "
+                    "not loaded",
+                    spec.name, binding.slot, plan.attempt.request_id)
+            slots[binding.slot] = dispatch.SlotOrder(
+                ref=binding.ref,
+                components=tuple(
+                    (c.component, c.ref) for c in binding.components),
+                inference_defaults=binding.inference_defaults,
+                objective=binding.objective,
+                distilled=binding.distilled,
+                distilled_status=binding.distilled_status,
+            )
+        # Refuse-never-default (the Plan half): the manifest is THE exact
+        # resolved model set, so a declared, non-optional Slot it does not
+        # bind is a hub-side omission — refused, never resurrected from a
+        # code default. (Plain fixed `models={...}` bindings are code-pinned
+        # identity — the release IS the code — and stand as declared.)
+        missing = sorted(
+            name for name, decl in spec.slots.items()
+            if not decl.optional and name not in slots)
+        if missing:
+            raise ValidationError(
+                f"{what}: components manifest binds no ref for required "
+                f"slot(s) {missing} of {spec.name!r}")
+
+        adapters: Dict[str, Tuple[dispatch.AdapterOrder, ...]] = {}
+        for adapter in plan.adapters:
+            adapters[adapter.slot] = adapters.get(adapter.slot, ()) + (
+                dispatch.AdapterOrder(
+                    ref=adapter.ref,
+                    weight=adapter.weight,
+                    inference_defaults=adapter.inference_defaults,
+                ),)
+
+        stamped: Optional[Dict[str, Any]] = None
+        if spec.config and plan.config.values:
+            try:
+                raw = msgspec.msgpack.decode(plan.config.values)
+            except msgspec.DecodeError as exc:
+                raise ValidationError(
+                    f"{what}: undecodable ConfigSnapshot.values: {exc}"
+                ) from None
+            if isinstance(raw, dict):
+                stamped = {str(k): v for k, v in raw.items()}
+        # §4.16: the attempt is bound to VALUES, not to a generation pointer —
+        # nothing is stamped into the worker's config store, and the ctx
+        # snapshot is the spec's own canonical bytes.
+        arm = await self._materialize_arm(plan, grant, what)
+        return _JobOrder(
+            request_id=plan.attempt.request_id,
+            attempt=plan.attempt.attempt,
+            function_name=plan.function_name,
+            payload=payload,
+            group=group,
+            slots=slots,
+            adapters=adapters,
+            snapshots=self._grant_snapshots(plan, grant, what),
+            input_manifest=tuple(
+                self._plan_manifest_entry(a, what) for a in plan.input_assets),
+            fence=functools.partial(self._validate_plan_arm, plan=plan),
+            config_snapshot=lambda _name, _values: plan.config.values or None,
+            org=plan.attribution.org,
+            invoker_id=plan.attribution.invoker_id,
+            capability_token=str(grant.capability_token or ""),
+            inline_output=plan.output_mode == "inline",
+            accelerator=plan.topology.accelerator,
+            gpu_index=gpu_index,
+            lane_report="",  # the bindings ARE the lane; nothing instructs
+            stamped_config=stamped,
+            arm=arm,
+        )
+
+    @staticmethod
+    def _plan_manifest_entry(asset: InputAssetRef, what: str) -> InputManifestEntry:
+        """One spec input-asset IDENTITY as the materializer's manifest row.
+
+        The attested-integrity machinery is blake3-shaped end to end (entry
+        validation, resolver echo, streaming hash), so the spec's
+        algorithm-tagged digest must BE a blake3 one — anything else cannot
+        be verified on this path and refuses typed rather than skipping the
+        check."""
+        digest = str(asset.digest or "")
+        algo, _, hex_part = digest.partition(":")
+        if algo != "blake3" or not hex_part:
+            raise ValidationError(
+                f"{what}: input asset {asset.asset_id!r} digest {digest!r} is "
+                "not a blake3 attestation, which is the only algorithm the "
+                "input materializer verifies")
+        return InputManifestEntry(
+            asset_id=asset.asset_id,
+            source_ref=asset.source_ref,
+            blake3=hex_part,
+            size_bytes=asset.size_bytes,
+            kind=asset.kind,
+            mime_type=asset.mime_type,
+        )
+
+    def _grant_snapshots(
+        self, plan: Plan, grant: pb.DeliveryGrant, what: str,
+    ) -> Dict[str, pb.Snapshot]:
+        """Join the grant's digest-keyed transport to the refs the spec
+        pinned — DELIVERY only, and the one place the split is re-joined.
+        A pinned digest the grant does not carry is a typed refusal naming
+        it; nothing scans for a substitute."""
+        by_ref: Dict[str, str] = {}
+        for slot in plan.slots:
+            by_ref.setdefault(slot.ref, slot.snapshot_digest)
+            for comp in slot.components:
+                by_ref.setdefault(comp.ref, comp.snapshot_digest)
+        for adapter in plan.adapters:
+            by_ref.setdefault(adapter.ref, adapter.snapshot_digest)
+        out: Dict[str, pb.Snapshot] = {}
+        for ref, digest in by_ref.items():
+            if not digest:
+                continue
+            presigned = grant.snapshots.get(digest)
+            if presigned is None:
+                raise RetryableError(
+                    f"{what}: the grant carries no transport for pinned "
+                    f"content {digest} ({ref})")
+            out[ref] = pb.Snapshot(
+                digest=digest,
+                files=[
+                    pb.SnapshotFile(
+                        path=f.path,
+                        size_bytes=f.size_bytes,
+                        digest=f.digest,
+                        url=f.url,
+                        chunk_size_bytes=f.chunk_size_bytes,
+                        chunks=[
+                            pb.ChunkRef(sha256=c.sha256, url=c.url, len=c.len)
+                            for c in f.chunks
+                        ],
+                    )
+                    for f in presigned.files
+                ],
+            )
+        return out
+
+    async def _materialize_arm(
+        self, plan: Plan, grant: pb.DeliveryGrant, what: str,
+    ) -> _ArmOrder:
+        """The exact-artifact half of the cutover: materialize ONLY the
+        identity the spec named (from the grant's transport, digest-verified)
+        and carry pgw#903's expected identity to the arming choke point.
+        ``expected_from_plan`` returning ``None`` is a complete answer — a
+        dynamo/eager arm names nothing and nothing may be armed for it."""
+        artifact = plan.arm.artifact
+        expected = aot_identity.expected_from_plan(plan)
+        if artifact is None or expected is None:
+            return _ArmOrder(backend=plan.arm.backend)
+        presigned = grant.snapshots.get(artifact.content_digest)
+        path = await asyncio.to_thread(
+            aot_delivery.materialize_named_artifact,
+            artifact.cell_ref,
+            artifact.content_digest,
+            presigned,
+            cache_dir=self.store._cache_dir,
+            what=what,
+        )
+        return _ArmOrder(
+            backend="aot_cell",
+            selection=_CompileArtifactSelection(
+                path=path,
+                ref=artifact.cell_ref,
+                snapshot_digest=artifact.content_digest,
+            ),
+            expected=expected,
+            publisher_org=artifact.publisher_org,
+        )
+
+    def _validate_plan_arm(self, spec: EndpointSpec, *, plan: Plan) -> None:
+        """The Plan fence (pgw#904), run where the legacy path ran its
+        ``required_compile`` fence: a READY instance must serve exactly the
+        arm the spec named. A mismatch is a typed refusal tied to the spec
+        digest — never a re-resolution, never a silent substitute."""
+        if spec.cls is None:
+            return
+        rec = self._classes.get(spec.instance_key)
+        if rec is None or not rec.ready:
+            return  # arming happens (or refuses typed) inside ensure_setup
+        active: set[str] = set()
+        for target in rec.compile_targets.values():
+            with target.state_lock:
+                if target.active_compile_ref:
+                    active.add(target.active_compile_ref)
+        artifact = plan.arm.artifact
+        if artifact is None:
+            if active:
+                raise RetryableError(
+                    f"arm_mismatch: spec {plan.digest} orders backend "
+                    f"{plan.arm.backend!r} but the live instance serves armed "
+                    f"cell(s) {sorted(active)}")
+            return
+        if active != {artifact.cell_ref}:
+            raise RetryableError(
+                f"arm_mismatch: spec {plan.digest} names cell "
+                f"{artifact.cell_ref!r}, the live instance serves "
+                f"{sorted(active) or 'no armed cell'}")
 
     def handle_cancel(self, cancel: pb.CancelJob) -> None:
         job = self.jobs.get((cancel.request_id, cancel.attempt))
@@ -10375,7 +10896,9 @@ class Executor:
 
     # ---- job execution -----------------------------------------------------
 
-    async def _supervise_job(self, job: _Job, run: pb.RunJob) -> None:
+    async def _supervise_job(
+        self, job: _Job, make_order: Callable[[], Awaitable[_JobOrder]],
+    ) -> None:
         """pgw#738 never-silent guarantee: a job task that ends WITHOUT having
         reported terminal state is reaped into one.
 
@@ -10384,10 +10907,13 @@ class Executor:
         positioned to know its own task died, and it stayed silent. Every
         escape from ``_run_job``'s own handlers lands here, as does a plain
         return that somehow skipped ``_finish``.
+
+        ``make_order`` is the wire head's projection (pgw#904): everything
+        from here down reads the neutral ``_JobOrder``, never a wire message.
         """
         escaped: Optional[BaseException] = None
         try:
-            await self._run_job(job, run)
+            await self._run_job(job, make_order)
         except asyncio.CancelledError:
             # Worker shutdown / explicit task cancellation. The stream drop is
             # itself a terminal signal to the hub and the loop is going away,
@@ -10434,26 +10960,38 @@ class Executor:
                 ),
             )
 
-    async def _run_job(self, job: _Job, run: pb.RunJob) -> None:
+    async def _run_job(
+        self, job: _Job, make_order: Callable[[], Awaitable[_JobOrder]],
+    ) -> None:
         spec = job.spec
         assert spec is not None
+        # The head's projection runs INSIDE the task so its refusals end the
+        # job with a terminal state instead of going quiet (pgw#779 shape).
+        try:
+            order = await make_order()
+        except DispatchGroupUnresolved as exc:
+            logger.error("refusing %s: %s", job.request_id, exc)
+            await self._finish(
+                job, pb.JOB_STATUS_RETRYABLE, safe_message=_sanitize(str(exc)))
+            return
+        except ExecutionLaneUnavailableError as exc:
+            await self._finish(
+                job, pb.JOB_STATUS_INVALID, safe_message=_sanitize(str(exc)))
+            return
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            status, msg = _map_exception(exc)
+            await self._finish(job, status, safe_message=msg)
+            return
         # pgw#748 phase 1: stamp the execution group BEFORE anything reads
         # residency, admits, loads or sets a device. Contextvars propagate
         # into every coroutine and to_thread hop this job makes, so the whole
         # job — admission, staging, handler, teardown — speaks one group.
-        try:
-            group = self._dispatch_group(run)
-        except DispatchGroupUnresolved as exc:
-            # pgw#779: reported here (not raised out of the task) so the job
-            # ends with a terminal state instead of going quiet.
-            logger.error("refusing %s: %s", run.request_id, exc)
-            await self._finish(
-                job, pb.JOB_STATUS_RETRYABLE, safe_message=_sanitize(str(exc)))
-            return
-        with device_group_scope(group):
-            await self._run_job_grouped(job, run)
+        with device_group_scope(order.group):
+            await self._run_job_grouped(job, order)
 
-    async def _run_job_grouped(self, job: _Job, run: pb.RunJob) -> None:
+    async def _run_job_grouped(self, job: _Job, order: _JobOrder) -> None:
         spec = job.spec
         assert spec is not None
         spec = job.spec = self._group_effective_spec(
@@ -10479,7 +11017,7 @@ class Executor:
             pb.LIFECYCLE_INTENT_STAGE_VALIDATING,
         )
         try:
-            payload: Any = msgspec.msgpack.decode(run.input_payload, type=spec.payload_type)
+            payload: Any = msgspec.msgpack.decode(order.payload, type=spec.payload_type)
         except (msgspec.ValidationError, msgspec.DecodeError) as exc:
             await self._finish(job, pb.JOB_STATUS_INVALID, safe_message=_sanitize(str(exc)))
             return
@@ -10488,31 +11026,18 @@ class Executor:
             # THIS dispatch (instance-per-pick). The derived spec drives the
             # whole job — pins, setup, adapters, ctx.slots — so every
             # downstream consumer sees the pick, never the code seed.
-            spec = job.spec = self._effective_spec(spec, run)
-            # th#913/gw#596: honor a hub-resolved per-request lane. An
-            # unserveable lane is a TYPED refusal naming it (INVALID) —
-            # never a silent fallback.
-            if run.lane:
-                spec = job.spec = self._execution_lane_effective_spec(spec, run.lane)
-        except ExecutionLaneUnavailableError as exc:
-            await self._finish(job, pb.JOB_STATUS_INVALID, safe_message=_sanitize(str(exc)))
-            return
+            spec = job.spec = self._dispatched_spec(spec, order.slots)
         except Exception as exc:
             status, msg = _map_exception(exc)
             await self._finish(job, status, safe_message=msg)
             return
-        for undeclared in _undeclared_model_slots(spec, run):
-            logger.warning(
-                "UNDECLARED_MODEL_SLOT function=%s slot=%s request_id=%s: "
-                "dispatched model param not declared in @endpoint(models={...}) "
-                "— ignored, not loaded", spec.name, undeclared, run.request_id)
         if spec.cls is not None:
             # Register the derived per-pick spec before fencing so the job is
             # a visible record owner and vacate cannot race the validated
             # incarnation.
             self._class_record(spec)
         try:
-            self._validate_required_compile(spec, run)
+            order.fence(spec)
         except Exception as exc:
             status, msg = _map_exception(exc)
             await self._finish(job, status, safe_message=msg)
@@ -10532,7 +11057,7 @@ class Executor:
         # exactly the lane it executes, at call time.
         try:
             with self.store.residency.admit(
-                self._job_admission_sizes(spec, routed, run),
+                self._job_admission_sizes(spec, routed, order.snapshots),
                 # pgw#652: weights are not the whole cost of admitting a
                 # request — a concurrent 1024^2 diffusion request also holds
                 # GBs of latents/attention workspace. The claim is LEARNED
@@ -10541,24 +11066,23 @@ class Executor:
                 activation_bytes=self.store.residency.activation_hint(
                     self._activation_key(spec)),
             ):
-                await self._run_job_pinned(job, run, payload, routed)
+                await self._run_job_pinned(job, order, payload, routed)
         finally:
             # The whole-job pin is now gone. Only a measured increase that
             # satisfies a remembered requirement produces capacity progress.
             await self._observe_host_ram_progress([])
 
     async def _run_job_pinned(
-        self, job: _Job, run: pb.RunJob, payload: Any, routed: List[str]
+        self, job: _Job, order: _JobOrder, payload: Any, routed: List[str]
     ) -> None:
         spec = job.spec
         assert spec is not None
         concurrency_at_start = len(self.in_flight_keys()) - 1
 
-        snapshots = dict(run.snapshots) if run.snapshots else {}
-        compute = run.compute if run.HasField("compute") else None
-        needs_gpu = (compute.accelerator == "cuda") if compute is not None else spec.needs_gpu
-        gpu_index = int(compute.gpu_index) if compute is not None else 0
-        timeout_ms = int(run.timeout_ms or 0) or int(spec.timeout_ms or 0)
+        snapshots = dict(order.snapshots)
+        needs_gpu = (
+            (order.accelerator == "cuda") if order.accelerator else spec.needs_gpu)
+        gpu_index = order.gpu_index
 
         producer = spec.kind != "inference"
         source_info = _reserved_repo_info(payload, "source") if producer else {}
@@ -10578,7 +11102,7 @@ class Executor:
         # None and save_checkpoint silently rides the media route (256 MiB
         # cap) instead of the job-bound checkpoint grant.
         execution_hints: Dict[str, Any] = {}
-        if run.output_mode == pb.OUTPUT_MODE_INLINE:
+        if order.inline_output:
             execution_hints["output_format"] = "inline"
         job_id: Optional[str] = None
         # Producer-only ctx state (pgw#526): the reserved source/destination
@@ -10590,7 +11114,7 @@ class Executor:
             dest_repo = _producer_destination_repo(payload, destination_info)
             if dest_repo:
                 execution_hints["destination_repo"] = dest_repo
-            job_id = _capability_job_id(run.capability_token)
+            job_id = _capability_job_id(order.capability_token)
             producer_kwargs = dict(
                 source_info=source_info,
                 destination_info=destination_info,
@@ -10601,22 +11125,22 @@ class Executor:
 
         ctx_cls = _CONTEXT_BY_KIND.get(spec.kind, RequestContext)
         ctx = ctx_cls(
-            request_id=run.request_id,
+            request_id=order.request_id,
             job_id=job_id,
             emitter=self._make_ctx_emitter(job),
-            owner=run.org or None,
-            invoker_id=run.invoker_id or None,
-            timeout_ms=timeout_ms or None,
+            owner=order.org or None,
+            invoker_id=order.invoker_id or None,
             file_api_base_url=self.file_base_url or None,
-            worker_capability_token=run.capability_token or None,
-            models={b.slot: b.ref for b in run.models},
+            worker_capability_token=order.capability_token or None,
+            models={slot: so.ref for slot, so in order.slots.items()},
             loras={
-                b.slot: tuple(
-                    {"ref": ov.ref, "weight": float(ov.weight) or 1.0} for ov in b.loras
+                slot: tuple(
+                    {"ref": a.ref, "weight": float(a.weight) or 1.0}
+                    for a in advs
                 )
-                for b in run.models if b.loras
+                for slot, advs in order.adapters.items() if advs
             },
-            **_resolve_slots_kwargs(spec, run),
+            **_resolve_slots_kwargs(spec, order.slots, order.adapters),
             execution_hints=execution_hints,
             **producer_kwargs,
         )
@@ -10632,19 +11156,19 @@ class Executor:
             ctx._arm_deferred_outputs()
         if job.cancel_requested:
             ctx._cancel()
-        if run.capability_token and self.file_base_url:
+        if order.capability_token and self.file_base_url:
             from .capability_renewal import renew_capability_while_running
 
             job.renew_task = asyncio.create_task(
                 renew_capability_while_running(
                     file_base_url=self.file_base_url,
-                    request_id=run.request_id,
-                    attempt=run.attempt,
+                    request_id=order.request_id,
+                    attempt=order.attempt,
                     get_worker_jwt=self.worker_jwt_provider,
                     get_token=lambda: ctx._worker_capability_token or "",
                     set_token=lambda t: setattr(ctx, "_worker_capability_token", t),
                 ),
-                name=f"cap-renew-{run.request_id}",
+                name=f"cap-renew-{order.request_id}",
             )
 
         try:
@@ -10658,11 +11182,11 @@ class Executor:
             await _to_thread_complete(
                 materialize_input_assets,
                 payload,
-                run.request_id,
-                attempt=run.attempt,
-                manifest=manifest_from_run_job(run.input_assets),
+                order.request_id,
+                attempt=order.attempt,
+                manifest=order.input_manifest,
                 file_base_url=self.file_base_url or "",
-                capability_token=run.capability_token or "",
+                capability_token=order.capability_token or "",
                 cancel_check=lambda: ctx.cancelled,
             )
             # th#1111: pre-handler stage (outside runtime_ms).
@@ -10693,7 +11217,8 @@ class Executor:
                     blocker_intent_id=setup_intent,
                     detail=f"waiting for function {spec.name}",
                 )
-            instance = await self.ensure_setup(spec, snapshots, promote_slots=routed)
+            instance = await self.ensure_setup(
+                spec, snapshots, promote_slots=routed, arm=order.arm)
             if setup_intent:
                 self._intent_transition(
                     job.intent_id,
@@ -10703,7 +11228,8 @@ class Executor:
             # th#913/gw#596: the concrete lane actually serving this job.
             # th#1050: ctx.lane exposes the same post-degrade truth to the
             # handler (declared-lane endpoints branch on it).
-            job.execution_lane = self._served_execution_lane(spec, instructed=run.lane)
+            job.execution_lane = self._served_execution_lane(
+                spec, instructed=order.lane_report)
             # pgw#789: the shape coordinate, taken from the EXECUTED payload
             # with endpoint defaults applied. runtime_terms carries these only
             # when the endpoint declares a runtime formula (and the hub drops
@@ -10713,23 +11239,22 @@ class Executor:
                 payload, self._effective_config(spec))
             ctx._set_execution_lane(job.execution_lane)
             # th#1087: effective declared-config values for this dispatch.
-            effective_config = self._effective_config(spec, run)
+            effective_config = self._effective_config(
+                spec, stamped=order.stamped_config)
             invocation_snapshot = None
             if spec.config:
-                config_generation = int(
-                    run.config_generation or self.runtime_config.generation
-                )
-                invocation_snapshot = self.runtime_config.invocation_snapshot(
-                    spec.name,
-                    effective_config,
-                    config_generation,
-                )
+                # Head-owned snapshotting (pgw#904): the legacy head encodes
+                # values + generation; the Plan head answers with the spec's
+                # own canonical ConfigSnapshot bytes (§4.16 — values, never a
+                # generation pointer).
+                invocation_snapshot = order.config_snapshot(
+                    spec.name, effective_config)
             ctx._set_config(
                 effective_config,
                 snapshot=invocation_snapshot,
             )
             kwargs = await self._handler_kwargs(spec, snapshots)
-            adapters = await self._prepare_adapters(run, spec, snapshots)
+            adapters = await self._prepare_adapters(order.adapters, spec, snapshots)
             ctx.raise_if_cancelled("canceled")
         except (asyncio.CancelledError, CanceledError):
             await self._finish(job, pb.JOB_STATUS_CANCELED, safe_message="canceled")
@@ -10810,13 +11335,13 @@ class Executor:
                     await self._intent_await(
                         job.intent_id,
                         gpu_permit.acquire(),
-                        operation=f"GPU permit for request {run.request_id}",
+                        operation=f"GPU permit for request {order.request_id}",
                         status=pb.LIFECYCLE_INTENT_STATUS_WAITING,
                         stage=pb.LIFECYCLE_INTENT_STAGE_WAIT_GPU_SLOT,
                         reason=pb.LIFECYCLE_WAIT_REASON_GPU_SLOT,
                     )
                     permit_token = self._permits.take(
-                        gpu_permit, f"request {run.request_id}")
+                        gpu_permit, f"request {order.request_id}")
                     # th#1111: the permit wait was in NO metric — it precedes
                     # the handler window, so runtime_ms never saw it.
                     ctx._stages.record_pre(
@@ -10824,7 +11349,7 @@ class Executor:
                     self._loop = asyncio.get_running_loop()
                     lease = _GpuSlotLease(
                         gpu_permit, self._loop, self._permits,
-                        f"request {run.request_id}", permit_token)
+                        f"request {order.request_id}", permit_token)
                     ctx._gpu_slot_lease = lease
                     # pgw#954: gate-holding parents may now yield. What still
                     # cannot is a job carrying per-request adapters — a
@@ -10855,7 +11380,7 @@ class Executor:
                 # Last execution fence: no adapter mutation or tenant handler
                 # has run yet. The repeated check catches a replacement between
                 # scheduler assignment/intake and this GPU turn.
-                self._validate_required_compile(spec, run)
+                order.fence(spec)
                 # pgw#687: past here this job owns the permit/gate — it is no
                 # longer refusable-in-place by the cancel-unwind quarantine.
                 job.executing = True
@@ -10875,7 +11400,7 @@ class Executor:
                             pipe = self._adapter_target(spec, slot)
                             ref = wire_ref(spec.models[slot])
                             await asyncio.to_thread(
-                                self._adapters.activate, ref, pipe, prepared, run.request_id
+                                self._adapters.activate, ref, pipe, prepared, order.request_id
                             )
                             active.append((ref, pipe))
                         # Explicit activation (gw#399): a slot this request
@@ -10891,7 +11416,7 @@ class Executor:
                                 pipe = self._slot_pipeline(spec, slot)
                                 if pipe is not None:
                                     await asyncio.to_thread(
-                                        self._adapters.deactivate, ref, pipe, run.request_id
+                                        self._adapters.deactivate, ref, pipe, order.request_id
                                     )
                         ctx.raise_if_cancelled("canceled")
                         # pgw#676: name the execution before the GPU touches
@@ -10901,7 +11426,7 @@ class Executor:
 
                         inflight_token = postmortem_mod.note_inflight(
                             "request", spec.name,
-                            request_id=str(run.request_id or ""))
+                            request_id=str(order.request_id or ""))
                         try:
                             from . import compile_cache as compile_cache_mod
 
@@ -10913,7 +11438,7 @@ class Executor:
                             with compile_cache_mod.tenant_serve_window():
                                 output = await self._execute(
                                     job, spec, instance, ctx, payload, kwargs,
-                                    timeout_ms=timeout_ms, gpu_index=gpu_index)
+                                    gpu_index=gpu_index)
                         except BaseException as exc:
                             # pgw#737: a tenant OOM while this worker was
                             # minting is the mint's fault, and it is fixable
@@ -10928,8 +11453,7 @@ class Executor:
                                     with compile_cache_mod.tenant_serve_window():
                                         output = await self._execute(
                                             job, spec, instance, ctx, payload,
-                                            kwargs, timeout_ms=timeout_ms,
-                                            gpu_index=gpu_index)
+                                            kwargs, gpu_index=gpu_index)
                                 except BaseException as retry_exc:
                                     await self._quarantine_for_oom(
                                         spec, ctx, retry_exc)
@@ -10950,7 +11474,7 @@ class Executor:
                         # deadline / handler error); attachments stay resident.
                         for ref, pipe in active:
                             await asyncio.to_thread(
-                                self._adapters.deactivate, ref, pipe, run.request_id
+                                self._adapters.deactivate, ref, pipe, order.request_id
                             )
             # The peak is read BEFORE the permit is released: the next job
             # resets the CUDA peak-allocator watermark when it takes the GPU,
@@ -10985,7 +11509,7 @@ class Executor:
                 drained = await asyncio.to_thread(_drain)
                 logger.info(
                     "finalize tail: %d deferred output(s) encoded+uploaded "
-                    "slotless for request %s", drained, run.request_id)
+                    "slotless for request %s", drained, order.request_id)
             handler_done = time.monotonic()
             # th#1111: the stage map's window must cover the tail it now
             # contains, so image_encode/credential_stamp/upload land in
@@ -11020,7 +11544,7 @@ class Executor:
                     logger.info(
                         "FINALIZE_OVERLAP fn=%s request=%s handoff=%s "
                         "slot_held_ms=%d handler_wall_ms=%d overlap_ms=%d",
-                        spec.name, run.request_id,
+                        spec.name, order.request_id,
                         "handler" if overlapped else "executor",
                         int((released_at - started) * 1000),
                         int((handler_done - started) * 1000),
@@ -11034,18 +11558,23 @@ class Executor:
                 inline: Optional[bytes] = None
                 blob_ref: Optional[str] = None
                 if output is not None:
-                    inline, blob_ref = await self._serialize_output(ctx, run, output)
+                    inline, blob_ref = await self._serialize_output(
+                        ctx, order.request_id, output)
                 await self._finish(job, pb.JOB_STATUS_OK, inline=inline, blob_ref=blob_ref,
                                    metrics=metrics)
             else:
-                inline, blob_ref = await self._serialize_output(ctx, run, output)
+                inline, blob_ref = await self._serialize_output(
+                    ctx, order.request_id, output)
                 await self._finish(job, pb.JOB_STATUS_OK, inline=inline, blob_ref=blob_ref,
                                    metrics=metrics)
-        except _DeadlineExceeded:
+        except _ExecutionStalled as exc:
+            # The process confessed a stall (liveness + progress-staleness,
+            # never a clock). RETRYABLE: nothing about the caller's input is
+            # wrong, and the hub re-routes onto a worker that is advancing.
             metrics = self._metrics(queue_ms, started, concurrency_at_start, gpu_index,
                                     execution_lane=job.execution_lane)
-            await self._finish(job, pb.JOB_STATUS_FATAL, safe_message="deadline exceeded",
-                               metrics=metrics)
+            await self._finish(job, pb.JOB_STATUS_RETRYABLE,
+                               safe_message=_sanitize(str(exc)), metrics=metrics)
         except BaseException as exc:
 
             if isinstance(exc, CompiledExecutionLaneUnavailableError):
@@ -11141,7 +11670,10 @@ class Executor:
         return kwargs
 
     async def _prepare_adapters(
-        self, run: pb.RunJob, spec: EndpointSpec, snapshots: Dict[str, pb.Snapshot]
+        self,
+        adapters: Mapping[str, Tuple[dispatch.AdapterOrder, ...]],
+        spec: EndpointSpec,
+        snapshots: Dict[str, pb.Snapshot],
     ) -> Dict[str, List[lora_util.PreparedAdapter]]:
         """Materialize + parse the job's per-slot LoRA overlays (gw#393).
 
@@ -11149,7 +11681,7 @@ class Executor:
         ref-index, ModelEvents — so the hub learns adapter download bandwidth
         like any ref); parsed state dicts hit the digest-keyed RAM LRU.
         GPU-free: application happens later, under the job's GPU slot."""
-        overlays = [(b.slot, list(b.loras)) for b in run.models if b.loras]
+        overlays = [(slot, list(advs)) for slot, advs in adapters.items() if advs]
         if not overlays:
             return {}
         total = sum(len(loras) for _, loras in overlays)
@@ -11374,6 +11906,9 @@ class Executor:
                 transitions.append(
                     (ref, before, after, estimate_pipeline_size_gb(obj))
                 )
+        refused = await self._refuse_unfittable_offload(spec, transitions)
+        if refused:
+            transitions = []
         for ref, from_mode, to_mode, needed_gb in transitions:
             self._record_demotion(
                 spec, ref=ref, phase="inference",
@@ -11386,6 +11921,19 @@ class Executor:
         rec = self._classes.get(spec.instance_key)
         if rec is not None and rec.ready:
             rec.stale = True
+        if refused:
+            try:
+                ctx.log(
+                    f"DEGRADED_MODE=refused fn={spec.name}: CUDA OOM, and the "
+                    f"offloaded reload the ladder would run does not fit this "
+                    f"pod's host RAM ({refused}). The function is disabled "
+                    f"here and the hub re-places it; this worker does not "
+                    f"attempt the reload.",
+                    level="error",
+                )
+            except Exception:
+                pass
+            return
         if not transitions:
             logger.warning(degraded_log_line(
                 event="engaged", fn=spec.name, phase="inference",
@@ -11401,6 +11949,106 @@ class Executor:
         except Exception:
             pass
 
+    async def _refuse_unfittable_offload(
+        self, spec: EndpointSpec,
+        transitions: List[Tuple[str, str, str, float]],
+    ) -> str:
+        """pgw#1063: price the offloaded reload the ladder is about to
+        prescribe, and refuse the DEGRADE when the host cannot hold it.
+
+        THREAT (§4.25): an offload rung keeps the whole weight set in host
+        RAM. ie#615's H3 degrade re-staged a 105 GB set into a 233.76 GiB
+        cgroup that was already holding the previous staging's anon — every
+        fault went through direct reclaim, `read_bytes` reached 1.578 TB
+        (a 15x re-read of a 105 GB set) over 37 minutes of billed H100, and
+        the kernel OOM-killed the child. That death was arithmetically
+        certain at minute zero, off numbers this worker already had.
+
+        The observable is the same one pgw#752 refuses on: tree bytes on
+        disk plus the staging floor against the cgroup-aware host TOTAL. A
+        shortfall against the total is structural — no eviction, and no
+        identical pod, changes it (th#1228) — so it reports as a hardware
+        axis, the function self-disables here, and the hub places the work
+        somewhere that can hold it. A shortfall against what is available
+        RIGHT NOW keeps the rung but publishes the typed per-ref capacity
+        block, so the retry is not re-admitted onto this worker while the
+        quarantined instance's own staging is still resident — the window
+        attempt 5 sat in for the whole 37 minutes.
+
+        Returns the structural refusal summary, or "" when the ladder may
+        proceed."""
+        res = self.store.residency
+        worst: Tuple[int, str] = (0, "")
+        for ref, _from_mode, to_mode, _needed_gb in transitions:
+            if not keeps_weights_in_host_ram(to_mode):
+                continue
+            local = res.local_path(ref)
+            if local is None:
+                continue
+            tree = await asyncio.to_thread(disk_gc.tree_bytes, Path(local))
+            if tree > worst[0]:
+                worst = (tree, ref)
+        incoming, ref = worst
+        if incoming <= 0:
+            return ""
+        headroom = await asyncio.to_thread(res.host_ram_headroom, incoming)
+        if headroom.sufficient:
+            return ""
+        if not headroom.structural:
+            # It fits a host this size — just not this host RIGHT NOW, with
+            # the quarantined instance's own staging still resident. That is
+            # the ie#615 shape, and the thing that must not happen is the
+            # RE-ADMISSION landing back here mid-reload (attempt 5 sat in
+            # that window for the whole 37 minutes). Publishing the typed
+            # per-ref capacity block is how this worker says so; it clears
+            # itself the moment measured headroom covers the requirement.
+            await self._record_host_ram_failure([ref], InsufficientHostRamError(
+                spec.name,
+                incoming_bytes=incoming,
+                floor_bytes=headroom.floor_bytes,
+                required_bytes=headroom.required_bytes,
+                available_before_bytes=headroom.available_bytes,
+                available_after_bytes=headroom.available_bytes,
+                total_bytes=headroom.total_bytes,
+            ))
+            logger.warning(degraded_log_line(
+                event="engaged", fn=spec.name, model=ref, phase="inference",
+                from_rung="resident", to_rung="model_offload",
+                free_gb=get_available_vram_gb(),
+                detail="the offloaded reload does not fit this host's CURRENT "
+                       "headroom; the rung is learned but the ref is blocked "
+                       "here until measured headroom covers it, so the retry "
+                       "is not re-admitted into a reload that cannot fit "
+                       "(pgw#1063)",
+            ))
+            return ""
+        error = HostRamCapacityError(
+            spec.name,
+            incoming_bytes=incoming,
+            floor_bytes=headroom.floor_bytes,
+            required_bytes=headroom.required_bytes,
+            available_before_bytes=headroom.available_bytes,
+            available_after_bytes=headroom.available_bytes,
+            total_bytes=headroom.total_bytes,
+        )
+        summary = (
+            f"the {ref} weight set is "
+            f"{incoming / float(1 << 30):.1f}GiB and an offloaded pipeline "
+            f"keeps it in host RAM; required "
+            f"{headroom.required_bytes / float(1 << 30):.1f}GiB against a "
+            f"{headroom.total_bytes / float(1 << 30):.1f}GiB host total"
+        )
+        logger.error(degraded_log_line(
+            event="refused", fn=spec.name, model=ref, phase="inference",
+            from_rung="resident", to_rung="model_offload",
+            free_gb=get_available_vram_gb(),
+            detail=f"the offloaded reload cannot fit its own staging: "
+                   f"{summary}. Refusing the degrade instead of thrashing "
+                   f"the host to a kernel OOM (pgw#1063).",
+        ))
+        await self._record_host_ram_failure([ref], error)
+        return summary
+
     async def _execute(
         self,
         job: _Job,
@@ -11410,12 +12058,21 @@ class Executor:
         payload: Any,
         kwargs: Dict[str, Any],
         *,
-        timeout_ms: int,
         gpu_index: int,
     ) -> Any:
+        """Run the handler until it finishes — or until the process CONFESSES
+        it is stalled.
+
+        There is no wall deadline here, deliberately (pgw#904 part d, th#1457's
+        `timeout_ms` deletion, the standing no-magic-timeouts rule): a clock
+        cannot distinguish a slow-but-advancing handler from a wedged one, so a
+        fixed duration names no threat (§4.24). The abort authority is
+        ``progress.self_diagnosis()`` — non-None only when even the FRESHEST
+        open counter is stale past its own per-phase window, the same typed
+        ``self_stalled`` confession the activity beat reports to the hub.
+        """
         bound = spec.method if instance is None else getattr(instance, spec.attr_name)
         call_kwargs = {spec.ctx_param: ctx, spec.payload_param: payload, **kwargs}
-        timeout_s = (timeout_ms / 1000.0) if timeout_ms > 0 else None
 
         loop = asyncio.get_running_loop()
         if spec.is_async_gen:
@@ -11432,13 +12089,23 @@ class Executor:
         # interval runtime_ms measures).
         ctx._stages.handler_open()
         try:
-            return await asyncio.wait_for(asyncio.shield(job.exec_task), timeout_s)
-        except asyncio.TimeoutError:
-            ctx._cancel()
-            job.exec_task.cancel()
-            if not spec.is_async:
-                self._reap_stuck_thread(job)
-            raise _DeadlineExceeded()
+            while True:
+                try:
+                    return await asyncio.wait_for(
+                        asyncio.shield(job.exec_task), _STALL_POLL_S)
+                except asyncio.TimeoutError:
+                    stalled = progress_mod.self_diagnosis()
+                    if stalled is None:
+                        continue  # advancing (or evidence-free): keep waiting
+                    ctx._cancel()
+                    job.exec_task.cancel()
+                    if not spec.is_async:
+                        self._reap_stuck_thread(job)
+                    raise _ExecutionStalled(
+                        f"self_stalled: counter {stalled.name!r} "
+                        f"({stalled.unit}) has not advanced for "
+                        f"{stalled.age_s:.0f}s (window {stalled.window_s:.0f}s)"
+                    ) from None
         except asyncio.CancelledError:
             # CancelJob path: the exec task was cancelled underneath us.
             raise CanceledError("canceled")
@@ -11505,15 +12172,32 @@ class Executor:
             except Exception:
                 logger.debug("ctx event send failed for %s", job.request_id, exc_info=True)
 
+        # pgw#894: THIS REQUEST'S counter, registered under this request's own
+        # scope. It used to be `activity.current().counter("infer:steps", ...)`
+        # — a serving request feeding whatever activity happened to be current,
+        # which on a pod running a background mint is the MINT. The hub
+        # advances an activity's `UpdatedAt` from a counter-name change or
+        # value increase (`worker_activity.go:323-338`), and that timestamp is
+        # what its stall/condemnation path reads: measured on the standing
+        # chaos hub, 28 lines reported `infer:steps` under `self_mint_compile`
+        # and line 4542 declined a condemnation because that mint activity was
+        # "0s ago". The counter still proves the PROCESS is alive — a
+        # registry-wide `progress.freshest()` sees it, which is what the
+        # in-call stall loop and the drain use — it just no longer answers a
+        # question about work it is not doing.
+        #
+        # The old comment justified the credit with "warmup forwards run
+        # GPU-bound with a quiet CPU". Warmup does not reach here: it builds
+        # its context through `warmup.warm_context`, which passes no emitter
+        # at all, and reports its own activity-owned `warmup:jobs` counter.
+        steps = progress_mod.counter(
+            "infer:steps", progress_mod.UNIT_STEPS,
+            owner=f"request:{job.request_id}")
+
         def _emit(event: Dict[str, Any]) -> None:
             if job.finished:
                 return
-            # gw#621: a ctx event is real forward progress — feed the open
-            # activity's step counter (warmup forwards run GPU-bound with a
-            # quiet CPU; watchdog evidence alone would read stalled).
-            act = activity_mod.current()
-            if act is not None:
-                act.counter("infer:steps", progress_mod.UNIT_STEPS).add(1)
+            steps.add(1)
             try:
                 data = msgspec.json.encode(event)
             except Exception:
@@ -11570,7 +12254,7 @@ class Executor:
     # ---- results -----------------------------------------------------------
 
     async def _serialize_output(
-        self, ctx: RequestContext, run: pb.RunJob, output: Any
+        self, ctx: RequestContext, request_id: str, output: Any
     ) -> Tuple[Optional[bytes], Optional[str]]:
         # th#1130 safety net: msgpack reads struct fields straight off the C
         # layout, so an un-drained deferred asset would serialize as nulls.
@@ -11579,7 +12263,7 @@ class Executor:
         if ctx._deferred.pending():
             logger.error(
                 "deferred outputs reached serialization un-drained for %s — "
-                "materializing inline", run.request_id)
+                "materializing inline", request_id)
             await asyncio.to_thread(ctx._drain_deferred_outputs)
         data = msgspec.msgpack.encode(output)
         if len(data) <= INLINE_RESULT_MAX_BYTES:
@@ -11589,7 +12273,7 @@ class Executor:
             # `Prefer: bytes=inline` media hint must not decide whether the
             # transport blob this ref names actually exists.
             asset = await asyncio.to_thread(
-                ctx._save_result_envelope, f"results/{run.request_id}.msgpack", data
+                ctx._save_result_envelope, f"results/{request_id}.msgpack", data
             )
             ref = getattr(asset, "ref", "") or ""
             if not ref:
@@ -11598,7 +12282,7 @@ class Executor:
                 raise RuntimeError("result envelope was not uploaded")
             return None, ref
         except Exception as exc:
-            logger.warning("result blob upload failed for %s: %s", run.request_id, exc)
+            logger.warning("result blob upload failed for %s: %s", request_id, exc)
             raise RetryableError("output upload failed") from exc
 
     @staticmethod
@@ -11686,6 +12370,12 @@ class Executor:
         if job.finished:
             return
         job.finished = True
+        # pgw#894/pgw#962: a request's scope dies with the request. A counter
+        # left open after its producer stopped is the min-age counter of work
+        # nobody is doing, and it confesses for whoever asks next.
+        progress_mod.counter(
+            "infer:steps", progress_mod.UNIT_STEPS,
+            owner=f"request:{job.request_id}").finish()
         # th#1111: stamp the per-stage breakdown on EVERY terminal path (ok,
         # deadline, cancel, error) — a slow request's stages are exactly the
         # ones worth seeing.
@@ -11768,5 +12458,6 @@ class Executor:
             self._bg_quiet.set()
 
 
-class _DeadlineExceeded(Exception):
-    pass
+class _ExecutionStalled(Exception):
+    """The registry's own self_stalled confession, applied to the in-flight
+    handler. Raised only on ``progress.self_diagnosis()`` — never a clock."""

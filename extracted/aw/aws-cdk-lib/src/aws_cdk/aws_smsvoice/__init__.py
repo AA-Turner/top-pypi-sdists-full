@@ -3709,6 +3709,290 @@ class CfnProtectConfigurationProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_smsvoice_61a140be.IRegistrationRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnRegistration(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_smsvoice.CfnRegistration",
+):
+    '''A registration that has been created.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-registration.html
+    :cloudformationResource: AWS::SMSVOICE::Registration
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_smsvoice as smsvoice
+        
+        cfn_registration = smsvoice.CfnRegistration(self, "MyCfnRegistration",
+            registration_type="registrationType",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        registration_type: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::SMSVOICE::Registration``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param registration_type: The type of registration form to create.
+        :param tags: An array of tags (key and value pairs) to associate with the registration.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1bb0546c76099396135f7793f258dd4f7438f8b9e64353fffc533c8e37af0035)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRegistrationProps(registration_type=registration_type, tags=tags)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForRegistration")
+    @builtins.classmethod
+    def arn_for_registration(
+        cls,
+        resource: "_aws_smsvoice_61a140be.IRegistrationRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__df054fd7218a7f8c11c15c9eea6c44d60f740dba3187e777cdff9bae39ad43e1)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRegistration", [resource]))
+
+    @jsii.member(jsii_name="isCfnRegistration")
+    @builtins.classmethod
+    def is_cfn_registration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRegistration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fccbfbbee2e93354905ea899c83aff001f5a7430653e99481bbe6605f8e077d5)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRegistration", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__437943a4ea932dea7f4028d6fd0a897d8e073acd05bdee88d93cd45e4c7ab594)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__64eb63f9933d1a7b274976ca3f52df6479aee0026e5527d7068e93485f7a7beb)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedTimestamp")
+    def attr_created_timestamp(self) -> builtins.str:
+        '''The time when the registration was created, in UNIX epoch time format.
+
+        :cloudformationAttribute: CreatedTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCurrentVersionNumber")
+    def attr_current_version_number(self) -> jsii.Number:
+        '''The current version number of the registration.
+
+        :cloudformationAttribute: CurrentVersionNumber
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrCurrentVersionNumber"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRegistrationArn")
+    def attr_registration_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) for the registration.
+
+        :cloudformationAttribute: RegistrationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRegistrationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRegistrationId")
+    def attr_registration_id(self) -> builtins.str:
+        '''The unique identifier for the registration.
+
+        :cloudformationAttribute: RegistrationId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRegistrationId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRegistrationStatus")
+    def attr_registration_status(self) -> builtins.str:
+        '''The status of the registration.
+
+        :cloudformationAttribute: RegistrationStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRegistrationStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="registrationRef")
+    def registration_ref(self) -> "_aws_smsvoice_61a140be.RegistrationReference":
+        '''A reference to a Registration resource.'''
+        return typing.cast("_aws_smsvoice_61a140be.RegistrationReference", jsii.get(self, "registrationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="registrationType")
+    def registration_type(self) -> builtins.str:
+        '''The type of registration form to create.'''
+        return typing.cast(builtins.str, jsii.get(self, "registrationType"))
+
+    @registration_type.setter
+    def registration_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a4f3a2b1d6b8b8695d6d161eb45dc50520cbe7194168c1cd75ac997ba2482be1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "registrationType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of tags (key and value pairs) to associate with the registration.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0de3a386bc17686613bb0d4a803268cc8b14795c97eb344e3da4ee1bf962e246)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_smsvoice.CfnRegistrationProps",
+    jsii_struct_bases=[],
+    name_mapping={"registration_type": "registrationType", "tags": "tags"},
+)
+class CfnRegistrationProps:
+    def __init__(
+        self,
+        *,
+        registration_type: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRegistration``.
+
+        :param registration_type: The type of registration form to create.
+        :param tags: An array of tags (key and value pairs) to associate with the registration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-registration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_smsvoice as smsvoice
+            
+            cfn_registration_props = smsvoice.CfnRegistrationProps(
+                registration_type="registrationType",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f851ff8771accd3084396c6e77e11ac606347d216750884220cfa1c77f949ab8)
+            check_type(argname="argument registration_type", value=registration_type, expected_type=type_hints["registration_type"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "registration_type": registration_type,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def registration_type(self) -> builtins.str:
+        '''The type of registration form to create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-registration.html#cfn-smsvoice-registration-registrationtype
+        '''
+        result = self._values.get("registration_type")
+        assert result is not None, "Required property 'registration_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of tags (key and value pairs) to associate with the registration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-registration.html#cfn-smsvoice-registration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRegistrationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_smsvoice_61a140be.IResourcePolicyRef)
 class CfnResourcePolicy(
     _aws_cdk_0cae9daa.CfnResource,
@@ -4261,6 +4545,8 @@ __all__ = [
     "CfnPoolProps",
     "CfnProtectConfiguration",
     "CfnProtectConfigurationProps",
+    "CfnRegistration",
+    "CfnRegistrationProps",
     "CfnResourcePolicy",
     "CfnResourcePolicyProps",
     "CfnSenderId",
@@ -4892,6 +5178,60 @@ def _typecheckingstub__78062d029c984e0fa8e4c182345051e18cb19671a3a88fec3a04ea748
     *,
     country_rule_set: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProtectConfiguration.CountryRuleSetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1bb0546c76099396135f7793f258dd4f7438f8b9e64353fffc533c8e37af0035(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    registration_type: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__df054fd7218a7f8c11c15c9eea6c44d60f740dba3187e777cdff9bae39ad43e1(
+    resource: _aws_smsvoice_61a140be.IRegistrationRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fccbfbbee2e93354905ea899c83aff001f5a7430653e99481bbe6605f8e077d5(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__437943a4ea932dea7f4028d6fd0a897d8e073acd05bdee88d93cd45e4c7ab594(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__64eb63f9933d1a7b274976ca3f52df6479aee0026e5527d7068e93485f7a7beb(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a4f3a2b1d6b8b8695d6d161eb45dc50520cbe7194168c1cd75ac997ba2482be1(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0de3a386bc17686613bb0d4a803268cc8b14795c97eb344e3da4ee1bf962e246(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f851ff8771accd3084396c6e77e11ac606347d216750884220cfa1c77f949ab8(
+    *,
+    registration_type: builtins.str,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lintro
-Version: 0.113.1
+Version: 0.113.2
 Summary: A unified CLI tool for code formatting, linting, and quality assurance
 Author-email: lgtm-hq <turbocoder13@gmail.com>
 License-Expression: MIT

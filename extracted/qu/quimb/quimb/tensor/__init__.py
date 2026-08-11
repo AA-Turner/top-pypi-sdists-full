@@ -2,8 +2,12 @@
 
 from .circuit import (
     Circuit,
+    CircuitBase,
     CircuitDense,
     CircuitMPS,
+    CircuitMPSLazy,
+    CircuitPEPOSimpleUpdate,
+    CircuitPEPSSimpleUpdate,
     CircuitPermMPS,
     Gate,
 )
@@ -150,6 +154,7 @@ from .tensor_core import (
     tensor_contract,
     tensor_direct_product,
     tensor_fuse_squeeze,
+    tensor_gauge_simple_bond,
     tensor_network_distance,
     tensor_network_fit_als,
     tensor_network_fit_autodiff,
@@ -201,6 +206,17 @@ from .tn2d.tebd import (
     LocalHam2D,
     SimpleUpdate,
 )
+from .tn2dinf.core import (
+    PEPSInfinite2D,
+    TensorNetworkInfinite2DFlat,
+)
+from .tn2dinf.geometry import (
+    GeometryInfinite2D,
+)
+from .tn2dinf.tebd import (
+    LocalHamInfinite2D,
+    SimpleUpdateInfinite2D,
+)
 from .tn3d.core import (
     PEPS3D,
     TensorNetwork3D,
@@ -210,6 +226,7 @@ from .tn3d.tebd import (
     LocalHam3D,
 )
 from .tnag.core import (
+    LatticeBondMap,
     TensorNetworkGen,
     TensorNetworkGenOperator,
     TensorNetworkGenVector,
@@ -238,9 +255,13 @@ __all__ = (
     "circ_ansatz_1D_zigzag",
     "circ_qaoa",
     "Circuit",
+    "CircuitBase",
     "CircuitDense",
     "CircuitMPS",
+    "CircuitPEPOSimpleUpdate",
+    "CircuitPEPSSimpleUpdate",
     "CircuitPermMPS",
+    "CircuitMPSLazy",
     "cnf_file_parse",
     "connect",
     "contract_backend",
@@ -272,6 +293,7 @@ __all__ = (
     "Gate",
     "gen_2d_bonds",
     "gen_3d_bonds",
+    "GeometryInfinite2D",
     "get_contract_backend",
     "get_contract_strategy",
     "get_symbol",
@@ -301,6 +323,8 @@ __all__ = (
     "LocalHam2D",
     "LocalHam3D",
     "LocalHamGen",
+    "LocalHamInfinite2D",
+    "LatticeBondMap",
     "MatrixProductOperator",
     "MatrixProductState",
     "MERA",
@@ -338,6 +362,7 @@ __all__ = (
     "PEPO_product_operator",
     "PEPS",
     "PEPS3D",
+    "PEPSInfinite2D",
     "PTensor",
     "rand_phased",
     "rand_tensor",
@@ -348,6 +373,7 @@ __all__ = (
     "set_tensor_linop_backend",
     "SimpleUpdate",
     "SimpleUpdateGen",
+    "SimpleUpdateInfinite2D",
     "SpinHam",
     "SpinHam1D",
     "superop_TN_1D",
@@ -361,6 +387,7 @@ __all__ = (
     "tensor_contract",
     "tensor_direct_product",
     "tensor_fuse_squeeze",
+    "tensor_gauge_simple_bond",
     "tensor_linop_backend",
     "tensor_network_1d_compress",
     "tensor_network_ag_gate_simple",
@@ -384,6 +411,7 @@ __all__ = (
     "TensorNetworkGen",
     "TensorNetworkGenOperator",
     "TensorNetworkGenVector",
+    "TensorNetworkInfinite2DFlat",
     "TN_classical_partition_function_from_edges",
     "TN_dimer_covering_from_edges",
     "TN_from_edges_and_fill_fn",

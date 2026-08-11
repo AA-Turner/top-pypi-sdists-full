@@ -6,7 +6,7 @@ from datetime import timedelta
 import pytest
 
 from snowflake.core._internal.utils import normalize_name
-from snowflake.core.task import Cron, StoredProcedureCall, Task
+from snowflake.core.task import Cron, OverlapPolicy, StoredProcedureCall, Task, TaskCollection
 
 from ..utils import random_object_name
 
@@ -107,6 +107,108 @@ def test_create_or_alter(tasks, db_parameters):
             tasks[task_name1].drop()
         with suppress(Exception):
             tasks[task_name2].drop()
+
+
+def test_create_or_alter_overlap_policy(tasks: TaskCollection):
+    """Test that overlap policy and allow_overlapping_execution are set and updated coherently.
+
+    Does not assert ``allow_overlapping_execution=True`` after ``ALLOW_ALL_OVERLAP``: Snowflake
+    currently treats that create-or-alter as a no-op (SNOW-3353228).
+    """
+    task_name = random_object_name()
+    try:
+        task_ref = tasks[task_name]
+        task_ref.create_or_alter(
+            Task(
+                name=task_name,
+                definition="select current_version()",
+                schedule=timedelta(minutes=100),
+                overlap_policy=OverlapPolicy.NO_OVERLAP,
+            )
+        )
+        model = task_ref.fetch()
+        assert model.overlap_policy is OverlapPolicy.NO_OVERLAP
+        assert model.allow_overlapping_execution is False
+        model.definition = "select 1"
+        # Create and fetch again, check that the overlap policy and allow_overlapping_execution are still the same.
+        task_ref.create_or_alter(model)
+        model = task_ref.fetch()
+        assert model.overlap_policy is OverlapPolicy.NO_OVERLAP
+        assert model.allow_overlapping_execution is False
+
+        # Change the overlap policy and check that the allow_overlapping_execution is updated.
+        model.overlap_policy = OverlapPolicy.ALLOW_CHILD_OVERLAP
+        assert model.allow_overlapping_execution is True
+        task_ref.create_or_alter(model)
+        model = task_ref.fetch()
+        assert model.overlap_policy is OverlapPolicy.ALLOW_CHILD_OVERLAP
+        assert model.allow_overlapping_execution is True
+
+        # Change the overlap policy to ALLOW_ALL_OVERLAP
+        model.overlap_policy = OverlapPolicy.ALLOW_ALL_OVERLAP
+        assert model.allow_overlapping_execution is None
+        task_ref.create_or_alter(model)
+        model = task_ref.fetch()
+        assert model.overlap_policy is OverlapPolicy.ALLOW_ALL_OVERLAP
+        assert model.allow_overlapping_execution is None
+
+        # Change the allow_overlapping_execution to True which should switch the overlap policy to ALLOW_CHILD_OVERLAP
+        model.allow_overlapping_execution = True
+        assert model.overlap_policy is OverlapPolicy.ALLOW_CHILD_OVERLAP
+        task_ref.create_or_alter(model)
+        model = task_ref.fetch()
+        assert model.overlap_policy is OverlapPolicy.ALLOW_CHILD_OVERLAP
+        assert model.allow_overlapping_execution is True
+
+    finally:
+        with suppress(Exception):
+            tasks[task_name].drop()
+
+
+@pytest.mark.usefixtures("my_integration_exists")
+def test_create_or_alter_success_integration(tasks: TaskCollection):
+    task_name = random_object_name()
+    try:
+        task_ref = tasks[task_name]
+        task_ref.create_or_alter(
+            Task(
+                name=task_name,
+                definition="select current_version()",
+                schedule=timedelta(minutes=100),
+                success_integration="my_integration",
+            )
+        )
+        fetched = task_ref.fetch()
+        assert fetched.success_integration == "my_integration"
+        fetched.comment = "updated via create_or_alter"
+        task_ref.create_or_alter(fetched)
+        assert task_ref.fetch().success_integration == "my_integration"
+    finally:
+        with suppress(Exception):
+            tasks[task_name].drop()
+
+
+@pytest.mark.use_accountadmin
+def test_create_or_alter_execute_as_user(tasks: TaskCollection, test_user_name: str, grant_test_user_impersonation):
+    task_name = random_object_name()
+    try:
+        task_ref = tasks[task_name]
+        task_ref.create_or_alter(
+            Task(
+                name=task_name,
+                definition="select current_version()",
+                schedule=timedelta(minutes=100),
+                execute_as_user=test_user_name,
+            )
+        )
+        fetched = task_ref.fetch()
+        assert fetched.execute_as_user.upper() == test_user_name.upper()
+        fetched.definition = "select 2"
+        task_ref.create_or_alter(fetched)
+        assert task_ref.fetch().execute_as_user.upper() == test_user_name.upper()
+    finally:
+        with suppress(Exception):
+            tasks[task_name].drop()
 
 
 def test_create_or_alter_config_and_schedule(tasks, db_parameters):

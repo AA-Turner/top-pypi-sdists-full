@@ -396,7 +396,7 @@ def prioritize_starving_roles(
 
 def _build_file_affinity_groups(
     role_tasks: list[Task],
-    agent_affinity: dict[str, str] | None,
+    agent_affinity: dict[str, str],
 ) -> list[list[Task]]:
     """Group tasks by transitive file-ownership overlap.
 
@@ -432,7 +432,7 @@ def _build_file_affinity_groups(
 
 def _merge_agent_affinity_groups(
     affinity_groups: list[list[Task]],
-    agent_affinity: dict[str, str] | None,
+    agent_affinity: dict[str, str],
 ) -> None:
     """Merge affinity groups that share a preferred agent (in-place).
 
@@ -464,7 +464,7 @@ def _merge_agent_affinity_groups(
 def _pack_affinity_groups_into_batches(
     affinity_groups: list[list[Task]],
     max_per_batch: int,
-    agent_affinity: dict[str, str] | None,
+    agent_affinity: dict[str, str],
 ) -> list[list[Task]]:
     """Pack affinity groups into batches of up to max_per_batch tasks.
 
@@ -639,6 +639,13 @@ def parse_backlog_file(filename: str, content: str) -> dict[str, Any]:
 
     Returns:
         Dict suitable for POST /tasks.
+
+    Raises:
+        BacklogParseError: The file declares a malformed ``artifact_spec``
+            block (#3110). Fail-closed on purpose: the defaults fallback below
+            applies to files that are not task files at all, never to a task
+            file whose declaration is wrong - that would silently turn a
+            declared artifact task into a code_diff task.
     """
     parsed = parse_backlog_text(filename, content)
     if parsed is None:

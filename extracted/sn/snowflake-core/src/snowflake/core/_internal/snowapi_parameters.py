@@ -10,6 +10,7 @@ class SnowApiParameter(Enum):
     PRINT_VERBOSE_STACK_TRACE = "PRINT_VERBOSE_STACK_TRACE"
     FIX_HOSTNAME = "FIX_HOSTNAME"
     MAX_THREADS = "MAX_THREADS"
+    SKIP_ASYNC_EXEC_POLLING = "SKIP_ASYNC_EXEC_POLLING"
 
 
 class SnowApiParameters:
@@ -28,6 +29,14 @@ class SnowApiParameters:
     @property
     def should_retry_request(self) -> bool:
         return self.is_parameter_true(SnowApiParameter.USE_CLIENT_RETRY, "true")
+
+    @property
+    def should_skip_async_exec_polling(self) -> bool:
+        """Return the 202 accepted-response as-is for caller-requested async (asyncExec=true); default on.
+
+        Transient retries (429/503/504) are governed separately by :attr:`should_retry_request`.
+        """
+        return self.is_parameter_true(SnowApiParameter.SKIP_ASYNC_EXEC_POLLING, "true")
 
     @property
     def should_print_verbose_stack_trace(self) -> bool:

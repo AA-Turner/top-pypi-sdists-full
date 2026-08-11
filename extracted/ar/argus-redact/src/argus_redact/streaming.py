@@ -28,6 +28,7 @@ from argus_redact.glue._detect_partial import (
 )
 from argus_redact.glue.redact_pseudonym_llm import (
     _check_input_pollution,
+    _salt_to_bytes,
     redact_pseudonym_llm,
 )
 from argus_redact.pure.replacer import warn_alias_collisions, warn_coverage_restored
@@ -105,6 +106,16 @@ class StreamingRestorer:
     possible mid-stream); the first time a ``feed()``/``flush()`` call actually
     reinserts a pseudonym, the instance emits a one-time ``SecurityWarning``
     naming that risk.
+
+    Thread safety: construct one ``StreamingRestorer`` per thread / per
+    session; do NOT share a single instance across threads. Internally it
+    holds a `_core.StructuredRestorer` session, and ``feed()``/``flush()``
+    borrow that session's Rust-side state on every call — a concurrent call
+    on a SHARED instance from another thread (or a concurrent
+    ``wipe()``/``close()`` on the underlying session) hits the runtime borrow
+    check and raises ``Already borrowed``. Mirrors the single-session
+    contract ``StreamingRedactor`` documents above (construct one per logical
+    session and discard it when done).
 
     Usage:
         restorer = StreamingRestorer(key)
@@ -398,11 +409,7 @@ class StreamingRedactor:
     ):
         if not isinstance(salt, (int, bytes, bytearray)):
             raise TypeError(f"salt must be int or bytes, got {type(salt).__name__}")
-        if isinstance(salt, int):
-            signed = salt < 0
-            self._salt = salt.to_bytes(8, "big", signed=signed)
-        else:
-            self._salt = bytes(salt)
+        self._salt = _salt_to_bytes(salt)
         self._display_marker = display_marker
         self._lang = lang
         self._mode = mode

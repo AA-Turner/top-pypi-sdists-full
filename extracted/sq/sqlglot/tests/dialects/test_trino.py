@@ -292,6 +292,53 @@ SELECT f(1)""",
             "SELECT 1; SELECT 2; END",
         )
 
+    def test_inline_udf_if(self):
+        # https://trino.io/docs/current/udf/sql/if.html - verbatim from the docs, but
+        # real Trino rejects this exact body with "Function must end in a RETURN
+        # statement": its function-body check requires a literal trailing RETURN and
+        # doesn't credit an IF/ELSEIF/ELSE that already returns on every branch. This
+        # asserts round-trip grammar only, confirmed against a real Trino instance.
+        self.validate_identity(
+            "WITH FUNCTION simple_if(a BIGINT) RETURNS VARCHAR "
+            "BEGIN IF a = 0 THEN RETURN 'zero'; ELSEIF a = 1 THEN RETURN 'one'; "
+            "ELSE RETURN 'more than one or negative'; END IF; END "
+            "SELECT SIMPLE_IF(3)"
+        )
+
+        # IF with no ELSE/ELSEIF at all; confirmed against a real Trino instance
+        self.validate_identity(
+            "WITH FUNCTION f(a INTEGER) RETURNS VARCHAR "
+            "BEGIN IF a = 0 THEN RETURN 'zero'; END IF; RETURN 'other'; END "
+            "SELECT F(1)"
+        )
+
+        # An ELSEIF chain with no final ELSE; confirmed against a real Trino instance
+        self.validate_identity(
+            "WITH FUNCTION f(a INTEGER) RETURNS VARCHAR "
+            "BEGIN IF a = 0 THEN RETURN 'zero'; ELSEIF a = 1 THEN RETURN 'one'; END IF; "
+            "RETURN 'other'; END "
+            "SELECT F(1)"
+        )
+
+        # IF can nest; the trailing RETURN is required by the same real-Trino
+        # completeness check noted above, confirmed to actually run and return 'a zero'
+        self.validate_identity(
+            "WITH FUNCTION f(a INTEGER, b INTEGER) RETURNS VARCHAR "
+            "BEGIN IF a = 0 THEN IF b = 0 THEN RETURN 'both zero'; ELSE RETURN 'a zero'; "
+            "END IF; ELSE RETURN 'a nonzero'; END IF; RETURN 'unreachable'; END "
+            "SELECT F(1, 2)"
+        )
+
+        # Combines with DECLARE/SET, and a CASE expression nested inside a RETURN
+        # doesn't get confused with the surrounding IF's own ELSE/END IF
+        self.validate_identity(
+            "WITH FUNCTION f(a INTEGER) RETURNS INTEGER "
+            "BEGIN DECLARE result INTEGER DEFAULT 0; "
+            "IF a > 0 THEN RETURN CASE WHEN a > 10 THEN 1 ELSE 2 END; "
+            "ELSE SET result = -1; END IF; RETURN result; END "
+            "SELECT F(1)"
+        )
+
         # Trino's own function-body analysis rejects a NOT DETERMINISTIC declaration
         # on a body it can tell is trivially deterministic (same class of issue as the
         # SECURITY/WITH (...) note above), so this asserts round-trip grammar only.
@@ -303,4 +350,76 @@ SELECT f(1)""",
         self.validate_identity(
             "WITH FUNCTION doubled(x INTEGER) RETURNS INTEGER BEGIN RETURN x * 2; END "
             "WITH t AS (SELECT 3 AS v) SELECT DOUBLED(v) FROM t"
+        )
+
+    def test_inline_udf_case(self):
+        # https://trino.io/docs/current/udf/sql/case.html - verbatim from the docs
+        # (operand form). The docs label the operand form "Searched case" with a
+        # synopsis ending in a bare END, but that contradicts this very example,
+        # which uses the operand form and ends in END CASE; confirmed against a
+        # real Trino instance that only END CASE is accepted for either form.
+        self.validate_identity(
+            "WITH FUNCTION simple_case(a BIGINT) RETURNS VARCHAR "
+            "BEGIN CASE a WHEN 0 THEN RETURN 'zero'; WHEN 1 THEN RETURN 'one'; "
+            "ELSE RETURN 'more than one or negative'; END CASE; RETURN NULL; END "
+            "SELECT SIMPLE_CASE(0)"
+        )
+
+        # No-operand form ("Simple case" per the docs' own, inverted labeling);
+        # confirmed against a real Trino instance
+        self.validate_identity(
+            "WITH FUNCTION searched_case(a BIGINT) RETURNS VARCHAR "
+            "BEGIN CASE WHEN a = 0 THEN RETURN 'zero'; WHEN a = 1 THEN RETURN 'one'; "
+            "ELSE RETURN 'other'; END CASE; RETURN NULL; END "
+            "SELECT SEARCHED_CASE(0)"
+        )
+
+        # No ELSE at all, and only a single WHEN; confirmed against a real Trino
+        # instance that this falls through to the following RETURN rather than
+        # erroring
+        self.validate_identity(
+            "WITH FUNCTION no_else(a BIGINT) RETURNS VARCHAR "
+            "BEGIN CASE a WHEN 0 THEN RETURN 'zero'; END CASE; RETURN 'fallthrough'; END "
+            "SELECT NO_ELSE(0)"
+        )
+
+        # No-operand form, no ELSE; confirmed against a real Trino instance
+        self.validate_identity(
+            "WITH FUNCTION no_operand_no_else(a INTEGER) RETURNS VARCHAR "
+            "BEGIN CASE WHEN a = 0 THEN RETURN 'zero'; END CASE; RETURN 'other'; END "
+            "SELECT NO_OPERAND_NO_ELSE(1)"
+        )
+
+        # CASE can nest, in both the operand and no-operand forms; confirmed to
+        # actually run and return 'a0b0'/'a0bN'/'aN' against a real Trino instance
+        self.validate_identity(
+            "WITH FUNCTION nested_case(a BIGINT, b BIGINT) RETURNS VARCHAR "
+            "BEGIN DECLARE result VARCHAR; "
+            "CASE WHEN a = 0 THEN CASE b WHEN 0 THEN SET result = 'a0b0'; "
+            "ELSE SET result = 'a0bN'; END CASE; ELSE SET result = 'aN'; END CASE; "
+            "RETURN result; END "
+            "SELECT NESTED_CASE(0, 0)"
+        )
+
+        # Combines with IF, and a CASE expression nested inside a SET doesn't get
+        # confused with the surrounding CASE statement's own ELSE/END CASE
+        self.validate_identity(
+            "WITH FUNCTION mix(a INTEGER) RETURNS INTEGER "
+            "BEGIN DECLARE result INTEGER DEFAULT 0; "
+            "CASE WHEN a > 0 THEN IF a > 10 THEN SET result = 1; ELSE SET result = 2; END IF; "
+            "ELSE SET result = CASE WHEN a < -10 THEN -1 ELSE -2 END; END CASE; "
+            "RETURN result; END "
+            "SELECT MIX(1)"
+        )
+
+        # CASE as the literal last statement, with nothing after it before the
+        # enclosing END; real Trino rejects this body with "Function must end in
+        # a RETURN statement" - the same function-body completeness check noted
+        # on the IF phase, which requires a literal trailing RETURN and doesn't
+        # credit a CASE that already returns on every branch. This asserts
+        # round-trip grammar only, confirmed against a real Trino instance.
+        self.validate_identity(
+            "WITH FUNCTION last_stmt(a INTEGER) RETURNS VARCHAR "
+            "BEGIN CASE a WHEN 0 THEN RETURN 'zero'; ELSE RETURN 'other'; END CASE; END "
+            "SELECT LAST_STMT(1)"
         )

@@ -15,17 +15,14 @@ import re
 import sys
 import tarfile
 import zlib
+from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
-from packaging.utils import (
-    InvalidSdistFilename,
-    canonicalize_name,
-    parse_sdist_filename,
-)
-from packaging.version import InvalidVersion, Version
+from packaging.utils import canonicalize_name, parse_sdist_filename
+from packaging.version import Version
 
 from ._pep503 import json_listing
 from .serialization import SimpleSerialization, simple_accept_header
@@ -40,6 +37,7 @@ if TYPE_CHECKING:
     from .transport import AsyncHttpTransport, HttpResponse
 
 __all__ = [
+    "ACCEPTED_HASH_ALGORITHMS",
     "DEFAULT_INDEX",
     "AsyncSimpleClient",
     "MalformedSimpleResponseError",
@@ -54,8 +52,12 @@ __all__ = [
     "verify_sdist_hash",
 ]
 
+# One decoded PEP 691 ``files`` entry.  Neither its keys nor its values
+# have been checked, so every field is narrowed where it is read.
+_FileEntry = Mapping[Any, object]
+
 # Verification order; sha256 is pip's hash-checking baseline.
-_ACCEPTED_HASH_ALGORITHMS = ("sha256", "sha384", "sha512")
+ACCEPTED_HASH_ALGORITHMS: tuple[str, ...] = ("sha256", "sha384", "sha512")
 
 # The tar ``data`` filter (PEP 706) landed in 3.12 and was backported to
 # 3.10.12 / 3.11.4; sdist extraction requires it (see extract_sdist_archive).
@@ -95,15 +97,9 @@ _WHEEL_DASHES_WITH_BUILD = 5
 
 
 @lru_cache(maxsize=65536)
-def _intern_version(version: str) -> Version:
-    """Construct a cached :class:`Version`."""
-    return Version(version)
-
-
-@lru_cache(maxsize=65536)
 def _canonical_version(version: str) -> str:
     """Return a cached canonical version string."""
-    return str(_intern_version(version))
+    return str(Version(version))
 
 
 @lru_cache(maxsize=65536)
@@ -116,7 +112,9 @@ def _parse_wheel_filename(filename: str) -> tuple[NormalizedName, str] | None:
     """Parse a wheel filename per PEP 427.
 
     Returns ``(canonical_name, version_string)`` or ``None`` for any
-    filename packaging rejects (wrong extension, malformed, etc.).
+    filename packaging rejects (wrong extension, malformed, etc.) and
+    for a version digit run past CPython's int-from-string limit.
+    Never raises.
     The version string is the canonical form produced by
     :class:`packaging.version.Version`, so trailing-zero handling
     matches what packaging records on the file; e.g. a wheel
@@ -143,7 +141,8 @@ def _parse_wheel_filename(filename: str) -> tuple[NormalizedName, str] | None:
 
     try:
         version = _canonical_version(parts[1])
-    except InvalidVersion:
+    except ValueError:
+        # InvalidVersion, or int() refusing a digit run past CPython's limit.
         return None
 
     bad_build = (
@@ -160,9 +159,10 @@ def _parse_wheel_filename(filename: str) -> tuple[NormalizedName, str] | None:
 def _parse_sdist_filename(filename: str) -> tuple[NormalizedName, str] | None:
     """Parse a ``.tar.gz`` sdist filename to ``(canonical_name, version)``.
 
-    Returns ``None`` for anything packaging rejects and for ``.zip``
-    sdists, which nab does not support (gzip-tar only, and not part of
-    the PEP 625 standard).
+    Returns ``None`` for anything packaging rejects, for a version digit
+    run past CPython's int-from-string limit, and for ``.zip`` sdists,
+    which nab does not support (gzip-tar only, and not part of the PEP 625
+    standard).  Never raises.
 
     Legacy filenames with embedded build tags (e.g. ``cffi-1.0.2-2.tar.gz``)
     parse to a surprising ``(name="cffi-1-0-2", version="2")``, so callers
@@ -174,7 +174,8 @@ def _parse_sdist_filename(filename: str) -> tuple[NormalizedName, str] | None:
 
     try:
         name, version = parse_sdist_filename(filename)
-    except InvalidSdistFilename:
+    except ValueError:
+        # InvalidSdistFilename, or int() refusing a digit run past CPython's limit.
         return None
     return (name, str(version))
 
@@ -254,6 +255,9 @@ def _listing_body(
     so the parser and the cache only ever see one shape; any other body is
     passed through untouched. A pinned index that answers in the other
     serialization raises instead.
+
+    An HTML page's hrefs resolve against the URL that served the page, which
+    is not the requested one when the index redirected.
     """
     body = response.content
     content_type = _header(response, "content-type")
@@ -293,7 +297,7 @@ def _listing_body(
         raise MalformedSimpleResponseError(msg) from exc
 
     try:
-        return json_listing(text, f"{index_url}{package}/")
+        return json_listing(text, response.url)
     except ValueError as exc:
         msg = (
             f"{index_url} served a malformed Simple-API response for {package!r}: {exc}"
@@ -392,7 +396,11 @@ class AsyncSimpleClient:
         await self.aclose()
 
     async def get_files(self, package: str) -> list[WheelFile | SdistFile]:
-        """Fetch all distribution files for a package."""
+        """Fetch all distribution files for a package.
+
+        A body ``json.loads`` rejects becomes a
+        :class:`MalformedSimpleResponseError`, not a raw decode error.
+        """
         url = f"{self._index_url}{package}/"
         accept = simple_accept_header(SimpleSerialization.NEGOTIATE)
         response = await self._transport.get(url, headers={"Accept": accept})
@@ -402,7 +410,16 @@ class AsyncSimpleClient:
         body = _listing_body(
             response, self._index_url, package, SimpleSerialization.NEGOTIATE
         )
-        return _parse_files(json.loads(body), self._index_url, package)
+
+        try:
+            data = json.loads(body)
+        except ValueError as exc:
+            msg = (
+                f"{self._index_url} served a malformed Simple-API response for "
+                f"{package!r}: body is not valid JSON"
+            )
+            raise MalformedSimpleResponseError(msg) from exc
+        return _parse_files(data, self._index_url, package, page_url=response.url)
 
     async def get_metadata_text(self, metadata_url: str) -> str:
         """Fetch metadata text from a known PEP 658/714 metadata URL."""
@@ -418,7 +435,7 @@ class AsyncSimpleClient:
 
 
 def _parse_files(
-    data: object, index_url: str, package: str
+    data: object, index_url: str, package: str, *, page_url: str | None = None
 ) -> list[WheelFile | SdistFile]:
     """Parse distribution files from a Simple API JSON response.
 
@@ -430,6 +447,10 @@ def _parse_files(
     different project (``cffi-1-0-2`` at version ``2``).  Without the
     name check those leak into the listing as a phantom version, and
     show up in the resolved lockfile as ``cffi==2``.
+
+    ``page_url`` is the URL the project page was retrieved from, the base a
+    relative entry resolves against. ``None`` falls back to the page URL
+    built from ``index_url`` and ``package``.
 
     PEP 592 ``yanked`` files are dropped unconditionally.
 
@@ -444,7 +465,7 @@ def _parse_files(
     """
     expected = canonicalize_name(package)
     # PEP 691: relative URLs resolve against the package page, not the index root.
-    base_url = f"{index_url}{package}/"
+    base_url = page_url if page_url is not None else f"{index_url}{package}/"
     files: list[WheelFile | SdistFile] = []
     if not isinstance(data, dict):
         msg = (
@@ -496,7 +517,7 @@ def _resolve_file_url(raw_url: str, base_url: str) -> str | None:
 
 
 def _parse_file_entry(
-    file_info: dict,
+    file_info: _FileEntry,
     filename: str,
     raw_url: str,
     base_url: str,
@@ -603,7 +624,7 @@ def _parse_size(value: object) -> int | None:
 _LEGACY_METADATA_KEY = "dist-info-metadata"
 
 
-def _metadata_value(file_info: dict) -> object:
+def _metadata_value(file_info: _FileEntry) -> object:
     """Return the metadata field, applying PEP 714 key precedence.
 
     When ``core-metadata`` is present it wins and the legacy
@@ -617,7 +638,7 @@ def _metadata_value(file_info: dict) -> object:
     return file_info.get(_LEGACY_METADATA_KEY)
 
 
-def _has_metadata(file_info: dict) -> bool:
+def _has_metadata(file_info: _FileEntry) -> bool:
     """Return True when the file entry advertises a PEP 658/714 sidecar.
 
     PEP 691 allows either a ``true`` boolean (sidecar exists but no
@@ -628,30 +649,22 @@ def _has_metadata(file_info: dict) -> bool:
     return value is True or isinstance(value, dict)
 
 
-_ACCEPTED_METADATA_HASHES: tuple[str, ...] = ("sha256", "sha384", "sha512")
-
-
-def _metadata_hash(file_info: dict) -> tuple[str, str] | None:
+def _metadata_hash(file_info: _FileEntry) -> tuple[str, str] | None:
     """Return the sidecar's published ``(algo, hex)`` to verify, or None.
 
-    Prefers sha256, then sha384, then sha512, so a sidecar published with
-    only a stronger digest is still verified. Algorithm names match
-    case-insensitively. A bare ``true`` (sidecar exists, no hash), an empty
-    digest, or a table with no accepted algorithm yields None, so no check runs.
+    A bare ``true`` (sidecar exists, no hash), an empty digest, or a table with
+    no accepted algorithm yields None, so no check runs.
     """
     value = _metadata_value(file_info)
     if not isinstance(value, dict):
         return None
-    published = {
-        algo.lower(): digest
+
+    published = tuple(
+        (algo, digest)
         for algo, digest in value.items()
         if isinstance(algo, str) and isinstance(digest, str)
-    }
-    for algo in _ACCEPTED_METADATA_HASHES:
-        digest = published.get(algo)
-        if digest:
-            return (algo, digest.lower())
-    return None
+    )
+    return _select_artifact_hash(published)
 
 
 def _verify_metadata_hash(content: bytes, metadata_hash: tuple[str, str]) -> None:
@@ -668,12 +681,12 @@ def _select_artifact_hash(
 ) -> tuple[str, str] | None:
     """Pick the preferred ``(algo, hex)`` to verify, or ``None`` if none qualify.
 
-    Walks :data:`_ACCEPTED_HASH_ALGORITHMS` in order, so sha256 is preferred,
+    Walks :data:`ACCEPTED_HASH_ALGORITHMS` in order, so sha256 is preferred,
     then sha384, then sha512. An empty set, an empty digest, or only unaccepted
     algorithms (md5) yields ``None``.
     """
     by_algo = {algo.lower(): digest.lower() for algo, digest in hashes}
-    for algo in _ACCEPTED_HASH_ALGORITHMS:
+    for algo in ACCEPTED_HASH_ALGORITHMS:
         digest = by_algo.get(algo)
         if digest:
             return (algo, digest)

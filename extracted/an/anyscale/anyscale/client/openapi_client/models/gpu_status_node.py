@@ -38,7 +38,11 @@ class GpuStatusNode(object):
         'hostname': 'str',
         'node_ip': 'str',
         'instance_type': 'str',
-        'gpus': 'list[GpuTelemetry]'
+        'gpus': 'list[GpuTelemetry]',
+        'cpu_utilization_pct': 'float',
+        'cpu_status': 'NodeResourceStatus',
+        'memory_utilization_pct': 'float',
+        'memory_status': 'NodeResourceStatus'
     }
 
     attribute_map = {
@@ -47,10 +51,14 @@ class GpuStatusNode(object):
         'hostname': 'hostname',
         'node_ip': 'node_ip',
         'instance_type': 'instance_type',
-        'gpus': 'gpus'
+        'gpus': 'gpus',
+        'cpu_utilization_pct': 'cpu_utilization_pct',
+        'cpu_status': 'cpu_status',
+        'memory_utilization_pct': 'memory_utilization_pct',
+        'memory_status': 'memory_status'
     }
 
-    def __init__(self, node_id=None, instance_id=None, hostname=None, node_ip=None, instance_type=None, gpus=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, node_id=None, instance_id=None, hostname=None, node_ip=None, instance_type=None, gpus=None, cpu_utilization_pct=None, cpu_status=None, memory_utilization_pct=None, memory_status=None, local_vars_configuration=None):  # noqa: E501
         """GpuStatusNode - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -62,6 +70,10 @@ class GpuStatusNode(object):
         self._node_ip = None
         self._instance_type = None
         self._gpus = None
+        self._cpu_utilization_pct = None
+        self._cpu_status = None
+        self._memory_utilization_pct = None
+        self._memory_status = None
         self.discriminator = None
 
         if node_id is not None:
@@ -75,6 +87,14 @@ class GpuStatusNode(object):
         if instance_type is not None:
             self.instance_type = instance_type
         self.gpus = gpus
+        if cpu_utilization_pct is not None:
+            self.cpu_utilization_pct = cpu_utilization_pct
+        if cpu_status is not None:
+            self.cpu_status = cpu_status
+        if memory_utilization_pct is not None:
+            self.memory_utilization_pct = memory_utilization_pct
+        if memory_status is not None:
+            self.memory_status = memory_status
 
     @property
     def node_id(self):
@@ -215,6 +235,98 @@ class GpuStatusNode(object):
             raise ValueError("Invalid value for `gpus`, must not be `None`")  # noqa: E501
 
         self._gpus = gpus
+
+    @property
+    def cpu_utilization_pct(self):
+        """Gets the cpu_utilization_pct of this GpuStatusNode.  # noqa: E501
+
+        Node CPU utilization in percent (from the Ray node series). Null when the node has no CPU sample in the snapshot window.  # noqa: E501
+
+        :return: The cpu_utilization_pct of this GpuStatusNode.  # noqa: E501
+        :rtype: float
+        """
+        return self._cpu_utilization_pct
+
+    @cpu_utilization_pct.setter
+    def cpu_utilization_pct(self, cpu_utilization_pct):
+        """Sets the cpu_utilization_pct of this GpuStatusNode.
+
+        Node CPU utilization in percent (from the Ray node series). Null when the node has no CPU sample in the snapshot window.  # noqa: E501
+
+        :param cpu_utilization_pct: The cpu_utilization_pct of this GpuStatusNode.  # noqa: E501
+        :type: float
+        """
+
+        self._cpu_utilization_pct = cpu_utilization_pct
+
+    @property
+    def cpu_status(self):
+        """Gets the cpu_status of this GpuStatusNode.  # noqa: E501
+
+        Derived CPU status: unhealthy when utilization is at or above the pressure threshold. Null when utilization is unknown.  # noqa: E501
+
+        :return: The cpu_status of this GpuStatusNode.  # noqa: E501
+        :rtype: NodeResourceStatus
+        """
+        return self._cpu_status
+
+    @cpu_status.setter
+    def cpu_status(self, cpu_status):
+        """Sets the cpu_status of this GpuStatusNode.
+
+        Derived CPU status: unhealthy when utilization is at or above the pressure threshold. Null when utilization is unknown.  # noqa: E501
+
+        :param cpu_status: The cpu_status of this GpuStatusNode.  # noqa: E501
+        :type: NodeResourceStatus
+        """
+
+        self._cpu_status = cpu_status
+
+    @property
+    def memory_utilization_pct(self):
+        """Gets the memory_utilization_pct of this GpuStatusNode.  # noqa: E501
+
+        Node memory utilization in percent (used / total from the Ray node series). Null when the node has no memory sample in the snapshot window.  # noqa: E501
+
+        :return: The memory_utilization_pct of this GpuStatusNode.  # noqa: E501
+        :rtype: float
+        """
+        return self._memory_utilization_pct
+
+    @memory_utilization_pct.setter
+    def memory_utilization_pct(self, memory_utilization_pct):
+        """Sets the memory_utilization_pct of this GpuStatusNode.
+
+        Node memory utilization in percent (used / total from the Ray node series). Null when the node has no memory sample in the snapshot window.  # noqa: E501
+
+        :param memory_utilization_pct: The memory_utilization_pct of this GpuStatusNode.  # noqa: E501
+        :type: float
+        """
+
+        self._memory_utilization_pct = memory_utilization_pct
+
+    @property
+    def memory_status(self):
+        """Gets the memory_status of this GpuStatusNode.  # noqa: E501
+
+        Derived memory status: unhealthy when utilization is at or above the pressure threshold. Null when utilization is unknown.  # noqa: E501
+
+        :return: The memory_status of this GpuStatusNode.  # noqa: E501
+        :rtype: NodeResourceStatus
+        """
+        return self._memory_status
+
+    @memory_status.setter
+    def memory_status(self, memory_status):
+        """Sets the memory_status of this GpuStatusNode.
+
+        Derived memory status: unhealthy when utilization is at or above the pressure threshold. Null when utilization is unknown.  # noqa: E501
+
+        :param memory_status: The memory_status of this GpuStatusNode.  # noqa: E501
+        :type: NodeResourceStatus
+        """
+
+        self._memory_status = memory_status
 
     def to_dict(self):
         """Returns the model properties as a dict"""

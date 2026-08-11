@@ -5,13 +5,11 @@ use wasm_bindgen::prelude::*;
 use crate::classes::CodeComplexity;
 use crate::cognitive_complexity::function_level_cognitive_complexity_shared;
 
-// Initialize panic hook for better error messages
 #[wasm_bindgen(start)]
 pub fn start() {
     panic::set_hook(Box::new(console_error_panic_hook::hook));
 }
 
-// WASM entry point
 #[wasm_bindgen]
 pub fn code_complexity(code: &str) -> Result<JsValue, JsValue> {
     match get_code_complexity(code) {
@@ -27,8 +25,13 @@ fn get_code_complexity(code: &str) -> Result<CodeComplexity, String> {
         Err(e) => return Err(format!("Parse error: {}", e)),
     };
 
-    let (functions, complexity) =
-        function_level_cognitive_complexity_shared(parsed.suite(), code, false, false);
+    let (functions, complexity) = function_level_cognitive_complexity_shared(
+        parsed.suite(),
+        code,
+        false,
+        false,
+        true,
+    );
 
     Ok(CodeComplexity {
         complexity,

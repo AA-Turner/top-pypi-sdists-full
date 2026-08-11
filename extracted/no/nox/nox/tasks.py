@@ -38,16 +38,17 @@ from typing import TYPE_CHECKING, TypeVar
 from colorlog.escape_codes import parse_colors
 
 import nox
-from nox import _options, registry
+from nox import _merge, registry
 from nox._resolver import CycleError
 from nox._version import InvalidVersionSpecifier, VersionCheckFailed, check_nox_version
 from nox.logger import logger
 from nox.manifest import WARN_PYTHONS_IGNORED, Manifest
-from nox.sessions import Result, Status, _duration_str
+from nox.sessions import Result, Status, _duration_str, resolve_allow_parallel
 
 if TYPE_CHECKING:
     import types
-    from argparse import Namespace
+
+    from nox._options import NoxConfig
 
 __all__ = [
     "create_report",
@@ -66,7 +67,7 @@ def __dir__() -> list[str]:
     return __all__
 
 
-def _load_and_exec_nox_module(global_config: Namespace) -> types.ModuleType:
+def _load_and_exec_nox_module(global_config: NoxConfig) -> types.ModuleType:
     """
     Loads, executes, then returns the global_config Nox module.
 
@@ -98,7 +99,7 @@ def _load_and_exec_nox_module(global_config: Namespace) -> types.ModuleType:
     return module
 
 
-def load_nox_module(global_config: Namespace) -> types.ModuleType | int:
+def load_nox_module(global_config: NoxConfig) -> types.ModuleType | int:
     """Load the user's Noxfile and return the module object for it.
 
     .. note::
@@ -121,9 +122,8 @@ def load_nox_module(global_config: Namespace) -> types.ModuleType | int:
     # Save the absolute path to the Noxfile.
     # This will inoculate it if Nox changes paths because of an implicit
     # or explicit chdir (like the one below).
-    # Keeps the class of the original string
-    global_config.noxfile = global_config.noxfile.__class__(
-        os.path.join(noxfile_parent_dir, os.path.basename(global_config_noxfile))
+    global_config.noxfile = os.path.join(
+        noxfile_parent_dir, os.path.basename(global_config_noxfile)
     )
 
     try:
@@ -153,7 +153,7 @@ def load_nox_module(global_config: Namespace) -> types.ModuleType | int:
 
 
 def merge_noxfile_options(
-    module: types.ModuleType, global_config: Namespace
+    module: types.ModuleType, global_config: NoxConfig
 ) -> types.ModuleType:
     """Merges any modifications made to ``nox.options`` by the Noxfile module
     into global_config.
@@ -162,12 +162,12 @@ def merge_noxfile_options(
         module (module): The Noxfile module.
         global_config (~nox.main.GlobalConfig): The global configuration.
     """
-    _options.options.merge_namespaces(global_config, nox.options)
+    _merge.merge_noxfile_options(global_config, nox.options)
     return module
 
 
 def discover_manifest(
-    module: types.ModuleType | int, global_config: Namespace
+    module: types.ModuleType | int, global_config: NoxConfig
 ) -> Manifest:
     """Discover all session functions in the Noxfile module.
 
@@ -190,7 +190,7 @@ def discover_manifest(
     return Manifest(functions, global_config, module_docstring)
 
 
-def filter_manifest(manifest: Manifest, global_config: Namespace) -> Manifest | int:
+def filter_manifest(manifest: Manifest, global_config: NoxConfig) -> Manifest | int:
     """Filter the manifest according to the provided configuration.
 
     Args:
@@ -260,9 +260,17 @@ def filter_manifest(manifest: Manifest, global_config: Namespace) -> Manifest | 
         logger.error("No sessions selected after filtering by keyword.")
         return 3
 
-    # Add dependencies.
+    # Add dependencies, unless --no-dependencies limits the run to only the
+    # explicitly selected sessions (as the parallel runner's children do).
+    # Even then, a ``requires=`` entry naming a session that doesn't exist is
+    # still an error, the prerequisites just aren't queued.
     try:
-        manifest.add_dependencies()
+        if global_config.no_dependencies:
+            for session, selected in manifest.list_all_sessions():
+                if selected:
+                    list(session.get_direct_dependencies())
+        else:
+            manifest.add_dependencies()
     except (KeyError, CycleError) as exc:
         logger.error("Error while resolving session dependencies.")
         logger.error(exc.args[0])
@@ -272,7 +280,7 @@ def filter_manifest(manifest: Manifest, global_config: Namespace) -> Manifest | 
     return manifest
 
 
-def _produce_listing(manifest: Manifest, global_config: Namespace) -> None:
+def _produce_listing(manifest: Manifest, global_config: NoxConfig) -> None:
     # If the user just asked for a list of sessions, print that
     # and any docstring specified in noxfile.py and be done. This
     # can also be called if Noxfile sessions is an empty list.
@@ -306,7 +314,7 @@ def _produce_listing(manifest: Manifest, global_config: Namespace) -> None:
     )
 
 
-def _produce_json_listing(manifest: Manifest, global_config: Namespace) -> None:  # noqa: ARG001
+def _produce_json_listing(manifest: Manifest, global_config: NoxConfig) -> None:  # noqa: ARG001
     report = []
     for session, selected in manifest.list_all_sessions():
         if selected:
@@ -323,7 +331,7 @@ def _produce_json_listing(manifest: Manifest, global_config: Namespace) -> None:
     print(json.dumps(report, default=str))
 
 
-def honor_list_request(manifest: Manifest, global_config: Namespace) -> Manifest | int:
+def honor_list_request(manifest: Manifest, global_config: NoxConfig) -> Manifest | int:
     """If --list was passed, simply list the manifest and exit cleanly.
 
     Args:
@@ -350,7 +358,7 @@ def honor_list_request(manifest: Manifest, global_config: Namespace) -> Manifest
     return 0
 
 
-def honor_usage_request(manifest: Manifest, global_config: Namespace) -> Manifest | int:
+def honor_usage_request(manifest: Manifest, global_config: NoxConfig) -> Manifest | int:
     """If --usage was passed, print the full docstring of the session and exit.
     Raise an error if the session does not exist or has no docstring to print.
 
@@ -388,7 +396,7 @@ def honor_usage_request(manifest: Manifest, global_config: Namespace) -> Manifes
     return 0
 
 
-def run_manifest(manifest: Manifest, global_config: Namespace) -> list[Result]:
+def run_manifest(manifest: Manifest, global_config: NoxConfig) -> list[Result]:
     """Run the full manifest of sessions.
 
     Args:
@@ -399,6 +407,26 @@ def run_manifest(manifest: Manifest, global_config: Namespace) -> list[Result]:
         tuple[~nox.sessions.Session,~.SessionStatus]: A two-tuple of the
             sessions and the result of each session that was run.
     """
+    # When --parallel/-j requests more than one job, hand off to the parallel
+    # scheduler, which runs independent sessions in their own subprocesses.
+    jobs = global_config.parallel or 1
+    if jobs > 1 and not any(
+        resolve_allow_parallel(global_config, session.func)
+        for session, selected in manifest.list_all_sessions()
+        if selected
+    ):
+        logger.warning(
+            "No selected session allows parallel execution; ignoring --parallel"
+            " and running sequentially. Opt in with allow_parallel=True or"
+            " --allow-parallel."
+        )
+        jobs = 1
+    if jobs > 1:
+        # Imported lazily so sequential runs don't pay for the parallel machinery.
+        from nox._parallel import run_manifest_parallel  # noqa: PLC0415
+
+        return run_manifest_parallel(manifest, global_config, jobs)
+
     results = []
 
     # Iterate over each session in the manifest, and execute it.
@@ -434,7 +462,7 @@ Sequence_Results_T = TypeVar("Sequence_Results_T", bound=Sequence[Result])
 
 def print_summary(
     results: Sequence_Results_T,
-    global_config: Namespace,  # noqa: ARG001
+    global_config: NoxConfig,
 ) -> Sequence_Results_T:
     """Print a summary of the results.
 
@@ -451,8 +479,11 @@ def print_summary(
         return results
 
     # Iterate over the results and print the result for each in a
-    # human-readable way.
-    total_duration = sum(result.duration for result in results)
+    # human-readable way. In parallel mode the runner records the wall-clock
+    # time; otherwise sum the per-session durations (which run back-to-back).
+    total_duration = global_config.parallel_wall_time
+    if total_duration is None:
+        total_duration = sum(result.duration for result in results)
     duration_str = _duration_str(total_duration, " in {time}")
     logger.session_info(f"Ran {len(results)} sessions{duration_str}:")
     for result in results:
@@ -469,7 +500,7 @@ def print_summary(
 
 
 def create_report(
-    results: Sequence_Results_T, global_config: Namespace
+    results: Sequence_Results_T, global_config: NoxConfig
 ) -> Sequence_Results_T:
     """Write a report to the location designated in the config, if any.
 
@@ -500,7 +531,7 @@ def create_report(
     return results
 
 
-def final_reduce(results: list[Result], global_config: Namespace) -> int:  # noqa: ARG001
+def final_reduce(results: list[Result], global_config: NoxConfig) -> int:  # noqa: ARG001
     """Reduce the results to a final exit code.
 
     Args:

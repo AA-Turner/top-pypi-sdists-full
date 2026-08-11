@@ -65,6 +65,15 @@ def resolve_output_format(output_format: str, json_output: bool = False) -> str:
     return OutputFormat.TEXT.value
 
 
+def warn_deprecated_flag(old_flag: str, replacement: str) -> None:
+    """Print a stderr deprecation notice for a legacy output flag."""
+    click.secho(
+        f"Warning: {old_flag} is deprecated; use {replacement} instead.",
+        fg="yellow",
+        err=True,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

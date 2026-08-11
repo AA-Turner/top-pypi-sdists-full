@@ -452,6 +452,51 @@ class _IFrameworkRefProxy(
 typing.cast(typing.Any, IFrameworkRef).__jsii_proxy_class__ = lambda : _IFrameworkRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_backup.ILegalHoldRef")
+class ILegalHoldRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a LegalHold.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="legalHoldRef")
+    def legal_hold_ref(self) -> "LegalHoldReference":
+        '''(experimental) A reference to a LegalHold resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILegalHoldRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a LegalHold.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_backup.ILegalHoldRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="legalHoldRef")
+    def legal_hold_ref(self) -> "LegalHoldReference":
+        '''(experimental) A reference to a LegalHold resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LegalHoldReference", jsii.get(self, "legalHoldRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILegalHoldRef).__jsii_proxy_class__ = lambda : _ILegalHoldRefProxy
+
+
 @jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_backup.ILogicallyAirGappedBackupVaultRef"
 )
@@ -683,6 +728,55 @@ class _ITieringConfigurationRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ITieringConfigurationRef).__jsii_proxy_class__ = lambda : _ITieringConfigurationRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_backup.LegalHoldReference",
+    jsii_struct_bases=[],
+    name_mapping={"legal_hold_arn": "legalHoldArn"},
+)
+class LegalHoldReference:
+    def __init__(self, *, legal_hold_arn: builtins.str) -> None:
+        '''A reference to a LegalHold resource.
+
+        :param legal_hold_arn: The Arn of the LegalHold resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_backup as interfaces_backup
+            
+            legal_hold_reference = interfaces_backup.LegalHoldReference(
+                legal_hold_arn="legalHoldArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d16d00d73535e0f39642d944a49ceb2ffc6b1e00e5593696d50d3b72e5903dbe)
+            check_type(argname="argument legal_hold_arn", value=legal_hold_arn, expected_type=type_hints["legal_hold_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "legal_hold_arn": legal_hold_arn,
+        }
+
+    @builtins.property
+    def legal_hold_arn(self) -> builtins.str:
+        '''The Arn of the LegalHold resource.'''
+        result = self._values.get("legal_hold_arn")
+        assert result is not None, "Required property 'legal_hold_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LegalHoldReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -996,11 +1090,13 @@ __all__ = [
     "IBackupSelectionRef",
     "IBackupVaultRef",
     "IFrameworkRef",
+    "ILegalHoldRef",
     "ILogicallyAirGappedBackupVaultRef",
     "IReportPlanRef",
     "IRestoreTestingPlanRef",
     "IRestoreTestingSelectionRef",
     "ITieringConfigurationRef",
+    "LegalHoldReference",
     "LogicallyAirGappedBackupVaultReference",
     "ReportPlanReference",
     "RestoreTestingPlanReference",
@@ -1036,6 +1132,13 @@ def _typecheckingstub__5af0184161160d25bde07c18f7ff0302737896654b6080404dee97165
 def _typecheckingstub__c9208e01f3f2fa93dada1794b4e883d88008205648db75087779eae32c2fd686(
     *,
     framework_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d16d00d73535e0f39642d944a49ceb2ffc6b1e00e5593696d50d3b72e5903dbe(
+    *,
+    legal_hold_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1078,5 +1181,5 @@ def _typecheckingstub__1c4ffd604d0acac2ed3572f6ad959173a1356f2c2bbb020e85ed859de
     """Type checking stubs"""
     pass
 
-for cls in [IBackupPlanRef, IBackupSelectionRef, IBackupVaultRef, IFrameworkRef, ILogicallyAirGappedBackupVaultRef, IReportPlanRef, IRestoreTestingPlanRef, IRestoreTestingSelectionRef, ITieringConfigurationRef]:
+for cls in [IBackupPlanRef, IBackupSelectionRef, IBackupVaultRef, IFrameworkRef, ILegalHoldRef, ILogicallyAirGappedBackupVaultRef, IReportPlanRef, IRestoreTestingPlanRef, IRestoreTestingSelectionRef, ITieringConfigurationRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

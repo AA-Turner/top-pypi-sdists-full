@@ -26,7 +26,7 @@ from siliconcompiler.schema_support.pathschema import PathSchemaBase
 
 from siliconcompiler.report.dashboard.cli import CliDashboard
 from siliconcompiler.scheduler import Scheduler, SCRuntimeError
-from siliconcompiler.utils.logging import get_stream_handler
+from siliconcompiler.utils.logging import get_stream_handler, SCHistoryLogHandler
 from siliconcompiler.utils import get_file_ext
 from siliconcompiler.utils.multiprocessing import MPManager
 from siliconcompiler.utils.paths import jobdir, workdir
@@ -149,6 +149,13 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
         self._logger_console = get_stream_handler(self, in_run=False, step=None, index=None)
         self.__logger.addHandler(self._logger_console)
 
+        # Retain a bounded history of records so a late-attaching sink (the CLI
+        # dashboard log pane) can be seeded with what preceded it, and so the
+        # full tail survives a teardown even when the terminal handler was
+        # suppressed while the dashboard owned the screen.
+        self._logger_history = SCHistoryLogHandler()
+        self.__logger.addHandler(self._logger_history)
+
     def __init_dashboard(self):
         """
         Initializes or disables the CLI dashboard for the project.
@@ -178,6 +185,42 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
         """
 
         self.option._add_callback("nodashboard", self.__init_dashboard)
+
+    def __init_flowgraph_callbacks(self):
+        """
+        Initializes and registers callback functions for flowgraph changes.
+
+        This internal method links flowgraph modifications to actions that
+        should be performed when tasks are added or modified in the flowgraph.
+
+        Currently, it registers a callback to handle flowgraph changes by
+        invoking the `__handle_flowgraph_change` method whenever a task is
+        added or modified in any flowgraph.
+        """
+        for flow in self.getkeys("flowgraph"):
+            flow_obj: Flowgraph = self.get("flowgraph", flow, field="schema")
+            flow_obj._set_callback(self.__handle_flowgraph_change)
+
+    def __handle_flowgraph_change(self, flow: Flowgraph, task: Task):
+        """
+        Registers the task a flowgraph just gained under ['tool', ...,'task', ...].
+
+        Handles only the one task it is handed. Every caller already reports each
+        task it adds -- :meth:`Flowgraph.node` the single new one, subflow
+        insertion and :meth:`__import_flow` one call per task -- so walking the
+        whole flow here would re-instantiate every task on every node added,
+        making a flow import quadratic in the number of nodes.
+        """
+        if not self.valid("tool", task.tool(), "task", task.task()):
+            EditableSchema(self).insert("tool", task.tool(), "task", task.task(), task)
+            return
+
+        existing_task: Task = self.get("tool", task.tool(), "task", task.task(),
+                                       field="schema")
+        if type(existing_task) is not type(task):
+            raise TypeError(f"Task {task.tool()}/{task.task()} already exists with "
+                            f"different type {type(existing_task).__name__}, "
+                            f"imported type is {type(task).__name__}")
 
     def set(self, *args, field='value', clobber=True, step=None, index=None):
         if args[0:1] == ("option",):
@@ -317,6 +360,8 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
                 hist: "Project" = self.get("history", history, field="schema")
                 hist.__logger = self.__logger
 
+        self.__init_flowgraph_callbacks()
+
         return ret
 
     def add_dep(self, obj):
@@ -395,22 +440,12 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
         if flow.name in self.getkeys("flowgraph"):
             return
 
-        edit_schema = EditableSchema(self)
-
-        # Instantiate tasks
         for task_cls in flow.get_all_tasks():
-            task = task_cls()
-            if not self.valid("tool", task.tool(), "task", task.task()):
-                edit_schema.insert("tool", task.tool(), "task", task.task(), task)
-            else:
-                existing_task: Task = self.get("tool", task.tool(), "task", task.task(),
-                                               field="schema")
-                if type(existing_task) is not type(task):
-                    raise TypeError(f"Task {task.tool()}/{task.task()} already exists with "
-                                    f"different type {type(existing_task).__name__}, "
-                                    f"imported type is {type(task).__name__}")
+            self.__handle_flowgraph_change(flow, task_cls())
 
+        edit_schema = EditableSchema(self)
         edit_schema.insert("flowgraph", flow.name, flow)
+        flow._set_callback(self.__handle_flowgraph_change)
 
     def check_manifest(self) -> bool:
         """
@@ -567,15 +602,37 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
                 scheduler = Scheduler(self)
             scheduler.run()
         except SCRuntimeError as e:
+            # Tear the dashboard down first: this restores (un-suppresses) the
+            # terminal handler and dumps the full log tail to scrollback, so
+            # the messages below and the propagating error are actually visible
+            # instead of being swallowed while the dashboard owns the screen.
+            if self.__dashboard:
+                self.__dashboard.stop(force=True)
             self.logger.error(f"Run failed: {e.msg}")
             if scheduler and scheduler.log:
                 self.logger.error(f"Job log: {os.path.abspath(scheduler.log)}")
             raise RuntimeError(f"Run failed: {e.msg}") from None
         finally:
             if self.__dashboard:
-                # Update dashboard
-                self.__dashboard.update_manifest()
-                self.__dashboard.end_of_run()
+                # Push the final manifest (best-effort), then ALWAYS tear the
+                # dashboard down. stop() finalizes the run (it calls end_of_run()
+                # internally), detaches the logger (restoring normal terminal
+                # output), and unregisters the atexit hook, so this project is no
+                # longer pinned and can be garbage collected. update_manifest()
+                # does a schema retraversal that can raise (I/O / serialization);
+                # a failing final repaint must not skip teardown, nor mask the
+                # run's own result or error, so it is guarded. The shared Board
+                # is a process-wide singleton: its completeness guard keeps it
+                # alive for other concurrent runs and only truly stops it once
+                # all jobs are done; MPManager.stop() is the process-exit backstop.
+                try:
+                    self.__dashboard.update_manifest()
+                except Exception as e:
+                    # Best-effort final repaint: never fail or mask the run, but
+                    # record why it was skipped for diagnostics.
+                    self.logger.debug(f"Failed to update dashboard at end of run: {e}")
+                finally:
+                    self.__dashboard.stop()
 
         self.__reset_job_params()
 
@@ -651,6 +708,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
         # Remove logger objects since they are not serializable
         del state["_Project__logger"]
         del state["_logger_console"]
+        del state["_logger_history"]
 
         # Remove dashboard
         del state["_Project__dashboard"]
@@ -689,6 +747,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
 
         # Restore callbacks
         self.__init_option_callbacks()
+        self.__init_flowgraph_callbacks()
 
         # Restore dashboard
         self.__init_dashboard()
@@ -733,7 +792,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
             alias[(src_lib, src_fileset)] = (dst_obj, dst_fileset)
 
         if isinstance(library, str):
-            library = cast(Design, self.get_library(library))
+            library = self.get_library(library)
 
         if library is None or library is self.design:
             library = self.design
@@ -1019,8 +1078,8 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
     def add_alias(self,
                   src_dep: Union[Design, str],
                   src_fileset: str,
-                  alias_dep: Union[Design, str],
-                  alias_fileset: str,
+                  alias_dep: Optional[Union[Design, str]],
+                  alias_fileset: Optional[str],
                   clobber: bool = False):
         """
         Adds an aliased fileset mapping to the project.
@@ -1032,16 +1091,17 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
 
         Args:
             src_dep (Union[Design, str]): The source design library (object or name)
-                                                from which the fileset is being aliased.
+                    from which the fileset is being aliased.
             src_fileset (str): The name of the source fileset to alias.
-            alias_dep (Union[Design, str]): The destination design library (object or name)
-                                                  to which the fileset is being redirected.
-                                                  Can be None or an empty string to indicate
-                                                  deletion.
-            alias_fileset (str): The name of the destination fileset. Can be None or an empty string
-                                 to indicate deletion of the fileset reference.
+            alias_dep (Optional[Union[Design, str]]): The destination design library
+                    (object or name)
+                    to which the fileset is being redirected.
+                    Can be None or an empty string to indicate
+                    deletion.
+            alias_fileset (Optional[str]): The name of the destination fileset. Can be None
+                    or an empty string to indicate deletion of the fileset reference.
             clobber (bool): If True, any existing alias for `(src_dep, src_fileset)` will be
-                            overwritten. If False, the alias will be added. Defaults to False.
+                    overwritten. If False, the alias will be added. Defaults to False.
 
         Raises:
             TypeError: If `src_dep` or `alias_dep` are not valid types (string or Design).
@@ -1102,7 +1162,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
         alias = (src_dep_name, src_fileset, alias_dep_name, alias_fileset)
         return self.option.add_alias(alias, clobber=clobber)
 
-    def get_library(self, library: str) -> NamedSchema:
+    def get_library(self, library: str) -> Design:
         """
         Retrieves a library by name from the project.
 
@@ -1110,7 +1170,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
             library (str): The name of the library to retrieve.
 
         Returns:
-            NamedSchema: The `NamedSchema` object representing the library.
+            Design: The `Design` object representing the library.
 
         Raises:
             KeyError: If the specified library is not found in the project.
@@ -1122,15 +1182,15 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
         if not self._has_library(library):
             raise KeyError(f"{library} is not a valid library")
 
-        return self.get("library", library, field="schema")
+        return cast(Design, self.get("library", library, field="schema"))
 
-    def _has_library(self, library: Union[str, NamedSchema]) -> bool:
+    def _has_library(self, library: Optional[Union[str, Design]]) -> bool:
         """
         Checks if a library with the given name exists and is loaded in the project.
 
         Args:
-            library (Union[str, NamedSchema]): The name of the library (string)
-                                               or a `NamedSchema` object representing the library.
+            library (Union[str, Design, None]): The name of the library (string)
+                                                or a `Design` object representing the library.
 
         Returns:
             bool: True if the library exists, False otherwise.
@@ -1138,7 +1198,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
         if isinstance(library, NamedSchema):
             library = library.name
 
-        return library in self.getkeys("library")
+        return library is not None and library in self.getkeys("library")
 
     def _summary_headers(self) -> List[Tuple[str, str]]:
         """
@@ -1195,7 +1255,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
         """
         return [("Design", self.option.get_design())]
 
-    def summary(self, jobname: str = None, fd: TextIO = None) -> None:
+    def summary(self, jobname: Optional[str] = None, fd: Optional[TextIO] = None) -> None:
         '''
         Prints a summary of the compilation manifest and results.
 
@@ -1228,18 +1288,14 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
 
         history = self.history(jobname)
 
-        if not fd:
-            if self.__dashboard and self.__dashboard.is_running():
-                self.__dashboard.stop()
-
         history.get("metric", field='schema').summary(
             headers=history._summary_headers(),
             fd=fd)
 
     def find_result(self,
-                    filetype: str = None, step: str = None,
+                    filetype: Optional[str] = None, step: Optional[str] = None,
                     index: str = "0", directory: str = "outputs",
-                    filename: str = None) -> str:
+                    filename: Optional[str] = None) -> Optional[str]:
         """
         Returns the absolute path of a compilation result file.
 
@@ -1299,7 +1355,8 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
 
         return None
 
-    def snapshot(self, path: str = None, jobname: str = None, display: bool = True) -> None:
+    def snapshot(self, path: Optional[str] = None, jobname: Optional[str] = None,
+                 display: bool = True) -> None:
         '''
         Creates a snapshot image summarizing a job's progress and key information.
 
@@ -1351,7 +1408,7 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
 
     def show(self, filename: Optional[str] = None, screenshot: bool = False,
              extension: Optional[str] = None, tool: Optional[str] = None,
-             open: bool = False) -> str:
+             open: bool = False) -> Optional[str]:
         '''
         Opens a graphical viewer for a specified file or the last generated layout.
 
@@ -1501,7 +1558,13 @@ class Project(PathSchemaBase, CommandLineSchema, BaseSchema):
         if not proj.option.get_nodashboard():
             proj.option.set_nodashboard(not screenshot)
 
-        jobname = f"_{task.task()}_{sc_jobname}_{sc_step}_{sc_index}_{task.tool()}"
+        jobname = f"_{task.task()}_{sc_jobname}_"
+        if sc_step is not None:
+            jobname += f"{sc_step}_"
+        if sc_index is not None:
+            jobname += f"{sc_index}_"
+        jobname += f"{task.tool()}"
+
         proj.option.set_jobname(jobname)
 
         # Setup in task variables

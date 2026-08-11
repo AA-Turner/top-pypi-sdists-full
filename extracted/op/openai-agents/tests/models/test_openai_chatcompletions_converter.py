@@ -29,6 +29,7 @@ from typing import Any, Literal, cast
 import pytest
 from openai import omit
 from openai.types.chat import ChatCompletionMessage, ChatCompletionMessageFunctionToolCall
+from openai.types.chat.chat_completion_message import Annotation, AnnotationURLCitation
 from openai.types.chat.chat_completion_message_custom_tool_call import (
     ChatCompletionMessageCustomToolCall,
     Custom,
@@ -46,7 +47,7 @@ from openai.types.responses import (
 from openai.types.responses.response_input_item_param import FunctionCallOutput
 
 from agents.agent_output import AgentOutputSchema
-from agents.exceptions import UserError
+from agents.exceptions import AgentsException, UserError
 from agents.items import TResponseInputItem
 from agents.models.chatcmpl_converter import Converter
 from agents.models.fake_id import FAKE_RESPONSES_ID
@@ -71,6 +72,61 @@ def test_message_to_output_items_with_text_only():
     text_part = cast(ResponseOutputText, message_item.content[0])
     assert text_part.type == "output_text"
     assert text_part.text == "Hello"
+
+
+def test_message_to_output_items_rejects_audio():
+    """
+    Audio output is unsupported by the Chat Completions converter, and the failure
+    must be loud so callers do not receive a silently truncated message.
+    """
+    msg = ChatCompletionMessage.model_validate(
+        {
+            "role": "assistant",
+            "content": None,
+            "audio": {
+                "id": "audio-1",
+                "data": "AAA=",
+                "expires_at": 1,
+                "transcript": "hi",
+            },
+        }
+    )
+    with pytest.raises(AgentsException, match="Audio is not currently supported"):
+        Converter.message_to_output_items(msg)
+
+
+def test_message_to_output_items_keeps_url_citation_annotations():
+    """
+    URL citations reported on the Chat Completions message should survive as
+    output text annotations, the same way the Responses API reports them.
+    """
+    msg = ChatCompletionMessage(
+        role="assistant",
+        content="It will rain tomorrow.",
+        annotations=[
+            Annotation(
+                type="url_citation",
+                url_citation=AnnotationURLCitation(
+                    start_index=0,
+                    end_index=22,
+                    url="https://example.com/weather",
+                    title="Weather",
+                ),
+            )
+        ],
+    )
+    items = Converter.message_to_output_items(msg)
+    message_item = cast(ResponseOutputMessage, items[0])
+    text_part = cast(ResponseOutputText, message_item.content[0])
+    assert [annotation.model_dump() for annotation in text_part.annotations] == [
+        {
+            "end_index": 22,
+            "start_index": 0,
+            "title": "Weather",
+            "type": "url_citation",
+            "url": "https://example.com/weather",
+        }
+    ]
 
 
 def test_message_to_output_items_with_refusal():
@@ -654,6 +710,56 @@ def test_extract_all_content_rejects_invalid_input_audio():
     )
     with pytest.raises(UserError):
         Converter.extract_all_content([audio_missing_data])
+
+
+def test_extract_all_content_supports_input_file_file_id():
+    """
+    An input_file that references an uploaded file by id is representable by the
+    Chat Completions ``file`` content part, so it must convert rather than raise.
+    """
+    content: list[dict[str, Any]] = [
+        {
+            "type": "input_file",
+            "file_id": "file-abc123",
+            "filename": "hello.txt",
+        }
+    ]
+
+    parts = Converter.extract_all_content(content)
+
+    assert parts == [
+        {
+            "type": "file",
+            "file": {"file_id": "file-abc123", "filename": "hello.txt"},
+        }
+    ]
+
+
+def test_extract_all_content_prefers_input_file_data_over_file_id():
+    """When both file_data and file_id are present, file_data is used (prior behavior)."""
+    content: list[dict[str, Any]] = [
+        {
+            "type": "input_file",
+            "file_data": "data:text/plain;base64,SGVsbG8=",
+            "file_id": "file-abc123",
+        }
+    ]
+
+    parts = Converter.extract_all_content(content)
+
+    assert parts == [
+        {
+            "type": "file",
+            "file": {"file_data": "data:text/plain;base64,SGVsbG8="},
+        }
+    ]
+
+
+def test_extract_all_content_rejects_input_file_without_data_or_id():
+    """An input_file that carries neither file_data nor file_id cannot be represented."""
+    content: list[dict[str, Any]] = [{"type": "input_file", "filename": "hello.txt"}]
+    with pytest.raises(UserError):
+        Converter.extract_all_content(content)
 
 
 def test_items_to_messages_handles_system_and_developer_roles():

@@ -403,11 +403,11 @@ class SQLPanelTestCase(BaseTestCase):
             connection.vendor == "mysql"
             and django.VERSION >= (4, 1)
             or connection.vendor != "postgresql"
-            and django.VERSION >= (6, 2)
+            and django.VERSION >= (6, 1)
         ):
             # Django 4.1 started passing true/false back for boolean
             # comparisons in MySQL.
-            # Django 6.2 started passing true/false for all-non
+            # Django 6.1 started passing true/false for all-non
             # postgres databases.
             expected_bools = ["Foo", True, False]
         else:
@@ -495,37 +495,24 @@ class SQLPanelTestCase(BaseTestCase):
 
         list(
             User.objects.raw(
-                " ".join(
-                    [
-                        "SELECT *",
-                        "FROM auth_user",
-                        "WHERE first_name = %s",
-                        "AND is_staff = %s",
-                        "AND is_superuser = %s",
-                        "AND date_joined = %s",
-                    ]
-                ),
-                params=["Foo", True, False, datetime.datetime(2017, 12, 22, 16, 7, 1)],
+                "SELECT * FROM auth_user WHERE first_name = %s AND is_staff = %s AND is_superuser = %s AND date_joined = %s",
+                params=[
+                    "Foo",
+                    True,
+                    False,
+                    datetime.datetime(2017, 12, 22, 16, 7, 1),  # noqa: DTZ001
+                ],
             )
         )
 
         list(
             User.objects.raw(
-                " ".join(
-                    [
-                        "SELECT *",
-                        "FROM auth_user",
-                        "WHERE first_name = %(first_name)s",
-                        "AND is_staff = %(is_staff)s",
-                        "AND is_superuser = %(is_superuser)s",
-                        "AND date_joined = %(date_joined)s",
-                    ]
-                ),
+                "SELECT * FROM auth_user WHERE first_name = %(first_name)s AND is_staff = %(is_staff)s AND is_superuser = %(is_superuser)s AND date_joined = %(date_joined)s",
                 params={
                     "first_name": "Foo",
                     "is_staff": True,
                     "is_superuser": False,
-                    "date_joined": datetime.datetime(2017, 12, 22, 16, 7, 1),
+                    "date_joined": datetime.datetime(2017, 12, 22, 16, 7, 1),  # noqa: DTZ001
                 },
             )
         )

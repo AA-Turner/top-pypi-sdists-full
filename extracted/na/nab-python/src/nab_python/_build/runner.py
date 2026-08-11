@@ -9,9 +9,9 @@ contains fields nab cannot read statically, run_build_backend:
 2. Opens a :class:`~nab_python._build.env.NabBuildEnv` populated with
    those requirements.
 3. Hands the env to ``build.ProjectBuilder.from_isolated_env`` and
-   asks it for the wheel metadata via ``metadata_path()``, which
-   tries ``prepare_metadata_for_build_wheel`` and falls back to a
-   full ``build_wheel`` when the backend lacks that hook.
+   asks it for the wheel metadata via ``prepare()``, falling back to
+   a full ``build_wheel`` and reading the wheel's own dist-info when
+   the backend lacks ``prepare_metadata_for_build_wheel``.
 4. Parses the resulting ``METADATA`` file into
    :class:`~nab_python.metadata.WheelMetadata`.
 
@@ -25,32 +25,39 @@ from __future__ import annotations
 
 import logging
 import lzma
+import os
 import tempfile
 import zipfile
 import zlib
+from contextlib import contextmanager
 from email import message_from_string
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import build
 import pyproject_hooks
 import tomli
 
-from nab_resolver.resolver import ResolutionError
+from nab_index.local_index import UnsupportedWheelError, wheel_metadata_member
+from nab_resolver.errors import ResolutionError
 
-from .._vendor.packaging.requirements import InvalidRequirement, Requirement
-from .._vendor.packaging.specifiers import InvalidSpecifier, SpecifierSet
-from .._vendor.packaging.utils import canonicalize_name
-from .._vendor.packaging.version import InvalidVersion, Version
-from ..metadata import WheelMetadata
-from .env import BuildEnvError, NabBuildEnv
+from .._vendor.packaging.requirements import Requirement
+from .._vendor.packaging.specifiers import SpecifierSet
+from .._vendor.packaging.utils import canonicalize_name, parse_wheel_filename
+from .._vendor.packaging.version import Version
+from ..metadata import WheelMetadata, validate_specifier_versions
+from ..paths import PathState, path_state
+from .env import BuildChain, BuildEnvError, NabBuildEnv
 from .errors import BuildBackendError
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from ..config import NabProjectConfig
 
 __all__ = [
     "BuildBackendError",
+    "build_wheel_for_install",
     "run_build_backend",
 ]
 
@@ -66,73 +73,108 @@ def run_build_backend(
     *,
     config: NabProjectConfig,
     offline: bool = False,
+    chain: BuildChain = (),
 ) -> WheelMetadata:
     """Extract wheel metadata for ``source_dir`` via the build backend.
 
     Returns a :class:`~nab_python.metadata.WheelMetadata` parsed from
     the ``METADATA`` file the backend produces.  Raises
     :class:`BuildBackendError` on any failure: backend import
-    error, hook crash, malformed METADATA, an unreadable built
-    wheel, sdist-only build deps, or build requirements ``offline``
+    error, a rejected ``backend-path``, hook crash, malformed
+    METADATA, an unreadable built wheel, a build requirement that
+    cannot be installed or built, or build requirements ``offline``
     bars from being fetched.
 
     The build runs in an isolated venv driven by
     :class:`NabBuildEnv`; nothing in the user's main environment is
     perturbed.  The build env owns its own HTTP transport (see
     :class:`NabBuildEnv` for why) so callers do not pass one in.
+
+    ``chain`` names the builds this one is nested inside; see
+    :data:`~nab_python._build.env.BuildChain`.
     """
-    pyproject = source_dir / "pyproject.toml"
-    if pyproject.is_file():
+    data = _read_pyproject(source_dir)
+
+    with (
+        _prepared_project(
+            source_dir, data, config=config, offline=offline, chain=chain
+        ) as (project, backend),
+        tempfile.TemporaryDirectory(prefix="nab-build-meta-") as out_str,
+    ):
+        metadata_dir = _extract_metadata_dir(
+            project,
+            Path(out_str),
+            backend=backend,
+            skip_prepare=_should_skip_prepare(backend, data),
+        )
+        return _parse_metadata(metadata_dir / "METADATA")
+
+
+def build_wheel_for_install(
+    source_dir: Path,
+    *,
+    output_dir: Path,
+    config: NabProjectConfig,
+    offline: bool = False,
+    chain: BuildChain = (),
+) -> Path:
+    """Build ``source_dir`` into a wheel under ``output_dir`` and return its path.
+
+    The metadata path only ever needs a backend's answer, so it can
+    stop at ``prepare_metadata_for_build_wheel``.  This one is for a
+    build requirement that has to be installed, which takes a real
+    wheel and therefore the full ``build_wheel`` hook.
+
+    Raises :class:`BuildBackendError` on any failure, like
+    :func:`run_build_backend`.
+    """
+    data = _read_pyproject(source_dir)
+
+    with _prepared_project(
+        source_dir, data, config=config, offline=offline, chain=chain
+    ) as (project, backend):
         try:
-            data = tomli.loads(pyproject.read_text(encoding="utf-8"))
-        except (OSError, UnicodeDecodeError, tomli.TOMLDecodeError) as exc:
-            msg = f"could not read pyproject.toml at {source_dir}: {exc}"
+            return Path(project.build("wheel", str(output_dir)))
+        # PEP 517's path-returning hooks must return a basename string, so a
+        # non-string reaches os.path.join as-is.
+        except TypeError as exc:
+            msg = (
+                f"build backend {backend!r} returned a non-string path"
+                f" from build_wheel: {exc}"
+            )
             raise BuildBackendError(msg) from exc
-    elif (source_dir / "setup.py").is_file():
-        # PEP 517 fallback for legacy setup.py projects: treat the
-        # missing ``[build-system]`` as the documented default
-        # (setuptools.build_meta:__legacy__).
-        data = {}
-    else:
-        msg = f"no pyproject.toml or setup.py at {source_dir}"
-        raise BuildBackendError(msg)
 
-    backend, requires, _backend_path = _read_build_system(data)
 
-    skip_prepare = _should_skip_prepare(backend, data)
+@contextmanager
+def _prepared_project(
+    source_dir: Path,
+    data: dict,
+    *,
+    config: NabProjectConfig,
+    offline: bool,
+    chain: BuildChain,
+) -> Iterator[tuple[build.ProjectBuilder, str]]:
+    """Yield a builder for ``source_dir`` in an env holding its build requirements.
+
+    Yields the backend name beside the builder because every failure
+    message names it.  Failures from setting the env up and from the
+    caller's own block both come out as :class:`BuildBackendError`,
+    which is the contract both entry points advertise.
+    """
+    backend, requires, backend_path = _read_build_system(data)
+    _validate_backend_path(source_dir, backend_path)
 
     try:
         with NabBuildEnv(
-            requires=list(requires), config=config, offline=offline
+            requires=list(requires), config=config, offline=offline, chain=chain
         ) as env:
             project = build.ProjectBuilder.from_isolated_env(
                 env,
                 source_dir=str(source_dir),
                 runner=pyproject_hooks.quiet_subprocess_runner,
             )
-
-            extra = list(project.get_requires_for_build("wheel"))
-            if extra:
-                # PEP 517 requires the hook to return a list of strings.
-                non_str = [item for item in extra if not isinstance(item, str)]
-                if non_str:
-                    msg = (
-                        f"build backend {backend!r} returned a non-string build"
-                        f" requirement from get_requires_for_build_wheel: {non_str!r}"
-                    )
-                    raise BuildBackendError(msg)
-
-                logger.debug("build backend asked for extras: %s", extra)
-                env.install(extra)
-
-            with tempfile.TemporaryDirectory(prefix="nab-build-meta-") as out_str:
-                metadata_dir = _extract_metadata_dir(
-                    project,
-                    Path(out_str),
-                    backend=backend,
-                    skip_prepare=skip_prepare,
-                )
-                return _parse_metadata(metadata_dir / "METADATA")
+            _install_extra_requires(project, env, backend=backend)
+            yield project, backend
     except (
         build.BuildException,
         build.BuildBackendException,
@@ -143,6 +185,73 @@ def run_build_backend(
     except (BuildEnvError, ResolutionError) as exc:
         msg = f"build env setup for {backend!r} failed: {exc}"
         raise BuildBackendError(msg) from exc
+
+
+def _install_extra_requires(
+    project: build.ProjectBuilder, env: NabBuildEnv, *, backend: str
+) -> None:
+    """Install whatever ``get_requires_for_build_wheel`` asks for on top."""
+    # build returns the hook's result as a set, so sort for a stable
+    # order. key=str keeps a non-string item from raising here.
+    extra = sorted(project.get_requires_for_build("wheel"), key=str)
+    if not extra:
+        return
+
+    _validate_extra_requires(extra, backend=backend)
+
+    logger.debug("build backend asked for extras: %s", extra)
+    env.install(extra)
+
+
+def _validate_extra_requires(extra: list[Any], *, backend: str) -> None:
+    """Reject a hook result the build env cannot install.
+
+    PEP 517 requires strings, and the build env writes each one into the
+    UTF-8 pyproject its inner resolve reads.
+    """
+    non_str = [item for item in extra if not isinstance(item, str)]
+    if non_str:
+        msg = (
+            f"build backend {backend!r} returned a non-string build"
+            f" requirement from get_requires_for_build_wheel: {non_str!r}"
+        )
+        raise BuildBackendError(msg)
+
+    for item in extra:
+        try:
+            item.encode("utf-8")
+        except UnicodeEncodeError as exc:
+            msg = (
+                f"build backend {backend!r} returned a build requirement from"
+                f" get_requires_for_build_wheel that cannot be encoded as"
+                f" UTF-8: {item!r}"
+            )
+            raise BuildBackendError(msg) from exc
+
+
+def _read_pyproject(source_dir: Path) -> dict:
+    """Return the parsed ``pyproject.toml``, or ``{}`` for a legacy setup.py tree."""
+    pyproject = source_dir / "pyproject.toml"
+    state = path_state(pyproject)
+
+    if state.should_read:
+        try:
+            return tomli.loads(pyproject.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, tomli.TOMLDecodeError) as exc:
+            msg = f"could not read pyproject.toml at {source_dir}: {exc}"
+            raise BuildBackendError(msg) from exc
+    if state is not PathState.ABSENT:
+        # The file is there, so the tree is not the legacy setup.py case.
+        msg = f"{pyproject} exists but is not a regular file"
+        raise BuildBackendError(msg)
+    if path_state(source_dir / "setup.py").should_read:
+        # PEP 517 fallback for legacy setup.py projects: treat the
+        # missing ``[build-system]`` as the documented default
+        # (setuptools.build_meta:__legacy__).
+        return {}
+
+    msg = f"no pyproject.toml or setup.py at {source_dir}"
+    raise BuildBackendError(msg)
 
 
 def _read_build_system(
@@ -180,6 +289,36 @@ def _read_build_system(
     return backend, requires, backend_path
 
 
+def _validate_backend_path(
+    source_dir: Path, backend_path: tuple[str, ...] | None
+) -> None:
+    """Reject a ``backend-path`` a PEP 517 frontend would refuse.
+
+    pyproject_hooks raises a bare ``ValueError`` for an absolute entry
+    or one that leaves the source tree.
+    """
+    root = os.path.abspath(source_dir)
+    norm_root = os.path.normcase(root)
+
+    for entry in backend_path or ():
+        if os.path.isabs(entry):
+            msg = (
+                f"backend-path entry {entry!r} in pyproject.toml must be"
+                " relative to the project root"
+            )
+            raise BuildBackendError(msg)
+
+        # pyproject_hooks compares the two paths as strings, so match that
+        # rather than a stricter containment check.
+        resolved = os.path.normcase(os.path.normpath(os.path.join(root, entry)))
+        if not resolved.startswith(norm_root):
+            msg = (
+                f"backend-path entry {entry!r} in pyproject.toml is outside"
+                " the source tree"
+            )
+            raise BuildBackendError(msg)
+
+
 def _should_skip_prepare(backend: str, data: dict) -> bool:
     """Skip ``prepare_metadata_for_build_wheel`` when it would lie.
 
@@ -209,17 +348,24 @@ def _extract_metadata_dir(
 ) -> Path:
     """Return the dist-info directory the backend produced.
 
-    ``build`` lets two faults through raw, outside its own hook-error
-    wrapper: reading back a wheel it just built, and joining a
+    ``prepare_metadata_for_build_wheel`` is optional; ``prepare``
+    returns ``None`` when the backend has no such hook, which takes
+    the same route as ``skip_prepare``.
+
+    Two faults arrive raw rather than as a ``BuildBackendException``:
+    reading back the built wheel, and ``build`` joining a
     path-returning hook's result onto ``output_dir``.
     """
     try:
-        if skip_prepare:
-            return _build_wheel_and_extract(project, output_dir)
-        return Path(project.metadata_path(output_dir))
-    # build raises a bare ValueError for a wheel whose name will not parse; a
-    # member zipfile cannot decompress surfaces as zlib.error, lzma.LZMAError,
-    # or NotImplementedError (a RuntimeError subclass).
+        if not skip_prepare:
+            prepared = project.prepare("wheel", output_dir)
+            if prepared is not None:
+                return Path(prepared)
+
+        return _build_wheel_and_extract(project, output_dir)
+    # A wheel whose name will not parse raises a bare ValueError; a member
+    # zipfile cannot decompress surfaces as zlib.error, lzma.LZMAError, or
+    # NotImplementedError (a RuntimeError subclass).
     except (
         zipfile.BadZipFile,
         ValueError,
@@ -243,35 +389,37 @@ def _extract_metadata_dir(
 def _build_wheel_and_extract(
     project: build.ProjectBuilder, output_directory: Path
 ) -> Path:
-    """Build a wheel and extract its dist-info directory.
+    """Build a wheel and extract its own dist-info directory.
 
-    The built wheel ends up in ``output_directory``; this helper
-    pulls out its ``*.dist-info/`` and returns the path so the
-    caller can read ``METADATA``.  Mirrors what
-    :meth:`build.ProjectBuilder.metadata_path` does internally
-    when the prepare hook is missing; we just call it
-    unconditionally for the hatchling+dynamic-deps case.
+    The built wheel ends up in ``output_directory``; this helper pulls
+    out the ``*.dist-info/`` for the distribution the wheel's filename
+    names and returns the path so the caller can read ``METADATA``.
+    Selection goes through
+    :func:`nab_index.local_index.wheel_metadata_member` so a built wheel
+    and an indexed one agree on what a wheel's own metadata is.
     """
     wheel = project.build("wheel", str(output_directory))
     wheel_path = Path(wheel)
+    expected = parse_wheel_filename(wheel_path.name)[0]
+
     with zipfile.ZipFile(wheel_path) as zf:
-        dist_info_members = [
-            n
-            for n in zf.namelist()
-            if "/" in n and n.split("/")[0].endswith(".dist-info")
-        ]
-        if not dist_info_members:
-            msg = f"built wheel {wheel_path.name} has no .dist-info directory"
+        names = zf.namelist()
+
+        try:
+            member = wheel_metadata_member(names, expected)
+        except UnsupportedWheelError as exc:
+            msg = f"built wheel {wheel_path.name} is unusable: {exc}"
+            raise BuildBackendError(msg) from exc
+        if member is None:
+            msg = f"built wheel {wheel_path.name} has no .dist-info/METADATA"
             raise BuildBackendError(msg)
-        distinfo_dir = dist_info_members[0].split("/")[0]
+
+        distinfo_dir = member.partition("/")[0]
         zf.extractall(
             output_directory,
-            (
-                m
-                for m in zf.namelist()
-                if m == distinfo_dir or m.startswith(distinfo_dir + "/")
-            ),
+            (m for m in names if m.startswith(distinfo_dir + "/")),
         )
+
     return output_directory / distinfo_dir
 
 
@@ -297,29 +445,33 @@ def _parse_metadata(metadata_path: Path) -> WheelMetadata:
         raise BuildBackendError(msg)
     try:
         version = Version(version_raw)
-    except InvalidVersion as exc:
+    except ValueError as exc:
+        # InvalidVersion, or int() refusing a digit run past CPython's limit.
         msg = f"backend METADATA has invalid Version {version_raw!r}: {exc}"
         raise BuildBackendError(msg) from exc
 
     requires_python_raw = msg_obj.get("Requires-Python")
-    try:
-        requires_python = (
-            SpecifierSet(requires_python_raw) if requires_python_raw else None
-        )
-    except InvalidSpecifier as exc:
-        msg = (
-            f"backend METADATA has invalid Requires-Python "
-            f"{requires_python_raw!r}: {exc}"
-        )
-        raise BuildBackendError(msg) from exc
+    requires_python = None
+    if requires_python_raw:
+        try:
+            requires_python = SpecifierSet(requires_python_raw)
+            validate_specifier_versions(requires_python)
+        except ValueError as exc:
+            msg = (
+                f"backend METADATA has invalid Requires-Python "
+                f"{requires_python_raw!r}: {exc}"
+            )
+            raise BuildBackendError(msg) from exc
 
-    try:
-        requires_dist: list[Requirement] = [
-            Requirement(raw) for raw in msg_obj.get_all("Requires-Dist") or ()
-        ]
-    except InvalidRequirement as exc:
-        msg = f"backend METADATA has an invalid Requires-Dist: {exc}"
-        raise BuildBackendError(msg) from exc
+    requires_dist: list[Requirement] = []
+    for raw in msg_obj.get_all("Requires-Dist") or ():
+        try:
+            req = Requirement(raw)
+            validate_specifier_versions(req.specifier)
+        except ValueError as exc:
+            msg = f"backend METADATA has an invalid Requires-Dist: {exc}"
+            raise BuildBackendError(msg) from exc
+        requires_dist.append(req)
 
     provides_extra: list[str] = sorted(
         {

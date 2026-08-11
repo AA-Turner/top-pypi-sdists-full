@@ -1,7 +1,7 @@
 from setuptools import setup, Extension
 
 NAME = 'tinybird-toolset'
-VERSION = '2.5.4'
+VERSION = '2.5.5'
 
 # Shared metadata for both the full (extension) build and the metadata-only
 # fallback below, so the two setup() calls can't drift apart.
@@ -13,7 +13,7 @@ common_kwargs = dict(
     author_email="support@tinybird.co",
     packages=["chtoolset"],
     package_dir={"": "src"},
-    python_requires=">=3.10, <3.15",
+    python_requires=">=3.13, <3.15",
     install_requires=[],
 )
 

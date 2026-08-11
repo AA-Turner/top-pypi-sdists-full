@@ -12,18 +12,30 @@ import threading
 import time
 from typing import Any, Dict, List, Optional
 
+from . import boot_phases
 from .config import Settings
 from .executor import Executor, ModelStore
 from .lifecycle import Lifecycle
 from .pb import worker_scheduler_pb2 as pb
 from .registry import collect_endpoints
 from .topology import ExecutionTopology, delivered_topology
-from .transport import FatalTransportError, Transport
+from .transport import (
+    DEFAULT_QUEUE_MAXSIZE as _DEFAULT_QUEUE_MAXSIZE,
+    FatalTransportError,
+    Transport,
+)
 from .host_move_guard import install as _install_host_move_guard
 from .procsplit import is_compute_child
 
 logger = logging.getLogger(__name__)
 
+# pgw#887: what this bounds CHANGED, and the number stayed. It used to be the
+# budget for all in-flight tenant work — SIGTERM, then 30 s, then `abort_all()`
+# regardless of what any job or mint was doing. Tenant work is now bounded by
+# progress (`lifecycle._await_tenant_idle`), and this bounds only the SHUTDOWN
+# half: the floor under the result FLUSH, and the deadline the worker reports
+# to the hub so the two agree about when the pod stops answering. A drain is a
+# command and a command may carry a deadline; the work underneath may not.
 _SIGNAL_DRAIN_DEADLINE_MS = 30_000
 
 
@@ -95,7 +107,7 @@ class Worker:
         manifest: Optional[Dict[str, Any]] = None,
         gpu_slots: Optional[int] = None,
         topology: Optional["ExecutionTopology"] = None,
-        queue_maxsize: int = 1024,
+        queue_maxsize: int = _DEFAULT_QUEUE_MAXSIZE,
         backoff_base_s: float = 1.0,
         backoff_cap_s: float = 30.0,
     ) -> None:
@@ -160,6 +172,16 @@ class Worker:
         # Capability renewal presents the freshest worker JWT (contract §1
         # rotation), not the boot-time settings token.
         self.executor.worker_jwt_provider = lambda: self.transport.current_worker_jwt
+        # pgw#1087: process start -> SDK ready. Everything before this line is
+        # interpreter startup, `import torch`, endpoint-module import and
+        # executor construction — a window NO span could ever have covered,
+        # because the recorder itself is part of what is being imported. It
+        # arrived as an unexplained residual on every boot; now it is named,
+        # and `reconciliation()` subtracts it from the residual rather than
+        # leaving the biggest unmeasured slice unattributed.
+        boot_phases.mark_once(
+            boot_phases.PHASE_SDK_READY,
+            detail=f"endpoints={len(specs)} modules={len(user_module_names)}")
 
     async def _send(self, msg: pb.WorkerMessage) -> None:
         await self.transport.send(msg)

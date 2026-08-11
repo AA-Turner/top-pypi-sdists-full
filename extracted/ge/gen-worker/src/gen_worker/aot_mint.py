@@ -97,12 +97,14 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import (
-    Any, Callable, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple)
+    Any, Callable, Dict, Generator, Iterator, List, Mapping, Optional,
+    Sequence, Tuple)
 
 from . import activity as activity_mod
 from . import (
     aot_compile_pool, aot_package,
-    aot_serve, aot_wrapper_split, cell_key, graph_hash, kernel_path)
+    aot_serve, aot_wrapper_split, boot_phases, cell_key, graph_hash,
+    kernel_path)
 from .aot_contract import (  # re-exported: the declaration layer's vocabulary
     ADAPTER_FORK,
     DynamicDim,
@@ -121,7 +123,9 @@ from . import aot_flatten
 from . import aot_inputs
 from . import aot_declaration as _decl
 from .api.export_contract import export_declaration
+from . import meta_instantiation
 from .models import lora_lifted
+from .models import structure_only
 from . import compile_cache as cc
 from . import env_seal
 from . import config, worker_credential
@@ -132,6 +136,48 @@ logger = logging.getLogger(__name__)
 #: The inductor config that makes the package code-only. Not a knob: B1.
 CODE_ONLY_CONFIGS: Dict[str, Any] = {
     "aot_inductor.package_constants_in_so": False,
+}
+
+#: The inductor config that keeps every lifted weight BINDABLE. Not a knob
+#: either, and for the same reason B1 is not one — this is what makes one cell
+#: legally serve every fine-tune of a family (pgw#1097, pgw#857).
+#:
+#: Off (the torch default), ``GraphLowering.get_attr`` inlines a constant whose
+#: SHAPE meets either of two rules — 0-dim, or ``len(shape) == 1 and
+#: shape[0] <= 8`` — by rendering its VALUES into the generated kernel. Those
+#: values are the minting checkpoint's, and the constant then appears in no
+#: table anyone could rebind. MEASURED on torch 2.13.0 (pgw#1097): a 4-element
+#: conv bias, an 8-element group-norm scale and a 0-dim learned scalar all left
+#: the bindable set; with this flag all three stay. It is also what the fleet's
+#: one recorded real-weight elimination was — sdxl's ``unet.conv_out.bias``,
+#: 4 floats — which the tree had filed as routine conv-epilogue fusion.
+#:
+#: **Why the RUNTIME-FOLDING split and not ``always_keep_tensor_constants``.**
+#: Both restore bindability, and the cheaper-looking flag is the wrong one —
+#: CI proved it. ``always_keep_tensor_constants`` also retains ANONYMOUS graph
+#: literals (``_tensor_constant0``) as ORDINARY constants, and a literal the
+#: recorded program never lifted is precisely the ``program_package_drift``
+#: refusal (pgw#704 B1): "the package declares a constant the program never
+#: lifted — nothing would bind it and the first call would segfault". Measured
+#: on a plain-attribute table built inside ``forward`` (the pgw#857 authoring
+#: violation, `test_aot_multigraph_pgw758.WarmSensitive`): every mint of that
+#: shape REFUSED. The runtime split has no such problem because its outputs are
+#: ``FoldedConstant``/``SOURCE_COMPUTED`` rows, which that gate ALREADY exempts
+#: — a carve-out pgw#1080 added for this exact flag, and which no equivalent
+#: exists for the other one.
+#:
+#: The price is honest and is paid on purpose: the split materializes a
+#: ``_FOLDED_CONST_*`` tensor per folded op at load — measured 106,496 bytes on
+#: a 1.1 MB micro decoder (permuted copies of its linear weights, ~10% of model
+#: size). **Unmeasured at sdxl scale and owed**; do not extrapolate the 10%,
+#: since which ops fold is graph-shaped. It buys the property that one cell may
+#: legally serve every fine-tune of a family, which is the whole cell economy.
+#:
+#: Weightless mints (pgw#1080) needed this same flag for a DIFFERENT reason —
+#: their values are fake — so the two motives now converge on one config and
+#: there is no longer a weightless special case.
+CONSTANT_BINDING_CONFIGS: Dict[str, Any] = {
+    "aot_inductor.use_runtime_constant_folding": True,
 }
 
 
@@ -477,8 +523,8 @@ def declared_range_gaps(
        placeholder, so the dim never became symbolic at all;
     2. **solved range** — the governing symbol's range in the exported program
        must COVER the declared ``[min, max]``. A collapsed (``lower == upper``)
-       or narrowed range is a pin, and the artifact admits less traffic than it
-       advertises;
+       or narrowed range is a pin, and the artifact declares a narrower ENVELOPE
+       than it advertises;
     3. **pinning guards** — an equality guard in the shape env mentioning a
        declared symbol. A dim that is genuinely a function of the declared
        extents forces the tracer to record ``Eq(h*w, N)``; a dim that merely
@@ -553,8 +599,8 @@ def declared_range_gaps(
                         gaps.append(
                             f"{input_name}[{d.axis}] ({expr}) solved to "
                             f"[{lo}, {hi}] which does not cover the declared "
-                            f"[{d.min}, {d.max}] — the artifact admits less "
-                            f"traffic than it advertises")
+                            f"[{d.min}, {d.max}] — the artifact declares a "
+                            f"narrower envelope than it advertises")
                     continue
             for sym in syms:
                 interval = ranges.get(sym)
@@ -582,7 +628,7 @@ def declared_range_gaps(
                         f"{input_name}[{d.axis}] symbol {sym} solved to "
                         f"[{lo * factor}, {hi * factor}] which does not cover "
                         f"the declared [{d.min}, {d.max}] — the artifact "
-                        f"admits less traffic than it advertises")
+                        f"declares a narrower envelope than it advertises")
                 covered = True
                 break
             if not covered and not syms:
@@ -618,6 +664,29 @@ def _is_tautology(expr: Any) -> bool:
     except Exception:  # noqa: BLE001 — an unprovable guard stays refused
         logger.debug("range gate: could not simplify guard %s", expr,
                      exc_info=True)
+        return False
+
+
+def _refuted(value: Any) -> bool:
+    """``True`` when a dict source records this relation as PROVEN FALSE.
+
+    ``ShapeEnv.axioms`` is a ``{relation: sympy.true | sympy.false}`` map, and
+    ``symbolic_shapes.get_implications`` deposits ``Eq(a, b) => false`` — plus
+    its commuted mirror — for every ``Ne(a, b)`` the graph PROVES. So a bare
+    KEY of that map is a refutation as often as a pin: pgw#1077 measured six
+    such keys (``Eq(Mod(1, s18*s57), 0)`` and friends) refusing a z-image mint
+    whose declared symbols nothing pinned.
+
+    Only a recognised false admits; an unrecognised value stays refused, the
+    same fail-closed direction :func:`_is_tautology` takes.
+    """
+    if isinstance(value, bool):
+        return value is False
+    try:
+        import sympy
+
+        return value is sympy.false
+    except Exception:  # noqa: BLE001 — an unreadable value stays refused
         return False
 
 
@@ -659,7 +728,10 @@ def _pinning_guards(program: Any, declared_symbols: Sequence[Any]) -> List[str]:
     for source in ("guards", "axioms"):
         entries = getattr(env, source, None) or ()
         if isinstance(entries, dict):
-            entries = list(entries)
+            # The VALUE is the truth the graph proved — reading keys alone
+            # reports every proven inequality as a pin (pgw#1077).
+            entries = [key for key, value in entries.items()
+                       if not _refuted(value)]
         for entry in entries:
             expr = getattr(entry, "expr", entry)
             if expr is None:
@@ -686,9 +758,12 @@ def _pinning_guards(program: Any, declared_symbols: Sequence[Any]) -> List[str]:
             if _is_tautology(expr):
                 continue
             text = str(expr)
-            if text in seen:
+            # ``Eq(a, b)`` and ``Eq(b, a)`` are one relation written twice —
+            # get_implications records both — so report it once (pgw#1077).
+            key = tuple(sorted(str(side) for side in sides))
+            if key in seen:
                 continue
-            seen.add(text)
+            seen.add(key)
             out.append(
                 f"the exported program carries the equality guard {text}, "
                 f"which PINS the declared dynamic symbol(s) {hit!r} — some "
@@ -715,25 +790,38 @@ def _pinning_guards(program: Any, declared_symbols: Sequence[Any]) -> List[str]:
 MINT_COMPILE_THREADS = 4
 
 
-def _entry_configs(inductor_configs: Optional[Mapping[str, Any]]) -> Dict[str, Any]:
+def _entry_configs(
+    inductor_configs: Optional[Mapping[str, Any]], *, weightless: bool = False,
+) -> Dict[str, Any]:
     """The per-entry inductor config: caller options + the non-negotiable
-    packaging flags. ``CODE_ONLY_CONFIGS`` is applied LAST so no caller-
-    supplied config can re-enable constant baking — B1 is a fleet
-    correctness requirement, not a default a caller may override. One cell's
+    packaging flags. ``CODE_ONLY_CONFIGS`` and ``CONSTANT_BINDING_CONFIGS``
+    are applied LAST so no caller-supplied config can re-enable constant
+    baking or weight inlining — B1 and the folding fence are fleet
+    correctness requirements, not defaults a caller may override. One cell's
     entries ALL compile under this one dict (a per-entry config drift would
     be an identity fact nothing records), and the resolved dict is recorded
     in the mint-phase telemetry."""
     configs: Dict[str, Any] = dict(inductor_configs or {})
     configs.setdefault("compile_threads", MINT_COMPILE_THREADS)
-    overridden = sorted(set(configs) & set(CODE_ONLY_CONFIGS))
+    non_negotiable = {**CODE_ONLY_CONFIGS, **CONSTANT_BINDING_CONFIGS}
+    overridden = sorted(set(configs) & set(non_negotiable))
     if overridden:
         logger.warning(
-            "aot-mint: ignoring caller inductor config %s — code-only is B1, "
-            "not a knob", overridden)
-    configs.update(CODE_ONLY_CONFIGS)
+            "aot-mint: ignoring caller inductor config %s — code-only (B1) "
+            "and the folding fence (pgw#1097) are not knobs", overridden)
+    configs.update(non_negotiable)
     # Emit loose files for package_aoti to combine, instead of a per-entry
     # archive: the multi-graph cell is ONE .pt2 (pgw#758).
     configs["aot_inductor.package"] = True
+    # pgw#1080's weightless motive and pgw#1097's real-weight motive converge
+    # on ONE config, so `weightless` no longer selects anything here. It stays
+    # in the signature because callers pass it and because the two motives are
+    # worth keeping distinct in the record: weightless mints must defer the
+    # fold because the values they would bake are FAKE (micro decoder's
+    # `norm.weight`/`norm.bias` vanished; the adopted cell scored cosine 0.13);
+    # real-weight mints must defer it because the values they would bake are
+    # one CHECKPOINT'S, which no other fine-tune could rebind.
+    del weightless
     return configs
 
 
@@ -766,9 +854,17 @@ def compile_entry_files(
     gm = program.module(check_guards=False)
     args, kwargs = program.example_inputs
     try:
-        files = aot_compile(
-            gm, tuple(args), dict(kwargs or {}),
-            options=_entry_configs(inductor_configs))
+        # pgw#1080: a program exported from a structure-only target carries
+        # fake parameters, and `aot_compile` asserts every input belongs to
+        # ONE fake mode — so it runs inside that program's own mode. Identity
+        # context for a real-weight program.
+        with structure_only.compiling_under(program):
+            files = aot_compile(
+                gm, tuple(args), dict(kwargs or {}),
+                options=_entry_configs(
+                    inductor_configs,
+                    weightless=structure_only.fake_mode_of_program(
+                        program) is not None))
     except Exception as exc:
         raise MintRefused(
             f"entry {entry!r}: aot_compile failed: "
@@ -1006,6 +1102,91 @@ def _run_declared_warm(module: Any, args: Tuple[Any, ...], entry: str) -> float:
     return round(time.monotonic() - t0, 2)
 
 
+#: pgw#1076: the short spelling of a floating-point dtype, matching the
+#: vocabulary the weight-lane labels already use (`bf16`, `fp8-…`) so one cell's
+#: `precision` reads the same whether it came from the lane or from this
+#: measurement.
+_PRECISION_LABELS: Dict[str, str] = {
+    "torch.bfloat16": "bf16",
+    "torch.float16": "fp16",
+    "torch.float32": "fp32",
+    "torch.float64": "fp64",
+    "torch.float8_e4m3fn": "fp8-e4m3",
+    "torch.float8_e4m3fnuz": "fp8-e4m3",
+    "torch.float8_e5m2": "fp8-e5m2",
+    "torch.float8_e5m2fnuz": "fp8-e5m2",
+}
+
+
+def module_precision(module: Any) -> str:
+    """pgw#1076: what floating-point dtype a module ACTUALLY holds.
+
+    Weighted by element count over parameters and buffers, because a module is
+    "an fp32 module with one bf16 norm buffer" and not "half and half". More
+    than one float dtype is reported as ``mixed(a+b)``, dominant first — a
+    mixture is a fact worth naming, and naming it is strictly better than
+    picking a winner and calling the cell that.
+
+    ``""`` when nothing is measurable (no tensors, no torch, a callable
+    target that is not a module). An absent fact beats an invented one; that is
+    the whole issue.
+    """
+    counts: Dict[str, int] = {}
+    for attr in ("parameters", "buffers"):
+        get = getattr(module, attr, None)
+        if not callable(get):
+            continue
+        try:
+            tensors = list(get(recurse=True))
+        except Exception:  # noqa: BLE001 — a label never fails a mint
+            continue
+        for tensor in tensors:
+            try:
+                if not bool(tensor.is_floating_point()):
+                    continue
+                raw = str(tensor.dtype)
+                counts[_PRECISION_LABELS.get(raw, raw.replace("torch.", ""))] = (
+                    counts.get(
+                        _PRECISION_LABELS.get(raw, raw.replace("torch.", "")), 0)
+                    + int(tensor.numel()))
+            except Exception:  # noqa: BLE001
+                continue
+    if not counts:
+        return ""
+    if len(counts) == 1:
+        return next(iter(counts))
+    return "mixed(" + "+".join(
+        sorted(counts, key=lambda label: (-counts[label], label))) + ")"
+
+
+def _measured_precision(pipeline: Any, rows: Sequence[Tuple[Any, Any]]) -> str:
+    """The cell-wide precision stamp, measured over the modules this mint will
+    actually trace (pgw#1076).
+
+    Every distinct declared target contributes; disagreement between targets is
+    reported as a mixture rather than resolved, for the same reason a mixture
+    inside one module is. Unresolvable targets contribute nothing — this runs
+    BEFORE the export's own target gate, and a label must never be the thing
+    that refuses a mint.
+    """
+    labels: Dict[str, None] = {}
+    for plan, _arm in rows:
+        target = str(getattr(plan, "target", "") or "")
+        if not target:
+            continue
+        resolved = _resolve_target(pipeline, target)
+        if resolved is None:
+            continue
+        label = module_precision(resolved[0])
+        if label:
+            labels[label] = None
+    if not labels:
+        return ""
+    if len(labels) == 1:
+        return next(iter(labels))
+    return "mixed(" + "+".join(sorted(labels)) + ")"
+
+
 def _export_entry(
     pipeline: Any,
     spec: ExportSpec,
@@ -1073,6 +1254,40 @@ def _export_entry(
                 f"not, so the module about to be exported cannot take the "
                 f"adapter (lora_lifted.arm_lifted_lora_lanes installs both)")
 
+    # pgw#1080: a structure-only target's tensors are FAKE and belong to ONE
+    # fake mode. Everything that produces a tensor for this export — the
+    # example feed, the declared warm, the export itself — has to happen
+    # inside that mode or the pieces belong to different modes and
+    # `aot_compile` refuses them. `None` on a real-weight mint, where this
+    # whole block is the identity context it has always been.
+    fake_mode = structure_only.fake_mode_of(owner)
+    with structure_only.under(fake_mode):
+        return _export_entry_body(
+            pipeline, espec, plan, decl, entry=entry, owner=owner, attr=attr,
+            module=module, timings=timings, fake_mode=fake_mode,
+            inductor_configs=inductor_configs, compile_now=compile_now)
+
+
+def _export_entry_body(
+    pipeline: Any,
+    espec: Any,
+    plan: Any,
+    decl: Any,
+    *,
+    entry: str,
+    owner: Any,
+    attr: str,
+    module: Any,
+    timings: Dict[str, Any],
+    fake_mode: Any = None,
+    inductor_configs: Optional[Mapping[str, Any]] = None,
+    compile_now: bool = True,
+) -> _MintedEntry:
+    """The body of :func:`_export_entry`, run inside the target's fake mode.
+
+    Split out rather than indented so the structure-only window is one
+    statement and the real-weight path reads exactly as it did.
+    """
     builder = aot_inputs.builder_for(espec.family, espec.target)
     args, kwargs = builder(owner, espec)
     if kwargs:
@@ -1115,7 +1330,27 @@ def _export_entry(
             raise MintRefused(f"entry {entry!r}: {exc}") from exc
 
     t0 = time.monotonic()
-    program = _full_export()
+    if fake_mode is None:
+        program = _full_export()
+    else:
+        # pgw#1080 / ie#628: the TRACE half of the meta-instantiation gate. A
+        # structure-only target allocates nothing, so any real tensor born in
+        # this window is a model that materializes weights at CALL time — the
+        # z-image rope class — and it is refused with the ENDPOINT's own
+        # file:line rather than discovered as a mysterious pod OOM.
+        try:
+            with meta_instantiation.guard(
+                    f"trace:{entry}", actionable_only=True) as census:
+                program = _full_export()
+            if not census.clean:
+                # Real, but unattributable — torch's own machinery inside the
+                # fake mode. Reported, never refused: see `guard`.
+                logger.info(
+                    "aot-mint: entry %s traced with %d unattributable real "
+                    "allocation(s) (%s)", entry, len(census.events),
+                    ", ".join(sorted({e.op for e in census.events})[:6]))
+        except meta_instantiation.MetaMaterializationError as exc:
+            raise MintRefused(f"entry {entry!r}: {exc}") from exc
     timings["export_s"] = round(time.monotonic() - t0, 2)
     # pgw#1000, telemetry only: the one number that sized "export once,
     # re-propagate per row". Kept after pgw#847 was deleted because it prices
@@ -1486,8 +1721,17 @@ def mint(
     on_progress: Optional[Callable[[str, int, int, str], None]] = None,
     phase_snapshot: Optional[Path] = None,
     execution_lane_verdict: Optional[kernel_path.Verdict] = None,
+    release_residents: bool = False,
 ) -> MintResult:
     """:func:`_mint_cell`, with the phase table attached to EVERY terminus.
+
+    ``release_residents`` (pgw#1053) is the CALLER's statement that it has no
+    further use for ``pipeline`` after the last row exports — the mint then
+    projects the pipeline and the retained programs to code-only and hands
+    the device memory back to the compile pool's budget. The mint child and
+    the operator CLI say True (their pipeline dies with the process); library
+    callers and tests that keep using the pipeline afterwards default False.
+    A lifecycle fact stated by the owner, not a tuning knob.
 
     pgw#825: an aborted mint used to report a wall-clock total and nothing
     else — `compile_s`, `export_s` and `n_entries` all parsed to `-` — so a
@@ -1509,6 +1753,10 @@ def mint(
     # a beat fires would announce the problem after the expensive part has
     # started; reporting it here makes a broken handoff visible at boot.
     report_podguard_status()
+    # pgw#719/pgw#1049: the tripwire, before ANY trace — drifted settings
+    # refuse by name here; they can no longer move the (declaration-derived)
+    # seal, so this is the only place ambient mutation can surface.
+    env_seal.assert_seal_unchanged("aot_mint")
     progress = MintProgress(
         inductor_configs=inductor_configs, on_progress=on_progress)
     if phase_snapshot is not None:
@@ -1540,6 +1788,7 @@ def mint(
             entry_peak_rss_bytes=entry_peak_rss_bytes,
             entry_device_peak_bytes=entry_device_peak_bytes,
             execution_lane_verdict=execution_lane_verdict,
+            release_residents=release_residents,
             progress=progress)
     except BaseException as exc:
         _attach_partial_phases(exc, progress)
@@ -1829,6 +2078,7 @@ def _mint_cell(
     entry_peak_rss_bytes: int = 0,
     entry_device_peak_bytes: int = 0,
     execution_lane_verdict: Optional[kernel_path.Verdict] = None,
+    release_residents: bool = False,
     progress: Optional[MintProgress] = None,
 ) -> MintResult:
     """Export + compile EVERY declared graph class and pack them as ONE
@@ -1895,6 +2145,22 @@ def _mint_cell(
     # `Compile(regional=True)` declaration keeps its dynamo/JIT meaning
     # (ie#381, compile_cache) and the AOT mint ignores it.
     rows = adapter_arm_plans(_decl.cell_plans(decl), pipeline, spec)
+    # pgw#1076: the `precision` stamp is a MEASUREMENT, and until here nobody
+    # made it — `ExportSpec.precision` defaulted to "bf16", so a micro-conv
+    # cell with fp32 weights, fp32 inputs and an fp32 traced graph packaged
+    # `metadata.json precision: "bf16"` and every arm line printed
+    # `precision=bf16`. A reader debugging a 1.2e-3 GPU parity delta reads
+    # that as "the mint cast to bf16" and spends a cycle disproving it (the
+    # real cause was TF32 conv kernels). A caller that KNOWS the lane — every
+    # real family, via `weight_lane` — keeps its own word; only an ABSENT
+    # stamp is derived, and an underivable one stays absent.
+    if not str(spec.precision or "").strip():
+        measured = _measured_precision(pipeline, rows)
+        logger.info(
+            "aot-mint: pgw#1076 precision measured from the traced modules: "
+            "%r (no lane declared; %d declared class row(s))",
+            measured or "<unmeasurable>", len(rows))
+        spec = replace(spec, precision=measured)
     # pgw#809: how wide this pod may compile. Derived from the pod's REAL
     # budget (cgroup-aware vCPUs minus serving headroom, and available host
     # RAM over the measured per-entry peak) — never os.cpu_count, never a
@@ -1918,6 +2184,24 @@ def _mint_cell(
         # the constant, and keeps saying so.
         peak_rss_bytes=int(entry_peak_rss_bytes or 0))
     parallel = width.workers > 1
+    if parallel and structure_only.is_structure_only(pipeline):
+        # pgw#1080, MEASURED on the micro-lora gauntlet member: the pool hands
+        # each entry to a compile CHILD by saving the ExportedProgram to
+        # `program.pt2`. A program whose parameters are fake tensors has no
+        # storage to serialize, and the child dies deserializing it
+        # ("We ran into an error when deserializing the saved file"). So a
+        # weightless mint compiles SERIALLY, in this process, which is the
+        # pre-pgw#809 path and is correct — just narrower.
+        #
+        # OWED, not hidden (pgw#1080 follow-up): the pool could carry a
+        # weightless program by saving it with META parameters and
+        # re-virtualizing them onto the device inside the child. That is a
+        # real change to the pool's contract and it is not this slice.
+        logger.warning(
+            "aot-mint: structure-only mint compiles SERIALLY — the entry pool "
+            "serializes the exported program and a fake-parameter program "
+            "cannot round-trip (pgw#1080). Width %d discarded.", width.workers)
+        parallel = False
     logger.info("aot-mint: entry compile width — %s", width.reason)
     if width.underwidth:
         # pgw#842: a pool narrower than the cell could use is a COST, and it
@@ -1931,7 +2215,6 @@ def _mint_cell(
     progress.width = width
 
     minted = progress.minted
-    disarmed = False
     # pgw#822: the adapter-BEARING classes are exported from the lifted
     # forward. Arming it is this function's job, not the caller's — see
     # `_arm_branches`.
@@ -1947,6 +2230,9 @@ def _mint_cell(
     # terms are INDUCTOR'S, and ~56 % of which was never observed — does not
     # describe it. A probe: it reads and clears a counter and decides
     # nothing (pgw#830 — instrument first, optimise never in the same change).
+    # Still honest under pgw#1052's overlap: the compile children are separate
+    # OS processes, so their device use never lands in THIS allocator's
+    # counters — the export figures stay the export's.
     try:
         import torch as _t
         if _t.cuda.is_available():
@@ -1961,49 +2247,44 @@ def _mint_cell(
     progress.beat(
         PHASE_TRACE_GRAPH, 0, len(rows),
         f"{len(rows)} declared class row(s)")
-    try:
-        for index, (plan, arm) in enumerate(rows, start=1):
-            if arm is False and not disarmed:
-                # ONE toggle for the whole branchless group (the rows are
-                # ordered adapter-bearing first): disable/enable reallocates
-                # every leaf's branch container, and doing it per entry would
-                # be N times the VRAM churn for the same graphs.
-                _disarm_branches(pipeline)
-                disarmed = True
-            # Reported BEFORE the work, not after: a row that never returns
-            # is the one a reader most needs named, and an after-the-fact tick
-            # names only the rows that finished.
-            progress.beat(
-                PHASE_TRACE_GRAPH, index, len(rows),
-                _decl.plan_entry_name(plan))
-            with export_footprint.row():
-                minted.append(_export_entry(
-                    pipeline, spec, plan, decl,
-                    inductor_configs=inductor_configs,
-                    compile_now=not parallel))
-    finally:
-        if disarmed:
-            _arm_branches(pipeline, int(spec.lora_bucket or 0))
-    # Asked of the EXPORTED programs: a cell whose entries cannot be told
-    # apart at dispatch must cost seconds to refuse, not a full compile bill
-    # (the pgw#825 discipline, one gate over). Exact on the parallel path,
-    # which is every real mint — pgw#809 sizes width off the pod's own budget
-    # and the pool has not built a kernel yet. A width-1 serial mint has
-    # already compiled as it exported, so there it refuses late; correct
-    # either way, cheap where it matters.
-    #
-    # pgw#917: and it MERGES before it refuses. Declared rows that reduce to
-    # one ingress contract over one target with byte-identical code are one
-    # dispatchable class — compiling each of them separately buys nothing and
-    # makes the cell undispatchable, which is the same fact twice.
-    minted, class_aliases = canonicalize_dispatch_classes(minted)
-    timings["canonicalized_entries"] = float(
-        sum(len(rows) for rows in class_aliases.values()))
 
-    if parallel:
+    def _rows_source() -> Iterator[_MintedEntry]:
+        """Export every declared row IN ORDER — serial, in this process,
+        inside the one branch-arm toggle (pgw#790). One body for the serial
+        and the overlapped paths: pgw#1052 changes the HANDOFF time of each
+        exported row, never the export order or its gates."""
+        disarmed = False
+        try:
+            for index, (plan, arm) in enumerate(rows, start=1):
+                if arm is False and not disarmed:
+                    # ONE toggle for the whole branchless group (the rows are
+                    # ordered adapter-bearing first): disable/enable
+                    # reallocates every leaf's branch container, and doing it
+                    # per entry would be N times the VRAM churn for the same
+                    # graphs.
+                    _disarm_branches(pipeline)
+                    disarmed = True
+                # Reported BEFORE the work, not after: a row that never
+                # returns is the one a reader most needs named, and an
+                # after-the-fact tick names only the rows that finished.
+                progress.beat(
+                    PHASE_TRACE_GRAPH, index, len(rows),
+                    _decl.plan_entry_name(plan))
+                with export_footprint.row():
+                    entry = _export_entry(
+                        pipeline, spec, plan, decl,
+                        inductor_configs=inductor_configs,
+                        compile_now=not parallel)
+                minted.append(entry)
+                yield entry
+        finally:
+            if disarmed:
+                _arm_branches(pipeline, int(spec.lora_bucket or 0))
+
+    def _close_export_phase() -> None:
         timings["export_all_s"] = round(time.monotonic() - t_export, 2)
-        # Sampled BEFORE the pool is built, so no inductor allocation can be
-        # attributed to export. Reported even when zero (no CUDA / probe
+        # Sampled the moment the LAST row exports — before pgw#1053's release
+        # can reset the counters. Reported even when zero (no CUDA / probe
         # failed), because a missing key and a measured zero are different
         # facts and the width rule must be able to tell them apart.
         try:
@@ -2020,24 +2301,99 @@ def _mint_cell(
         # sizes a pool — and the width rule spent its whole life dividing by
         # the first one, which is why it always answered 1.
         timings.update(export_footprint.facts())
-        # pgw#1030: `aot_export_parallel.decide(...)` was recorded here —
-        # six floats describing the width a PARALLEL export would have run
-        # at. Export is unconditionally serial (the loop above), nothing
-        # ever consumed the decision, and the module duplicated the compile
-        # pool's card-budget logic. Deleted with the module.
+
+    if parallel:
+        # pgw#1052: the pool exists BEFORE the first row exports, and each row
+        # is handed to it AS IT EXPORTS — producer ~113 s/row against a pool
+        # consuming ~127 s/row at K=2 (attempt 30), so the two phases shadow
+        # each other and the wall collapses toward max(export, compile).
+        # The census inside the pool is still taken before any child exists
+        # (pgw#992's requirement); the export phase's own growth after that
+        # reading is priced per spawn by `_spawn_admitted`.
+        #
+        # pgw#917 runs TWICE, deliberately: an arriving row that duplicates an
+        # earlier row's ingress+identity is aliased at arrival (no compile
+        # spent, and a same-ingress DIFFERENT-identity collision refuses at
+        # row N — bounded waste on the refusal path buys the overlap on every
+        # green mint); the original batch gate re-runs over the kept rows at
+        # drain as the safety net for clusters only visible transitively.
+        arrival = _ArrivalCanon()
+        arrival_aliases: Dict[str, List[_MintedEntry]] = {}
+        kept: List[_MintedEntry] = []
+
+        pool = aot_compile_pool.EntryCompilePool(
+            # A SIBLING of work/, never inside it — see the note on
+            # `_compile_entries_parallel`.
+            work.parent / "entry-pool", width=width,
+            inductor_configs=inductor_configs)
+        t_pool = time.monotonic()
+
+        def _feed() -> "Generator[Tuple[str, Any], None, None]":
+            for entry in _rows_source():
+                keeper = arrival.admit(entry)
+                if keeper is not None:
+                    arrival_aliases.setdefault(keeper.name, []).append(entry)
+                    continue
+                kept.append(entry)
+                yield entry.name, entry.program
+            # The producer is exhausted: close the export phase's books, then
+            # — when the caller surrendered the pipeline — hand the dead
+            # residents back and let the pool re-derive K against the freed
+            # budget (pgw#1053).
+            _close_export_phase()
+            if release_residents:
+                t0 = time.monotonic()
+                timings.update(_release_mint_residents(pipeline, minted))
+                timings["residents_release_s"] = round(
+                    time.monotonic() - t0, 2)
+                pool.note_residents_released()
+
         progress.beat(
-            PHASE_INDUCTOR_COMPILE, 0, len(minted),
-            f"{len(minted)} entries, {width.workers} wide")
-        progress.pool_ledger = _compile_entries_parallel(
-            minted, work, width, inductor_configs=inductor_configs,
-            progress=progress,
-            on_entry=lambda name, done, total: progress.beat(
-                PHASE_INDUCTOR_COMPILE, done, total, name))
-        # NOTE: `_compile_entries_parallel` refreshes `progress.pool_ledger`
-        # on every completed entry (pgw#848), so the snapshot each beat writes
-        # already carries a LIVE ledger — K, its binding, efficiency, peaks —
-        # rather than only the width. An abandoned mint's row is the one that
-        # needs it most.
+            PHASE_INDUCTOR_COMPILE, 0, len(rows),
+            f"pool up front, {width.workers} wide — overlapped with export "
+            f"(pgw#1052)")
+        source = _feed()
+        try:
+            by_entry = _drive_pool(
+                pool, source, expected_total=len(rows), progress=progress,
+                on_entry=lambda name, done, total: progress.beat(
+                    PHASE_INDUCTOR_COMPILE, done, total, name))
+        finally:
+            source.close()
+            # On EVERY terminus — a producer refusal at row N leaves the rows
+            # already compiled priced in the snapshot (pgw#848's discipline,
+            # extended to the overlapped shape).
+            progress.pool_ledger = _pool_facts(pool)
+        # NOTE: `_drive_pool` refreshes `progress.pool_ledger` on every
+        # completed entry (pgw#848), so the snapshot each beat writes already
+        # carries a LIVE ledger — K, its binding, efficiency, peaks — rather
+        # than only the width. An abandoned mint's row is the one that needs
+        # it most.
+        minted, late_aliases = canonicalize_dispatch_classes(kept)
+        class_aliases = _merge_alias_maps(arrival_aliases, late_aliases)
+        if arrival_aliases:
+            _emit_arrival_alias_event(arrival_aliases, len(rows))
+        _fold_pool_results(minted, pool, by_entry)
+        logger.info(
+            "aot-mint: pgw#809/pgw#1052 pool compiled %d entr%s at K=%d in "
+            "%.0fs overlapped with export (sum of entry seconds %.0fs, peak "
+            "child RSS %.1f GiB)",
+            len(minted), "y" if len(minted) == 1 else "ies",
+            pool.width.workers, time.monotonic() - t_pool,
+            sum(pool.entry_seconds.values()), pool.peak_rss_bytes / 1024**3)
+        progress.pool_ledger = _pool_facts(pool)
+    else:
+        for _entry in _rows_source():
+            pass
+        # Asked of the EXPORTED programs: a cell whose entries cannot be told
+        # apart at dispatch must cost seconds to refuse, not a full compile
+        # bill (the pgw#825 discipline, one gate over). A width-1 serial mint
+        # has already compiled as it exported, so here it refuses late;
+        # correct either way — the parallel path refuses at ARRIVAL
+        # (pgw#1052), which is where it matters.
+        minted, class_aliases = canonicalize_dispatch_classes(minted)
+    timings["canonicalized_entries"] = float(
+        sum(len(rows) for rows in class_aliases.values()))
     timings["entry_workers"] = float(width.workers)
 
     t0 = time.monotonic()
@@ -2056,7 +2412,7 @@ def _mint_cell(
         # the merge is auditable from the envelope alone — a reader asking
         # "where did class row X go" gets an answer instead of an absence.
         # NOT a `class_hash` fact (see `aot_serve.class_hash`, which folds
-        # named fields only): an alias declares no traffic the surviving
+        # named fields only): an alias declares no envelope the surviving
         # entry's own contract does not already declare, so it must not
         # re-key an otherwise identical cell.
         merged = class_aliases.get(row.name) or ()
@@ -2081,7 +2437,9 @@ def _mint_cell(
             source_digest=spec.source_digest,
         )
     except ValueError as exc:
-        # The envelope validates the contract it is handed. A malformed one must
+        # The cell-metadata envelope validates the contract it is handed (the
+        # OTHER "envelope" — the declared serving region — is what the range
+        # gates above police). A malformed one must
         # fail HERE, on the mint pod, not at serve time on a paying request.
         raise MintRefused(
             f"envelope refused the declared contract: {exc}") from exc
@@ -2105,7 +2463,7 @@ def _mint_cell(
         minted, timings, inductor_configs, width, progress.pool_ledger)
     _emit_phase_event(spec, phase_table)
 
-    meta["cell_key"] = key = cell_identity(meta, spec).digest
+    meta["cell_key"] = key = cell_identity(meta).digest
     t0 = time.monotonic()
     artifact = aot_serve.pack(work, out_dir / f"{key}.tar.gz", meta)
     timings["pack_s"] = round(time.monotonic() - t0, 2)
@@ -2176,36 +2534,20 @@ def _entry_device_bytes(
     return int(budget.need_bytes), "estimated"
 
 
-def _compile_entries_parallel(
-    minted: List[_MintedEntry],
-    work: Path,
-    width: aot_compile_pool.PoolWidth,
+def _drive_pool(
+    pool: aot_compile_pool.EntryCompilePool,
+    entries: Any,
     *,
-    inductor_configs: Optional[Mapping[str, Any]] = None,
+    expected_total: int = 0,
     on_entry: Optional[Callable[[str, int, int], None]] = None,
     progress: Optional["MintProgress"] = None,
-) -> Dict[str, Any]:
-    """pgw#809: fill every entry's ``files`` K-wide, out of process.
+) -> Dict[str, List[str]]:
+    """Run one :class:`~gen_worker.aot_compile_pool.EntryCompilePool` and map
+    its failures onto the mint's own vocabulary.
 
-    Returns the pool's own ledger (pgw#830) so it reaches the phase table:
-    the pool emits it as a typed event too, but that emission happens in the
-    mint CHILD, which holds no orchestrator session — pgw#842.
-
-    Mutates ``minted`` in place, and every entry MUST come back with files —
-    a pool that quietly returned fewer entries than it was given would pack a
-    short cell. Assembly is by entry NAME: ``package_cell`` reads
-    ``{row.name: row.files}`` in the order ``minted`` already holds (the
-    declaration's order), so completion order is not observable in the
-    artifact.
+    ``entries`` is either the fully-exported list (the serial-export shape the
+    pgw#848 tests drive) or pgw#1052's live producer iterator.
     """
-    # A SIBLING of work/, never inside it. pack() only copies a fixed member
-    # set so debris there would be harmless today, but a pool workdir living
-    # inside the directory that becomes the artifact is one refactor away from
-    # putting job files and stderr tails into a cell.
-    pool = aot_compile_pool.EntryCompilePool(
-        work.parent / "entry-pool", width=width,
-        inductor_configs=inductor_configs)
-    t0 = time.monotonic()
 
     def _tick(name: str, done: int, total: int) -> None:
         # pgw#848: refresh the ledger BEFORE the beat, so the snapshot the
@@ -2218,8 +2560,8 @@ def _compile_entries_parallel(
             on_entry(name, done, total)
 
     try:
-        by_entry = pool.compile(
-            [(row.name, row.program) for row in minted], on_entry=_tick)
+        return pool.compile(
+            entries, on_entry=_tick, expected_total=expected_total)
     except aot_compile_pool.EntryCompileFailed as exc:
         # pgw#848: the pool's ledger and its MEASURED peak have to survive the
         # failure, because the aborted phase table is what the parent banks
@@ -2235,7 +2577,23 @@ def _compile_entries_parallel(
                 str(exc), entry=exc.entry, basis=exc.basis,
                 peak_rss_bytes=exc.peak_rss_bytes) from exc
         raise MintRefused(str(exc)) from exc
-    wall = time.monotonic() - t0
+
+
+def _fold_pool_results(
+    minted: Sequence[_MintedEntry],
+    pool: aot_compile_pool.EntryCompilePool,
+    by_entry: Mapping[str, List[str]],
+) -> None:
+    """Fold the pool's results back onto the entries that will PACK.
+
+    Every packed entry MUST have files — a pool that quietly returned fewer
+    entries than the cell declares would pack a short cell. Assembly is by
+    entry NAME: ``package_cell`` reads ``{row.name: row.files}`` in the order
+    ``minted`` already holds (the declaration's order), so completion order is
+    not observable in the artifact. An entry the drain-time pgw#917 pass
+    merged away may have compiled files nobody folds; its work is the bounded
+    waste pgw#1052 states, never a packing input.
+    """
     missing = [row.name for row in minted if row.name not in by_entry]
     if missing:
         raise MintRefused(
@@ -2254,11 +2612,41 @@ def _compile_entries_parallel(
         # member and its SPLIT is an overlay — and the split is the whole
         # answer to "what is the seal still costing": pgw#832 cut the library
         # hash to ~0.07 s (measured), while the child's `import torch`, which
-        # `establish_config` owns, is the rest. Without the overlay a reader
+        # the torch imposition owns, is the rest. Without the overlay a reader
         # sees only the sum and re-opens a closed question.
         overlays = pool.entry_overlays.get(row.name) or {}
         if overlays:
             row.timings["overlays"] = dict(overlays)
+
+
+def _compile_entries_parallel(
+    minted: List[_MintedEntry],
+    work: Path,
+    width: aot_compile_pool.PoolWidth,
+    *,
+    inductor_configs: Optional[Mapping[str, Any]] = None,
+    on_entry: Optional[Callable[[str, int, int], None]] = None,
+    progress: Optional["MintProgress"] = None,
+) -> Dict[str, Any]:
+    """pgw#809: fill every entry's ``files`` K-wide, out of process — the
+    already-exported-list shape. The production mint overlaps export with the
+    pool instead (pgw#1052, in ``_mint_cell``); this survives as the driver
+    for a pre-exported entry set and returns the pool's own ledger (pgw#830)
+    so it reaches the phase table.
+    """
+    # A SIBLING of work/, never inside it. pack() only copies a fixed member
+    # set so debris there would be harmless today, but a pool workdir living
+    # inside the directory that becomes the artifact is one refactor away from
+    # putting job files and stderr tails into a cell.
+    pool = aot_compile_pool.EntryCompilePool(
+        work.parent / "entry-pool", width=width,
+        inductor_configs=inductor_configs)
+    t0 = time.monotonic()
+    by_entry = _drive_pool(
+        pool, [(row.name, row.program) for row in minted],
+        on_entry=on_entry, progress=progress)
+    wall = time.monotonic() - t0
+    _fold_pool_results(minted, pool, by_entry)
     logger.info(
         "aot-mint: pgw#809 pool compiled %d entr%s at K=%d in %.0fs "
         "(sum of entry seconds %.0fs, peak child RSS %.1f GiB)",
@@ -2551,6 +2939,279 @@ def canonicalize_dispatch_classes(
     return [row for row in minted if row.name not in dropped], aliases
 
 
+class _ArrivalCanon:
+    """pgw#917's merge-or-refuse decision, taken when the entry ARRIVES.
+
+    pgw#1052 overlaps export with the compile pool, so the batch gate's
+    moment — "after the last export, before the first compile" — no longer
+    exists. The decision moves to arrival: a row that duplicates an earlier
+    kept row's ingress contract AND identity is aliased onto it (no compile is
+    ever spent on it), and a same-ingress DIFFERENT-identity collision refuses
+    at row N — bounded waste on the refusal path (at most N-1 compiles, on a
+    mint that was going to refuse anyway) buys the 65-minute overlap on every
+    green mint. That trade is pgw#1052's, stated here and in its tracker row.
+
+    Deliberately NOT a replacement for :func:`canonicalize_dispatch_classes`:
+    the batch gate re-runs over the kept rows at drain as the safety net for
+    the one shape this incremental view cannot see — a cluster whose members
+    admit each other only TRANSITIVELY through a later row. Its survivor is
+    then chosen exactly as before; an arrival alias's survivor is the row that
+    arrived first, which for every family measured (sdxl's area-preserving
+    aspect rows all mutually admit directly) is the same cluster either way.
+    """
+
+    def __init__(self) -> None:
+        self._kept: Dict[Tuple[str, Any], List[
+            Tuple[_MintedEntry, Any, Tuple[Dict[str, Any], ...],
+                  Dict[str, Any]]]] = {}
+
+    def admit(self, row: _MintedEntry) -> Optional[_MintedEntry]:
+        """The kept sibling ``row`` aliases onto, or ``None`` (compile it).
+
+        Raises :class:`MintRefused` on a same-ingress different-identity
+        collision, naming the pair and the differing axes (pgw#917's
+        sentence, at arrival time).
+        """
+        fork = {str(n): v for n, v in tuple(row.spec.fork)}
+        group = (str(row.spec.target), fork.get(ADAPTER_FORK))
+        try:
+            contract, calls, meta = _entry_ingress_declaration(row)
+        except (aot_package.PackageIntrospectionError, ValueError) as exc:
+            # An unreadable declaration is not "probably fine": it is a cell
+            # whose dispatchability nobody can prove.
+            raise MintRefused(
+                f"entry {row.name!r}: dispatch-ambiguity gate cannot read "
+                f"the declared ingress contract, so this cell cannot be "
+                f"shown to be dispatchable at all: {exc}") from exc
+        for kept_row, kept_contract, kept_calls, kept_meta in \
+                self._kept.get(group, ()):
+            if not (any(_admits(kept_contract, call) for call in calls)
+                    or any(_admits(contract, call) for call in kept_calls)):
+                continue
+            identities = {
+                kept_row.name: _class_identity(kept_row, kept_meta),
+                row.name: _class_identity(row, meta),
+            }
+            axes = _differing_axes(identities)
+            if axes:
+                raise MintRefused(
+                    f"dispatch-ambiguity gate: {sorted(identities)!r} collide "
+                    f"at ingress but are NOT one class — they differ on "
+                    f"{list(axes)!r}, so every call they carry would be "
+                    f"refused 'entry_ambiguous' and served EAGER. Fix the "
+                    f"declaration so every entry's ingress contract is "
+                    f"uniquely admitting (pgw#917; refused at ARRIVAL under "
+                    f"pgw#1052 — the rows already exported are the bounded "
+                    f"waste that refusal costs)")
+            logger.info(
+                "aot-mint: pgw#917 declared class row %r aliased onto %r at "
+                "arrival — identical ingress contract, target and code, so "
+                "no compile is spent on it (pgw#1052)",
+                row.name, kept_row.name)
+            return kept_row
+        self._kept.setdefault(group, []).append((row, contract, calls, meta))
+        return None
+
+
+def _merge_alias_maps(
+    arrival: Mapping[str, List["_MintedEntry"]],
+    late: Mapping[str, Tuple["_MintedEntry", ...]],
+) -> Dict[str, Tuple["_MintedEntry", ...]]:
+    """One alias map out of the arrival-time and drain-time pgw#917 passes.
+
+    A drain-time merge can drop a keeper that itself collected arrival
+    aliases; those re-home onto the surviving entry so no declared class row
+    ever falls out of the envelope's ``aliases`` audit trail.
+    """
+    surviving_by_dropped = {
+        dropped.name: keep
+        for keep, dropped_rows in late.items() for dropped in dropped_rows}
+    merged: Dict[str, List["_MintedEntry"]] = {
+        keep: list(rows) for keep, rows in late.items()}
+    for keeper_name, rows in arrival.items():
+        home = surviving_by_dropped.get(keeper_name, keeper_name)
+        merged.setdefault(home, []).extend(rows)
+    return {keep: tuple(rows) for keep, rows in merged.items()}
+
+
+def _emit_arrival_alias_event(
+    arrival: Mapping[str, List["_MintedEntry"]], declared: int,
+) -> None:
+    """The pgw#917 canonicalization event for arrival-time merges — the batch
+    gate emits its own for drain-time ones, and both are telemetry."""
+    try:
+        dropped = sum(len(rows) for rows in arrival.values())
+        activity_mod.emit_event(
+            "aot_class_canonicalized",
+            f"{dropped} of {declared} declared class rows reduce to an "
+            f"ingress contract a sibling already declares; aliased AT ARRIVAL "
+            f"(pgw#1052) instead of compiling a class the dispatch could "
+            f"never select: "
+            + "; ".join(
+                f"{keep} <- {[r.name for r in rows]}"
+                for keep, rows in sorted(arrival.items())[:4]),
+            phase="entry_merged",
+        )
+    except Exception:  # pragma: no cover — telemetry never fails a mint
+        logger.debug("aot-mint: arrival alias event failed", exc_info=True)
+
+
+def _release_mint_residents(
+    pipeline: Any, minted: Sequence["_MintedEntry"],
+) -> Dict[str, float]:
+    """pgw#1053: hand the mint parent's dead residents back to the card.
+
+    From the moment the LAST row exports, neither the composed pipeline nor
+    the retained programs' weight aliases do anything for the rest of the mint
+    — measured at 16.2 GiB held through the entire 97-minute compile phase on
+    the L40S (attempt 30), which with the pgw#992 budget is most of what held
+    K at 2. This is the MINT PARENT'S OWN copy: the serving worker's eager
+    pipeline lives in a different process and is untouched here (its
+    forge-pod release is ``mint_delegate``'s, and a serving pod keeps eager
+    resident per Paul's ruling — GPU hot, eager minimally disrupted).
+
+    Projection, not deletion. Every retained ``ExportedProgram`` keeps its
+    graph, signature, placeholders and LITERAL values (a literal ships inside
+    the artifact and is keyed by VALUE — pgw#857), while its state_dict-
+    sourced constants — device aliases of the pipeline weights — become meta
+    tensors of the same shape and dtype. Every parent-side gate that still
+    runs (``program_package_drift``, ``unbindable_constants``,
+    ``input_contract``, ``entry_graph_block``, ``_write_literals``, the
+    drain-time pgw#917 pass) reads names, shapes and literal bytes only, so
+    NO gate is dropped; each runs against the code-only projection. The
+    compile children read the STAGED programs from disk, written before this
+    runs, byte for byte — nothing about the artifact can move (pgw#846).
+
+    Best-effort in every direction: a tensor or module that refuses the
+    projection is skipped, and the release reports what it actually freed. A
+    partially released card still widens by what came back. Superseded by
+    construction once pgw#1056's fake-weight mint lands (there is then no
+    resident to release); the pool-side regrant it feeds
+    (``note_residents_released``) is exactly what that mint's verification
+    load will use too.
+    """
+    facts: Dict[str, float] = {}
+    try:
+        import gc
+
+        import torch
+    except Exception:  # noqa: BLE001 — no torch, nothing resident
+        return facts
+    cuda = False
+    before = 0
+    try:
+        cuda = torch.cuda.is_available()
+        if cuda:
+            before = int(torch.cuda.memory_reserved())
+    except Exception:  # noqa: BLE001 — a probe never changes an outcome
+        cuda = False
+
+    def _meta(value: Any) -> Any:
+        try:
+            if isinstance(value, torch.Tensor) and value.device.type != "meta":
+                return value.to("meta")
+        except Exception:  # noqa: BLE001 — an unmovable tensor stays
+            pass
+        return value
+
+    for row in minted:
+        program = row.program
+        weights = set(aot_package.program_state_dict_fqns(program))
+        state = getattr(program, "state_dict", None)
+        if isinstance(state, dict):
+            for fqn in list(state):
+                state[fqn] = _meta(state[fqn])
+        constants = getattr(program, "constants", None)
+        if isinstance(constants, dict):
+            # Only the state_dict-sourced entries: everything else is a
+            # LITERAL whose bytes still have to reach `_write_literals`.
+            for fqn in list(constants):
+                if fqn in weights:
+                    constants[fqn] = _meta(constants[fqn])
+    modules: List[Any] = []
+    candidates: List[Any] = [pipeline]
+    try:
+        candidates.extend(vars(pipeline).values())
+    except TypeError:
+        pass
+    candidates.extend(row.owner for row in minted)
+    for obj in candidates:
+        if isinstance(obj, torch.nn.Module) \
+                and all(obj is not m for m in modules):
+            modules.append(obj)
+    refused = 0
+    for module in modules:
+        try:
+            module.to("meta")
+        except Exception:  # noqa: BLE001 — best effort, reported below
+            refused += 1
+            logger.debug(
+                "aot-mint: pgw#1053 module %s refused the meta projection; "
+                "its storage stays resident", type(module).__name__,
+                exc_info=True)
+    gc.collect()
+    facts["residents_release_modules"] = float(len(modules) - refused)
+    if cuda:
+        try:
+            torch.cuda.empty_cache()
+            after = int(torch.cuda.memory_reserved())
+            facts["residents_released_bytes"] = float(max(0, before - after))
+            # The TRUE mint peak, banked before the reset erases it: the
+            # parent's `record_child_peak` loop must keep learning what this
+            # process really held, not what it held after surrendering.
+            facts["peak_vram_before_release_bytes"] = float(
+                torch.cuda.max_memory_allocated())
+            # Load-bearing: the pool's own high-water must restart from the
+            # released level or `note_residents_released` can regrant nothing.
+            torch.cuda.reset_peak_memory_stats()
+        except Exception:  # noqa: BLE001 — a probe never changes an outcome
+            pass
+    logger.info(
+        "aot-mint: pgw#1053 mint residents released — %d module(s) projected "
+        "to meta, %.2f GiB handed back",
+        len(modules) - refused,
+        facts.get("residents_released_bytes", 0.0) / 1024**3)
+    return facts
+
+
+def _structure_only_drift_hint(row: _MintedEntry) -> str:
+    """Name the AUTHORING cause a drift refusal usually has.
+
+    pgw#1097 WIDENED this from structure-only to EVERY mint, because the cause
+    stopped being structure-only. With the folding fence on, nothing is
+    inlined, so a plain-attribute table reaches the artifact's constant table
+    under AOTInductor's own name (``_tensor_constant0``) while the exported
+    program lifted it under its ATTRIBUTE PATH (``_table``) — measured — and
+    the two no longer reconcile. That was always fatal for a literal large
+    enough to be declared; the fence merely removes the size threshold
+    (0-dim, or 1-D with <=8 elements) that used to hide it by baking the
+    values instead. The fix is the same one the tensor-binding contract has
+    always asked for, so the message points at it.
+
+    Measured (pgw#1080, micro-rope RED control): a table built lazily inside
+    ``forward`` under ``with torch.device("cpu")`` is FAKE during a
+    fake-mode export — so the meta-instantiation gate cannot see it — and
+    lands as an anonymous ``_tensor_constant0`` the exported program never
+    lifted. The drift gate refuses it, correctly and deterministically, but
+    "the package declares a constant the program never lifted" names a
+    symptom. This names the class of cause, so the author gets a place to
+    look instead of a compiler sentence.
+    """
+    hint = (
+        ". The usual cause is a tensor BUILT INSIDE `forward`, or held as a "
+        "PLAIN ATTRIBUTE, instead of registered at __init__: export lifts it "
+        "under its attribute path while the compiled artifact names it "
+        "`_tensor_constant0`, so nothing can reconcile the two and nothing "
+        "could bind it. Register derived tables with `register_buffer` and no "
+        "device pin (ie#630's `rope_buffers` is the worked example; pgw#857 "
+        "is the contract, pgw#1097 is why it is now load-bearing at every "
+        "size rather than only above the inlining threshold)")
+    if structure_only.is_structure_only(row.owner):
+        return (
+            ". This mint built its target from code + config (pgw#1080)" + hint)
+    return hint
+
+
 def _gate_and_declare_entry(
     row: _MintedEntry, package: Path,
 ) -> Dict[str, Any]:
@@ -2574,18 +3235,31 @@ def _gate_and_declare_entry(
     drift = aot_package.program_package_drift(row.program, package, entry)
     if drift:
         raise MintRefused(
-            f"entry {entry!r}: constant-set drift: " + "; ".join(drift))
+            f"entry {entry!r}: constant-set drift: " + "; ".join(drift)
+            + _structure_only_drift_hint(row))
+    # pgw#1097, THE FOLDING FENCE. `CONSTANT_BINDING_CONFIGS` is what prevents
+    # a weight's values from being compiled in; this is what PROVES it, per
+    # entry, against the artifact's own table. Without the proof the setting is
+    # a hope: an inlining route torch adds tomorrow would ship a cell that
+    # serves the minting checkpoint's tensor to every other fine-tune, and the
+    # only thing to notice would be the adopt-side parity floor refusing that
+    # cell on every checkpoint but one — cell sharing dying quietly.
+    folded = aot_package.folded_weights(
+        row.program, package, _state_dict_keys(row.owner), entry)
+    if folded:
+        raise MintRefused(
+            f"entry {entry!r}: folding fence (pgw#1097): " + "; ".join(folded))
     fused = aot_package.eliminated_constants(row.program, package, entry)
     if fused:
-        # Routine compiler fusion (measured on real sdxl: conv_out.bias folded
-        # into the conv epilogue). Recorded, never fatal — but a surprising jump
-        # in the count should be visible rather than silently discarded.
+        # What is LEFT here is anonymous graph literals, never a weight — the
+        # fence above has already refused those. Recorded, never fatal, but a
+        # surprising jump in the count should be visible rather than silently
+        # discarded.
         logger.info(
-            "aot-mint: %s: %d lifted constant(s) fused away by the compiler "
+            "aot-mint: %s: %d lifted literal(s) folded away by the compiler "
             "(e.g. %s)", entry, len(fused), fused[:3])
     try:
-        inputs, symbols = aot_package.input_contract(
-            row.program, row.flat_leaves)
+        block = keying_block(row.program, row.flat_leaves, row.spec)
         constants = aot_package.constants_manifest(package, entry)
         # pgw#1058: the manifest rows this envelope will carry, proven against
         # the artifact's OWN generated input guards before anything can
@@ -2593,24 +3267,174 @@ def _gate_and_declare_entry(
         # readings (program vs generated wrapper) that must agree, so a label
         # that drifted from its artifact fails closed HERE, not as an opaque
         # 36/36 admission miss on every adopting pod.
-        admission = aot_package.admission_drift(package, entry, inputs)
+        admission = aot_package.admission_drift(package, entry, block["inputs"])
     except aot_package.PackageIntrospectionError as exc:
         raise MintRefused(f"entry {entry!r}: declaration: {exc}") from exc
     if admission:
         raise MintRefused(
             f"entry {entry!r}: admission drift (pgw#1058): "
             + "; ".join(admission[:6]))
+    # The manifest is RECORDED, never keyed (`aot_serve.class_hash` folds
+    # target/fork/class_dims/range_digest/graph/strict/lora_bucket and nothing
+    # else) — which is why the boot-side derivation can state an entry's
+    # identity while carrying an empty one.
+    block["constants"] = constants
+    return block
+
+
+@dataclass
+class TracedClass:
+    """One declared graph class, traced for its IDENTITY and nothing else."""
+
+    name: str
+    #: The entry-envelope fields that reach this class's ``class_hash``.
+    block: Dict[str, Any]
+    nodes: int
+    #: Held only for the caller's probe window; drop it before the next class.
+    program: Any
+    #: How many classes the WHOLE declaration produces on this pipeline —
+    #: carried on every row so a sharded caller can prove its shares are the
+    #: whole set without enumerating it itself.
+    declared: int = 0
+
+
+def declared_class_rows(pipeline: Any, spec: ExportSpec, decl: Any) -> List[Any]:
+    """The family's declared graph-class rows, adapter-forked, in the order the
+    mint exports them (adapter-bearing first, then the branchless group).
+
+    ONE enumeration. The fork depends on the COMPOSED pipeline
+    (``lora_lifted.branch_targets``), not on the declaration, which is why no
+    caller can enumerate this without a pipeline — and why the boot derivation
+    shards by INDEX rather than by name.
+    """
+    rows = adapter_arm_plans(_decl.cell_plans(decl), pipeline, spec)
+    rows.sort(key=lambda row: (
+        row[1] is False, _decl.plan_entry_name(row[0])))
+    return rows
+
+
+def trace_for_key(
+    pipeline: Any,
+    spec: ExportSpec,
+    decl: Any,
+    *,
+    share_index: int = 0,
+    share_count: int = 1,
+) -> Iterator[TracedClass]:
+    """Export the named declared graph classes and yield each one's KEYING
+    facts — §4.27 step 1's unit of work (pgw#1089).
+
+    This is the mint's export loop with the compile, the packaging and every
+    package-side gate removed, and it lives HERE rather than in the boot module
+    for two reasons the boot module cannot satisfy on its own:
+
+    * the **branch-arm ordering rule** is pipeline state — adapter-bearing rows
+      first, ONE ``_disarm_branches`` for the whole branchless group. A caller
+      that ordered its rows differently would trace different graphs, and the
+      rule belongs beside the loop that made it;
+    * the trace itself is ``_export_entry``, whose refusals, fork gate,
+      declared-range gate and lifted-input gate are the mint's. A boot-side
+      re-implementation would be a second trace path, and the two would
+      eventually key differently — which is the whole failure this derivation
+      exists to make impossible.
+
+    ``share_index``/``share_count`` select one trace child's share by INDEX
+    into that order — ``rows[i::K]``, round-robin, so every child draws a mix
+    of the (few, expensive) denoiser rows and the (many, cheap) rest rather
+    than one child drawing the whole denoiser group. Sharding by index rather
+    than by NAME is not a convenience: the adapter fork is decided by the
+    COMPOSED pipeline, so no parent can enumerate the names to hand out.
+
+    The FULL row count is yielded on every ``TracedClass`` (``declared``), so
+    the parent can prove the shares reconstruct the whole class set without
+    ever having enumerated it — a stronger check than comparing against a
+    parent-side guess would have been.
+    """
+    ordered = declared_class_rows(pipeline, spec, decl)
+    declared = len(ordered)
+    count = max(1, int(share_count))
+    rows = ordered[max(0, int(share_index)) % count::count] if count > 1 \
+        else ordered
+    disarmed = False
+    try:
+        for plan, arm in rows:
+            entry = _decl.plan_entry_name(plan)
+            if arm is False and not disarmed:
+                _disarm_branches(pipeline)
+                disarmed = True
+            # pgw#1087's `trace_for_key` row is emitted HERE — around the
+            # export it measures — and never by the caller. A caller-side span
+            # around a generator brackets the loop body, not the trace, which
+            # is how a phase table ends up honest about its names and wrong
+            # about its numbers.
+            with boot_phases.span(
+                boot_phases.PHASE_TRACE_FOR_KEY, function=entry,
+            ) as span:
+                row = _export_entry(
+                    pipeline, spec, plan, decl, compile_now=False)
+                try:
+                    nodes = int(len(row.program.graph_module.graph.nodes))
+                except Exception:  # noqa: BLE001 — never fails a trace
+                    nodes = 0
+                # pgw#1087's owed item: a class's trace cost is meaningless
+                # without the graph size it paid for.
+                span.note(f"nodes={nodes}")
+            yield TracedClass(
+                name=entry,
+                block=keying_block(row.program, row.flat_leaves, row.spec),
+                nodes=nodes,
+                program=row.program,
+                declared=declared,
+            )
+    finally:
+        if disarmed:
+            _arm_branches(pipeline, int(spec.lora_bucket or 0))
+
+
+def keying_block(
+    program: Any, flat_leaves: Sequence[Any], spec: ExportSpec,
+) -> Dict[str, Any]:
+    """The entry-envelope fields that reach an entry's ``class_hash`` — built
+    from the EXPORTED PROGRAM and the declaration, and from nothing else.
+
+    ONE construction, shared by the mint (:func:`_entry_block`, which adds the
+    package-side ``constants`` manifest afterwards) and by the boot-side
+    derivation (``boot_key``, which has no package and carries the manifest
+    empty). Two constructions of the same block would be exactly the
+    attempt-28 phantom in a new hat: a declared-facts key beside a traced-facts
+    key under one axis name.
+
+    ``constants`` is present-but-empty rather than absent because
+    ``aot_serve.entries_from_meta`` validates every block as a full contract,
+    and an entry that cannot be parsed cannot be keyed.
+
+    ``graph_witness`` (pgw#1031) is a SIBLING of ``graph``, deliberately
+    OUTSIDE it: ``aot_serve.class_hash`` folds ``target``/``fork``/
+    ``class_dims``/``range_digest``/``graph``/``strict``/``lora_bucket`` and
+    nothing else, so a top-level field is recorded on every cell without
+    moving one key. It is the node-level digest of the traced program
+    (``graph_hash.graph_hash``) — the fact the key axes provably do NOT hold:
+    measured 2026-08-10, ``micro-pad32`` and ``micro-pad32-branchy`` produce a
+    byte-identical keying block (identical signature, symbol ranges, pytree
+    spec, constant FQNs and declared envelope) from 112- and 102-node graphs.
+    The key cannot separate them; this witness can, and the adopt path refuses
+    on it (``aot_identity.verify_graph_witness``) so a collision degrades to
+    eager instead of serving another endpoint's kernels. Whether the witness
+    should BECOME a key axis is pgw#1031's depth question and Paul's to rule.
+    """
+    inputs, symbols = aot_package.input_contract(program, flat_leaves)
     block: Dict[str, Any] = {
-        "target": row.spec.target,
-        "fork": [[str(n), v] for n, v in sorted(row.spec.fork)],
+        "target": spec.target,
+        "fork": [[str(n), v] for n, v in sorted(spec.fork)],
         "class_dims": [
-            [str(n), int(v)] for n, v in sorted(row.spec.class_dims)],
+            [str(n), int(v)] for n, v in sorted(spec.class_dims)],
         "inputs": inputs,
         "symbols": symbols,
-        "constants": constants,
-        "graph": entry_graph_block(row.program, package, row.name, row.spec),
+        "constants": [],
+        "graph": entry_graph_block(program, spec),
+        "graph_witness": graph_hash.graph_hash(program),
     }
-    if adapter_arm(row.spec.fork) is False:
+    if adapter_arm(spec.fork) is False:
         # pgw#790: the NEGATIVE half of this class's contract. Without it the
         # branchless entry silently ADMITS an adapter-bearing call (a
         # name-keyed bind ignores inputs it does not declare), the dispatch
@@ -2824,15 +3648,39 @@ def emit_phase_events(
         logger.debug("aot-mint: phase event emission failed", exc_info=True)
 
 
-def entry_graph_block(
-    program: Any, package: Path, entry: str, spec: ExportSpec,
-) -> Dict[str, Any]:
+def entry_graph_block(program: Any, spec: ExportSpec) -> Dict[str, Any]:
     """The per-entry graph-interface facts (fold into that entry's
-    ``class_hash``): the declared constant FQN set, the lifted inputs, the
+    ``class_hash``): the lifted constant FQN set, the lifted inputs, the
     pytree spec, and the python branches export FROZE at trace time.
     Constant BYTE SIZES are deliberately absent — they are a property of the
     resident weights, and a fine-tune of one family must keep sharing
     cells, which is the premise of family-scoped cells.
+
+    **v3 (pgw#1089): every fact here comes from the EXPORTED PROGRAM, never
+    from the compiled package.** v2 read ``constant_fqns`` off the packaged
+    artifact and carried ``fused_constants`` (the constants the compiler folded
+    away), so an entry's identity could not be stated until after its compile.
+    Two consequences, one of which was already live:
+
+    * **A weightless mint and a real-weight mint of the IDENTICAL graph keyed
+      differently.** pgw#1080 compiles structure-only entries with
+      ``aot_inductor.use_runtime_constant_folding`` (it must — a compile-time
+      fold bakes fake values), which keeps every parameter bindable and adds
+      ``_FOLDED_CONST_*`` rows. Both package-side sets therefore move, so the
+      same traced graph produced two different ``ck1`` keys depending on how
+      its mint happened to obtain its weights. That is precisely the fused-axis
+      failure the membership axiom forbids.
+    * **The key could not be derived before the artifact existed**, which makes
+      §4.27 step 1 (derive on boot, from code alone) impossible by
+      construction.
+
+    Both facts are a FUNCTION of (graph x toolchain x sm) — the same program
+    compiled by the same toolchain on the same architecture folds the same
+    constants — so they carry zero information the key does not already hold,
+    and the axiom admits nothing that does. They are not lost: the mint still
+    PROVES them (``aot_package.program_package_drift`` refuses a package whose
+    constant set disagrees with its program; ``eliminated_constants`` is still
+    logged per entry). Proven, not keyed.
 
     pgw#857: that exclusion is right for a WEIGHT and wrong for a LITERAL, and
     both were excluded. A weight is rebound from the resident ``state_dict``
@@ -2849,10 +3697,8 @@ def entry_graph_block(
     for ``excluded``, and for the same reason: a field that says "unchanged"
     must not strand already-published cells."""
     block: Dict[str, Any] = {
-        "v": 2,
-        "constant_fqns": sorted(aot_package.constant_names(package, entry)),
-        "fused_constants": sorted(
-            aot_package.eliminated_constants(program, package, entry)),
+        "v": 3,
+        "constant_fqns": sorted(aot_package.program_constant_fqns(program)),
         "lifted_inputs": sorted(str(n) for n in spec.lifted_inputs),
         "pytree": _pytree_facts(program),
         "specialization": _specialization_facts(spec),
@@ -2878,15 +3724,30 @@ def shared_identity_blocks(spec: ExportSpec) -> Dict[str, Any]:
 
     return {
         "weight_lane": str(spec.weight_lane or ""),
-        # pgw#846: an exported cell is always WHOLE-GRAPH (`mode` "").
-        # `shell_digest` likewise: both keys are recorded at their whole-graph
-        # values ("") so the v3 contract-facts shape — and therefore every
-        # existing whole-graph cell key — is byte-identical to pre-#846.
-        "mode": "",
-        "shell_digest": "",
+        # pgw#1059: `mode` and `shell_digest` are DELETED (both pinned ""
+        # since regional died, #846 — recording a constant that says
+        # "unchanged" was only ever keyed byte-compatibility with the fused
+        # v3 contract facts, which die in the same redefinition).
         "sm": str(cc.runtime_key().get("sm") or ""),
+        # The seal dict stays RECORDED (the observable statement of the
+        # declaration this cell was minted under; its digest is a published
+        # wire fact the hub's ArtifactIdentity requires) — but it is no
+        # longer a key axis: the declaration + loaded-libs digests fold into
+        # the `toolchain` block below (pgw#1059 amendment 4).
         env_seal.SEAL_KEY: env_seal.effective_seal(),
         "toolchain": dict(cc.toolchain_digest()),
+        # pgw#1046/pgw#1059: the DECLARED ENVELOPE — the `envelope` axis's
+        # whole input, recorded so an exported cell can restate its own key
+        # from the artifact alone (`cell_key.from_exported_artifact_metadata`;
+        # the publish path recomputes the same axes before a byte moves).
+        # Canonical form is `cell_key.envelope_facts`; the behavior-posture
+        # `overlay` slot (amendment 5) is absent because the overlay menu is
+        # empty.
+        cell_key.EXPORT_ENVELOPE_KEY: {
+            "shapes": sorted([int(v) for v in row] for row in spec.shapes),
+            "text_lens": sorted({int(v) for v in spec.text_lens}),
+            "guidance": sorted(float(v) for v in spec.guidance_scales),
+        },
         # pgw#1034: no ``code_closure``. pgw#990 took source content out of the
         # key; the memo it was demoted to is `compile_cache`'s own block, read
         # by the local re-trace off ITS copy. This one had zero readers and cost
@@ -2929,83 +3790,25 @@ def _treespec_text(spec: Any) -> str:
         return repr(spec)
 
 
-def cell_identity(meta: Mapping[str, Any], spec: ExportSpec) -> cell_key.CellKey:
+def cell_identity(meta: Mapping[str, Any]) -> cell_key.CellKey:
     """The cell key a multi-graph artifact's OWN recorded facts describe.
 
-    Computed from the recorded blocks, never from separate probes, so the stamp
-    can never disagree with the axes it summarizes — the discipline
-    ``cell_key.from_artifact_metadata`` enforces for dynamo cells, mirrored for
-    the new kind. ``cell_key.from_axes`` already accepts any ``kind`` VALUE (it
-    validates axis NAMES), so no KEY_SCHEME bump: the axis set is unchanged and
-    ``kind`` does the discriminating. No dynamo cell is stranded.
+    The computation is :func:`cell_key.from_exported_artifact_metadata` — ONE
+    implementation, so the key the mint stamps and the axes the publish path
+    declares (``fleet_cells._identity_axes``) are the same object rather than
+    two derivations that can drift. pgw#1046 moved it there and dropped the
+    ``spec`` parameter: every input is a RECORDED block (the declared
+    envelope rides ``declared_envelope``), which is what makes the
+    recomputation possible off the artifact alone.
 
-    The ``contract`` axis is the pgw#716 formula, IMPLEMENTED AS ANTICIPATED:
-    the cell keys on the ``combined_graph_hash`` — first 16 hex of the sha256
-    over the newline-joined SORTED per-class hashes — while the per-class
-    hashes ride ``entries[*].class_hash`` so a mismatch NAMES the class. Each
-    class hash folds that entry's ``range_digest`` (the #723 S3 requirement:
-    three exports differing ONLY in declared range produced identical node-only
-    digests) plus its coordinate and graph-interface block.
-
-    CONTRACT-FACTS SHAPE CHANGE (v1 -> v2, pgw#758): this re-keys every
-    published ``aot-inductor`` cell; single-graph format-1 cells are RETIRED —
-    correct and expected under exact identity.
-
-    CONTRACT-FACTS SHAPE CHANGE (v2 -> v3, pgw#817): ``shell_digest`` joined
-    the facts for the (since-retired) regional kind. pgw#846 retires regional
-    but deliberately KEEPS the v3 shape with ``shell_digest`` pinned ``""``
-    and the ``mode`` axis ``""`` — the whole-graph key is byte-identical to
-    what it was before and after pgw#817, so nothing re-keys.
+    A missing fact is a :class:`MintRefused` here because at mint time it means
+    this pod cannot name its own product; the same absence at publish time is a
+    publish refusal, not a fallback.
     """
-
-    sm = str(meta.get("sm") or "")
-    if not sm:
-        raise MintRefused(
-            "cannot state the compute capability (sm) of this runtime; an "
-            "exported cell has no identity without it — mint on the target GPU")
-    entries = dict(meta.get("entries") or {})
-    combined = str(meta.get("combined_graph_hash") or "")
-    if not entries or not combined:
-        raise MintRefused(
-            "the envelope recorded no entries/combined_graph_hash; a "
-            "multi-graph cell must not be keyed without its class set "
-            "(pgw#716/#758)")
-    unhashed = sorted(
-        name for name, block in entries.items()
-        if not str((block or {}).get("class_hash") or ""))
-    if unhashed:
-        raise MintRefused(
-            f"entries {unhashed[:4]!r} carry no class_hash; a class the key "
-            f"cannot name is a class a mismatch cannot name (pgw#716)")
-    contract_facts: Dict[str, Any] = {
-        "v": 3,
-        "combined_graph_hash": combined,
-        # pgw#846: always "" — kept in the v3 shape so the whole-graph
-        # contract digest (and every derived cell identity) does not move.
-        "shell_digest": "",
-        "targets": sorted({
-            str((block or {}).get("target") or "") for block in entries.values()}),
-        "shapes": sorted([int(v) for v in row] for row in spec.shapes),
-        "text_lens": sorted({int(v) for v in spec.text_lens}),
-        "guidance": sorted(float(v) for v in spec.guidance_scales),
-        "lora_bucket": int(spec.lora_bucket or 0),
-        "strict": bool(spec.strict),
-    }
-    contract = cell_key.contract_digest(contract_facts)
-    return cell_key.from_axes({
-        "format": str(meta.get("format") or ""),
-        "kind": aot_serve.ARTIFACT_KIND,
-        "family": str(meta.get("family") or ""),
-        "lane": spec.execution_lane_label(),
-        # pgw#846: an exported cell is always whole-graph again; "" is the
-        # optional-axis value `from_axes` omits, matching every pre-regional
-        # whole-graph key.
-        "mode": "",
-        "sm": sm,
-        "contract": contract,
-        "env_seal": env_seal.seal_digest(dict(meta.get(env_seal.SEAL_KEY) or {})),
-        "toolchain": cell_key.facts_digest(dict(meta.get("toolchain") or {})),
-    })
+    try:
+        return cell_key.from_exported_artifact_metadata(meta)
+    except cell_key.CellKeyError as exc:
+        raise MintRefused(str(exc)) from exc
 
 
 def _state_dict_keys(module: Any) -> Tuple[str, ...]:
@@ -3293,7 +4096,10 @@ def _load_spec(path: Path) -> Tuple[ExportSpec, Dict[str, Any]]:
         family=str(body.get("family") or ""),
         target="",
         weight_lane=str(body.get("weight_lane") or ""),
-        precision=str(body.get("precision") or "bf16"),
+        # pgw#1076: NO default. An absent `precision` is derived from the
+        # modules the mint actually traces (`_measured_precision`); a
+        # fabricated "bf16" is a measurement nobody made.
+        precision=str(body.get("precision") or ""),
         lora_bucket=int(body.get("lora_bucket") or 0),
         shapes=tuple(tuple(int(v) for v in row) for row in body.get("shapes") or ()),
         text_lens=tuple(int(v) for v in body.get("text_lens") or ()),
@@ -3367,7 +4173,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 3
     try:
         pipeline, _build_inputs = compose_for_mint(model, spec, body)
-        result = mint(pipeline, spec, Path(args.out))
+        # pgw#1053: an operator mint's pipeline is composed for the mint and
+        # dies with the process — surrender it once the last row exports.
+        result = mint(pipeline, spec, Path(args.out), release_residents=True)
     except MintRefused as exc:
         print(f"REFUSED: {exc}", file=sys.stderr)
         return 2
@@ -3471,6 +4279,10 @@ __all__ = [
     "dynamic_shapes_spec",
     "emit_phase_events",
     "entry_graph_block",
+    "keying_block",
+    "trace_for_key",
+    "declared_class_rows",
+    "TracedClass",
     "export_program",
     "exported_input_names",
     "shared_identity_blocks",

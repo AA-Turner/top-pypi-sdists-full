@@ -100,7 +100,7 @@ class TestPlotWidget(PlotWidgetTestCase, ParametricTestCase):
             self.assertTrue(numpy.allclose(expectedRatio, ratio, atol=0.01))
 
     def testChangeLimitsWithAspectRatio(self):
-        self.plot.setKeepDataAspectRatio()
+        self.plot.setKeepDataAspectRatio(True)
         self.qapp.processEvents()
         xlim = self.plot.getXAxis().getLimits()
         ylim = self.plot.getYAxis().getLimits()
@@ -679,12 +679,12 @@ class TestPlotHistogram(PlotWidgetTestCase):
             edges=self.edges,
             legend="histogram1",
             color="blue",
+            linestyle=":",
         )
         histogram = self.plot.getItems()[0]
         assert histogram.getLineGapColor() is None
         histogram.setLineGapColor("red")
         assert histogram.getLineGapColor() == (1.0, 0.0, 0.0, 1.0)
-        histogram.setLineStyle(":")
 
 
 class TestPlotScatter(PlotWidgetTestCase, ParametricTestCase):
@@ -1744,7 +1744,7 @@ class TestPlotCurveLog(PlotWidgetTestCase, ParametricTestCase):
                 self.assertEqual(yLim, (min(yData), max(yData)))
 
                 # x axis log
-                self.plot.getXAxis()._setLogarithmic(True)
+                self.plot.setXAxisLogarithmic(True)
                 self.qapp.processEvents()
 
                 xLim = self.plot.getXAxis().getLimits()
@@ -2088,3 +2088,13 @@ def testCurveErrors(qapp, plotWidget, xerror, yerror):
     qapp.processEvents()
     plotWidget.getXAxis().setScale("log")
     plotWidget.getYAxis().setScale("log")
+
+
+@pytest.mark.parametrize("plotWidget", ("mpl", "gl"), indirect=True)
+def testDataToPixelOutsideValidRange(qapp, plotWidget: PlotWidget):
+    plotWidget.addCurve(x=(0, 1, 2, 3), y=(0, 1, 4, 9))
+
+    assert plotWidget.dataToPixel(0, 0) is not None
+
+    plotWidget.getXAxis().setScale("log")
+    assert plotWidget.dataToPixel(0, 0) is None

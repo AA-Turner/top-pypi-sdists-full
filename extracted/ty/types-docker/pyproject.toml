@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-docker"
-version = "7.2.0.20260806"
+version = "7.2.0.20260811"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for docker"
@@ -26,11 +26,12 @@ directory.
 
 This package was tested with the following type checkers:
 * [mypy](https://github.com/python/mypy/) 2.3.0
+* [pyrefly](https://pyrefly.org/) 1.3.0.dev1
 * [pyright](https://github.com/microsoft/pyright) 1.1.411
 * [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`a2811326ffe3c0e69c4624de1d6b199a3c1f4ace`](https://github.com/python/typeshed/commit/a2811326ffe3c0e69c4624de1d6b199a3c1f4ace).
+[`586480423286e6d008c5704d32149aca07a2543a`](https://github.com/python/typeshed/commit/586480423286e6d008c5704d32149aca07a2543a).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

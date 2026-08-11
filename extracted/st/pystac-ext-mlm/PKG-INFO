@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pystac-ext-mlm
-Version: 1.4.0
+Version: 1.4.1
 Summary: Machine Learning Model extension for PySTAC
 Project-URL: Documentation, https://pystac.readthedocs.io
 Project-URL: Repository, https://github.com/stac-utils/pystac
@@ -20,6 +20,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
 Requires-Dist: pystac-core
+Requires-Dist: pystac-ext-classification
+Requires-Dist: pystac-ext-raster
 Description-Content-Type: text/markdown
 
 # pystac-ext-mlm

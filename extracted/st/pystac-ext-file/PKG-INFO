@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pystac-ext-file
-Version: 2.1.0
+Version: 2.1.1
 Summary: File extension for PySTAC
 Project-URL: Documentation, https://pystac.readthedocs.io
 Project-URL: Repository, https://github.com/stac-utils/pystac

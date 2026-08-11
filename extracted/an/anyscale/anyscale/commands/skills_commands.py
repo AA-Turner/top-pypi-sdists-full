@@ -225,14 +225,12 @@ def _build_list_output(info: SkillsListResult) -> SkillsListOutput:
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to [TEXT, JSON, YAML] when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
     examples=[
         CommandExample(
             description="List installed and available Anyscale agent skills.",
             command="anyscale skills list",
             output_raw=(
-                "$ anyscale skills list\n"
                 "Not installed.\n"
                 "\n"
                 "Available: v0.3.0 (3 skills)\n"
@@ -291,7 +289,6 @@ def _build_list_output(info: SkillsListResult) -> SkillsListOutput:
     ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 def skills_list(version: Optional[str], output_format: str) -> None:

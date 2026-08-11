@@ -8,29 +8,36 @@ each ``Requires-Dist`` entry into base deps vs per-extra deps.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, TypeGuard
 from urllib.parse import urlsplit
 
 from nab_index.client import SdistFile, WheelFile
 from nab_index.lazy_wheel import RangeOutcome
-from nab_index.local_index import UnsupportedWheelError, read_wheel_metadata
+from nab_index.local_index import (
+    UnreadableLocalIndexError,
+    UnsupportedWheelError,
+    read_wheel_metadata,
+)
 
 from .._conflict_kind import EMPTY_MEMBERSHIP_SETS
 from .._vcs_admission import admit_vcs_url
 from .._vendor.packaging.ranges import VersionRange
 from .._vendor.packaging.specifiers import SpecifierSet
 from .._vendor.packaging.utils import canonicalize_name
+from .._vendor.packaging.version import InvalidVersion
 from ..metadata import (
     DEPENDENCY_FIELDS,
     WheelMetadata,
+    intern_version,
     metadata_deps_are_static,
     parse_metadata,
 )
 from ..requirements_file import (
     InvalidProjectRequirementError,
-    _parse_project_requirement,
-    _parse_requirements,
-    _require_string_list,
+    parse_project_requirement,
+    parse_requirements,
+    require_string_list,
 )
 from ..tags import python_axis_accepts
 
@@ -50,6 +57,10 @@ TargetDepSignature = tuple[
     dict[str, dict[str, VersionRange]],
     dict[str | None, set[tuple[str, frozenset[str], str]]],
 ]
+
+logger = logging.getLogger(__name__)
+
+_OFFLINE_METADATA_MISS = "offline mode skipped a metadata fetch with no cached metadata"
 
 
 def resolve_metadata(
@@ -94,7 +105,7 @@ def resolve_metadata(
         msg = f"Version {version} of {package} not found in listing"
         raise MetadataError(msg)
 
-    metadata_text, from_sdist = _read_direct_wheel_metadata(
+    metadata_text, from_sdist, unreadable_wheel = _read_direct_wheel_metadata(
         provider, dist, normalized, ver_str
     )
 
@@ -120,26 +131,110 @@ def resolve_metadata(
     if metadata_text is not None:
         return (metadata_text, from_sdist)
 
-    # A fetched sdist with no PKG-INFO is a distinct failure from no sdist at all.
-    reason = (
-        "the sdist has no readable PKG-INFO"
-        if sdist is not None
-        else "no sdist available"
+    raise _ladder_failure(
+        provider,
+        package,
+        normalized,
+        version,
+        sdist=sdist,
+        metadata_url=metadata_url,
+        unreadable_wheel=unreadable_wheel,
     )
 
-    msg = f"No metadata for {package}=={version}: no PEP 658 metadata and {reason}"
-    raise MetadataError(msg)
+
+def _ladder_failure(
+    provider: Provider,
+    package: str,
+    normalized: str,
+    version: Version,
+    *,
+    sdist: SdistFile | None,
+    metadata_url: str | None,
+    unreadable_wheel: UnreadableLocalIndexError | None,
+) -> Exception:
+    """Return the error for a version no rung of the ladder could answer.
+
+    An unreadable local wheel takes precedence, and is deliberately not a
+    :class:`~nab_python.provider.MetadataError`: look-ahead treats those as a
+    rejection, so the version would be dropped and an older release pinned
+    instead of the resolve failing.
+    """
+    # Late import: ``provider`` imports this module at module load.
+    from ..provider import MetadataError
+
+    if unreadable_wheel is not None:
+        return unreadable_wheel
+
+    index = provider.coordinator.index
+    ver_str = str(version)
+
+    # Only the rung the ladder gave up on can name the reason: an earlier rung
+    # skipped offline says nothing about what this one read.
+    last_url = sdist.url if sdist is not None else metadata_url
+
+    if index.is_offline_metadata_miss(normalized, ver_str, last_url):
+        reason = _OFFLINE_METADATA_MISS
+        _report_offline_skip(index, normalized, package, version)
+    elif sdist is not None:
+        # A fetched sdist with no PKG-INFO is distinct from no sdist at all.
+        reason = "no PEP 658 metadata and the sdist has no readable PKG-INFO"
+    elif _index_published_sdist(index, normalized, version):
+        reason = (
+            "no PEP 658 metadata and the sdist was filtered by"
+            " requires-python, dist-policy, or upload-time"
+        )
+    else:
+        reason = "no PEP 658 metadata and no sdist available"
+
+    msg = f"No metadata for {package}=={version}: {reason}"
+    return MetadataError(msg)
+
+
+def _index_published_sdist(
+    index: InMemoryIndex, normalized: str, version: Version
+) -> bool:
+    """Whether the index served an sdist for ``version``.
+
+    The ladder only sees the post-filter listing, where an sdist the filter
+    dropped and one that was never published both read as absent.
+    """
+    for dist in index.get_listing(normalized) or ():
+        if not isinstance(dist, SdistFile):
+            continue
+        try:
+            if intern_version(dist.version) == version:
+                return True
+        except InvalidVersion:
+            continue
+    return False
+
+
+def _report_offline_skip(
+    index: InMemoryIndex, normalized: str, package: str, version: Version
+) -> None:
+    """Report a release skipped for want of cached metadata.
+
+    The resolver drops the version and can still succeed on an older one, so
+    the drop has to be visible.  A cold cache drops as many releases as the
+    listing holds, hence one warning per package and an info line per release.
+    """
+    if index.claim_offline_metadata_warning(normalized):
+        logger.warning("Skipping releases of %s: %s", package, _OFFLINE_METADATA_MISS)
+    logger.info("Skipping %s==%s: %s", package, version, _OFFLINE_METADATA_MISS)
 
 
 def _read_direct_wheel_metadata(
     provider: Provider, dist: DistFile | None, package: str, version: str
-) -> tuple[str | None, bool]:
+) -> tuple[str | None, bool, UnreadableLocalIndexError | None]:
     """Rungs 2 and 3: a PEP 658 sidecar read, then a local wheel read.
 
-    Returns ``(metadata_text, from_sdist)``; ``from_sdist`` is always ``False``
-    since both sources are wheel METADATA.  A recorded sidecar integrity error
-    is re-raised and fails the resolve; a contradictory local ``.dist-info``
-    reads back as ``None`` and the ladder steps on.
+    Returns ``(metadata_text, from_sdist, unreadable)``; ``from_sdist`` is
+    always ``False`` since both sources are wheel METADATA.  A recorded sidecar
+    integrity error is re-raised and fails the resolve; a contradictory local
+    ``.dist-info`` reads back as ``None`` and the ladder steps on.  A wheel
+    that cannot be opened comes back as ``unreadable`` rather than raising, so
+    the version's own sdist still gets a turn; the caller raises it when no
+    later rung answers.
     """
     index = provider.coordinator.index
     if isinstance(dist, WheelFile) and (url := dist.metadata_url) is not None:
@@ -150,14 +245,17 @@ def _read_direct_wheel_metadata(
         integrity_error = index.get_metadata_error(package, version, url)
         if integrity_error is not None:
             raise integrity_error
-        return index.get_metadata_with_origin(package, version, url)
+        text, from_sdist = index.get_metadata_with_origin(package, version, url)
+        return text, from_sdist, None
     if isinstance(dist, WheelFile) and dist.local_path is not None:
         try:
-            return read_wheel_metadata(dist.local_path), False
+            return read_wheel_metadata(dist.local_path), False, None
         except UnsupportedWheelError:
-            # A contradictory .dist-info is unusable, like an unreadable wheel.
-            return None, False
-    return None, False
+            # A contradictory .dist-info is unusable, like a corrupt archive.
+            return None, False, None
+        except UnreadableLocalIndexError as exc:
+            return None, False, exc
+    return None, False, None
 
 
 def _is_bare_remote_wheel(dist: DistFile | None) -> TypeGuard[WheelFile]:
@@ -343,8 +441,9 @@ def resolve_dynamic_sdist(
     provider.stats.excluded_by_build_policy += 1
     msg = (
         f"{package}=={version} sdist has dynamic dependencies and no static"
-        f" pyproject.toml fallback; building requires BuildPolicy.BUILD_REMOTE"
-        f" but the effective policy is {effective.value}"
+        f" pyproject.toml fallback; building requires build-policy"
+        f" '{BuildPolicy.BUILD_REMOTE.value}' but the effective policy is"
+        f" '{effective.value}'"
     )
     raise UnsupportedSdistError(msg)
 
@@ -378,7 +477,7 @@ def augment_from_pyproject(
     if project is None:
         return None
 
-    deps = _require_string_list(
+    deps = require_string_list(
         project.get("dependencies", []), "[project].dependencies"
     )
     optional = project.get("optional-dependencies", {})
@@ -413,8 +512,8 @@ def extend_with_extras(requires_dist: list[Requirement], optional: dict) -> list
         source = f"[project].optional-dependencies extra {extra_name!r}"
         provides_extra.append(extra_name)
         requires_dist.extend(
-            _parse_project_requirement(dep_str, source, extra=extra_name)
-            for dep_str in _require_string_list(extra_deps, source)
+            parse_project_requirement(dep_str, source, extra=extra_name)
+            for dep_str in require_string_list(extra_deps, source)
         )
     return provides_extra
 
@@ -422,12 +521,12 @@ def extend_with_extras(requires_dist: list[Requirement], optional: dict) -> list
 def parse_pyproject_deps(deps: list) -> list[Requirement]:
     """Parse a ``project.dependencies`` list, raising on a malformed entry.
 
-    Entries are already validated as strings by :func:`_require_string_list`;
+    Entries are already validated as strings by :func:`require_string_list`;
     a string that is not valid PEP 508 raises
     :class:`InvalidProjectRequirementError`, so the whole version is rejected
     rather than resolved with the dependency dropped.
     """
-    return _parse_requirements(deps, "[project].dependencies")
+    return parse_requirements(deps, "[project].dependencies")
 
 
 def find_sdist(
@@ -722,16 +821,13 @@ def cache_deps_from_metadata(
     :meth:`nab_python.provider.Provider.get_dependencies` (which hands in a
     bare :class:`WheelMetadata` for a complete ``dependencies`` override).
     """
-    # Late import: ``provider`` imports this module at module load.
-    from ..provider import _normalize_extra
-
     metadata = effective_metadata(provider, cache_key, metadata)
 
     # Split the (possibly overridden) requirements into base deps and
     # per-extra deps, deferring any direct-URL deps that aren't yet active.
     package = cache_key[0]
     provider.metadata_cache[cache_key] = metadata
-    provided_extras = {_normalize_extra(e) for e in metadata.provides_extra}
+    provided_extras: set[str] = {canonicalize_name(e) for e in metadata.provides_extra}
     base_deps: dict[str, VersionRange] = {}
     extra_deps_map: dict[str, dict[str, VersionRange]] = {
         e: {} for e in provided_extras
@@ -836,11 +932,8 @@ def target_dep_signature(
     already refused its own URL deps, so a sibling's URL dep is a divergence to
     report.
     """
-    # Late import: ``provider`` imports this module at module load.
-    from ..provider import _normalize_extra
-
     metadata = effective_metadata(provider, cache_key, metadata)
-    provided_extras = {_normalize_extra(e) for e in metadata.provides_extra}
+    provided_extras: set[str] = {canonicalize_name(e) for e in metadata.provides_extra}
     base_deps: dict[str, VersionRange] = {}
     extra_deps_map: dict[str, dict[str, VersionRange]] = {
         e: {} for e in provided_extras

@@ -361,6 +361,51 @@ class _IMaintenanceWindowTaskRefProxy(
 typing.cast(typing.Any, IMaintenanceWindowTaskRef).__jsii_proxy_class__ = lambda : _IMaintenanceWindowTaskRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ssm.IOpsItemRef")
+class IOpsItemRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a OpsItem.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="opsItemRef")
+    def ops_item_ref(self) -> "OpsItemReference":
+        '''(experimental) A reference to a OpsItem resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IOpsItemRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a OpsItem.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ssm.IOpsItemRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="opsItemRef")
+    def ops_item_ref(self) -> "OpsItemReference":
+        '''(experimental) A reference to a OpsItem resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("OpsItemReference", jsii.get(self, "opsItemRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IOpsItemRef).__jsii_proxy_class__ = lambda : _IOpsItemRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ssm.IParameterRef")
 class IParameterRef(
     _constructs_77d1e7e8.IConstruct,
@@ -541,6 +586,51 @@ class _IResourcePolicyRefProxy(
 typing.cast(typing.Any, IResourcePolicyRef).__jsii_proxy_class__ = lambda : _IResourcePolicyRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ssm.ISessionRef")
+class ISessionRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Session.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="sessionRef")
+    def session_ref(self) -> "SessionReference":
+        '''(experimental) A reference to a Session resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISessionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Session.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ssm.ISessionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="sessionRef")
+    def session_ref(self) -> "SessionReference":
+        '''(experimental) A reference to a Session resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SessionReference", jsii.get(self, "sessionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISessionRef).__jsii_proxy_class__ = lambda : _ISessionRefProxy
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_ssm.MaintenanceWindowReference",
     jsii_struct_bases=[],
@@ -716,6 +806,55 @@ class MaintenanceWindowTaskReference:
 
     def __repr__(self) -> str:
         return "MaintenanceWindowTaskReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_ssm.OpsItemReference",
+    jsii_struct_bases=[],
+    name_mapping={"ops_item_arn": "opsItemArn"},
+)
+class OpsItemReference:
+    def __init__(self, *, ops_item_arn: builtins.str) -> None:
+        '''A reference to a OpsItem resource.
+
+        :param ops_item_arn: The OpsItemArn of the OpsItem resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_ssm as interfaces_ssm
+            
+            ops_item_reference = interfaces_ssm.OpsItemReference(
+                ops_item_arn="opsItemArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__30c7b0703f5914b24bf1b111a6c969634998781f3b4eabfdb244e418c19782c3)
+            check_type(argname="argument ops_item_arn", value=ops_item_arn, expected_type=type_hints["ops_item_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ops_item_arn": ops_item_arn,
+        }
+
+    @builtins.property
+    def ops_item_arn(self) -> builtins.str:
+        '''The OpsItemArn of the OpsItem resource.'''
+        result = self._values.get("ops_item_arn")
+        assert result is not None, "Required property 'ops_item_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OpsItemReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -943,6 +1082,55 @@ class ResourcePolicyReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_ssm.SessionReference",
+    jsii_struct_bases=[],
+    name_mapping={"session_arn": "sessionArn"},
+)
+class SessionReference:
+    def __init__(self, *, session_arn: builtins.str) -> None:
+        '''A reference to a Session resource.
+
+        :param session_arn: The Arn of the Session resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_ssm as interfaces_ssm
+            
+            session_reference = interfaces_ssm.SessionReference(
+                session_arn="sessionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__19e1ab370d854b293525f232adf7211fc4c5c9b3928e72c018351e885e19bb22)
+            check_type(argname="argument session_arn", value=session_arn, expected_type=type_hints["session_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "session_arn": session_arn,
+        }
+
+    @builtins.property
+    def session_arn(self) -> builtins.str:
+        '''The Arn of the Session resource.'''
+        result = self._values.get("session_arn")
+        assert result is not None, "Required property 'session_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SessionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "AssociationReference",
     "DocumentReference",
@@ -951,17 +1139,21 @@ __all__ = [
     "IMaintenanceWindowRef",
     "IMaintenanceWindowTargetRef",
     "IMaintenanceWindowTaskRef",
+    "IOpsItemRef",
     "IParameterRef",
     "IPatchBaselineRef",
     "IResourceDataSyncRef",
     "IResourcePolicyRef",
+    "ISessionRef",
     "MaintenanceWindowReference",
     "MaintenanceWindowTargetReference",
     "MaintenanceWindowTaskReference",
+    "OpsItemReference",
     "ParameterReference",
     "PatchBaselineReference",
     "ResourceDataSyncReference",
     "ResourcePolicyReference",
+    "SessionReference",
 ]
 
 publication.publish()
@@ -1003,6 +1195,13 @@ def _typecheckingstub__a84f17a335bbe7c6ba37477bd79adba76a951afd9da1ec43ae2a7499c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__30c7b0703f5914b24bf1b111a6c969634998781f3b4eabfdb244e418c19782c3(
+    *,
+    ops_item_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4cda39a1fa0093c99b1bbd37f52b1d52b1ddd1c2c6ae9eb197226b61a63c9e49(
     *,
     parameter_arn: builtins.str,
@@ -1033,5 +1232,12 @@ def _typecheckingstub__624afa9dab00ea919f3780ec78ff1eba149e1b5a7a7f48fbce5c7d0bf
     """Type checking stubs"""
     pass
 
-for cls in [IAssociationRef, IDocumentRef, IMaintenanceWindowRef, IMaintenanceWindowTargetRef, IMaintenanceWindowTaskRef, IParameterRef, IPatchBaselineRef, IResourceDataSyncRef, IResourcePolicyRef]:
+def _typecheckingstub__19e1ab370d854b293525f232adf7211fc4c5c9b3928e72c018351e885e19bb22(
+    *,
+    session_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IAssociationRef, IDocumentRef, IMaintenanceWindowRef, IMaintenanceWindowTargetRef, IMaintenanceWindowTaskRef, IOpsItemRef, IParameterRef, IPatchBaselineRef, IResourceDataSyncRef, IResourcePolicyRef, ISessionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

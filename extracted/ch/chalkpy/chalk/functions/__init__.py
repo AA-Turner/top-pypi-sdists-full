@@ -4420,6 +4420,133 @@ def set_union(expr: Underscore | Any):
     return UnderscoreFunction("set_union", expr)
 
 
+def cpc_sketch(expr: Underscore | Any):
+    """Aggregate a single-column `DataFrame` into a CPC distinct-count sketch.
+
+    Returns the sketch itself rather than a count, so that it can be combined with other
+    sketches via [`cpc_union`](#cpc_union) before a cardinality is read off with
+    [`cpc_cardinality`](#cpc_cardinality).
+
+    This is a different sketch family from `approx_count_distinct`, which is HyperLogLog.
+    Sketches produced here are union-compatible with the sketches that materialized
+    aggregations persist, and are not interchangeable with `approx_count_distinct`.
+
+    Parameters
+    ----------
+    expr
+        The single-column `DataFrame` expression to sketch.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk import DataFrame
+    >>> from chalk.features import _, features
+    >>> @features
+    >>> class Merchant:
+    ...     id: str
+    ...     transactions: "DataFrame[Transaction]"
+    ...     state_sketch: bytes = F.cpc_sketch(_.transactions[_.state])
+    >>> @features
+    >>> class Transaction:
+    ...     id: int
+    ...     state: str
+    ...     merchant_id: Merchant.id
+    """
+    return UnderscoreFunction("cpc_sketch", expr)
+
+
+def cpc_sketch_of(value: Underscore | Any):
+    """Build a single-element CPC sketch from a scalar value.
+
+    Sized and seeded to match the sketches produced by [`cpc_sketch`](#cpc_sketch), so the
+    two can be unioned. A null value produces a null sketch, which
+    [`cpc_union`](#cpc_union) skips.
+
+    Parameters
+    ----------
+    value
+        The scalar value to sketch.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Merchant:
+    ...     id: str
+    ...     state: str
+    ...     home_state_sketch: bytes = F.cpc_sketch_of(_.state)
+    """
+    return UnderscoreFunction("cpc_sketch_of", value)
+
+
+def cpc_union(*sketches: Underscore | Any):
+    """Union CPC sketches into a single sketch.
+
+    Null arguments are skipped, so unioning against a null sketch is the identity. If every
+    argument is null the result is null.
+
+    This is variadic rather than binary because a CPC union is a stateful accumulator: folding
+    pairwise builds one accumulator per pair and round-trips through a compressed image at each
+    step, which costs both time and a little accuracy. Pass all the sketches at once.
+
+    Parameters
+    ----------
+    sketches
+        Two or more CPC sketches, as returned by [`cpc_sketch`](#cpc_sketch) or
+        [`cpc_sketch_of`](#cpc_sketch_of).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Merchant:
+    ...     id: str
+    ...     state_sketch: bytes
+    ...     state: str
+    ...     combined: bytes = F.cpc_union(_.state_sketch, F.cpc_sketch_of(_.state))
+    """
+    if len(sketches) < 1:
+        raise ValueError("cpc_union requires at least one sketch")
+    return UnderscoreFunction("cpc_sketch_union", *sketches)
+
+
+def cpc_cardinality(sketch: Underscore | Any):
+    """Read the estimated distinct count off a CPC sketch, rounded to the nearest integer.
+
+    Parameters
+    ----------
+    sketch
+        A CPC sketch, as returned by [`cpc_sketch`](#cpc_sketch),
+        [`cpc_sketch_of`](#cpc_sketch_of), or [`cpc_union`](#cpc_union).
+
+    Examples
+    --------
+    Count the distinct states a merchant's transactions occurred in, excluding the merchant's
+    own home state. Unioning the home state in first makes the `- 1` correct whether or not the
+    merchant actually transacted in its home state:
+
+    >>> import chalk.functions as F
+    >>> from chalk import DataFrame
+    >>> from chalk.features import _, features
+    >>> @features
+    >>> class Merchant:
+    ...     id: str
+    ...     state: str
+    ...     transactions: "DataFrame[Transaction]"
+    ...     away_states: int = F.cpc_cardinality(
+    ...         F.cpc_union(F.cpc_sketch(_.transactions[_.state]), F.cpc_sketch_of(_.state))
+    ...     ) - 1
+    >>> @features
+    >>> class Transaction:
+    ...     id: int
+    ...     state: str
+    ...     merchant_id: Merchant.id
+    """
+    return UnderscoreFunction("cpc_sketch_cardinality", sketch)
+
+
 def array_join(arr: Underscore | list[Any], delimiter: str):
     """
     Concatenate the elements of an array into a single string with a delimiter.
@@ -8374,6 +8501,10 @@ __all__ = (
     "sequence_matcher_ratio",
     "set_agg",
     "set_union",
+    "cpc_sketch",
+    "cpc_sketch_of",
+    "cpc_union",
+    "cpc_cardinality",
     "shift",
     "shuffle",
     "sha1",

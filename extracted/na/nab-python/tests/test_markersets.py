@@ -12,6 +12,7 @@ import importlib.util
 from collections import defaultdict
 from functools import reduce
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 from packaging.markers import Marker
@@ -19,9 +20,16 @@ from packaging.markers import Marker
 from nab_python._vendor.packaging import _markersets as engine
 from nab_python._vendor.packaging.markersets import (
     _MAX_CELLS,
+    _MAX_WORK,
+    DecisionStore,
     IntractableMarkerSet,
     MarkerSet,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
+    from nab_python._vendor.packaging._markersets import Atom, Cell
 
 _spec = importlib.util.spec_from_file_location(
     "simplify_corpus_fixtures",
@@ -490,4 +498,314 @@ def test_work_meter_is_unset_outside_a_simplify() -> None:
     within = _narrow_universe()
     ms(_narrow_linux_span()).simplify(within=within)
     assert getattr(engine._work_meter, "remaining", None) is None
-    assert getattr(engine._partition_cache, "store", None) is None
+
+
+def _partition_counter(monkeypatch: pytest.MonkeyPatch) -> Callable[[], int]:
+    """Start counting axis partitions, and return a reader for the count.
+
+    Counts the calls that reach :func:`_partition_axis`, so a partition served
+    from an operation's store adds nothing.
+    """
+    calls = 0
+    real = engine._partition_axis
+
+    def counting(
+        axis: tuple, atoms: Sequence[Atom], max_cells: int, memo: engine.Memo
+    ) -> list[Cell]:
+        nonlocal calls
+        calls += 1
+        return real(axis, atoms, max_cells, memo)
+
+    monkeypatch.setattr(engine, "_partition_axis", counting)
+    return lambda: calls
+
+
+def _truth_counter(monkeypatch: pytest.MonkeyPatch) -> Callable[[], int]:
+    """Start counting atom-truth evaluations, and return a reader for the count.
+
+    Counts the calls that reach :func:`_holds_value`, so a truth served from an
+    operation's memo adds nothing.
+    """
+    calls = 0
+    real = engine._holds_value
+
+    def counting(atom: Atom, text: str) -> bool:
+        nonlocal calls
+        calls += 1
+        return real(atom, text)
+
+    monkeypatch.setattr(engine, "_holds_value", counting)
+    return lambda: calls
+
+
+def _row_universe() -> MarkerSet:
+    """Return a universe of six rows, each pinning a python minor and a platform."""
+    return union(
+        *(
+            f'python_version == "3.{minor}" and sys_platform == "{platform}"'
+            for minor in (10, 11, 12)
+            for platform in ("linux", "darwin")
+        )
+    )
+
+
+# Operands reaching all three axis kinds: a version axis, a set axis through
+# ``extra``, and an opaque contains axis. A universe row pins ``sys_platform`` away,
+# so a scenario without the last two would exercise the value axis alone.
+_SPREAD = ' and extra == "gpu" and "arm" in platform_machine'
+
+
+def test_one_operation_partitions_each_axis_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A within-universe decision partitions each axis once, not once per row.
+
+    The row walk issues two emptiness decisions for each of the six rows, so the
+    count is exact rather than bounded: 5 partitions here, against 36 with the store
+    ignored and 27 with a store that serves value axes only.
+    """
+    left = ms('python_version < "3.12"' + _SPREAD)
+    right = ms('python_version < "3.12" and sys_platform != "aix"' + _SPREAD)
+
+    partitions = _partition_counter(monkeypatch)
+    assert left.equivalent_within(right, _row_universe()) is True
+
+    assert partitions() == 5
+
+
+def test_simplify_keeps_its_partitions_to_one_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Two identical simplifies each pay for their own partitions.
+
+    ``simplify_within`` creates the store its greedy fixpoint reuses, so a second
+    call repeats the whole cost. A store reaching past one call would make the repeat
+    nearly free, which is what this refuses.
+    """
+    universe = _row_universe()
+    marker = ms('python_version < "3.12"' + _SPREAD)
+
+    partitions = _partition_counter(monkeypatch)
+    marker.simplify(within=universe)
+    first = partitions()
+    marker.simplify(within=universe)
+
+    assert first > 0
+    assert partitions() == 2 * first
+
+
+def test_one_operation_reads_each_atom_truth_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An atom's truth on one point is evaluated once per operation.
+
+    Partitions of one axis over overlapping atom sets re-read the same atom on the
+    same point, which is why the memo pays. 156 evaluations here, against 208 with
+    the memo bypassed.
+    """
+    left = ms('python_version < "3.12"' + _SPREAD)
+    right = ms('python_version < "3.12" and sys_platform != "aix"' + _SPREAD)
+
+    truths = _truth_counter(monkeypatch)
+    assert left.equivalent_within(right, _row_universe()) is True
+
+    assert truths() == 156
+
+
+def test_atoms_keep_no_truths_between_operations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A second identical decision re-evaluates every atom truth.
+
+    The memo belongs to the decision, not to the atom, so an ``Atom`` that
+    outlives one carries nothing from it. A per-atom cache would make the
+    repeat nearly free, which is what this refuses; a caller wanting the reuse
+    passes a store instead.
+    """
+    universe = _row_universe()
+    left = ms('python_version < "3.12"' + _SPREAD)
+    right = ms('python_version < "3.12" and sys_platform != "aix"' + _SPREAD)
+
+    truths = _truth_counter(monkeypatch)
+    left.equivalent_within(right, universe)
+    first = truths()
+    left.equivalent_within(right, universe)
+
+    assert first > 0
+    assert truths() == 2 * first
+
+
+def test_partition_is_keyed_on_atom_order_not_just_the_set() -> None:
+    """A partition's cell vectors stay aligned with the atom list it was built for.
+
+    ``collect_atoms`` returns encounter order and nothing normalises it, while
+    ``_rows_equivalent`` builds its two halves with the operands in opposite
+    positions. So one operation can reach one axis with one atom set in two orders,
+    and keying on an unordered set would answer the second from the first's cells.
+    """
+    atoms = engine.collect_atoms(
+        engine.parse('python_version < "3.11" and python_version >= "3.10"')
+    )
+    axis = atoms[0].axis()
+    memo = engine.Memo()
+
+    forward = engine.partition_axis(axis, atoms, _MAX_CELLS, memo)
+    backward = engine.partition_axis(axis, list(reversed(atoms)), _MAX_CELLS, memo)
+
+    for cell in forward:
+        assert cell.vector == tuple(atom.holds(cell.point) for atom in atoms)
+    for cell in backward:
+        assert cell.vector == tuple(atom.holds(cell.point) for atom in reversed(atoms))
+
+
+def test_partitions_do_not_outlive_one_operation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A second identical decision pays for its partitions again.
+
+    A decision handed no store makes its own, so nothing carries to the next.
+    Reuse is the caller's to ask for, not something the module keeps on its
+    own; :func:`test_a_shared_store_serves_the_next_decision` is the other half.
+    """
+    universe = _row_universe()
+    left = ms('python_version < "3.12"' + _SPREAD)
+    right = ms('python_version < "3.12" and sys_platform != "aix"' + _SPREAD)
+
+    partitions = _partition_counter(monkeypatch)
+    left.equivalent_within(right, universe)
+    first = partitions()
+    left.equivalent_within(right, universe)
+
+    assert first > 0
+    assert partitions() == 2 * first
+
+
+def test_a_shared_store_serves_the_next_decision(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A decision handed the previous one's store partitions no axis again.
+
+    The mirror of :func:`test_partitions_do_not_outlive_one_operation`: without a
+    store the repeat pays 5 partitions again, with one it pays none. An ignored
+    ``store`` argument leaves the two counts equal to that test's.
+    """
+    universe = _row_universe()
+    left = ms('python_version < "3.12"' + _SPREAD)
+    right = ms('python_version < "3.12" and sys_platform != "aix"' + _SPREAD)
+    store = DecisionStore()
+
+    partitions = _partition_counter(monkeypatch)
+    assert left.equivalent_within(right, universe, store=store) is True
+    first = partitions()
+    assert left.equivalent_within(right, universe, store=store) is True
+
+    assert first == 5
+    assert partitions() == first
+
+
+def test_a_shared_store_serves_the_next_decision_its_truths(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A decision handed the previous one's store re-reads no stored atom truth.
+
+    Only restriction repeats, one read for each of the six rows' two operands,
+    against 156 for the decision itself.
+    """
+    universe = _row_universe()
+    left = ms('python_version < "3.12"' + _SPREAD)
+    right = ms('python_version < "3.12" and sys_platform != "aix"' + _SPREAD)
+    store = DecisionStore()
+
+    truths = _truth_counter(monkeypatch)
+    left.equivalent_within(right, universe, store=store)
+    first = truths()
+    left.equivalent_within(right, universe, store=store)
+
+    assert first == 156
+    assert truths() - first == 12
+
+
+def test_a_shared_store_serves_a_repeated_simplify(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A simplify handed the previous one's store partitions no axis again.
+
+    Driven at the engine because :meth:`MarkerSet.simplify` guards the empty
+    universe on a store of its own, which the next test measures.
+    """
+    universe = _row_universe()
+    tree = engine.parse('python_version < "3.12"' + _SPREAD)
+    store = engine.Memo()
+
+    partitions = _partition_counter(monkeypatch)
+    engine.simplify_within(tree, universe._tree, _MAX_CELLS, _MAX_WORK, store)
+    first = partitions()
+    engine.simplify_within(tree, universe._tree, _MAX_CELLS, _MAX_WORK, store)
+
+    assert first > 0
+    assert partitions() == first
+
+
+def test_the_store_reaches_the_engine_from_simplify(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The store :meth:`MarkerSet.simplify` is handed reaches every decision under it.
+
+    Including the empty-universe guard, so a repeat partitions nothing again.
+    :func:`test_simplify_keeps_its_partitions_to_one_call` measures the doubled
+    count when no store is passed.
+    """
+    universe = _row_universe()
+    marker = ms('python_version < "3.12"' + _SPREAD)
+    store = DecisionStore()
+
+    partitions = _partition_counter(monkeypatch)
+    marker.simplify(within=universe, store=store)
+    first = partitions()
+    marker.simplify(within=universe, store=store)
+
+    assert first > 0
+    assert partitions() == first
+
+
+def test_a_shared_store_answers_what_fresh_stores_answer() -> None:
+    """One store across a run of decisions answers as a fresh store per decision.
+
+    Soundness rather than speed: what a decision reads back was stored by a
+    decision over a different tree.
+    """
+    universe = _row_universe()
+    texts = [
+        'python_version < "3.12"' + _SPREAD,
+        'python_version >= "3.11" and sys_platform == "linux"',
+        'sys_platform == "linux" or sys_platform == "darwin"',
+        'python_version < "3.12" and sys_platform != "aix"' + _SPREAD,
+    ]
+    store = DecisionStore()
+
+    for text in texts:
+        marker = ms(text)
+        assert marker.simplify(within=universe, store=store).to_marker_string() == (
+            marker.simplify(within=universe).to_marker_string()
+        )
+        assert marker.equivalent_within(universe, universe, store=store) == (
+            marker.equivalent_within(universe, universe)
+        )
+        assert (marker & ~universe).witness(store=store) == (
+            marker & ~universe
+        ).witness()
+
+
+def test_a_warm_store_does_not_buy_work_budget() -> None:
+    """A stored partition is still charged to the running simplify's meter.
+
+    Skipping the charge on a store hit would leave a lock's later markers
+    decidable only because an earlier one paid for their axes.
+    """
+    within = _narrow_universe()
+    marker = engine.parse(_narrow_linux_span())
+    store = engine.Memo()
+
+    engine.simplify_within(marker, within._tree, _MAX_CELLS, _MAX_WORK, store)
+    with pytest.raises(IntractableMarkerSet, match="max_work"):
+        engine.simplify_within(marker, within._tree, _MAX_CELLS, 1, store)

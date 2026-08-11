@@ -40,6 +40,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Free Threading :: 2 - Beta",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Operating System :: POSIX",
@@ -61,6 +62,12 @@ eventlet = [
     "faust-aioeventlet",
     "dnspython",
 ]
+# DEPRECATED, and currently broken on every interpreter: `mode.loop.use
+# ("gevent")` fails with "Cannot import 'Loop' from mode.loop._gevent_loop"
+# against current gevent releases.  It additionally re-enables the GIL on
+# free-threaded (PEP 703) builds, because `gevent.libev.corecext` does not
+# declare that it is safe without it.  Slated for removal in a future major
+# release; use the `aio` or `uvloop` backend.  See docs/free-threading.md.
 gevent = [
     "asyncio-gevent~=0.2",
 ]

@@ -1,6 +1,6 @@
-'''
+"""
 See COPYRIGHT.md for copyright information.
-'''
+"""
 from __future__ import annotations
 import os
 from tkinter import HORIZONTAL, VERTICAL, N, S, E, W, StringVar, TclError, Menu, PhotoImage
@@ -332,9 +332,9 @@ class ViewTree:
     def newArcroleGroupView(self, tabWin: Notebook) -> None:
         from arelle.DialogArcroleGroup import getArcroleGroup
         from arelle import ViewWinRelationshipSet
-        arcroleGroup = getArcroleGroup(self.modelXbrl.modelManager.cntlr, self.modelXbrl)  # type: ignore[no-untyped-call]
+        arcroleGroup = getArcroleGroup(self.modelXbrl.modelManager.cntlr, self.modelXbrl)  # type: ignore[arg-type]
         if arcroleGroup:
-            ViewWinRelationshipSet.viewRelationshipSet(self.modelXbrl, tabWin, arcroleGroup, lang=self.lang)
+            ViewWinRelationshipSet.viewRelationshipSet(self.modelXbrl, tabWin, arcroleGroup, lang=self.lang)  # type: ignore[arg-type]
 
     def setLang(self, lang: str) -> None:
         self.lang = lang
@@ -430,7 +430,7 @@ class ViewTree:
         lines = ["\t".join([self.treeView.heading("#0")["text"]] +
                            [self.treeView.heading(h)["text"] for h in cols])]
         self.tabLines("", "", cols, lines)
-        self.modelXbrl.modelManager.cntlr.clipboardData(text='\n'.join(lines))
+        self.modelXbrl.modelManager.cntlr.clipboardData(text="\n".join(lines))
 
     def tabLines(self, parentNode: str, indent: str, cols: Iterable[str], lines: list[str]) -> None:
         for node in self.treeView.get_children(parentNode):

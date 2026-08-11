@@ -23,8 +23,6 @@
 # ###########################################################################*/
 """This module provides the class for axes of the :class:`PlotWidget`."""
 
-from __future__ import annotations
-
 __authors__ = ["V. Valls"]
 __license__ = "MIT"
 __date__ = "22/11/2018"
@@ -38,6 +36,8 @@ import dateutil.tz
 from ....utils.proxy import docstring
 from ... import qt
 from .. import _utils
+from . import types
+from . import _types
 
 
 class TickMode(enum.Enum):
@@ -45,9 +45,6 @@ class TickMode(enum.Enum):
 
     DEFAULT = 0  # Ticks are regular numbers
     TIME_SERIES = 1  # Ticks are datetime objects
-
-
-AxisScaleType = typing.Literal["linear", "log"]
 
 
 class Axis(qt.QObject):
@@ -67,16 +64,16 @@ class Axis(qt.QObject):
     LOGARITHMIC = "log"
     """Constant defining a logarithmic scale"""
 
-    _SCALES = {LINEAR, LOGARITHMIC}
+    ARCSINH = "asinh"
+    """Constant defining an arcsinh scale"""
+
+    _SCALES = {LINEAR, LOGARITHMIC, ARCSINH}
 
     sigInvertedChanged = qt.Signal(bool)
     """Signal emitted when axis orientation has changed"""
 
     sigScaleChanged = qt.Signal(str)
     """Signal emitted when axis scale has changed"""
-
-    _sigLogarithmicChanged = qt.Signal(bool)
-    """Signal emitted when axis scale has changed to or from logarithmic"""
 
     sigAutoScaleChanged = qt.Signal(bool)
     """Signal emitted when axis autoscale has changed"""
@@ -152,7 +149,7 @@ class Axis(qt.QObject):
         :return: (min, max) making sure min < max
         """
         return _utils.checkAxisLimits(
-            vmin, vmax, isLog=self._isLogarithmic(), name=self._defaultLabel
+            self.getScale(), vmin, vmax, name=self._defaultLabel
         )
 
     def _getDataRange(self) -> tuple[float, float] | None:
@@ -217,51 +214,24 @@ class Axis(qt.QObject):
         self._currentLabel = label
         self._internalSetCurrentLabel(label)
 
-    def getScale(self) -> AxisScaleType:
+    def getScale(self) -> types.AxisScaleType:
         """Return the name of the scale used by this axis."""
         return self._scale
 
-    def setScale(self, scale: AxisScaleType):
-        """Set the scale to be used by this axis.
-
-        :param scale: Name of the scale ("log", or "linear")
-        """
-        assert scale in self._SCALES
+    def setScale(self, scale: types.AxisScaleType):
+        """Set the scale to be used by this axis."""
+        if scale not in self._SCALES:
+            raise ValueError(
+                f"{scale} is not one of the supported scales: {self._SCALES}"
+            )
         if self._scale == scale:
             return
 
         # For the backward compatibility signal
-        emitLog = self._scale == self.LOGARITHMIC or scale == self.LOGARITHMIC
-
         self._scale = scale
-
-        vmin, vmax = self.getLimits()
-
-        # TODO hackish way of forcing update of curves and images
-        plot = self._getPlot()
-        for item in plot.getItems():
-            item._updated()
-        plot._invalidateDataRange()
-
-        if scale == self.LOGARITHMIC:
-            self._internalSetLogarithmic(True)
-            if vmin <= 0:
-                dataRange = self._getDataRange()
-                if dataRange is None:
-                    self.setLimits(1.0, 100.0)
-                else:
-                    if vmax > 0 and dataRange[0] < vmax:
-                        self.setLimits(dataRange[0], vmax)
-                    else:
-                        self.setLimits(*dataRange)
-        elif scale == self.LINEAR:
-            self._internalSetLogarithmic(False)
-        else:
-            raise ValueError("Scale %s unsupported" % scale)
+        self._internalSetScale()
 
         self.sigScaleChanged.emit(self._scale)
-        if emitLog:
-            self._sigLogarithmicChanged.emit(self._scale == self.LOGARITHMIC)
 
     def _isLogarithmic(self) -> bool:
         """Return True if this axis scale is logarithmic, False if linear."""
@@ -367,6 +337,15 @@ class Axis(qt.QObject):
             plot.setLimits(xMin, xMax, yMin, yMax, y2Min, y2Max)
         return updated
 
+    def _getInfo(self) -> _types.AxisInfo:
+        vmin, vmax = self.getLimits()
+        scale = self.getScale()
+        if scale == self.LOGARITHMIC:
+            vmin = max(0, vmin)
+            vmax = max(0, vmax)
+        auto = self.isAutoScale()
+        return _types.AxisInfo(vmin=vmin, vmax=vmax, auto=auto, scale=scale)
+
 
 class XAxis(Axis):
     """Axis class defining primitives for the X axis"""
@@ -411,9 +390,6 @@ class XAxis(Axis):
     def _internalSetLimits(self, xmin, xmax):
         self._getBackend().setGraphXLimits(xmin, xmax)
 
-    def _internalSetLogarithmic(self, flag):
-        self._getBackend().setXAxisLogarithmic(flag)
-
     def _setLimitsConstraints(self, minPos=None, maxPos=None):
         constrains = self._getPlot()._getViewConstraints()
         updated = constrains.update(xMin=minPos, xMax=maxPos)
@@ -423,6 +399,32 @@ class XAxis(Axis):
         constrains = self._getPlot()._getViewConstraints()
         updated = constrains.update(minXRange=minRange, maxXRange=maxRange)
         return updated
+
+    def _internalSetScale(self):
+        scale = self._scale
+        vmin, vmax = self.getLimits()
+        # TODO hackish way of forcing update of curves and images
+        plot = self._getPlot()
+        for item in plot.getItems():
+            item._updated()
+        plot._invalidateDataRange()
+        plot._setDirtyPlot()
+
+        if scale == self.LOGARITHMIC:
+            self._getBackend().setXAxisScale(scale="log")
+            if vmin <= 0:
+                dataRange = self._getDataRange()
+                if dataRange is None:
+                    self.setLimits(1.0, 100.0)
+                else:
+                    if vmax > 0 and dataRange[0] < vmax:
+                        self.setLimits(dataRange[0], vmax)
+                    else:
+                        self.setLimits(*dataRange)
+        elif scale in (self.LINEAR, self.ARCSINH):
+            self._getBackend().setXAxisScale(scale=self._scale)
+        else:
+            raise ValueError("Scale %s unsupported" % scale)
 
     @docstring(Axis)
     def _getDataRange(self) -> tuple[float, float] | None:
@@ -464,8 +466,31 @@ class YAxis(Axis):
     def _internalSetLimits(self, ymin, ymax):
         self._getBackend().setGraphYLimits(ymin, ymax, axis="left")
 
-    def _internalSetLogarithmic(self, flag):
-        self._getBackend().setYAxisLogarithmic(flag)
+    def _internalSetScale(self):
+        scale = self._scale
+        vmin, vmax = self.getLimits()
+        # TODO hackish way of forcing update of curves and images
+        plot = self._getPlot()
+        for item in plot.getItems():
+            item._updated()
+        plot._invalidateDataRange()
+        plot._setDirtyPlot()
+
+        if scale == self.LOGARITHMIC:
+            self._getBackend().setYAxisScale(scale="log")
+            if vmin <= 0:
+                dataRange = self._getDataRange()
+                if dataRange is None:
+                    self.setLimits(1.0, 100.0)
+                else:
+                    if vmax > 0 and dataRange[0] < vmax:
+                        self.setLimits(dataRange[0], vmax)
+                    else:
+                        self.setLimits(*dataRange)
+        elif scale in (self.LINEAR, self.ARCSINH):
+            self._getBackend().setYAxisScale(scale=self._scale)
+        else:
+            raise ValueError("Scale %s unsupported" % scale)
 
     def setInverted(self, flag: bool = True):
         """Set the axis orientation.
@@ -520,7 +545,6 @@ class YRightAxis(Axis):
         self.__mainAxis = mainAxis
         self.__mainAxis.sigInvertedChanged.connect(self.sigInvertedChanged.emit)
         self.__mainAxis.sigScaleChanged.connect(self.sigScaleChanged.emit)
-        self.__mainAxis._sigLogarithmicChanged.connect(self._sigLogarithmicChanged.emit)
         self.__mainAxis.sigAutoScaleChanged.connect(self.sigAutoScaleChanged.emit)
 
     def _internalSetCurrentLabel(self, label):
@@ -548,15 +572,12 @@ class YRightAxis(Axis):
         """Returns whether the axis is displayed or not"""
         return self._getBackend().isYRightAxisVisible()
 
-    def getScale(self) -> AxisScaleType:
+    def getScale(self) -> types.AxisScaleType:
         """Return the name of the scale used by this axis."""
         return self.__mainAxis.getScale()
 
-    def setScale(self, scale: AxisScaleType):
-        """Set the scale to be used by this axis.
-
-        :param scale: Name of the scale ("log", or "linear")
-        """
+    def setScale(self, scale: types.AxisScaleType):
+        """Set the scale to be used by this axis."""
         self.__mainAxis.setScale(scale)
 
     def _isLogarithmic(self) -> bool:
@@ -585,4 +606,4 @@ class YRightAxis(Axis):
     @docstring(Axis)
     def _getDataRange(self) -> tuple[float, float] | None:
         ranges = self._getPlot().getDataRange()
-        return ranges.y2
+        return ranges.yright

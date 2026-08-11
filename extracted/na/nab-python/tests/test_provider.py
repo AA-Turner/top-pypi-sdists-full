@@ -3,17 +3,23 @@
 from __future__ import annotations
 
 import asyncio
+import errno
 import io
 import json
+import logging
+import sys
 import tarfile
 import threading
 import zipfile
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import ClassVar, cast
+from typing import Any, ClassVar, cast
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
+import respx
 
 from nab_index.cache import CachePolicy, OnDiskCache
 from nab_index.client import (
@@ -24,8 +30,9 @@ from nab_index.client import (
     WheelFile,
     _parse_files,
 )
+from nab_index.httpx_async_transport import HttpxAsyncTransport
 from nab_index.lazy_wheel import RangeMetadataResult, RangeOutcome
-from nab_index.local_index import LocalIndexClient
+from nab_index.local_index import LocalIndexClient, UnreadableLocalIndexError
 from nab_index.multi_index import IndexConfig
 from nab_index.transport import HttpError
 from nab_index.urllib3_async_transport import Urllib3AsyncTransport
@@ -88,7 +95,8 @@ from nab_python.resolve import (
 )
 from nab_python.tags import PlatformSpec
 from nab_python.target import ResolveTarget
-from nab_resolver.resolver import ResolutionError, Resolver
+from nab_resolver.errors import ResolutionError
+from nab_resolver.resolver import Resolver
 from nab_resolver.types import Incompatibility, IncompatibilityCause, Term
 
 V = Version
@@ -148,6 +156,7 @@ def make_sdist(
     requires_python: str | None = None,
     upload_time: str | None = None,
     local_path: Path | None = None,
+    hashes: tuple[tuple[str, str], ...] = (),
 ) -> SdistFile:
     """Build a SdistFile for testing."""
     return SdistFile(
@@ -157,6 +166,7 @@ def make_sdist(
         requires_python=requires_python,
         upload_time=upload_time,
         local_path=local_path,
+        hashes=hashes,
     )
 
 
@@ -174,11 +184,32 @@ def _done_event() -> threading.Event:
     return ev
 
 
-def _make_sdist_targz() -> bytes:
+def _write_local_wheel(path: Path, name: str, version: str) -> None:
+    """Write a wheel at ``path`` carrying nothing but its own METADATA."""
+    with zipfile.ZipFile(path, "w") as zf:
+        member = f"{name}-{version}.dist-info/METADATA"
+        zf.writestr(member, make_metadata(name, version))
+
+
+def _deny_zip_open(monkeypatch: pytest.MonkeyPatch, target: Path) -> None:
+    """Make opening ``target`` as a zip fail with EACCES.
+
+    A real chmod would not do: root ignores the mode bits and Windows has none.
+    """
+    original = zipfile.ZipFile
+
+    def denied(file: Any, *args: Any, **kwargs: Any) -> zipfile.ZipFile:
+        if file == target:
+            raise PermissionError(errno.EACCES, "Permission denied", str(target))
+        return original(file, *args, **kwargs)
+
+    monkeypatch.setattr(zipfile, "ZipFile", denied)
+
+
+def _make_sdist_targz(body: bytes = b"[project]\nname = 'pkg'\n") -> bytes:
     """Return .tar.gz bytes for a one-file sdist rooted at pkg-1.0."""
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:gz") as tar:
-        body = b"[project]\nname = 'pkg'\n"
         info = tarfile.TarInfo(name="pkg-1.0/pyproject.toml")
         info.size = len(body)
         tar.addfile(info, io.BytesIO(body))
@@ -186,6 +217,20 @@ def _make_sdist_targz() -> bytes:
 
 
 _SDIST_TARGZ = _make_sdist_targz()
+
+# Dynamic deps take the PEP 517 build path, and the build requirement gives
+# the build env something to fetch.
+_DYNAMIC_SDIST_TARGZ = _make_sdist_targz(
+    b'[project]\nname = "pkg"\nversion = "1.0"\ndynamic = ["dependencies"]\n\n'
+    b'[build-system]\nrequires = ["hatchling"]\nbuild-backend = "hatchling.build"\n'
+)
+
+# Extraction requires the tar data filter (PEP 706), so skip the paths that
+# actually extract on a Python that lacks it (before 3.10.12 / 3.11.4 / 3.12).
+requires_data_filter = pytest.mark.skipif(
+    not hasattr(tarfile, "data_filter"),
+    reason="sdist extraction requires the tar data filter (PEP 706)",
+)
 
 
 class TestPrefetchListings:
@@ -207,6 +252,14 @@ class TestPrefetchListings:
         provider.prefetch_new_deps({"foo": SpecifierSet(">=1.0").to_range()})
         versions = [v for v, _ in provider.fetch_versions("foo")]
         assert versions == [V("1.0")]
+
+    def test_prefetch_new_deps_requests_listing_speculatively(self) -> None:
+        """The prefetch cascade marks its listing requests speculative (S-CRIT)."""
+        coordinator = make_coordinator([make_wheel("1.0")], package="foo")
+        provider = Provider(coordinator, target=_PY312)
+        coordinator.request_listing.reset_mock()
+        provider.prefetch_new_deps({"bar": SpecifierSet(">=1.0").to_range()})
+        coordinator.request_listing.assert_called_once_with("bar", speculative=True)
 
 
 class TestSpeculativePrefetch:
@@ -499,6 +552,39 @@ class TestFetchVersions:
         provider = Provider(coordinator, target=_PY312)
         assert len(provider.fetch_versions("foo")) == 1
 
+    @pytest.mark.parametrize(
+        "target",
+        [
+            pytest.param(_PY312, id="minor-interval"),
+            pytest.param(ResolveTarget.for_host_python("3.12.4"), id="whole-target"),
+        ],
+    )
+    def test_oversized_requires_python_admitted_without_crash(
+        self, target: ResolveTarget
+    ) -> None:
+        """An oversized requires-python admits the wheel instead of crashing.
+
+        The entry is a string, so it passes the parser's isinstance guard and
+        SpecifierSet accepts it; the ValueError only lands when the target
+        compares against it, on either branch of admits_requires_python.
+        """
+        oversized = ">=" + "1" * (sys.get_int_max_str_digits() + 1)
+        data = {
+            "files": [
+                {
+                    "filename": "foo-1.0-py3-none-any.whl",
+                    "url": "https://example.com/foo/foo-1.0-py3-none-any.whl",
+                    "requires-python": oversized,
+                }
+            ]
+        }
+
+        files = _parse_files(data, "https://example.com/", "foo")
+        coordinator = make_coordinator(files, package="foo")
+        provider = Provider(coordinator, target=target)
+
+        assert len(provider.fetch_versions("foo")) == 1
+
     def test_requires_python_cache_hit_exercises_cached_branch(self) -> None:
         """Repeated calls with the same requires-python use the cache.
 
@@ -659,6 +745,44 @@ class TestChooseVersion:
         spec = SpecifierSet("")
         assert provider.choose_version("foo", spec.to_range()) is None
 
+    _PREFERENCE_META = "Metadata-Version: 2.1\nName: foo\nVersion: {ver}\n\n"
+
+    def _preference_provider(
+        self, preferred: str, versions: tuple[str, ...] = ("1.0", "2.0", "3.0")
+    ) -> Provider:
+        coordinator = make_coordinator(
+            [make_wheel(v) for v in versions],
+            metadata_by_version={
+                v: self._PREFERENCE_META.format(ver=v) for v in versions
+            },
+            package="foo",
+        )
+        return Provider(coordinator, target=_PY312, preferences={"foo": V(preferred)})
+
+    def test_a_preference_inside_the_range_wins(self) -> None:
+        """The membership walk stops at the preference wherever it sits."""
+        provider = self._preference_provider("1.0")
+        spec = SpecifierSet(">=1.0")
+        assert provider.choose_version("foo", spec.to_range()) == V("1.0")
+
+    def test_a_preference_outside_the_range_is_dropped(self) -> None:
+        """A preference the range excludes falls through to the strategy."""
+        provider = self._preference_provider("1.0")
+        spec = SpecifierSet(">=2.0")
+        assert provider.choose_version("foo", spec.to_range()) == V("3.0")
+
+    def test_a_preference_the_index_never_listed_is_dropped(self) -> None:
+        """A preference absent from the listing exhausts the walk and loses."""
+        provider = self._preference_provider("9.9")
+        spec = SpecifierSet(">=1.0")
+        assert provider.choose_version("foo", spec.to_range()) == V("3.0")
+
+    def test_a_preference_buffered_out_by_the_default_policy_is_dropped(self) -> None:
+        """The membership question honours the filter's pre-release policy."""
+        provider = self._preference_provider("2.0a1", ("1.0", "2.0a1", "2.0"))
+        spec = SpecifierSet(">=1.0")
+        assert provider.choose_version("foo", spec.to_range()) == V("2.0")
+
 
 class TestHasSatisfyingVersion:
     def test_true_when_a_version_is_in_range(self) -> None:
@@ -696,24 +820,13 @@ class TestHasSatisfyingVersion:
         )
         assert provider.get_no_versions_reason("foo") == "sentinel"
 
-    def test_preserves_prior_abort_state(self) -> None:
-        """Abort markers and force-backtrack counts survive the probe."""
-        coordinator = make_coordinator([make_wheel("1.0")], package="foo")
-        provider = Provider(coordinator)
-        provider._lookahead_aborted["bar"] = ("baz", V("1.0"))
-        provider._force_backtrack_counts["baz"] = 2
-        provider.has_satisfying_version("foo", VersionRange.full())
-        assert provider._lookahead_aborted == {"bar": ("baz", V("1.0"))}
-        assert provider._force_backtrack_counts == {"baz": 2}
-
     def test_false_when_every_candidate_hits_the_abort_blocker(self) -> None:
         """The look-ahead abort's optimistic pick is not a satisfying version.
 
         Every candidate in range is rejected by one decided blocker, tripping
         ``choose_version``'s monolithic-rejection abort, which returns the first
         candidate for the resolver to decide and back-jump.  The probe must
-        report that no usable version exists, both when the abort
-        fires fresh and when a prior abort is already recorded.
+        report that no usable version exists.
         """
         versions = [f"{n}.0" for n in range(8, 0, -1)]
         wheels = [make_wheel(v) for v in versions]
@@ -726,11 +839,9 @@ class TestHasSatisfyingVersion:
         root_reqs = {"foo": VersionRange.full(admit_arbitrary=False)}
         provider = Provider(coordinator, target=_PY312, root_requirements=root_reqs)
         provider.receive_partial_solution_hint({}, {"bar": V("5.0")})
-        # choose_version takes the abort shortcut: returns the first pick and
-        # records the skip state a later call would reuse.
+        # choose_version takes the abort shortcut and returns the first pick.
         assert provider.choose_version("foo", VersionRange.full()) == V("8.0")
-        assert provider._lookahead_aborted == {"foo": ("bar", V("5.0"))}
-        # The probe ignores both the recorded skip and a fresh abort.
+
         assert not provider.has_satisfying_version("foo", VersionRange.full())
 
     def test_true_when_a_usable_version_sits_past_the_abort_threshold(self) -> None:
@@ -1272,6 +1383,124 @@ class TestNoVersionsReasons:
             == "no version matches the requirement"
         )
 
+    @pytest.mark.parametrize(
+        ("listing", "build"),
+        [
+            pytest.param(
+                [make_wheel("2.0", requires_python=">=3.13"), make_wheel("1.0")],
+                lambda coordinator: Provider(
+                    coordinator, target=ResolveTarget.for_host_python("3.9.0")
+                ),
+                id="requires-python",
+            ),
+            pytest.param(
+                [
+                    WheelFile(
+                        filename="pkg-2.0-cp311-cp311-win_amd64.whl",
+                        url="https://example.com/pkg-2.0-cp311-cp311-win_amd64.whl",
+                        version="2.0",
+                        requires_python=None,
+                        has_metadata=True,
+                        upload_time=None,
+                    ),
+                    make_wheel("1.0"),
+                ],
+                lambda coordinator: Provider(coordinator, target=_LINUX311),
+                id="wheel-tags",
+            ),
+            pytest.param(
+                [make_sdist("2.0"), make_wheel("1.0")],
+                lambda coordinator: Provider(
+                    coordinator, dist_policy=DistPolicy.WHEEL_ONLY
+                ),
+                id="dist-policy",
+            ),
+            pytest.param(
+                [
+                    make_wheel("2.0", upload_time="2024-06-01T00:00:00Z"),
+                    make_wheel("1.0", upload_time="2024-01-01T00:00:00Z"),
+                ],
+                lambda coordinator: Provider(
+                    coordinator,
+                    uploaded_prior_to=datetime(2024, 3, 1, tzinfo=timezone.utc),
+                ),
+                id="upload-time",
+            ),
+        ],
+    )
+    def test_filtered_in_range_release_reports_the_filter(
+        self,
+        listing: list[WheelFile | SdistFile],
+        build: Callable[[MagicMock], Provider],
+    ) -> None:
+        """An in-range release a filter dropped is not reported as no such version.
+
+        Each listing keeps an out-of-range 1.0, so the package still has a
+        surviving version and only the 2.0 the requirement asks for was
+        filtered away.
+        """
+        coordinator = make_coordinator(listing, package="foo")
+        provider = build(coordinator)
+        assert provider.choose_version("foo", SpecifierSet(">=2").to_range()) is None
+        assert provider.get_no_versions_reason("foo") == (
+            "found on index but every version matching the requirement was"
+            " filtered (by requires-python, wheel tags, dist-policy, or"
+            " upload-time)"
+        )
+
+    def test_unparseable_listing_version_is_not_read_as_a_filtered_match(self) -> None:
+        """A version nab cannot parse cannot be the in-range release."""
+        unparseable = WheelFile(
+            filename="pkg-not-a-version-py3-none-any.whl",
+            url="https://example.com/pkg-not-a-version-py3-none-any.whl",
+            version="not-a-version",
+            requires_python=None,
+            has_metadata=True,
+            upload_time=None,
+        )
+        coordinator = make_coordinator([unparseable, make_wheel("1.0")], package="foo")
+        provider = Provider(coordinator)
+        assert provider.choose_version("foo", SpecifierSet(">=2").to_range()) is None
+        assert (
+            provider.get_no_versions_reason("foo")
+            == "no version matches the requirement"
+        )
+
+    def test_another_spelling_of_a_kept_version_is_not_a_filtered_match(self) -> None:
+        """A release that survived under another spelling was not filtered.
+
+        The wheel's ``1.0`` and the sdist's ``1.0.0`` are one release, which
+        the listing collapses onto the ``1.0`` representative.  ``===``
+        compares the string, so ``1.0.0`` falls in range while the kept
+        representative does not, and no filter dropped anything.
+        """
+        coordinator = make_coordinator(
+            [make_wheel("1.0"), make_sdist("1.0.0")], package="foo"
+        )
+        provider = Provider(coordinator)
+        assert (
+            provider.choose_version("foo", SpecifierSet("===1.0.0").to_range()) is None
+        )
+        assert (
+            provider.get_no_versions_reason("foo")
+            == "no version matches the requirement"
+        )
+
+    def test_local_source_out_of_range_reports_no_match(self, tmp_path: Path) -> None:
+        """A local source has no index listing to have filtered anything."""
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "foo"\nversion = "1.2.3"\n', encoding="utf-8"
+        )
+        coordinator = make_coordinator([], package="foo")
+        provider = Provider(
+            coordinator, local_sources=[LocalSource("foo", str(tmp_path))]
+        )
+        assert provider.choose_version("foo", SpecifierSet(">=5").to_range()) is None
+        assert (
+            provider.get_no_versions_reason("foo")
+            == "no version matches the requirement"
+        )
+
     def test_present_but_requires_python_filtered_reports_incompatible(self) -> None:
         """A requires-python-filtered package reports incompatible, not absent."""
         coordinator = make_coordinator(
@@ -1510,9 +1739,9 @@ class TestNoVersionsReasons:
         # Nothing falls in this range, so the second ask has no blockers.
         assert provider.choose_version("foo", SpecifierSet(">=5.0").to_range()) is None
 
-        assert (
-            provider.get_no_versions_reason("foo")
-            == "every version in range was rejected: requires bar != 1.0"
+        assert provider.get_no_versions_reason("foo") == (
+            "every version in range was rejected:"
+            " requires bar in ==2.0 but solution has it at 1.0"
         )
 
     def test_sdist_only_under_dynamic_local_names_build_policy(self) -> None:
@@ -1603,8 +1832,8 @@ class TestNoVersionsReasons:
         assert result is None
         reason = provider.get_no_versions_reason("foo")
         assert reason is not None
-        assert "bar" in reason
-        assert "root has it in" in reason
+        assert "<VersionRange" not in reason
+        assert "requires bar in ==2.0 but root has it in ==1.0" in reason
 
     def test_range_block_rejection_names_the_blocker(self) -> None:
         """Same as above but the blocker is a positive-range constraint
@@ -1629,17 +1858,269 @@ class TestNoVersionsReasons:
             root_requirements={"foo": VersionRange.full(admit_arbitrary=False)},
         )
         pos_range = SpecifierSet("<2.0").to_range()
-        dep_range = SpecifierSet("==2.0").to_range()
         provider.solution_ranges["bar"] = pos_range
         result = provider.choose_version("foo", VersionRange.full())
         assert result is None
         reason = provider.get_no_versions_reason("foo")
         assert reason is not None
         # foo requires bar==2.0; the message must name that, not the solution range.
-        assert (
-            f"requires bar in {dep_range} but solution has it in {pos_range}" in reason
-        )
+        assert "<VersionRange" not in reason
+        assert "AFTER_LOCALS" not in reason
+        assert "requires bar in ==2.0 but solution has it in <2.0" in reason
         assert "disjoint with current solution range" not in reason
+
+    def test_post_release_pin_blocker_spells_both_sides_as_specifiers(self) -> None:
+        """``bar>2.0`` excludes 2.0's post releases, so it is disjoint with
+        ``==2.0.post1``.  Both sides read as the specifiers a user would write,
+        so the reader can see why they do not overlap.
+        """
+        coordinator = make_coordinator(
+            [make_wheel("1.0")],
+            metadata_text=(
+                "Metadata-Version: 2.1\n"
+                "Name: foo\n"
+                "Version: 1.0\n"
+                "Requires-Dist: bar>2.0\n"
+            ),
+            package="foo",
+        )
+        provider = Provider(
+            coordinator,
+            target=_PY312,
+            root_requirements={"foo": VersionRange.full(admit_arbitrary=False)},
+        )
+        provider.solution_ranges["bar"] = SpecifierSet("==2.0.post1").to_range()
+        result = provider.choose_version("foo", VersionRange.full())
+        assert result is None
+        reason = provider.get_no_versions_reason("foo")
+        assert reason is not None
+        assert "requires bar in >2.0 but solution has it in ==2.0.post1" in reason
+
+    def test_decision_block_rejection_names_the_requirement(self) -> None:
+        """The decision-block diagnostic names the candidate's real
+        requirement, mirroring the range-block path.  ``foo`` 1.0 requires
+        ``bar==2.0`` and the resolver has already decided ``bar==1.0``, so
+        every ``foo`` candidate is rejected.  The message must name the
+        ``bar==2.0`` foo needs, not ``requires bar != 1.0`` (which wrongly
+        implies any bar other than 1.0 would satisfy foo).
+
+        The ranges are spelled out rather than interpolated, so the
+        assertion fails if the message ever prints the debug repr again.
+        """
+        coordinator = make_coordinator(
+            [make_wheel("1.0")],
+            metadata_text=(
+                "Metadata-Version: 2.1\n"
+                "Name: foo\n"
+                "Version: 1.0\n"
+                "Requires-Dist: bar==2.0\n"
+            ),
+            package="foo",
+        )
+        provider = Provider(
+            coordinator,
+            target=_PY312,
+            root_requirements={"foo": VersionRange.full(admit_arbitrary=False)},
+        )
+        provider.solution_decisions["bar"] = V("1.0")
+        result = provider.choose_version("foo", VersionRange.full())
+        assert result is None
+        reason = provider.get_no_versions_reason("foo")
+        assert reason is not None
+        assert "<VersionRange" not in reason
+        assert "AFTER_LOCALS" not in reason
+        assert "requires bar in ==2.0 but solution has it at 1.0" in reason
+        assert "requires bar != 1.0" not in reason
+
+
+def _sdist_entry(version: str) -> dict[str, object]:
+    """A Simple-API file record for ``foo``'s sdist at ``version``."""
+    return {
+        "filename": f"foo-{version}.tar.gz",
+        "url": f"https://pypi.example/foo-{version}.tar.gz",
+    }
+
+
+def _wheel_entry(version: str, *, sidecar: bool) -> dict[str, object]:
+    """A Simple-API file record for ``foo``'s wheel at ``version``."""
+    return {
+        "filename": f"foo-{version}-py3-none-any.whl",
+        "url": f"https://pypi.example/foo-{version}-py3-none-any.whl",
+        "core-metadata": sidecar,
+    }
+
+
+def _skipped_release_messages(caplog: pytest.LogCaptureFixture) -> list[str]:
+    """The per-release offline-skip lines logged for ``foo``."""
+    return [
+        r.getMessage()
+        for r in caplog.records
+        if r.levelno == logging.INFO and r.getMessage().startswith("Skipping foo==")
+    ]
+
+
+def _seed_listing(cache_dir: Path, files: list[dict[str, object]]) -> OnDiskCache:
+    """Write a cached Simple listing for ``foo`` and return the cache."""
+    cache = OnDiskCache(cache_dir, DEFAULT_INDEX_URL)
+    cache.put_simple(
+        "foo",
+        json.dumps({"files": files}).encode(),
+        CachePolicy(fetched_at=0, max_age=1, etag=None),
+    )
+    return cache
+
+
+class TestOfflineMetadataMiss:
+    """A version whose metadata is uncached is named as an offline miss.
+
+    Offline still degrades by skipping the version, but what the user is told
+    must not name an artifact nab never requested.
+    """
+
+    _PKG_INFO = "Metadata-Version: 2.2\nName: foo\nVersion: {ver}\n\n"
+
+    @pytest.mark.parametrize(
+        "files",
+        [
+            pytest.param([_sdist_entry("1.0")], id="sdist-only"),
+            pytest.param(
+                [_wheel_entry("1.0", sidecar=True), _sdist_entry("1.0")],
+                id="sidecar-and-sdist",
+            ),
+            pytest.param([_wheel_entry("1.0", sidecar=False)], id="bare-wheel"),
+        ],
+    )
+    def test_cold_metadata_names_offline_not_the_artifact(
+        self, tmp_path: Path, files: list[dict[str, object]]
+    ) -> None:
+        """Each metadata rung reports the offline miss it actually hit."""
+        _seed_listing(tmp_path, files)
+        with FetchCoordinator(
+            transport=Urllib3AsyncTransport(),
+            cache_dir=tmp_path,
+            offline=True,
+        ) as coordinator:
+            provider = Provider(coordinator, target=_PY312)
+            with pytest.raises(MetadataError) as excinfo:
+                provider.get_dependencies("foo", V("1.0"))
+
+        message = str(excinfo.value)
+        assert "offline mode" in message
+        assert "no cached metadata" in message
+        assert "PKG-INFO" not in message
+        assert "no sdist available" not in message
+        assert "no PEP 658 metadata" not in message
+
+    def test_a_read_sdist_is_not_reported_as_an_offline_miss(
+        self, tmp_path: Path
+    ) -> None:
+        """An earlier rung skipped does not speak for the sdist nab did read."""
+        cache = _seed_listing(
+            tmp_path, [_wheel_entry("1.0", sidecar=False), _sdist_entry("1.0")]
+        )
+        cache.put_sdist_files("foo", "1.0", None, None)
+        with FetchCoordinator(
+            transport=Urllib3AsyncTransport(),
+            cache_dir=tmp_path,
+            offline=True,
+        ) as coordinator:
+            provider = Provider(coordinator, target=_PY312)
+            with pytest.raises(MetadataError) as excinfo:
+                provider.get_dependencies("foo", V("1.0"))
+
+        assert "the sdist has no readable PKG-INFO" in str(excinfo.value)
+        assert "offline mode" not in str(excinfo.value)
+
+    def test_one_warning_covers_the_package_across_targets(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """One warning covers a package's skipped releases across every target.
+
+        A cold cache skips as many releases as the listing holds, and each
+        target rescans them with its own provider, so a warning per release
+        would bury the one fact worth reading.
+        """
+        versions = ("1.0", "2.0", "3.0")
+        _seed_listing(tmp_path, [_sdist_entry(v) for v in versions])
+        with (
+            caplog.at_level(logging.INFO),
+            FetchCoordinator(
+                transport=Urllib3AsyncTransport(),
+                cache_dir=tmp_path,
+                offline=True,
+            ) as coordinator,
+        ):
+            for target in (_PY312, _LINUX311):
+                provider = Provider(coordinator, target=target)
+                for version in versions:
+                    with pytest.raises(MetadataError):
+                        provider.get_dependencies("foo", V(version))
+
+        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert len(warnings) == 1
+        assert "Skipping releases of foo" in warnings[0].getMessage()
+
+        skipped = _skipped_release_messages(caplog)
+        assert len(skipped) == len(versions) * 2
+        assert {m.split(":")[0] for m in skipped} == {
+            f"Skipping foo=={v}" for v in versions
+        }
+
+    def test_a_dropped_version_is_reported_when_an_older_one_pins(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A newer version dropped for a cold slot is not dropped in silence."""
+        cache = _seed_listing(tmp_path, [_sdist_entry("1.0"), _sdist_entry("2.0")])
+        cache.put_sdist_files("foo", "1.0", self._PKG_INFO.format(ver="1.0"), None)
+        root_reqs = {"foo": VersionRange.full(admit_arbitrary=False)}
+        with (
+            caplog.at_level(logging.INFO),
+            FetchCoordinator(
+                transport=Urllib3AsyncTransport(),
+                cache_dir=tmp_path,
+                offline=True,
+            ) as coordinator,
+        ):
+            provider = Provider(coordinator, target=_PY312, root_requirements=root_reqs)
+            resolver = Resolver(provider, range_type=VersionRange, root_version="0")
+            pins = resolver.resolve(root_reqs)
+
+        assert pins["foo"] == V("1.0")
+
+        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert len(warnings) == 1
+        assert "Skipping releases of foo" in warnings[0].getMessage()
+        assert "offline mode" in warnings[0].getMessage()
+
+        skipped = _skipped_release_messages(caplog)
+        assert len(skipped) == 1
+        assert "foo==2.0" in skipped[0]
+
+    def test_warm_metadata_offline_pins_the_newest_and_stays_quiet(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """The control: with both slots warm, offline pins 2.0 and logs nothing."""
+        cache = _seed_listing(tmp_path, [_sdist_entry("1.0"), _sdist_entry("2.0")])
+        for version in ("1.0", "2.0"):
+            cache.put_sdist_files(
+                "foo", version, self._PKG_INFO.format(ver=version), None
+            )
+        root_reqs = {"foo": VersionRange.full(admit_arbitrary=False)}
+        with (
+            caplog.at_level(logging.INFO),
+            FetchCoordinator(
+                transport=Urllib3AsyncTransport(),
+                cache_dir=tmp_path,
+                offline=True,
+            ) as coordinator,
+        ):
+            provider = Provider(coordinator, target=_PY312, root_requirements=root_reqs)
+            resolver = Resolver(provider, range_type=VersionRange, root_version="0")
+            pins = resolver.resolve(root_reqs)
+
+        assert pins["foo"] == V("2.0")
+        assert [r for r in caplog.records if r.levelno == logging.WARNING] == []
+        assert _skipped_release_messages(caplog) == []
 
 
 class TestMetadataBlockerCount:
@@ -1778,7 +2259,7 @@ class TestGetDependencies:
             pkg: str,
             ver: str,
             _url: str,
-            _hashes: tuple[tuple[str, str], ...] = (),
+            _hashes: tuple[tuple[str, str], ...],
         ) -> threading.Event:
             coordinator.index.store_sdist_metadata_error(
                 pkg, ver, SdistHashMismatchError("sdist sha256 mismatch")
@@ -1928,6 +2409,57 @@ class TestGetDependencies:
         assert "bar" in deps
         assert V("2.0") in deps["bar"]
         assert V("1.0") not in deps["bar"]
+
+    def test_unreadable_local_wheel_fails_instead_of_pinning_older(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An unreadable local wheel fails the resolve, not just the version.
+
+        Look-ahead treats a ``MetadataError`` as a rejection, so folding the
+        read failure into one would drop 1.0 and answer with 0.9.
+        """
+        readable = tmp_path / "foo-0.9-py3-none-any.whl"
+        _write_local_wheel(readable, "foo", "0.9")
+        refused = tmp_path / "foo-1.0-py3-none-any.whl"
+        _write_local_wheel(refused, "foo", "1.0")
+        _deny_zip_open(monkeypatch, refused)
+
+        coordinator = make_coordinator(
+            [
+                make_wheel("0.9", has_metadata=False, local_path=readable),
+                make_wheel("1.0", has_metadata=False, local_path=refused),
+            ],
+            package="foo",
+        )
+        root_reqs = {"foo": SpecifierSet(">=0").to_range()}
+        provider = Provider(coordinator, target=_PY312, root_requirements=root_reqs)
+
+        with pytest.raises(UnreadableLocalIndexError, match="Permission denied"):
+            provider.choose_version("foo", root_reqs["foo"])
+
+    def test_unreadable_local_wheel_falls_back_to_sdist(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The version's own sdist still answers for an unreadable local wheel."""
+        wheel_path = tmp_path / "foo-1.0-py3-none-any.whl"
+        _write_local_wheel(wheel_path, "foo", "1.0")
+        _deny_zip_open(monkeypatch, wheel_path)
+
+        coordinator = make_coordinator(
+            [
+                make_wheel("1.0", has_metadata=False, local_path=wheel_path),
+                make_sdist("1.0"),
+            ],
+            package="foo",
+            sdist_pkg_info=(
+                "Metadata-Version: 2.2\nName: foo\nVersion: 1.0\n"
+                "Requires-Dist: baz>=3\n"
+            ),
+        )
+        provider = Provider(coordinator, target=_PY312)
+
+        deps = provider.get_dependencies("foo", V("1.0"))
+        assert "baz" in deps
 
     def test_local_wheel_with_mismatched_dist_info_rejected(
         self, tmp_path: Path
@@ -2694,8 +3226,12 @@ class TestLocalSources:
             local_sources=[LocalSource("foo", str(tmp_path))],
             build_policy=BuildPolicy.NEVER,
         )
-        with pytest.raises(UnsupportedSdistError, match="BUILD_LOCAL"):
+        with pytest.raises(UnsupportedSdistError) as excinfo:
             provider.fetch_versions("foo")
+        msg = str(excinfo.value)
+        assert "building requires build-policy 'build-local'" in msg
+        assert "effective policy is 'never'" in msg
+        assert "BuildPolicy." not in msg
 
     def test_non_utf8_pyproject_raises_unsupported(self, tmp_path: Path) -> None:
         """A local source with a non-UTF-8 ``pyproject.toml`` is unbuildable.
@@ -3123,6 +3659,61 @@ class TestLookAhead:
         spec = SpecifierSet("")
         assert provider.choose_version("foo", spec.to_range()) is None
 
+    def test_root_rejection_queues_its_own_clause(self) -> None:
+        """A root-requirement rejection bans just the versions it rejected.
+
+        Look-ahead rejects the candidate before it is decided, so the
+        dependency clause that would explain the rejection is never added.
+        """
+        coordinator = make_coordinator(
+            [make_wheel("2.0"), make_wheel("1.0")],
+            metadata_by_version={
+                "2.0": (
+                    "Metadata-Version: 2.1\nName: foo\nVersion: 2.0\n"
+                    "Requires-Dist: bar>=5.0\n"
+                ),
+                "1.0": "Metadata-Version: 2.1\nName: foo\nVersion: 1.0\n",
+            },
+            package="foo",
+        )
+        root_range = SpecifierSet("<2.0").to_range()
+        provider = Provider(
+            coordinator, target=_PY312, root_requirements={"bar": root_range}
+        )
+        assert provider.choose_version("foo", SpecifierSet("").to_range()) == V("1.0")
+
+        (clause,) = provider.consume_pending_clauses()
+        assert clause.cause is IncompatibilityCause.NO_VERSIONS
+        (term,) = clause.terms
+        assert term.package == "foo"
+        assert term.is_positive()
+        assert V("2.0") in term.constraint
+        assert V("1.0") not in term.constraint
+
+    def test_metadata_rejection_queues_its_own_clause(self) -> None:
+        """A version whose metadata will not read is banned the same way."""
+        coordinator = make_coordinator(
+            [make_wheel("2.0"), make_wheel("1.0")],
+            metadata_by_version={
+                "2.0": "Metadata-Version: 2.1\nName: foo\nVersion: nope\n",
+                "1.0": "Metadata-Version: 2.1\nName: foo\nVersion: 1.0\n",
+            },
+            package="foo",
+        )
+        provider = Provider(
+            coordinator,
+            target=_PY312,
+            root_requirements={"foo": VersionRange.full(admit_arbitrary=False)},
+        )
+        assert provider.choose_version("foo", SpecifierSet("").to_range()) == V("1.0")
+
+        (clause,) = provider.consume_pending_clauses()
+        assert clause.cause is IncompatibilityCause.NO_VERSIONS
+        (term,) = clause.terms
+        assert term.package == "foo"
+        assert V("2.0") in term.constraint
+        assert V("1.0") not in term.constraint
+
     def test_cached_deps_used_for_look_ahead(self) -> None:
         """Look-ahead uses cached deps without re-fetching."""
         coordinator = make_coordinator(
@@ -3190,7 +3781,9 @@ class TestLookAhead:
 
         coordinator = MagicMock()
         coordinator.index = index
-        coordinator.request_listing.side_effect = lambda pkg: _done_event()
+        coordinator.request_listing.side_effect = lambda pkg, *, speculative=False: (
+            _done_event()
+        )
 
         call_count = [0]
 
@@ -3805,6 +4398,57 @@ class TestDecisionLookAhead:
 
         assert "exceeded" not in str(exc_info.value)
 
+    def test_full_resolve_report_spells_ranges_as_requirements(self) -> None:
+        """A real failure report spells a dependency the way a user wrote it.
+
+        The resolver runs with ``range_type=VersionRange``, which has no
+        ``__str__``, so without the hook a ``==V`` dependency shows the debug
+        repr and its internal ``AFTER_LOCALS`` boundary sentinel, and an
+        unconstrained root requirement shows ``(-inf, +inf)``.
+        """
+
+        def named_wheel(pkg: str, version: str) -> WheelFile:
+            return WheelFile(
+                filename=f"{pkg}-{version}-py3-none-any.whl",
+                url=f"https://example.com/{pkg}-{version}.whl",
+                version=version,
+                requires_python=None,
+                has_metadata=True,
+                upload_time=None,
+                local_path=None,
+            )
+
+        coordinator = make_coordinator(
+            listings={
+                "foo": [named_wheel("foo", "1.0")],
+                "app": [named_wheel("app", "3.0")],
+                "lib": [named_wheel("lib", "5.0"), named_wheel("lib", "9.0")],
+            },
+            metadata_by_version={
+                "1.0": make_metadata("foo", "1.0", "lib==9.0"),
+                "3.0": make_metadata("app", "3.0", "lib==5.0"),
+                "5.0": make_metadata("lib", "5.0"),
+                "9.0": make_metadata("lib", "9.0"),
+            },
+        )
+        root_reqs = {
+            "foo": VersionRange.full(admit_arbitrary=False),
+            "app": VersionRange.full(admit_arbitrary=False),
+        }
+        provider = Provider(coordinator, target=_PY312, root_requirements=root_reqs)
+        resolver = Resolver(
+            provider,
+            range_type=VersionRange,
+            root_version="0",
+            format_range=provider.format_range,
+        )
+        with pytest.raises(ResolutionError) as exc_info:
+            resolver.resolve(dict(root_reqs))
+
+        lines = str(exc_info.value).splitlines()
+        assert "because all versions of foo depend on lib ==9.0" in lines
+        assert "because your project depends on foo" in lines
+
 
 class TestLookAheadAbort:
     """Look-ahead abort path: when the scan rejects ``_LOOKAHEAD_ABORT_THRESHOLD``
@@ -3940,28 +4584,6 @@ class TestLookAheadAbort:
         clauses = provider.consume_pending_clauses()
         assert len(clauses) == 1
 
-    def test_abort_records_state_for_per_package_skip(self) -> None:
-        """When the abort fires, ``_lookahead_aborted`` records the blocker so
-        the next ``choose_version`` for this package can short-circuit
-        look-ahead while the blocker decision is unchanged.
-        """
-        versions = ["3.0", "2.0", "1.0"]
-        wheels = [make_wheel(v) for v in versions]
-        meta_template = (
-            "Metadata-Version: 2.1\nName: foo\nVersion: {ver}\nRequires-Dist: bar<2.0\n"
-        )
-        coordinator = make_coordinator(
-            wheels,
-            metadata_by_version={v: meta_template.format(ver=v) for v in versions},
-            package="foo",
-        )
-        root_reqs = {"foo": VersionRange.full(admit_arbitrary=False)}
-        provider = Provider(coordinator, target=_PY312, root_requirements=root_reqs)
-        provider.receive_partial_solution_hint({}, {"bar": V("3.0")})
-        provider._LOOKAHEAD_ABORT_THRESHOLD = 2  # type: ignore[misc]
-        assert provider.choose_version("foo", VersionRange.full()) == V("3.0")
-        assert provider._lookahead_aborted == {"foo": ("bar", V("3.0"))}
-
     def test_abort_queues_force_backtrack_target(self) -> None:
         """The abort path queues the blocker package on
         ``_force_backtrack_targets`` so the resolver can pick it up via
@@ -3990,8 +4612,8 @@ class TestLookAheadAbort:
     def test_force_backtrack_refires_up_to_cap(self) -> None:
         """A blocker can drive at most ``_MAX_FORCE_BACKTRACKS_PER_PKG``
         force-backtracks, mirroring uv's repeated ConflictTracker fires.
-        After the cap the abort path still records the skip but does not
-        re-queue the force-backtrack target.
+        After the cap the abort still fires but does not re-queue the
+        force-backtrack target.
         """
         versions = ["3.0", "2.0", "1.0"]
         wheels = [make_wheel(v) for v in versions]
@@ -4011,111 +4633,10 @@ class TestLookAheadAbort:
         for _ in range(3):
             provider.choose_version("foo", VersionRange.full())
             assert provider.consume_force_backtrack_targets() == ["bar"]
-            provider._lookahead_aborted.pop("foo", None)
+
         # Fourth abort blaming the same blocker is past the cap; no re-queue.
         provider.choose_version("foo", VersionRange.full())
         assert provider.consume_force_backtrack_targets() == []
-
-    def test_per_package_skip_short_circuits_while_blocker_decided(self) -> None:
-        """A recorded abort makes ``choose_version`` skip the full scan
-        when the blocker decision is unchanged.  If the first candidate's
-        metadata is already cached (warm path), it is returned without
-        running look-ahead at all.  If not cached (cold path), a non
-        -decision look-ahead gate runs to guard against unreadable
-        wheels.
-        """
-        meta = (
-            "Metadata-Version: 2.1\nName: foo\nVersion: 1.0\nRequires-Dist: bar<2.0\n"
-        )
-        coordinator = make_coordinator(
-            [make_wheel("1.0")], metadata_text=meta, package="foo"
-        )
-        root_reqs = {"foo": VersionRange.full(admit_arbitrary=False)}
-        provider = Provider(coordinator, target=_PY312, root_requirements=root_reqs)
-        # bar=3.0 conflicts with foo's bar<2.0 dep, the same
-        # state that would have triggered the abort in the first place.
-        provider.receive_partial_solution_hint({}, {"bar": V("3.0")})
-        # Pre-record the abort state as if a prior scan had populated it.
-        provider._lookahead_aborted["foo"] = ("bar", V("3.0"))
-        # Pre-warm the deps_cache so the skip path takes the cache fast
-        # path (no look-ahead invocation).
-        provider.get_dependencies("foo", V("1.0"))
-        before_rejections = provider.stats.look_ahead_rejections
-        chosen = provider.choose_version("foo", VersionRange.full())
-        assert chosen == V("1.0")
-        # Cache hit, no extra look-ahead rejections recorded.
-        assert provider.stats.look_ahead_rejections == before_rejections
-
-    def test_per_package_skip_cold_runs_safety_check(self) -> None:
-        """Cold cache: the skip path runs ``_look_ahead_ok`` with
-        ``check_decisions=False`` to catch unreadable wheels before the
-        resolver decides them.
-        """
-        meta = (
-            "Metadata-Version: 2.1\nName: foo\nVersion: 1.0\nRequires-Dist: bar<2.0\n"
-        )
-        coordinator = make_coordinator(
-            [make_wheel("1.0")], metadata_text=meta, package="foo"
-        )
-        root_reqs = {"foo": VersionRange.full(admit_arbitrary=False)}
-        provider = Provider(coordinator, target=_PY312, root_requirements=root_reqs)
-        provider.receive_partial_solution_hint({}, {"bar": V("3.0")})
-        provider._lookahead_aborted["foo"] = ("bar", V("3.0"))
-        # No pre-warm; cold cache. The safety look-ahead fetches the
-        # metadata and the skip path returns the candidate.
-        chosen = provider.choose_version("foo", VersionRange.full())
-        assert chosen == V("1.0")
-
-    def test_per_package_skip_falls_through_on_metadata_error(self) -> None:
-        """If the first candidate has unreadable metadata, the safety
-        check rejects it and the normal scan path runs.  Prevents the
-        resolver from deciding a broken candidate and crashing with
-        ``MetadataError``.
-        """
-        wheels = [make_wheel("1.0"), make_wheel("0.9")]
-        meta_v1_broken = "Metadata-Version: 2.1\nName: foo\nVersion: 1.0\nRequires-Dist: bar(invalid\n"
-        meta_v09 = (
-            "Metadata-Version: 2.1\nName: foo\nVersion: 0.9\nRequires-Dist: bar>=1.0\n"
-        )
-        coordinator = make_coordinator(
-            wheels,
-            metadata_by_version={"1.0": meta_v1_broken, "0.9": meta_v09},
-            package="foo",
-        )
-        root_reqs = {"foo": VersionRange.full(admit_arbitrary=False)}
-        provider = Provider(coordinator, target=_PY312, root_requirements=root_reqs)
-        provider.receive_partial_solution_hint({}, {"bar": V("3.0")})
-        # Skip is recorded, but foo==1.0 has bad metadata so the
-        # safety check rejects and the scan proceeds.
-        provider._lookahead_aborted["foo"] = ("bar", V("3.0"))
-        chosen = provider.choose_version("foo", VersionRange.full())
-        # The broken candidate is rejected via the metadata-block path;
-        # the scan continues to ``0.9`` which does *not* conflict with
-        # bar=3.0 (its dep is bar>=1.0).  Returning ``0.9`` shows the
-        # safety check successfully kept the resolver from crashing.
-        assert chosen == V("0.9")
-
-    def test_per_package_skip_invalidated_when_blocker_changes(self) -> None:
-        """A recorded abort is dropped once the blocker decision changes,
-        and the normal look-ahead path runs again.
-        """
-        wheels = [make_wheel("1.0")]
-        meta = (
-            "Metadata-Version: 2.1\nName: foo\nVersion: 1.0\nRequires-Dist: bar>=5.0\n"
-        )
-        coordinator = make_coordinator(wheels, metadata_text=meta, package="foo")
-        root_reqs = {"foo": VersionRange.full(admit_arbitrary=False)}
-        provider = Provider(coordinator, target=_PY312, root_requirements=root_reqs)
-        # Recorded state names bar==3.0, but the current decisions have
-        # bar==2.0, so the recorded state is stale.
-        provider.receive_partial_solution_hint({}, {"bar": V("2.0")})
-        provider._lookahead_aborted["foo"] = ("bar", V("3.0"))
-        chosen = provider.choose_version("foo", VersionRange.full())
-        # Look-ahead ran normally: foo==1.0 rejects because bar==2.0
-        # doesn't match its >=5.0 dep.
-        assert chosen is None
-        # Stale record was dropped.
-        assert "foo" not in provider._lookahead_aborted
 
 
 class TestConstraintNotBlamedWhenProbeAborts:
@@ -5193,7 +5714,7 @@ class TestSkipFetch:
 
     def test_prefetches_override_dependencies(self) -> None:
         # The override introduces dep-a, so its listing is background-fetched
-        # even though foo itself skips the metadata fetch.
+        # speculatively even though foo itself skips the metadata fetch.
         coordinator = make_coordinator([make_wheel("1.0")], package="foo")
         provider = Provider(
             coordinator,
@@ -5203,7 +5724,7 @@ class TestSkipFetch:
             ),
         )
         provider.get_dependencies("foo", V("1.0"))
-        coordinator.request_listing.assert_any_call("dep-a")
+        coordinator.request_listing.assert_any_call("dep-a", speculative=True)
 
     def test_does_not_fire_for_requires_python_only(self) -> None:
         # A partial override (only requires-python) still needs the artifact
@@ -5889,6 +6410,36 @@ class TestExtras:
         assert V("2.0") in proxy_terms[0].constraint
         assert V("1.0") in base_terms[0].constraint
 
+    def test_choose_extra_version_blocks_a_prerelease_excluded_by_the_base(
+        self,
+    ) -> None:
+        """The pre-release enumeration reads the same descending listing.
+
+        The proxy range's bounds are wider than its opt-in region, so the
+        default policy buffers 2.0a1 behind 2.0 and drops it; only the
+        ``prereleases=True`` pass reaches the block recorder with it.
+        """
+        wheels = [make_wheel(v) for v in ("2.0", "2.0a1", "1.0")]
+        coordinator = make_coordinator(
+            wheels, metadata_text=EXTRA_METADATA, package="foo"
+        )
+        provider = Provider(coordinator)
+        all_versions = provider.versions_only("foo", provider.fetch_versions("foo"))
+        assert all_versions == sorted(all_versions, reverse=True)
+        provider.receive_partial_solution_hint(
+            {"foo": SpecifierSet("<1.0").to_range()},
+            {},
+        )
+        result = provider.choose_version(
+            "foo[security]", SpecifierSet(">=1.0,<3.0").to_range()
+        )
+        assert result is None
+        clauses = provider.consume_pending_clauses()
+        proxy_terms = [
+            t for c in clauses for t in c.terms if t.package == "foo[security]"
+        ]
+        assert any(V("2.0a1") in t.constraint for t in proxy_terms)
+
     def test_choose_extra_version_records_range_block_when_base_undecided(
         self,
     ) -> None:
@@ -6559,7 +7110,7 @@ class TestExtrasPrereleaseAdmission:
         return make_coordinator(listings=listings, metadata_by_version=metadata)
 
     def _resolve(self, requirements: list[str]) -> dict[str, Version]:
-        root_reqs, root_extras = _build_resolver_inputs(
+        _, root_reqs, root_extras = _build_resolver_inputs(
             [Requirement(r) for r in requirements],
             NabProjectConfig(),
             environment={},
@@ -7124,6 +7675,95 @@ class TestDistPolicy:
             provider.get_dependencies("pkg", V("1.0"))
 
 
+class TestLadderSdistAvailability:
+    """The metadata ladder tells a filtered sdist from one never published.
+
+    A filtered sdist comes back by loosening the cutoff or the policy that
+    dropped it; a release that published none has nothing to loosen.  So the
+    two failures must not read alike.
+    """
+
+    _FILTERED = (
+        "no PEP 658 metadata and the sdist was filtered by"
+        " requires-python, dist-policy, or upload-time"
+    )
+    _ABSENT = "no PEP 658 metadata and no sdist available"
+
+    def test_upload_cutoff_filtered_sdist_names_the_filter(self) -> None:
+        """A cutoff keeping the wheel and dropping the sdist names the filter."""
+        coordinator = make_coordinator(
+            [
+                make_wheel(
+                    "1.0", has_metadata=False, upload_time="2026-01-01T00:00:00Z"
+                ),
+                make_sdist("1.0", upload_time="2026-01-20T00:00:00Z"),
+            ]
+        )
+        provider = Provider(
+            coordinator,
+            target=_PY312,
+            uploaded_prior_to=datetime(2026, 1, 10, tzinfo=timezone.utc),
+        )
+
+        with pytest.raises(MetadataError) as excinfo:
+            provider.get_dependencies("pkg", V("1.0"))
+
+        assert self._FILTERED in str(excinfo.value)
+
+    def test_requires_python_filtered_sdist_names_the_filter(self) -> None:
+        """An sdist whose own Requires-Python excludes the target still exists."""
+        coordinator = make_coordinator(
+            [
+                make_wheel("1.0", has_metadata=False),
+                make_sdist("1.0", requires_python=">=3.13"),
+            ]
+        )
+        provider = Provider(coordinator, target=_PY312)
+
+        with pytest.raises(MetadataError) as excinfo:
+            provider.get_dependencies("pkg", V("1.0"))
+
+        assert self._FILTERED in str(excinfo.value)
+
+    def test_wheel_only_policy_filtered_sdist_names_the_filter(self) -> None:
+        """The sdist a wheel-only policy dropped is not reported as absent."""
+        coordinator = make_coordinator(
+            [make_wheel("1.0", has_metadata=False), make_sdist("1.0")]
+        )
+        provider = Provider(
+            coordinator, target=_PY312, dist_policy=DistPolicy.WHEEL_ONLY
+        )
+
+        with pytest.raises(MetadataError) as excinfo:
+            provider.get_dependencies("pkg", V("1.0"))
+
+        assert self._FILTERED in str(excinfo.value)
+
+    def test_sdist_of_another_release_is_reported_as_absent(self) -> None:
+        """Only this release's own sdist counts as one the filter dropped."""
+        coordinator = make_coordinator(
+            [make_wheel("1.0", has_metadata=False), make_sdist("2.0")]
+        )
+        provider = Provider(coordinator, target=_PY312)
+
+        with pytest.raises(MetadataError) as excinfo:
+            provider.get_dependencies("pkg", V("1.0"))
+
+        assert self._ABSENT in str(excinfo.value)
+
+    def test_unparseable_sdist_version_is_reported_as_absent(self) -> None:
+        """A version nab cannot parse cannot be this release's sdist."""
+        coordinator = make_coordinator(
+            [make_wheel("1.0", has_metadata=False), make_sdist("not-a-version")]
+        )
+        provider = Provider(coordinator, target=_PY312)
+
+        with pytest.raises(MetadataError) as excinfo:
+            provider.get_dependencies("pkg", V("1.0"))
+
+        assert self._ABSENT in str(excinfo.value)
+
+
 class TestFetchVersionsNotInIndex:
     def test_listing_not_in_index_blocks_on_request(self) -> None:
         """When listing is not in the index, request_listing + wait is used."""
@@ -7135,7 +7775,7 @@ class TestFetchVersionsNotInIndex:
         coordinator = MagicMock()
         coordinator.index = index
 
-        def _request_listing(pkg: str) -> threading.Event:
+        def _request_listing(pkg: str, *, speculative: bool = False) -> threading.Event:
             # Simulate the coordinator populating the index after request.
             index.store_listing(pkg, wheels)
             return _done_event()
@@ -7201,10 +7841,10 @@ class TestSpeculativePrefetchBatchLimit:
 
 
 class TestPrefetchWalkAhead:
-    """``prefetch_walk_ahead`` covers the abort-skip walk after the scan.
+    """``prefetch_walk_ahead`` covers the walk past the first batch.
 
     Fired from ``_scan_candidates_pipelined``; submits up to
-    ``DEEP_PREFETCH_COUNT`` wheel metadata requests for the front of
+    ``DEEP_PREFETCH_COUNT`` wheel metadata requests in scan order over
     ``versions_cache[normalized]``.  Fire-and-forget; correctness only
     depends on it being a superset of what the resolver later asks for.
     """
@@ -7228,6 +7868,30 @@ class TestPrefetchWalkAhead:
         # fetch_versions already prefetched the newest version; it fills a
         # window slot but is skipped as already-held.
         assert len(items) == provider.DEEP_PREFETCH_COUNT - 1
+
+    @pytest.mark.parametrize(
+        "strategy",
+        [ResolutionStrategy.LOWEST, ResolutionStrategy.LOWEST_DIRECT],
+    )
+    def test_walk_ahead_is_oldest_first_under_lowest(
+        self, strategy: ResolutionStrategy
+    ) -> None:
+        """Under a lowest strategy the batch follows the scan: oldest first."""
+        wheels = [make_wheel(f"{i}.0") for i in range(100, 0, -1)]
+        coordinator = make_coordinator(wheels, package="foo")
+        provider = Provider(
+            coordinator,
+            resolution_strategy=strategy,
+            direct_packages=frozenset({"foo"}),
+        )
+        provider.fetch_versions("foo")
+        coordinator.reset_mock()
+        provider.prefetch_walk_ahead("foo")
+        items = coordinator.request_metadata_batch.call_args[0][0]
+        versions = [ver for _, ver, _, _ in items]
+        assert versions == [
+            f"{i}.0" for i in range(1, provider.DEEP_PREFETCH_COUNT + 1)
+        ]
 
     def test_skips_versions_with_cached_deps(self) -> None:
         """Versions already in ``deps_cache`` are excluded from the batch."""
@@ -7273,7 +7937,7 @@ class TestPrefetchWalkAhead:
         # An empty fetch (no sidecar served) still marks the slot fetched.
         two = make_wheel("2.0")
         assert two.metadata_url is not None
-        coordinator.request_metadata("foo", "2.0", two.metadata_url)
+        coordinator.request_metadata("foo", "2.0", two.metadata_url, None)
         coordinator.reset_mock()
         provider.prefetch_walk_ahead("foo")
         items = coordinator.request_metadata_batch.call_args[0][0]
@@ -7826,6 +8490,32 @@ class TestPrioritizeMatchingFromIndex:
         assert spec_a in per_pkg
         assert spec_b in per_pkg
 
+    def test_matching_counts_one_entry_per_file(self) -> None:
+        """versions_cache holds a row per file, so a dual-artifact release counts twice."""
+        files = [make_wheel("2.0"), make_sdist("2.0"), make_wheel("1.0")]
+        coordinator = make_coordinator(files, package="foo")
+        provider = Provider(coordinator)
+        version_range = SpecifierSet(">=2.0").to_range()
+        result = provider.prioritize("foo", version_range, {})
+        cached = provider.versions_cache["foo"]
+        assert result[1] == sum(1 for v, _ in cached if v in version_range)
+        assert result[1] == 2
+
+    def test_matching_counts_an_in_bounds_prerelease(self) -> None:
+        """The count admits an in-bounds pre-release the default policy would drop.
+
+        The range's bounds are wider than its pre-release opt-in region, so the
+        default policy buffers 2.0a1 behind the matching final release and drops
+        it; only the admitting policy counts all three.
+        """
+        wheels = [make_wheel(v) for v in ("2.0", "2.0a1", "1.0")]
+        coordinator = make_coordinator(wheels, package="foo")
+        provider = Provider(coordinator)
+        version_range = SpecifierSet(">=1.0,<3.0").to_range()
+        result = provider.prioritize("foo", version_range, {})
+        assert V("2.0a1") in version_range
+        assert result[1] == 3
+
     def test_versions_only_cache_hit(self) -> None:
         """Calling versions_only twice returns the same cached list."""
         wheels = [make_wheel(v) for v in ("1.0", "2.0")]
@@ -7835,6 +8525,32 @@ class TestPrioritizeMatchingFromIndex:
         first = provider.versions_only("foo", version_list)
         second = provider.versions_only("foo", version_list)
         assert first is second
+
+    def test_versions_only_is_descending_whatever_the_index_order(self) -> None:
+        """The listing view is newest-first, which choose_version's filter asserts.
+
+        ``filter(assume_sorted="descending")`` bisects the view rather than
+        testing every entry, so an index listing files in any other order must
+        still reach the provider sorted.
+        """
+        wheels = [make_wheel(v) for v in ("1.0", "3.0", "1.0a1", "2.0", "0.9")]
+        coordinator = make_coordinator(wheels, package="foo")
+        provider = Provider(coordinator)
+        versions = provider.versions_only("foo", provider.fetch_versions("foo"))
+        assert versions == sorted(versions, reverse=True)
+        assert versions[0] == V("3.0")
+
+    def test_choose_version_candidates_match_the_entry_wise_filter(self) -> None:
+        """The bisected candidate list equals what the plain filter yields."""
+        wheels = [make_wheel(v) for v in ("0.9", "1.0a1", "1.0", "1.5", "2.0")]
+        coordinator = make_coordinator(wheels, package="foo")
+        provider = Provider(coordinator)
+        version_list = provider.fetch_versions("foo")
+        all_versions = provider.versions_only("foo", version_list)
+        for spec in ("", ">=1.0", ">=1.0,<2.0", "!=1.0", ">=1.0a1", "===1.0"):
+            version_range = SpecifierSet(spec).to_range()
+            bisected = version_range.filter(all_versions, assume_sorted="descending")
+            assert list(bisected) == list(version_range.filter(all_versions))
 
     def test_wheel_by_version_cache_hit(self) -> None:
         """Calling _wheel_by_version twice returns the same cached dict."""
@@ -8263,17 +8979,19 @@ class TestEffectiveBuildPolicy:
             is BuildPolicy.BUILD_LOCAL
         )
 
+    @pytest.mark.parametrize("offline", [False, True])
     def test_dynamic_sdist_path_under_build_remote_invokes_backend(
         self,
         monkeypatch: pytest.MonkeyPatch,
+        offline: bool,
     ) -> None:
         """``BUILD_REMOTE`` routes a dynamic-deps sdist through the build path.
 
         Under ``BUILD_LOCAL`` (or no override at NEVER) the path raises
         :class:`UnsupportedSdistError`; under the ``BUILD_REMOTE``
         override the archive is fetched, extracted, and handed to the
-        build backend (mocked here).  The previous silent-passthrough
-        behaviour (return dynamic metadata as-is) is gone.
+        build backend (mocked here) along with the run's ``--offline``
+        flag.
         """
         from nab_python._vendor.packaging.version import Version as _Version
 
@@ -8282,6 +9000,7 @@ class TestEffectiveBuildPolicy:
             sdist_pkg_info=PKG_INFO_DYNAMIC_DEPS,
             package="pkg",
         )
+        coordinator.offline = offline
         provider = Provider(
             coordinator,
             target=_PY312,
@@ -8299,7 +9018,7 @@ class TestEffectiveBuildPolicy:
             pkg: str,
             ver: str,
             _url: str,
-            _hashes: tuple[tuple[str, str], ...] = (),
+            _hashes: tuple[tuple[str, str], ...],
         ) -> threading.Event:
             coordinator.index.store_sdist_archive(pkg, ver, archive_bytes)
             return _done_event()
@@ -8344,7 +9063,7 @@ class TestEffectiveBuildPolicy:
         # target's Python must not reach the build env.
         assert captured["kwargs"] == {
             "config": provider.build_config,
-            "offline": False,
+            "offline": offline,
         }
 
     def test_resolve_dynamic_sdist_reuses_cross_tuple_cache(self) -> None:
@@ -8416,6 +9135,24 @@ class TestStaticSdistMetadata:
         # excluded_by_build_policy is incremented inside _resolve_dynamic_sdist;
         # the cache hit re-raises without going through that path.
         assert provider.stats.excluded_by_build_policy == 1
+
+    def test_dynamic_sdist_diagnostic_names_config_build_policy(self) -> None:
+        """The build-policy hint names the config token, not the enum symbol."""
+        coordinator = make_coordinator(
+            [make_sdist("1.0")],
+            sdist_pkg_info=PKG_INFO_DYNAMIC_DEPS,
+        )
+        provider = Provider(
+            coordinator,
+            target=_PY312,
+            dist_policy=DistPolicy.WHEEL_OR_SDIST,
+        )
+        with pytest.raises(UnsupportedSdistError) as excinfo:
+            provider.get_dependencies("pkg", V("1.0"))
+        msg = str(excinfo.value)
+        assert "build-policy 'build-remote'" in msg
+        assert "effective policy is 'build-local'" in msg
+        assert "BuildPolicy." not in msg
 
     def test_dynamic_pkg_info_with_static_pyproject(self) -> None:
         """Static pyproject.toml replaces dynamic Requires-Dist."""
@@ -8759,7 +9496,7 @@ class TestStaticSdistMetadata:
             pkg: str,
             ver: str,
             _url: str,
-            _hashes: tuple[tuple[str, str], ...] = (),
+            _hashes: tuple[tuple[str, str], ...],
         ) -> threading.Event:
             coordinator.index.store_sdist_archive(pkg, ver, archive_bytes)
             return _done_event()
@@ -8803,7 +9540,7 @@ class TestStaticSdistMetadata:
             pkg: str,
             ver: str,
             _url: str,
-            _hashes: tuple[tuple[str, str], ...] = (),
+            _hashes: tuple[tuple[str, str], ...],
         ) -> threading.Event:
             coordinator.index.store_sdist_archive_error(
                 pkg, ver, SdistHashMismatchError("sdist sha256 mismatch")
@@ -8836,7 +9573,7 @@ class TestStaticSdistMetadata:
             pkg: str,
             ver: str,
             _url: str,
-            _hashes: tuple[tuple[str, str], ...] = (),
+            _hashes: tuple[tuple[str, str], ...],
         ) -> threading.Event:
             coordinator.index.store_sdist_archive_error(
                 pkg, ver, HttpError("503 Server Error fetching sdist archive")
@@ -8856,6 +9593,49 @@ class TestStaticSdistMetadata:
         assert ("pkg", V("1.0")) not in provider.deps_cache
         assert ("pkg", V("1.0")) not in provider._invalid_metadata
 
+    def test_build_remote_archive_local_index_error_aborts_get_dependencies(
+        self,
+    ) -> None:
+        """A local index that cannot serve the archive aborts, not skips.
+
+        A local failure is not an HTTP error, so the hard-error arm has to name
+        the family both backends share; otherwise a wheelhouse that goes
+        unreadable mid-resolve is cached as a bad-metadata skip.
+        """
+        coordinator = make_coordinator(
+            [make_sdist("1.0")],
+            sdist_pkg_info=PKG_INFO_DYNAMIC_DEPS,
+        )
+
+        def _unreadable_archive(
+            pkg: str,
+            ver: str,
+            _url: str,
+            _hashes: tuple[tuple[str, str], ...],
+        ) -> threading.Event:
+            coordinator.index.store_sdist_archive_error(
+                pkg,
+                ver,
+                UnreadableLocalIndexError(
+                    "cannot read local sdist /wheelhouse/pkg-1.0.tar.gz:"
+                    " [Errno 13] Permission denied"
+                ),
+            )
+            return _done_event()
+
+        coordinator.request_sdist_archive.side_effect = _unreadable_archive
+
+        provider = Provider(
+            coordinator,
+            target=_PY312,
+            dist_policy=DistPolicy.WHEEL_OR_SDIST,
+            build_policy=BuildPolicy.BUILD_REMOTE,
+        )
+        with pytest.raises(UnreadableLocalIndexError):
+            provider.get_dependencies("pkg", V("1.0"))
+        assert ("pkg", V("1.0")) not in provider.deps_cache
+        assert ("pkg", V("1.0")) not in provider._invalid_metadata
+
     def test_build_naive_upload_time_aborts_get_dependencies(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -8870,7 +9650,7 @@ class TestStaticSdistMetadata:
             pkg: str,
             ver: str,
             _url: str,
-            _hashes: tuple[tuple[str, str], ...] = (),
+            _hashes: tuple[tuple[str, str], ...],
         ) -> threading.Event:
             coordinator.index.store_sdist_archive(pkg, ver, b"sdist-archive-bytes")
             return _done_event()
@@ -8919,7 +9699,7 @@ class TestStaticSdistMetadata:
             pkg: str,
             ver: str,
             url: str,
-            hashes: tuple[tuple[str, str], ...] = (),
+            hashes: tuple[tuple[str, str], ...],
         ) -> threading.Event:
             coordinator.index.store_sdist_metadata(
                 pkg,
@@ -8956,6 +9736,7 @@ class TestBuildRemoteFailureModes:
         with_sdist: bool,
         overrides: tuple[PackageOverride, ...] = (),
         target: ResolveTarget = _PY312,
+        build_config: NabProjectConfig | None = None,
     ) -> Provider:
         files = [make_sdist("1.0")] if with_sdist else [make_wheel("1.0")]
         coordinator = make_coordinator(files, package="pkg")
@@ -8965,6 +9746,7 @@ class TestBuildRemoteFailureModes:
             dist_policy=DistPolicy.WHEEL_OR_SDIST,
             build_policy=BuildPolicy.BUILD_REMOTE,
             package_overrides=overrides,
+            build_config=build_config,
         )
 
     def test_missing_sdist_in_listing_raises(self) -> None:
@@ -8982,7 +9764,7 @@ class TestBuildRemoteFailureModes:
             pkg: str,
             ver: str,
             _url: str,
-            _hashes: tuple[tuple[str, str], ...] = (),
+            _hashes: tuple[tuple[str, str], ...],
         ) -> threading.Event:
             provider.coordinator.index.store_sdist_archive(pkg, ver, None)
             return _done_event()
@@ -9006,7 +9788,7 @@ class TestBuildRemoteFailureModes:
             pkg: str,
             ver: str,
             _url: str,
-            _hashes: tuple[tuple[str, str], ...] = (),
+            _hashes: tuple[tuple[str, str], ...],
         ) -> threading.Event:
             provider.coordinator.index.store_sdist_archive_error(
                 pkg, ver, SdistHashMismatchError("sdist sha256 mismatch")
@@ -9018,6 +9800,29 @@ class TestBuildRemoteFailureModes:
         ).request_sdist_archive.side_effect = _tampered_fetch
         with pytest.raises(SdistHashMismatchError):
             build_remote.build_remote_sdist(provider, "pkg", V("1.0"))
+
+    @respx.mock
+    def test_archive_hash_checked_over_real_fetch(self) -> None:
+        """A tampered archive is refused against the listing's published sha256.
+
+        Fetches for real, so the refusal only happens if the provider
+        forwards the listing's hashes.
+        """
+        sdist = make_sdist("1.0", hashes=(("sha256", "0" * 64),))
+        respx.get(sdist.url).mock(
+            return_value=httpx.Response(200, content=b"tampered bytes")
+        )
+
+        with FetchCoordinator(transport=HttpxAsyncTransport()) as coordinator:
+            provider = Provider(
+                coordinator,
+                target=_PY312,
+                dist_policy=DistPolicy.WHEEL_OR_SDIST,
+                build_policy=BuildPolicy.BUILD_REMOTE,
+            )
+            provider.versions_cache["pkg"] = [(V("1.0"), sdist)]
+            with pytest.raises(SdistHashMismatchError, match="0" * 64):
+                build_remote.build_remote_sdist(provider, "pkg", V("1.0"))
 
     @pytest.mark.parametrize(
         "data",
@@ -9037,7 +9842,7 @@ class TestBuildRemoteFailureModes:
             pkg: str,
             ver: str,
             _url: str,
-            _hashes: tuple[tuple[str, str], ...] = (),
+            _hashes: tuple[tuple[str, str], ...],
         ) -> threading.Event:
             provider.coordinator.index.store_sdist_archive(pkg, ver, data)
             return _done_event()
@@ -9060,7 +9865,7 @@ class TestBuildRemoteFailureModes:
             pkg: str,
             ver: str,
             _url: str,
-            _hashes: tuple[tuple[str, str], ...] = (),
+            _hashes: tuple[tuple[str, str], ...],
         ) -> threading.Event:
             provider.coordinator.index.store_sdist_archive(pkg, ver, b"data")
             return _done_event()
@@ -9079,6 +9884,39 @@ class TestBuildRemoteFailureModes:
         with pytest.raises(UnsupportedSdistError, match="backend explosion"):
             build_remote.build_remote_sdist(provider, "pkg", V("1.0"))
 
+    @requires_data_filter
+    def test_offline_coordinator_refuses_build(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An offline run refuses the build instead of fetching build requirements."""
+
+        def _no_network(*_args: object, **_kwargs: object) -> object:
+            raise AssertionError("offline must not reach the network")
+
+        monkeypatch.setattr("nab_python.resolve.resolve_for_targets", _no_network)
+
+        provider = self._provider(with_sdist=True, build_config=NabProjectConfig())
+        cast("MagicMock", provider.coordinator).offline = True
+        provider.versions_cache["pkg"] = [(V("1.0"), make_sdist("1.0"))]
+
+        def _ok_fetch(
+            pkg: str,
+            ver: str,
+            _url: str,
+            _hashes: tuple[tuple[str, str], ...] = (),
+        ) -> threading.Event:
+            provider.coordinator.index.store_sdist_archive(
+                pkg, ver, _DYNAMIC_SDIST_TARGZ
+            )
+            return _done_event()
+
+        cast(
+            "MagicMock", provider.coordinator
+        ).request_sdist_archive.side_effect = _ok_fetch
+
+        with pytest.raises(UnsupportedSdistError, match="offline mode"):
+            build_remote.build_remote_sdist(provider, "pkg", V("1.0"))
+
     def test_find_sdist_skips_non_matching_versions(self) -> None:
         provider = self._provider(with_sdist=True)
         # Two versions, only 2.0 has an sdist.
@@ -9091,7 +9929,7 @@ class TestBuildRemoteFailureModes:
             pkg: str,
             ver: str,
             _url: str,
-            _hashes: tuple[tuple[str, str], ...] = (),
+            _hashes: tuple[tuple[str, str], ...],
         ) -> threading.Event:
             provider.coordinator.index.store_sdist_archive(pkg, ver, b"data")
             return _done_event()
@@ -9118,7 +9956,7 @@ class TestBuildRemoteFailureModes:
             pkg: str,
             ver: str,
             _url: str,
-            _hashes: tuple[tuple[str, str], ...] = (),
+            _hashes: tuple[tuple[str, str], ...],
         ) -> threading.Event:
             provider.coordinator.index.store_sdist_archive(pkg, ver, b"data")
             return _done_event()
@@ -9274,6 +10112,53 @@ class TestBuildRemoteFailureModes:
         provider = self._build_into(monkeypatch, wrong)
         with pytest.raises(UnsupportedSdistError, match="does not match"):
             build_remote.build_remote_sdist(provider, "pkg", V("1.0"))
+
+    def test_cached_rejection_repeats_original_message(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        coordinator = make_coordinator(
+            [make_sdist("1.0")],
+            sdist_pkg_info=PKG_INFO_DYNAMIC_DEPS,
+        )
+        provider = Provider(
+            coordinator,
+            target=_PY312,
+            dist_policy=DistPolicy.WHEEL_OR_SDIST,
+            build_policy=BuildPolicy.BUILD_REMOTE,
+        )
+
+        def _ok_fetch(
+            pkg: str,
+            ver: str,
+            _url: str,
+            _hashes: tuple[tuple[str, str], ...],
+        ) -> threading.Event:
+            coordinator.index.store_sdist_archive(pkg, ver, b"data")
+            return _done_event()
+
+        coordinator.request_sdist_archive.side_effect = _ok_fetch
+        monkeypatch.setattr(
+            build_remote, "extract_sdist_archive", lambda _d, target: target
+        )
+
+        built = WheelMetadata(
+            name="pkg",
+            version=V("1.0"),
+            requires_python=SpecifierSet(">=3.13"),
+            requires_dist=[Requirement("dep-a>=1")],
+            provides_extra=[],
+        )
+        monkeypatch.setattr(
+            "nab_python.build_backend.extract_metadata", lambda *_a, **_k: built
+        )
+
+        with pytest.raises(UnsupportedSdistError) as first:
+            provider.get_dependencies("pkg", V("1.0"))
+        with pytest.raises(UnsupportedSdistError) as second:
+            provider.get_dependencies("pkg", V("1.0"))
+
+        assert "built sdist requires Python >=3.13" in str(first.value)
+        assert str(second.value) == str(first.value)
 
 
 class TestPublicAccessors:

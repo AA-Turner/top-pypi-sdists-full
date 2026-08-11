@@ -66,8 +66,8 @@ def iter_pydantic_jsonl(
     }
     if tqdm_kwargs is not None:
         _tqdm_kwargs.update(tqdm_kwargs)
-    with _open_read_text(file, encoding=encoding, newline=newline) as file:
-        for i, line in enumerate(tqdm(file, disable=not progress, **_tqdm_kwargs)):
+    with _open_read_text(file, encoding=encoding, newline=newline) as file_:
+        for i, line in enumerate(tqdm(file_, disable=not progress, **_tqdm_kwargs)):
             try:
                 yv = model_cls.model_validate_json(line.strip())
             except pydantic.ValidationError:
@@ -94,9 +94,9 @@ def write_pydantic_jsonl(
     kwargs.setdefault("exclude_none", True)
     kwargs.setdefault("exclude_unset", True)
     kwargs.setdefault("exclude_defaults", True)
-    with _open_write_text(file) as file:
+    with _open_write_text(file) as file_:
         for model in models:
-            file.write(model.model_dump_json(**kwargs) + "\n")
+            file_.write(model.model_dump_json(**kwargs) + "\n")
 
 
 def stream_write_pydantic_jsonl(
@@ -106,9 +106,9 @@ def stream_write_pydantic_jsonl(
     kwargs.setdefault("exclude_none", True)
     kwargs.setdefault("exclude_unset", True)
     kwargs.setdefault("exclude_defaults", True)
-    with _open_write_text(file) as file:
+    with _open_write_text(file) as file_:
         for model in models:
-            file.write(model.model_dump_json(**kwargs) + "\n")
+            file_.write(model.model_dump_json(**kwargs) + "\n")
             yield model
 
 
@@ -131,6 +131,8 @@ def iter_pydantic_tsv(
     failure_action: ModelValidateFailureAction = "skip",
 ) -> Generator[BaseModelVar, None, None]:
     """Read models from a TSV file, iteratively."""
+    import pydantic
+
     with safe_open_dict_reader(path) as reader:
         records: Iterable[dict[str, Any]]
         if process is None:
@@ -196,8 +198,9 @@ def write_pydantic_yaml(
     path: str | Path | TextIO,
     *,
     exclude: set[str] | None = None,
-    exclude_none: bool = False,
-    exclude_unset: bool = False,
+    exclude_none: bool = True,
+    exclude_unset: bool = True,
+    exclude_defaults: bool = True,
     encoding: str | None = None,
     newline: str | None = None,
     indent: int | None = None,
@@ -206,7 +209,11 @@ def write_pydantic_yaml(
 ) -> None:
     """Write a model to a YAML file."""
     data = model.model_dump(
-        mode="json", exclude_none=exclude_none, exclude_unset=exclude_unset, exclude=exclude
+        mode="json",
+        exclude_none=exclude_none,
+        exclude_unset=exclude_unset,
+        exclude_defaults=exclude_defaults,
+        exclude=exclude,
     )
     write_yaml(
         data,
@@ -223,9 +230,10 @@ def write_pydantic_json(
     model: pydantic.BaseModel,
     path: str | Path | TextIO,
     *,
-    exclude_none: bool = False,
-    exclude_unset: bool = False,
-    exclude_defaults: bool = False,
+    exclude: set[str] | None = None,
+    exclude_none: bool = True,
+    exclude_unset: bool = True,
+    exclude_defaults: bool = True,
     encoding: str | None = None,
     newline: str | None = None,
     ensure_ascii: bool = False,
@@ -235,6 +243,7 @@ def write_pydantic_json(
     """Write a model to a JSON file."""
     data = model.model_dump(
         mode="json",
+        exclude=exclude,
         exclude_none=exclude_none,
         exclude_unset=exclude_unset,
         exclude_defaults=exclude_defaults,

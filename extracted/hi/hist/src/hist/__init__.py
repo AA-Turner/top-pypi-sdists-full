@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import warnings
-from types import ModuleType
+from typing import TYPE_CHECKING
 
 from . import accumulators, axis, numpy, storage, tag
 from .basehist import BaseHist
@@ -14,6 +14,7 @@ from .hist import Hist
 from .namedhist import NamedHist
 from .stack import Stack
 from .tag import (
+    at,
     loc,
     overflow,
     rebin,
@@ -24,6 +25,9 @@ from .tag import (
 # Convenient access to the version number
 from .version import version as __version__
 
+if TYPE_CHECKING:
+    from types import ModuleType
+
 __all__ = (
     "BaseHist",
     "Hist",
@@ -31,6 +35,7 @@ __all__ = (
     "Stack",
     "__version__",
     "accumulators",
+    "at",
     "axis",
     "loc",
     "new",
@@ -56,4 +61,5 @@ def __getattr__(name: str) -> ModuleType:
         msg = f"Misspelling error, '{name}' should be 'axis'"
         warnings.warn(msg, stacklevel=2)
         return axis
-    raise AttributeError(f"module {__name__} has no attribute {name}")
+    msg_0 = f"module {__name__} has no attribute {name}"
+    raise AttributeError(msg_0)

@@ -1,7 +1,7 @@
 """The thing that MEASURES (pgw#868 cross-cutting; pgw#848 CP12).
 
 Everything this program built refuses a cell for being UNUSABLE — wrong `sm`,
-wrong torch, unbound constants, out-of-contract ingress. Nothing refused one
+wrong torch, unbound constants, ingress outside the declared envelope. Nothing refused one
 for being WRONG. :mod:`gen_worker.numerics_ladder` has owned the verdict since
 pgw#817 and `Compile.numerics_floor` has declared the bar since pgw#812, but
 ``compare_outputs`` had zero consumers: no code anywhere ran the armed cell and
@@ -238,7 +238,7 @@ def build_feed(module: Any, family: str, axis: ProbeAxis) -> Tuple[Any, ...]:
     # `aot_contract`, NEVER `aot_mint` — MEASURED (pgw#793/#811 guards, red on
     # the first run of this module): `provision` is a `static_code_closure`
     # entrypoint, the closure walk is an AST walk that follows function-level
-    # imports, and `cell_key.compute` keys every dynamo cell on that closure.
+    # imports, and the closure memo records it on every artifact.
     # Importing the mint DRIVER here dragged `aot_wrapper_split` /
     # `aot_run_impl_split` into cell identity, which both issues forbid: a
     # compile-time transform must re-key nothing. The vocabulary now lives in a

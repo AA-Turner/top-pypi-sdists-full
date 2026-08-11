@@ -2,7 +2,9 @@
 
 import functools
 import itertools
+import random
 import warnings
+from collections import defaultdict
 from operator import add, mul
 
 from autoray import dag, do
@@ -10,11 +12,15 @@ from autoray import dag, do
 from ...utils import LRU, check_opt, deprecated, ensure_dict
 from ...utils import progbar as Progbar
 from ..contraction import get_symbol
+from ..networking import NetworkPath
 from ..tensor_core import (
+    Tensor,
     TensorNetwork,
     oset,
     rand_uuid,
     tags_to_oset,
+    tensor_canonize_bond,
+    tensor_gauge_simple_bond,
 )
 
 
@@ -25,6 +31,83 @@ def get_coordinate_formatter(ndims):
 def prod(xs):
     """Product of all elements in ``xs``."""
     return functools.reduce(mul, xs)
+
+
+class LatticeBondMap:
+    """Helper for creating consistent lattice bond indices.
+
+    Coordinates should be supplied without manually wrapping periodic
+    boundaries. Any coordinate just outside the lattice is interpreted as a
+    periodic bond, which keeps length-1 and length-2 periodic bonds distinct
+    from ordinary in-lattice nearest-neighbor bonds.
+
+    Call with ``return_seen=True`` to return ``(bond, seen)`` where ``seen``
+    indicates whether the same lattice bond had already been requested. Useful
+    if you only want to do something to one side of a bond.
+    """
+
+    def __init__(self, Lx, Ly, Lz=None):
+        self.shape = (Lx, Ly) if Lz is None else (Lx, Ly, Lz)
+        self.ndim = len(self.shape)
+        self._ix = defaultdict(rand_uuid)
+
+    def wrap(self, *coos):
+        wrapped_coos = []
+        for coo in coos:
+            coo = tuple(coo)
+
+            if len(coo) != self.ndim:
+                raise ValueError(
+                    "Coordinate must match the dimensionality of the lattice."
+                )
+
+            wrapped_coos.append(tuple(x % L for x, L in zip(coo, self.shape)))
+
+        if len(wrapped_coos) == 1:
+            return wrapped_coos[0]
+
+        return tuple(wrapped_coos)
+
+    def _key(self, cooa, coob):
+        cooa = tuple(cooa)
+        coob = tuple(coob)
+
+        if (len(cooa) != self.ndim) or (len(coob) != self.ndim):
+            raise ValueError(
+                "Coordinates must match the dimensionality of the lattice."
+            )
+
+        periodic_axis = None
+        cooa_wrapped = []
+        for axis, (a, b, L) in enumerate(zip(cooa, coob, self.shape)):
+            a_inbounds = 0 <= a < L
+            b_inbounds = 0 <= b < L
+
+            if not (a_inbounds and b_inbounds):
+                if periodic_axis is not None:
+                    raise ValueError(
+                        "Only one periodic boundary crossing is supported."
+                    )
+                periodic_axis = axis
+
+            cooa_wrapped.append(a % L)
+
+        if periodic_axis is None:
+            return frozenset((cooa, coob))
+
+        key = list(cooa_wrapped)
+        key[periodic_axis] = "PBC"
+        return tuple(key)
+
+    def __call__(self, cooa, coob, *, return_seen=False):
+        key = self._key(cooa, coob)
+        seen = key in self._ix
+        bond = self._ix[key]
+
+        if return_seen:
+            return bond, seen
+
+        return bond
 
 
 def tensor_network_align(
@@ -634,9 +717,13 @@ def tensor_network_ag_gate_simple(
     G,
     where,
     gauges,
+    *,
+    max_bond=None,
+    cutoff=1e-10,
     renorm=True,
     smudge=1e-12,
     power=1.0,
+    path=None,
     info=None,
     inplace=False,
     **gate_opts,
@@ -656,12 +743,16 @@ def tensor_network_ag_gate_simple(
     gauges : dict[str, array_like]
         The store of gauge bonds, the keys being indices and the values
         being the vectors. Only keys present in this dictionary will be used.
+    max_bond : int, optional
+        The maximum bond dimension to keep when applying the gate.
+    cutoff : float, optional
+        The singular value cutoff to use when applying the gate.
     renorm : bool, optional
         Whether to renormalise the singular after the gate is applied,
         before reinserting them into ``gauges``.
     smudge : float, optional
-        A small value to add to the gauges before multiplying them in and
-        inverting them to avoid numerical issues.
+        A small value, relative to the largest gauge value, to add before
+        multiplying the gauges in and inverting them.
     power : float, optional
         The power to raise the singular values to before multiplying them
         in and inverting them.
@@ -669,6 +760,13 @@ def tensor_network_ag_gate_simple(
         Supplied to
         :meth:`~quimb.tensor.gating.tensor_network_gate_inds`.
     """
+    if not inplace:
+        warnings.warn(
+            "Even with `inplace=False`, the supplied `gauges` dict is still "
+            "modified in place - this is currently the only way to access the "
+            "updated bond gauge."
+        )
+
     tn = self if inplace else self.copy()
 
     if not isinstance(where, (tuple, list)):
@@ -676,8 +774,14 @@ def tensor_network_ag_gate_simple(
 
     site_tags = tuple(map(tn.site_tag, where))
     tids = tn._get_tids_from_tags(site_tags, "any")
+    nsites = len(tids)
 
-    if len(tids) == 1:
+    if nsites > 2:
+        raise NotImplementedError(
+            "Only gates acting on 1 or 2 sites are currently supported."
+        )
+
+    if nsites == 1:
         # gate acts on a single tensor
         return tensor_network_ag_gate(
             tn,
@@ -687,6 +791,28 @@ def tensor_network_ag_gate_simple(
             inplace=True,
         )
 
+    tida, tidb = tids
+    ta = tn.tensor_map[tida]
+    tb = tn.tensor_map[tidb]
+    if not ta.bonds(tb):
+        # disconnected: assume long range gating
+        return tensor_network_ag_gate_simple_long_range(
+            tn,
+            G=G,
+            where=where,
+            gauges=gauges,
+            max_bond=max_bond,
+            cutoff=cutoff,
+            renorm=renorm,
+            smudge=smudge,
+            power=power,
+            path=path,
+            info=info,
+            inplace=True,
+            **gate_opts,
+        )
+
+    # else nearest neighbor two site gate
     gate_opts.setdefault("absorb", None)
     gate_opts.setdefault("contract", "reduce-split")
     tn_where = tn._select_tids(tids)
@@ -706,6 +832,8 @@ def tensor_network_ag_gate_simple(
             where=where,
             info=info,
             inplace=True,
+            max_bond=max_bond,
+            cutoff=cutoff,
             **gate_opts,
         )
 
@@ -714,6 +842,227 @@ def tensor_network_ag_gate_simple(
         if renorm:
             s = s / do("linalg.norm", s)
         gauges[ix] = s
+
+    return tn
+
+
+def tensor_network_ag_gate_simple_long_range(
+    self,
+    G,
+    where,
+    gauges,
+    *,
+    max_bond=None,
+    cutoff=1e-10,
+    renorm=True,
+    smudge=1e-12,
+    power=1.0,
+    path=None,
+    info=None,
+    reduce_opts=None,
+    compress_opts=None,
+    inplace=False,
+    **kwargs,
+):
+    """Apply a gate to this tensor network at sites ``where`` that are *not*
+    nearest neighbors, using simple update style gauging. The gate is split
+    into a matrix-product operator and applied along a path of sites connecting
+    the two, which is then locally recompressed, with the new singular values
+    reinserted into ``gauges``. This is the long range fallback for
+    :func:`tensor_network_ag_gate_simple`.
+
+    Parameters
+    ----------
+    G : array_like
+        The gate array to apply, should match or be factorable into the shape
+        ``(*phys_dims, *phys_dims)``.
+    where : sequence[node]
+        The two sites to apply the gate to.
+    gauges : dict[str, array_like]
+        The store of gauge bonds, the keys being indices and the values
+        being the vectors. Only keys present in this dictionary will be used.
+    max_bond : int, optional
+        The maximum bond dimension to keep when applying the gate.
+    cutoff : float, optional
+        The singular value cutoff to use when applying the gate.
+    renorm : bool, optional
+        Whether to renormalise the singular values after the gate is applied,
+        before reinserting them into ``gauges``.
+    smudge : float, optional
+        A small value to add to the gauges before multiplying them in and
+        inverting them to avoid numerical issues.
+    power : float, optional
+        The power to raise the singular values to before multiplying them
+        in and inverting them.
+    path : None, "random", int, NetworkPath or sequence[node], optional
+        The path of sites to route the gate along. ``None`` chooses an
+        arbitrary shortest path, ``"random"`` a random shortest path, an
+        ``int`` cyclically selects one of the shortest paths, and a sequence
+        of sites uses that path explicitly.
+    reduce_opts : dict, optional
+        Supplied to the reduced factorization of each path tensor.
+    compress_opts : dict, optional
+        Supplied to the bond compressions along the path.
+
+    Returns
+    -------
+    TensorNetworkGen
+    """
+    from ..gating import maybe_factor_gate
+
+    if not inplace:
+        warnings.warn(
+            "Even with `inplace=False`, the supplied `gauges` dict is still "
+            "modified in place - this is currently the only way to access the "
+            "updated bond gauge."
+        )
+
+    tn = self if inplace else self.copy()
+
+    reduce_opts = ensure_dict(reduce_opts)
+    compress_opts = kwargs | ensure_dict(compress_opts)
+    compress_opts.setdefault("max_bond", max_bond)
+    compress_opts.setdefault("cutoff", cutoff)
+
+    cooa, coob = where
+
+    # first figure out path between the sites
+    inda = tn.site_ind(cooa)
+    indb = tn.site_ind(coob)
+    (tida,) = tn._get_tids_from_inds(inda)
+    (tidb,) = tn._get_tids_from_inds(indb)
+
+    if path is None:
+        # choose arbitrary shortest path
+        path_tids = tn.get_path_between_tids(tida, tidb).tids
+    elif isinstance(path, str) and path == "random":
+        # randomly choose one of the shortest paths, if there are multiple
+        paths = list(tn.gen_all_paths_between_tids(tida, tidb))
+        path_tids = random.choice(paths).tids
+    elif isinstance(path, int):
+        # cyclically choose one of the shortest paths
+        paths = list(tn.gen_all_paths_between_tids(tida, tidb))
+        path_tids = paths[path % len(paths)].tids
+    elif isinstance(path, NetworkPath):
+        # use the supplied path
+        path_tids = path.tids
+    else:
+        # assume path is sequence of sites
+        path_tids = tuple(
+            next(iter(tn._get_tids_from_tags(site))) for site in path
+        )
+
+    # outer inds for the MPO like string
+    uix = [inda, indb]
+    lix = [rand_uuid() for _ in uix]
+
+    # temporary tags to use along the path
+    tags = [f"__TMP{i}__" for i in range(len(path_tids))]
+
+    # now factor gate array
+    # ... first into a full Tensor
+    #     uix
+    #    │   │
+    #    GGGGG
+    #    │   │
+    #     lix
+    G = maybe_factor_gate(G, uix, tn=tn)
+    tG = Tensor(G, inds=(*uix, *lix))
+
+    # then split spatially
+    #    uix[0] uix[1]
+    #        │   │
+    #        G───G
+    #        │   │
+    #    lix[0] lix[1]
+    bond_G = rand_uuid()
+    tG = tG.split(
+        left_inds=[uix[0], lix[0]],
+        right_inds=[uix[1], lix[1]],
+        ltags=tags[0],
+        rtags=tags[-1],
+        bond_ind=bond_G,
+    )
+
+    tn_path = tn._select_tids(path_tids)
+
+    # gauge
+    outer, _ = tn_path.gauge_simple_insert(gauges, smudge=smudge, power=power)
+
+    tngated = tn_path.copy()
+    for tid, tag in zip(path_tids, tags):
+        tngated.tensor_map[tid].add_tag(tag)
+
+    # apply gate lazily to string
+    #    │   bond_G  │
+    #    G───────────G
+    #    │           │
+    #    │  │  │  │  │
+    #   ─○──○──○──○──○─
+    tngated.gate_inds_with_tn_([inda, indb], tG, lix, uix)
+
+    # contract in
+    #    │  │  │  │  │
+    #   ─●──●──●──●──●─
+    #    ╰───────────╯bond_G
+    for tag in (tags[0], tags[-1]):
+        tngated.contract_tags_(tag)
+
+    # canonicalize right sweep
+    #    │  │  │  │  │
+    #   ─▷━━▷━━●──●──●─
+    #          ╰─────╯bond_G
+    for i in range(len(tags) - 1):
+        ta = tngated[tags[i]]
+        tb = tngated[tags[i + 1]]
+        tensor_canonize_bond(
+            ta,
+            tb,
+            # swap gate bond along until end
+            swap_inds=None if i == len(tags) - 2 else bond_G,
+            # since multibonds are fused, this specifies to keep
+            # the names of the original state bond indices
+            bond_ind=tn_path.ind_map,
+        )
+
+    # compression left sweep, storing and using gauges
+    #    │   │   │   │   │
+    #   ─●━•━◁━•━◁━•━◁━•━◁─
+    #      s   s   s   s  ... singular value gauge weights
+    gauges_string = {}
+    for i in range(len(tags) - 1, 0, -1):
+        ta = tngated[tags[i - 1]]
+        tb = tngated[tags[i]]
+        tensor_gauge_simple_bond(
+            ta,
+            tb,
+            gauges=gauges_string,
+            smudge=smudge,
+            power=power,
+            renorm=renorm,
+            reduced="right",
+            reduce_opts=reduce_opts,
+            compress_opts=compress_opts,
+            info=info,
+        )
+
+    # optionally record the new singular values for each string bond
+    if info is not None:
+        for ix, s in gauges_string.items():
+            info["singular_values", ix] = s
+
+    # update tensors in original network
+    for tid, tag in zip(path_tids, tags):
+        tnew = tngated[tag]
+        told = tn_path.tensor_map[tid]
+        tnew.transpose_like_(told)
+        told.modify(data=tnew.data)
+
+    # update new gauges along string
+    gauges.update(gauges_string)
+
+    # ungauge outer indices
+    tn_path.gauge_simple_remove(outer)
 
     return tn
 
@@ -1010,6 +1359,29 @@ class TensorNetworkGen(TensorNetwork):
             for tid in self.tensor_map
         }
 
+    def get_path_between_sites(self, sitea, siteb):
+        """Get a path of sites between ``sitea`` and ``siteb``. This is a simple
+        wrapper around :meth:`~quimb.tensor.networking.get_path_between_tids`
+        that works with the sites rather than ``tids``.
+
+        Parameters
+        ----------
+        sitea : hashable
+            The first site.
+        siteb : hashable
+            The second site.
+
+        Returns
+        -------
+        Path
+            A path object containing the sites along the path.
+        """
+        tid2site = self._get_tid_to_site_map()
+        (tida,) = self._get_tids_from_tags(self.site_tag(sitea))
+        (tidb,) = self._get_tids_from_tags(self.site_tag(siteb))
+        path = self.get_path_between_tids(tida, tidb)
+        return tuple(tid2site[tid] for tid in path.tids)
+
     def gen_gloops_sites(
         self,
         max_size=None,
@@ -1025,10 +1397,14 @@ class TensorNetworkGen(TensorNetwork):
 
         Parameters
         ----------
-        max_size : None or int
-            Set the maximum number of tensors that can appear in a loop. If
-            ``None``, wait until any valid loop is found and set that as the
-            maximum size.
+        max_size : None, int or "min"
+            The maximum number of tensors that can appear in a loop. If
+            ``None``, grow the loops until every target site, i.e. ``sites``
+            or every site, appears in at least one loop, then use that size.
+            Targets outside the 2-core never appear in a loop and are
+            ignored, with a warning if ``sites`` was given or the network is
+            tree like. If ``"min"``, instead use the size of the first valid
+            loop found.
         sites : None or sequence[hashable]
             If supplied, only consider loops containing these sites.
         grow_from : {'all', 'any', 'alldangle', 'anydangle'}, optional
@@ -1038,7 +1414,8 @@ class TensorNetworkGen(TensorNetwork):
             in ``sites``. If 'alldangle' or 'anydangle', the sites are allowed
             to be dangling, i.e. 1-degree connected. This is useful for
             computing local expectations where the operator insertion breaks
-            the loop assumption locally.
+            the loop assumption locally. Any loop covers a dangling target,
+            so with these ``max_size=None`` acts like ``"min"``.
         num_joins : int, optional
             If larger than 1, repeatedly generate larger loops by joining
             together the initial set (individually those with size up to
@@ -1126,7 +1503,12 @@ class TensorNetworkGen(TensorNetwork):
 
     flatten_ = functools.partialmethod(flatten, inplace=True)
 
-    def normalize_simple(self, gauges, **contract_opts):
+    def normalize_simple(
+        self,
+        gauges,
+        strip_exponent=False,
+        **contract_opts,
+    ):
         """Normalize this network using simple local gauges. After calling
         this, any tree-like sub network gauged with ``gauges`` will have
         2-norm 1. Inplace operation on both the tensor network and ``gauges``.
@@ -1135,25 +1517,37 @@ class TensorNetworkGen(TensorNetwork):
         ----------
         gauges : dict[str, array_like]
             The gauges to normalize with.
+        strip_exponent : bool, optional
+            If ``True``, return the exponent of the normalization factor,
+            log10, as well as the mantissa (which is always 1.0 here).
+            Useful for very large or small values.
+        contract_opts
+            Supplied to :meth:`~quimb.tensor.tensor_core.TensorNetwork.norm`.
+
+        Returns
+        -------
+        nfactor : scalar or (scalar, float)
+            The normalization factor stripped from the network, or if
+            ``strip_exponent=True``, its mantissa and exponent separately.
         """
         # normalize gauges
         for ix, g in gauges.items():
             gauges[ix] = g / do("linalg.norm", g)
 
-        nfactor = 1.0
-
         # normalize sites
+        exponent = 0.0
         for site in self.sites:
             tn_site = self.select(site)
             tn_site_gauged = tn_site.copy()
             tn_site_gauged.gauge_simple_insert(gauges)
-            lnorm = (tn_site_gauged.H | tn_site_gauged).contract(
-                all, **contract_opts
-            ) ** 0.5
+            lnorm = tn_site_gauged.norm(**contract_opts)
             tn_site /= lnorm
-            nfactor *= lnorm
+            exponent += do("log10", lnorm)
 
-        return nfactor
+        if strip_exponent:
+            return 1.0, exponent
+
+        return 10**exponent
 
     def get_local_sloops(
         self,
@@ -1328,16 +1722,15 @@ class TensorNetworkGen(TensorNetwork):
         Parameters
         ----------
         tids : sequence[int], optional
-            The tensor ids to consider. Either this or ``where`` must be
-            supplied.
+            The tensor ids to consider. Either this or ``where`` must be given.
         where : sequence[hashable], optional
             The sites to consider. Either this or ``tids`` must be supplied.
         info : dict
             A dictionary to store information across different calls.
-        gloops : None, int, or sequence of sequence of hashable, optional
-            The gloops to consider. If ``None``, auto generate local gloops
-            up to the smallest non-trivial cluster size. If an integer,
-            generate gloops locally with up to that size. If a sequence of
+        gloops : None, int, "min" or sequence of sequence of hashable, optional
+            The gloops to consider. If an integer, generate gloops locally up
+            to that size. If ``None`` or ``"min"``, generate them locally with
+            the automatic size, see :meth:`gen_gloops_sites`. If a sequence of
             sequences, use those gloops.
         grow_from : {"all", "any"}, optional
             Whether to generate gloops that originally contain all or just
@@ -1352,19 +1745,23 @@ class TensorNetworkGen(TensorNetwork):
         if tids is None and where is None:
             raise ValueError("Either `tids` or `where` must be supplied.")
 
-        if isinstance(gloops, int):
+        if isinstance(gloops, (int, str)):
             max_size = gloops
             gloops = None
-            if strict_size is True:
-                # generate gloops up to size `max_loop_length`, but filter out
-                # any which are larger once the target size are included
-                strict_size = max_size
         else:
             max_size = None
-            if strict_size is True:
+
+        if strict_size is True:
+            # filter out clusters larger than `max_size` once the target
+            # sites are included, only possible if it is known up front
+            if isinstance(max_size, int):
+                strict_size = max_size
+            else:
                 warnings.warn(
-                    "If manually supplying a set of gloops, `strict_size` "
-                    "should be an integer, not a boolean - ignoring.",
+                    "`strict_size=True` requires an integer `gloops` size, "
+                    "since the size is otherwise only known once the gloops "
+                    "are generated - ignoring. Supply an integer "
+                    "`strict_size` to filter by a specific size.",
                 )
                 strict_size = False
 
@@ -1449,8 +1846,16 @@ class TensorNetworkGen(TensorNetwork):
             clusters = (r0, *map(frozenset, gloops))
 
         if strict_size:
-            # only allow clusters below max_size *including* base region
-            clusters = (r0, *(r for r in clusters if len(r) <= strict_size))
+            # only allow clusters below max_size *including* base region,
+            # which is kept regardless of its size
+            clusters = (
+                r0,
+                *(
+                    r
+                    for r in clusters
+                    if (r != r0) and (len(r) <= strict_size)
+                ),
+            )
 
         return clusters
 
@@ -1551,21 +1956,23 @@ def gloop_remove_dangling(sites, neighbors, where=()):
     -------
     frozenset[hashable]
     """
-    sites = list(sites)
-    i = 0
-    while i < len(sites):
-        # check next site
-        site = sites[i]
-        # can only reduce non target sites
-        if site not in where:
-            num_neighbors = sum(nsite in sites for nsite in neighbors[site])
-            if num_neighbors < 2:
-                # dangling -> remove!
-                sites.pop(i)
-                # back to beginning
-                i = -1
-        i += 1
-    return frozenset(sites)
+    region = set(sites)
+    # TODO: count bonds not neighbors, to match how a gloop is defined,
+    # which differs for multibonds and hyper indices
+    while True:
+        for site in region:
+            # can only reduce non target sites
+            if site not in where:
+                num_neighbs = sum(nsite in region for nsite in neighbors[site])
+                if num_neighbs < 2:
+                    # dangling -> remove and start again
+                    region.discard(site)
+                    break
+        else:
+            # checked all without finding anything
+            break
+
+    return frozenset(region)
 
 
 def sloop_remove_dangling(path, neighbor_inds, where_tids):
@@ -2080,7 +2487,7 @@ class TensorNetworkGenVector(TensorNetworkGen):
             G,
             axes=(
                 tuple(range(2 * ng)),
-                tuple(range(ng, 2 * ng)) + tuple(range(0, ng)),
+                tuple(range(ng, 2 * ng)) + tuple(range(ng)),
             ),
         )
 
@@ -2197,8 +2604,8 @@ class TensorNetworkGenVector(TensorNetworkGen):
             the initial tagged tensors, or just *any* of them (generating a
             larger region).
         smudge : float, optional
-            A small value to add to the gauges before multiplying them in and
-            inverting them to avoid numerical issues.
+            A small value, relative to the largest gauge value, to add before
+            multiplying the gauges in and inverting them.
         power : float, optional
             The power to raise the singular values to before multiplying them
             in and inverting them.
@@ -2285,8 +2692,8 @@ class TensorNetworkGenVector(TensorNetworkGen):
             the initial tagged tensors, or just *any* of them (generating a
             larger region).
         smudge : float, optional
-            A small value to add to the gauges before multiplying them in and
-            inverting them to avoid numerical issues.
+            A small value, relative to the largest gauge value, to add before
+            multiplying the gauges in and inverting them.
         power : float, optional
             The power to raise the singular values to before multiplying them
             in and inverting them.
@@ -2798,11 +3205,12 @@ class TensorNetworkGenVector(TensorNetworkGen):
             The operator to compute the expectation of.
         where : node or sequence[node]
             The sites to compute the expectation at.
-        gloops : None, int, or sequence[sequence[node]], optional
+        gloops : None, int, "min" or sequence[sequence[node]], optional
             The generalized loops to use. If an integer, generate loops up to
-            and including this size. If ``None`` the maximum loop size is set
-            as the smallest non-trivial loop found. If an explicit set of
-            loops is given, only these loops are considered.
+            and including this size. If ``None``, grow them until every site
+            appears in at least one loop and use that size, or if ``"min"``,
+            until the first valid loop is found. If an explicit set of loops
+            is given, use only those.
         gauges : dict[str, array_like], optional
             The store of gauge bonds, the keys being indices and the values
             being the vectors. Only bonds present in this dictionary will be
@@ -2926,19 +3334,64 @@ class TensorNetworkGenVector(TensorNetworkGen):
         autocomplete=False,
         autoreduce=True,
         gauges=None,
+        strip_exponent=False,
         optimize="auto",
+        info=None,
         progbar=False,
         **contract_opts,
     ):
         """Compute the norm of this tensor network by expanding it in terms of
-        generalized loops of tensors.
+        generalized loop clusters of tensors. A converged set of simple update
+        style `gauges` should be supplied for this to be a good approximation.
+
+        Parameters
+        ----------
+        gloops : None, int, "min" or sequence[sequence[node]], optional
+            The generalized loops to use. If an integer, generate loops up to
+            and including this size. If ``None``, grow them until every site
+            appears in at least one loop and use that size, or if ``"min"``,
+            until the first valid loop is found. If an explicit set of loops
+            is given, use only those.
+        autocomplete : bool, optional
+            Whether to automatically complete the local region graph by adding
+            all required intersecting regions automatically.
+        autoreduce : bool, optional
+            Whether to reduce any clusters with dangling bonds (which can
+            still be generated as intersecting regions of loops) to
+            generalized loops with dangling bonds removed. Should only be used
+            at a BP fixed point.
+        gauges : dict[str, array_like]
+            The store of gauge bonds, the keys being indices and the values
+            being the vectors. Only bonds present in this dictionary will be
+            gauged. These are required here, but not modified.
+        strip_exponent : bool, optional
+            If ``True``, return the exponent of the result, log10, as well as
+            the rescaled 'mantissa'. Useful for very large or small values.
+        optimize : str or PathOptimizer, optional
+            The contraction path optimizer to use.
+        info : dict, optional
+            A cache for the cluster contractions and the site neighbor map,
+            which makes repeated calls with different sets of loops much
+            cheaper. Reuse it only while the tensor network and gauges remain
+            the same.
+        progbar : bool, optional
+            Whether to show a progress bar.
+        contract_opts
+            Supplied to
+            :meth:`~quimb.tensor.tensor_core.TensorNetwork.contract`.
+
+        Returns
+        -------
+        norm : scalar or (scalar, float)
+            The norm, or if ``strip_exponent=True``, the mantissa and
+            exponent separately.
         """
         from quimb.tensor.belief_propagation import (
             combine_local_contractions,
             gen_region_counts,
         )
 
-        if isinstance(gloops, int):
+        if isinstance(gloops, (int, str)):
             max_size = gloops
             gloops = None
         else:
@@ -2950,13 +3403,21 @@ class TensorNetworkGenVector(TensorNetworkGen):
             gloops = tuple(gloops)
 
         psi = self.copy()
+        # the normalization step acts inplace so take a copy from here
+        gauges = gauges.copy()
 
         # make all tree like norms 1.0 -> region intersections
         # which are tree like can thus be ignored
-        nfactor = psi.normalize_simple(gauges)
+        _, exponent = psi.normalize_simple(gauges, strip_exponent=True)
+
+        info = info if info is not None else {}
+        contractions = info.setdefault("contractions", {})
 
         if autoreduce:
-            neighbors = self.get_site_neighbor_map()
+            try:
+                neighbors = info["neighbors"]
+            except KeyError:
+                neighbors = info["neighbors"] = self.get_site_neighbor_map()
         else:
             neighbors = None
 
@@ -2978,15 +3439,27 @@ class TensorNetworkGenVector(TensorNetworkGen):
                     # region is tree like -> contributes 1.0
                     continue
 
-            tags = tuple(map(psi.site_tag, region))
-            kr = psi.select(tags, which="any", virtual=False)
-            kr.gauge_simple_insert(gauges)
+            try:
+                # have already computed this cluster, e.g. with other gloops
+                lni = contractions[region]
+            except KeyError:
+                tags = tuple(map(psi.site_tag, region))
+                # take copy as inserting gauges
+                kr = psi.select(tags, which="any", virtual=False)
+                kr.gauge_simple_insert(gauges)
+                lni = contractions[region] = (kr.H | kr).contract(
+                    optimize=optimize, **contract_opts
+                )
 
-            lni = (kr.H | kr).contract(optimize=optimize, **contract_opts)
             zvals.append((lni, C))
 
-        # XXX: handle .exponent
-        return (combine_local_contractions(zvals) * nfactor) ** 0.5
+        return combine_local_contractions(
+            zvals,
+            exponent=(psi.exponent + exponent) * 2,
+            power=0.5,
+            check_zero=False,
+            strip_exponent=strip_exponent,
+        )
 
     def compute_local_expectation_gloop_expand(
         self,
@@ -3014,11 +3487,12 @@ class TensorNetworkGenVector(TensorNetworkGen):
         terms : dict[node or tuple[node], array_like]
             The terms to compute the expectation of, with keys being the
             site(s) and values being the local operators as plain arrays.
-        gloops : None, int, or sequence[sequence[node]], optional
+        gloops : None, int, "min" or sequence[sequence[node]], optional
             The generalized loops to use. If an integer, generate loops up to
-            and including this size. If ``None`` the maximum loop size is set
-            as the smallest non-trivial loop found. If an explicit set of
-            loops is given, only these loops are considered.
+            and including this size. If ``None``, grow them until every site
+            appears in at least one loop and use that size, or if ``"min"``,
+            until the first valid loop is found. If an explicit set of loops
+            is given, use only those.
         gauges : dict[str, array_like], optional
             The store of gauge bonds, the keys being indices and the values
             being the vectors. Only bonds present in this dictionary will be
@@ -3083,9 +3557,12 @@ class TensorNetworkGenVector(TensorNetworkGen):
                 autoreduce=autoreduce,
                 gauges=gauges,
                 optimize=optimize,
+                info=info,
                 **contract_opts,
             )
             tn = self / nfactor
+            # local contracts ignore exponent, so multiply it in here
+            tn.distribute_exponent()
             normalized = False
         else:
             tn = self
@@ -3353,11 +3830,11 @@ class TensorNetworkGenVector(TensorNetworkGen):
         method : {'rho', 'rho-reduced'}, optional
             The method to use to compute the expectation value.
 
-                - 'rho': compute the expectation value via the reduced density
-                  matrix.
-                - 'rho-reduced': compute the expectation value via the reduced
-                  density matrix, having reduced the physical indices onto the
-                  bonds first.
+            - 'rho': compute the expectation value via the reduced density
+              matrix.
+            - 'rho-reduced': compute the expectation value via the reduced
+              density matrix, having reduced the physical indices onto the
+              bonds first.
 
         flatten : bool, optional
             Whether to force 'flattening' (contracting all physical indices) of

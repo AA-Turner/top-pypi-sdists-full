@@ -58,7 +58,13 @@ from ...tool import Tool
 from ...tracing import generation_span
 from ...tracing.span_data import GenerationSpanData
 from ...tracing.spans import Span
-from ...usage import Usage, _cache_write_tokens, _make_input_tokens_details
+from ...usage import (
+    Usage,
+    _cache_write_tokens,
+    _make_input_tokens_details,
+    _requests_for_response_without_usage,
+    model_usage_to_span_usage,
+)
 from ...util._error_tracing import model_span_errors
 from ...util._json import _to_dump_compatible
 
@@ -173,7 +179,7 @@ class LitellmModel(Model):
         """
         reasoning_effort: Any | None = None
 
-        if model_settings.reasoning:
+        if model_settings.reasoning is not None:
             reasoning_effort = model_settings.reasoning.effort
             if model_settings.reasoning.summary is not None:
                 logger.warning(
@@ -261,7 +267,7 @@ class LitellmModel(Model):
                         json.dumps(message.model_dump(), indent=2, ensure_ascii=False),
                     )
                 else:
-                    finish_reason = first_choice.finish_reason if first_choice else "-"
+                    finish_reason = first_choice.finish_reason if first_choice is not None else "-"
                     logger.debug("LLM resp had no message. finish_reason: %s", finish_reason)
 
             if hasattr(response, "usage"):
@@ -288,11 +294,12 @@ class LitellmModel(Model):
                             or 0
                         ),
                     )
-                    if response.usage
-                    else Usage()
+                    if response_usage is not None
+                    # The request completed, so it counts even when the provider omits usage.
+                    else Usage(requests=1)
                 )
             else:
-                usage = Usage()
+                usage = Usage(requests=1)
                 logger.warning("No usage information returned from Litellm")
 
             if tracing.include_data():
@@ -346,7 +353,9 @@ class LitellmModel(Model):
             # LiteLLM's Choices omits the logprobs attribute entirely when it was not requested,
             # so access it defensively (mirrors the finish_reason handling above).
             logprob_models = None
-            choice_logprobs = getattr(first_choice, "logprobs", None) if first_choice else None
+            choice_logprobs = (
+                getattr(first_choice, "logprobs", None) if first_choice is not None else None
+            )
             if choice_logprobs is not None and getattr(choice_logprobs, "content", None):
                 logprob_models = ChatCmplHelpers.convert_logprobs_for_output_text(
                     choice_logprobs.content
@@ -424,6 +433,12 @@ class LitellmModel(Model):
                     if chunk.type == "response.completed":
                         final_response = chunk.response
                         yielded_terminal_event = True
+                        # Populate the span before yielding, because a caller that stops
+                        # consuming at the terminal event closes this generator and never
+                        # resumes it, which would leave the span without usage.
+                        self._populate_stream_generation_span(
+                            span_generation, final_response, tracing
+                        )
 
                     yield chunk
             except asyncio.CancelledError:
@@ -444,26 +459,36 @@ class LitellmModel(Model):
                         else:
                             raise
 
-            if tracing.include_data() and final_response:
-                span_generation.span_data.output = [final_response.model_dump()]
+    @staticmethod
+    def _populate_stream_generation_span(
+        span_generation: Span[GenerationSpanData],
+        final_response: Response,
+        tracing: ModelTracing,
+    ) -> None:
+        if tracing.include_data():
+            span_generation.span_data.output = [final_response.model_dump()]
 
-            if final_response and final_response.usage:
-                span_generation.span_data.usage = {
-                    "requests": 1,
-                    "input_tokens": final_response.usage.input_tokens,
-                    "output_tokens": final_response.usage.output_tokens,
-                    "total_tokens": final_response.usage.total_tokens,
-                    "input_tokens_details": (
-                        final_response.usage.input_tokens_details.model_dump()
-                        if final_response.usage.input_tokens_details
-                        else {"cached_tokens": 0, "cache_write_tokens": 0}
-                    ),
-                    "output_tokens_details": (
-                        final_response.usage.output_tokens_details.model_dump()
-                        if final_response.usage.output_tokens_details
-                        else {"reasoning_tokens": 0}
-                    ),
-                }
+        if final_response.usage is not None:
+            span_generation.span_data.usage = {
+                "requests": 1,
+                "input_tokens": final_response.usage.input_tokens,
+                "output_tokens": final_response.usage.output_tokens,
+                "total_tokens": final_response.usage.total_tokens,
+                "input_tokens_details": (
+                    final_response.usage.input_tokens_details.model_dump()
+                    if final_response.usage.input_tokens_details is not None
+                    else {"cached_tokens": 0, "cache_write_tokens": 0}
+                ),
+                "output_tokens_details": (
+                    final_response.usage.output_tokens_details.model_dump()
+                    if final_response.usage.output_tokens_details is not None
+                    else {"reasoning_tokens": 0}
+                ),
+            }
+        elif _requests_for_response_without_usage(final_response):
+            # Keep streamed tracing aligned with the non-streaming path, which records the
+            # request even when the provider reports no usage.
+            span_generation.span_data.usage = model_usage_to_span_usage(Usage(requests=1))
 
     @overload
     async def _fetch_response(
@@ -547,13 +572,6 @@ class LitellmModel(Model):
         if tracing.include_data():
             span.span_data.input = converted_messages
 
-        parallel_tool_calls = (
-            True
-            if model_settings.parallel_tool_calls and tools and len(tools) > 0
-            else False
-            if model_settings.parallel_tool_calls is False
-            else None
-        )
         tool_choice = Converter.convert_tool_choice(model_settings.tool_choice)
         response_format = Converter.convert_response_format(output_schema)
 
@@ -563,6 +581,7 @@ class LitellmModel(Model):
             converted_tools.append(Converter.convert_handoff_tool(handoff))
 
         converted_tools = _to_dump_compatible(converted_tools)
+        parallel_tool_calls = model_settings.parallel_tool_calls if converted_tools else None
 
         if _debug.DONT_LOG_MODEL_DATA:
             logger.debug("Calling LLM")

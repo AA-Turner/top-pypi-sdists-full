@@ -108,7 +108,7 @@ def _read_json(path: Path) -> dict[str, object]:
 
 
 def _write_json(path: Path, data: dict[str, object]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+    account.ensure_dir(path.parent)
     path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
 
@@ -291,6 +291,20 @@ _UNBLOCK_CLAUDE_HINT = (
 )
 
 
+def _blocking_windows(snapshot: UsageSnapshot, cfg: UsageConfig, now: float) -> list[Window]:
+    """Windows currently at/over their own ``block_at`` — a disabled window never blocks.
+
+    A window whose reset time has passed is skipped: that reading is a stale cached one (see
+    :meth:`Window.is_current`) and refusing a tool call over usage that has since reset would
+    strand the user with no way to tell why. Notifications still see every window.
+    """
+    return [
+        window
+        for window, wcfg in ((snapshot.five_hour, cfg.five_hour), (snapshot.seven_day, cfg.seven_day))
+        if wcfg.enabled and wcfg.block_at > 0 and window.percent >= wcfg.block_at and window.is_current(now)
+    ]
+
+
 def is_blocking(cfg: UsageConfig, now: float) -> bool:
     """Whether the hook is currently in a blocking state — the same decision the PreToolUse
     hook uses to deny a tool call. Pure (no notifications); used by the UserPromptSubmit hook.
@@ -305,10 +319,7 @@ def is_blocking(cfg: UsageConfig, now: float) -> bool:
     )
     if snapshot is None:
         return False
-    over = any(
-        wcfg.enabled and wcfg.block_at > 0 and window.percent >= wcfg.block_at
-        for window, wcfg in ((snapshot.five_hour, cfg.five_hour), (snapshot.seven_day, cfg.seven_day))
-    )
+    over = bool(_blocking_windows(snapshot, cfg, now))
     st = unblock.state(now, _window_id(snapshot))
     return st == "block" or (over and st != "unblock")
 
@@ -433,12 +444,8 @@ def _handle_subscription(session_id: str, cfg: UsageConfig, escape: bool, now: f
         detail += f"\nExtra usage depuis dépassement : {money}"
 
     # Each enabled window blocks on its own threshold; a tool call is denied as soon as any
-    # window is at/over its configured block_at. A disabled window never blocks.
-    blocking = [
-        window
-        for window, wcfg in ((snapshot.five_hour, cfg.five_hour), (snapshot.seven_day, cfg.seven_day))
-        if wcfg.enabled and wcfg.block_at > 0 and window.percent >= wcfg.block_at
-    ]
+    # window is at/over its configured block_at.
+    blocking = _blocking_windows(snapshot, cfg, now)
     window_id = _window_id(snapshot)
     st = unblock.state(now, window_id)
     over = bool(blocking)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arelle-release
-Version: 2.44.0
+Version: 2.44.1
 Summary: An open source XBRL platform.
 Author-email: "arelle.org" <support@arelle.org>
 License-Expression: Apache-2.0
@@ -56,6 +56,7 @@ Requires-Dist: aniso8601<11,>=10; extra == "efm"
 Requires-Dist: holidays<1,>=0; extra == "efm"
 Requires-Dist: matplotlib<4,>=3; extra == "efm"
 Requires-Dist: pytz; extra == "efm"
+Requires-Dist: pythonmonkey<2,>=1; extra == "efm"
 Provides-Extra: esef
 Requires-Dist: tinycss2<2,>=1; extra == "esef"
 Provides-Extra: gui

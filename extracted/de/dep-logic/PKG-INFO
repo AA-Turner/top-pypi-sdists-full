@@ -1,19 +1,18 @@
 Metadata-Version: 2.1
 Name: dep-logic
-Version: 0.6.0
+Version: 0.7.1
 Summary: Python dependency specifications supporting logical operations
 Keywords: dependency,specification,logic,packaging
 Author-Email: Frost Ming <me@frostming.com>
 License: Apache-2.0
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: License :: OSI Approved :: Apache Software License
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: packaging>=22
 Description-Content-Type: text/markdown
 

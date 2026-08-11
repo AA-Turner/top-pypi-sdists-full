@@ -325,6 +325,55 @@ class CodeInterpreterCustomReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.CodeInterpreterReference",
+    jsii_struct_bases=[],
+    name_mapping={"code_interpreter_arn": "codeInterpreterArn"},
+)
+class CodeInterpreterReference:
+    def __init__(self, *, code_interpreter_arn: builtins.str) -> None:
+        '''A reference to a CodeInterpreter resource.
+
+        :param code_interpreter_arn: The CodeInterpreterArn of the CodeInterpreter resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrockagentcore as interfaces_bedrockagentcore
+            
+            code_interpreter_reference = interfaces_bedrockagentcore.CodeInterpreterReference(
+                code_interpreter_arn="codeInterpreterArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__50bf4f42aad7202dcc67a666eca7dbea6d8d90827120546abd13a1cf7c227c7a)
+            check_type(argname="argument code_interpreter_arn", value=code_interpreter_arn, expected_type=type_hints["code_interpreter_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "code_interpreter_arn": code_interpreter_arn,
+        }
+
+    @builtins.property
+    def code_interpreter_arn(self) -> builtins.str:
+        '''The CodeInterpreterArn of the CodeInterpreter resource.'''
+        result = self._values.get("code_interpreter_arn")
+        assert result is not None, "Required property 'code_interpreter_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CodeInterpreterReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.ConfigurationBundleReference",
     jsii_struct_bases=[],
     name_mapping={"bundle_arn": "bundleArn"},
@@ -884,6 +933,53 @@ class _ICodeInterpreterCustomRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ICodeInterpreterCustomRef).__jsii_proxy_class__ = lambda : _ICodeInterpreterCustomRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.ICodeInterpreterRef"
+)
+class ICodeInterpreterRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a CodeInterpreter.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="codeInterpreterRef")
+    def code_interpreter_ref(self) -> "CodeInterpreterReference":
+        '''(experimental) A reference to a CodeInterpreter resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICodeInterpreterRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a CodeInterpreter.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.ICodeInterpreterRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="codeInterpreterRef")
+    def code_interpreter_ref(self) -> "CodeInterpreterReference":
+        '''(experimental) A reference to a CodeInterpreter resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("CodeInterpreterReference", jsii.get(self, "codeInterpreterRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICodeInterpreterRef).__jsii_proxy_class__ = lambda : _ICodeInterpreterRefProxy
 
 
 @jsii.interface(
@@ -1671,6 +1767,51 @@ class _IRuntimeRefProxy(
 typing.cast(typing.Any, IRuntimeRef).__jsii_proxy_class__ = lambda : _IRuntimeRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.ITokenVaultRef")
+class ITokenVaultRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a TokenVault.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="tokenVaultRef")
+    def token_vault_ref(self) -> "TokenVaultReference":
+        '''(experimental) A reference to a TokenVault resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITokenVaultRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a TokenVault.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.ITokenVaultRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="tokenVaultRef")
+    def token_vault_ref(self) -> "TokenVaultReference":
+        '''(experimental) A reference to a TokenVault resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TokenVaultReference", jsii.get(self, "tokenVaultRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITokenVaultRef).__jsii_proxy_class__ = lambda : _ITokenVaultRefProxy
+
+
 @jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IWorkloadIdentityRef"
 )
@@ -2277,6 +2418,55 @@ class RuntimeReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.TokenVaultReference",
+    jsii_struct_bases=[],
+    name_mapping={"token_vault_arn": "tokenVaultArn"},
+)
+class TokenVaultReference:
+    def __init__(self, *, token_vault_arn: builtins.str) -> None:
+        '''A reference to a TokenVault resource.
+
+        :param token_vault_arn: The Arn of the TokenVault resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrockagentcore as interfaces_bedrockagentcore
+            
+            token_vault_reference = interfaces_bedrockagentcore.TokenVaultReference(
+                token_vault_arn="tokenVaultArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e7de2953cdd99a4f015b49bb35921f65ed1b92fc09a4ac33c5cca47efae4b4c0)
+            check_type(argname="argument token_vault_arn", value=token_vault_arn, expected_type=type_hints["token_vault_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "token_vault_arn": token_vault_arn,
+        }
+
+    @builtins.property
+    def token_vault_arn(self) -> builtins.str:
+        '''The Arn of the TokenVault resource.'''
+        result = self._values.get("token_vault_arn")
+        assert result is not None, "Required property 'token_vault_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TokenVaultReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.WorkloadIdentityReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -2350,6 +2540,7 @@ __all__ = [
     "BrowserProfileReference",
     "BrowserReference",
     "CodeInterpreterCustomReference",
+    "CodeInterpreterReference",
     "ConfigurationBundleReference",
     "DatasetReference",
     "EvaluatorReference",
@@ -2361,6 +2552,7 @@ __all__ = [
     "IBrowserProfileRef",
     "IBrowserRef",
     "ICodeInterpreterCustomRef",
+    "ICodeInterpreterRef",
     "IConfigurationBundleRef",
     "IDatasetRef",
     "IEvaluatorRef",
@@ -2378,6 +2570,7 @@ __all__ = [
     "IResourcePolicyRef",
     "IRuntimeEndpointRef",
     "IRuntimeRef",
+    "ITokenVaultRef",
     "IWorkloadIdentityRef",
     "MemoryReference",
     "OAuth2CredentialProviderReference",
@@ -2390,6 +2583,7 @@ __all__ = [
     "ResourcePolicyReference",
     "RuntimeEndpointReference",
     "RuntimeReference",
+    "TokenVaultReference",
     "WorkloadIdentityReference",
 ]
 
@@ -2429,6 +2623,13 @@ def _typecheckingstub__31803efaee1e805b6555da7f5c0c2c409540346b67d7cb412b9f78fbe
     *,
     code_interpreter_arn: builtins.str,
     code_interpreter_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__50bf4f42aad7202dcc67a666eca7dbea6d8d90827120546abd13a1cf7c227c7a(
+    *,
+    code_interpreter_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2555,6 +2756,13 @@ def _typecheckingstub__a1435ab047fbb10ad1262aabe5dcc3598ed76fcfee17487287cbf9bfe
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e7de2953cdd99a4f015b49bb35921f65ed1b92fc09a4ac33c5cca47efae4b4c0(
+    *,
+    token_vault_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f4c87d0628ada636c999bb25ecf8067b788ff440bac34ff64b11d374db18dc71(
     *,
     workload_identity_arn: builtins.str,
@@ -2563,5 +2771,5 @@ def _typecheckingstub__f4c87d0628ada636c999bb25ecf8067b788ff440bac34ff64b11d374d
     """Type checking stubs"""
     pass
 
-for cls in [IApiKeyCredentialProviderRef, IBrowserCustomRef, IBrowserProfileRef, IBrowserRef, ICodeInterpreterCustomRef, IConfigurationBundleRef, IDatasetRef, IEvaluatorRef, IGatewayRef, IGatewayTargetRef, IHarnessRef, IMemoryRef, IOAuth2CredentialProviderRef, IOnlineEvaluationConfigRef, IPaymentConnectorRef, IPaymentCredentialProviderRef, IPaymentManagerRef, IPolicyEngineRef, IPolicyRef, IResourcePolicyRef, IRuntimeEndpointRef, IRuntimeRef, IWorkloadIdentityRef]:
+for cls in [IApiKeyCredentialProviderRef, IBrowserCustomRef, IBrowserProfileRef, IBrowserRef, ICodeInterpreterCustomRef, ICodeInterpreterRef, IConfigurationBundleRef, IDatasetRef, IEvaluatorRef, IGatewayRef, IGatewayTargetRef, IHarnessRef, IMemoryRef, IOAuth2CredentialProviderRef, IOnlineEvaluationConfigRef, IPaymentConnectorRef, IPaymentCredentialProviderRef, IPaymentManagerRef, IPolicyEngineRef, IPolicyRef, IResourcePolicyRef, IRuntimeEndpointRef, IRuntimeRef, ITokenVaultRef, IWorkloadIdentityRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

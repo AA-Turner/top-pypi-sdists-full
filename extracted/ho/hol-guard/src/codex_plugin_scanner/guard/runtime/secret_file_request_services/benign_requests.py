@@ -41,6 +41,7 @@ from .interpreter_observers import (
 )
 from .request_artifacts import _candidate_command_texts
 from .request_models import ToolActionRequestMatch, _normalize_tool_name
+from .routine_directory_creation import is_safe_routine_directory_creation
 from .sensitive_read_pipeline import _runtime_read_root_texts
 from .shell_static_safety import _path_text_is_within_root_text
 from .shell_stdin_sources import (
@@ -49,7 +50,7 @@ from .shell_stdin_sources import (
     _echo_stdout_payload,
     _printf_stdout_payloads,
 )
-from .shell_tokenization import _shell_segment_primary_command, _split_shell_parts
+from .shell_tokenization import _iter_shell_command_segments, _shell_segment_primary_command, _split_shell_parts
 
 
 def is_explicitly_benign_tool_action_request(
@@ -64,6 +65,7 @@ def is_explicitly_benign_tool_action_request(
         return False
     found_benign_candidate = False
     for command_text in _candidate_command_texts(arguments):
+        raw_command_text = command_text
         interpreter_evidence = _python_interpreter_executable_identities(
             command_text,
             cwd=cwd,
@@ -72,9 +74,16 @@ def is_explicitly_benign_tool_action_request(
         if any(evidence.get("trust") not in {"trusted_guard", "trusted_system"} for evidence in interpreter_evidence):
             return False
         if normalized_tool_name in _SHELL_TOOL_NAMES:
-            command_text = normalize_transparent_shell_command(
-                command_text, cwd=cwd, home_dir=home_dir
-            ).normalized_command
+            normalization = normalize_transparent_shell_command(command_text, cwd=cwd, home_dir=home_dir)
+            command_text = normalization.normalized_command
+            if normalization.wrapper_chain:
+                normalized_parts = _split_shell_parts(command_text)
+                normalized_segments = _iter_shell_command_segments(normalized_parts)
+                invokes_guard = any(
+                    _shell_segment_primary_command(segment)[0] == "hol-guard" for segment in normalized_segments
+                )
+                if invokes_guard and command_text != raw_command_text:
+                    return False
         stripped_command = command_text.strip()
         if not stripped_command:
             continue
@@ -102,6 +111,12 @@ def is_explicitly_benign_tool_action_request(
             parts,
             home_dir=home_dir,
         ):
+            found_benign_candidate = True
+            continue
+        if _looks_like_safe_existence_probe(stripped_command, cwd=cwd, home_dir=home_dir):
+            found_benign_candidate = True
+            continue
+        if is_safe_routine_directory_creation(stripped_command, cwd=cwd, home_dir=home_dir):
             found_benign_candidate = True
             continue
         if _looks_like_safe_cli_metadata_command(stripped_command, parts, cwd=cwd):
@@ -174,6 +189,43 @@ def is_explicitly_benign_tool_action_request(
             continue
         return False
     return found_benign_candidate
+
+
+def _looks_like_safe_existence_probe(
+    command_text: str,
+    *,
+    cwd: Path | None,
+    home_dir: Path | None,
+) -> bool:
+    """Recognize a metadata-only local path existence check with literal output."""
+
+    try:
+        lexer = shlex.shlex(command_text, posix=True, punctuation_chars=";&|<>()")
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        parts = list(lexer)
+    except ValueError:
+        return False
+    if len(parts) != 9 or parts[:2] != ["test", "-e"]:
+        return False
+    if parts[3:] != ["&&", "echo", "exists", "||", "echo", "absent"]:
+        return False
+    target = parts[2]
+    if any(marker in target for marker in ("$", "`", "*", "?", "[", "]", "{", "}")):
+        return False
+    try:
+        candidate = Path(target).expanduser()
+        if not candidate.is_absolute():
+            if cwd is None:
+                return False
+            if ".." in candidate.parts:
+                return False
+            candidate = cwd / candidate
+        resolved = candidate.resolve(strict=False)
+        allowed_roots = tuple(root.resolve() for root in (cwd, home_dir) if root is not None)
+    except (OSError, RuntimeError):
+        return False
+    return bool(allowed_roots) and any(resolved.is_relative_to(root) for root in allowed_roots)
 
 
 def _is_guard_safety_doc_read(command_text: str, *, home_dir: Path) -> bool:

@@ -308,7 +308,7 @@ def test_outgoing_trace_headers(
             connection.getresponse()
 
         sentry_sdk.flush()
-        request_span = next(item.payload for item in items if item.type == "span")
+        request_span = next(item.payload for item in items)
         expected_sentry_trace = "{trace_id}-{parent_span_id}-{sampled}".format(
             trace_id=request_span["trace_id"],
             parent_span_id=request_span["span_id"],
@@ -318,7 +318,7 @@ def test_outgoing_trace_headers(
         expected_outgoing_baggage = (
             "sentry-trace_id=771a43a4192642f0b136d5159a501700,"
             "sentry-public_key=49d0f7386ad645858ae85020e393bef3,"
-            "sentry-sample_rate=0.01337,"
+            "sentry-sample_rate=1.0,"
             "sentry-user_id=Am%C3%A9lie,"
             "sentry-sample_rand=0.000005,"
             "sentry-sampled=true"
@@ -345,8 +345,6 @@ def test_outgoing_trace_headers(
             sampled=1,
         )
 
-        # Note: the sample rate here is actually wrong. It's fixed in the
-        # streaming path
         expected_outgoing_baggage = (
             "sentry-trace_id=771a43a4192642f0b136d5159a501700,"
             "sentry-public_key=49d0f7386ad645858ae85020e393bef3,"
@@ -408,7 +406,7 @@ def test_outgoing_trace_headers_head_sdk(
                 connection.getresponse()
 
         sentry_sdk.flush()
-        request_span = next(item.payload for item in items if item.type == "span")
+        request_span = next(item.payload for item in items)
         expected_sentry_trace = "{trace_id}-{parent_span_id}-{sampled}".format(
             trace_id=request_span["trace_id"],
             parent_span_id=request_span["span_id"],
@@ -689,7 +687,7 @@ def test_request_source_disabled(
             conn.getresponse()
 
         sentry_sdk.flush()
-        span = next(item.payload for item in items if item.type == "span")
+        span = next(item.payload for item in items)
         assert span["name"].startswith("GET")
 
         attributes = span["attributes"]
@@ -750,7 +748,7 @@ def test_request_source_enabled(
             conn.getresponse()
 
         sentry_sdk.flush()
-        span = next(item.payload for item in items if item.type == "span")
+        span = next(item.payload for item in items)
         assert span["name"].startswith("GET")
 
         attributes = span["attributes"]
@@ -804,7 +802,7 @@ def test_request_source(
             conn.getresponse()
 
         sentry_sdk.flush()
-        span = next(item.payload for item in items if item.type == "span")
+        span = next(item.payload for item in items)
         assert span["name"].startswith("GET")
 
         attributes = span["attributes"]
@@ -890,7 +888,7 @@ def test_request_source_with_module_in_search_path(
             get_request_with_connection(conn, "/foo")
 
         sentry_sdk.flush()
-        span = next(item.payload for item in items if item.type == "span")
+        span = next(item.payload for item in items)
         assert span["name"].startswith("GET")
 
         attributes = span["attributes"]
@@ -981,7 +979,7 @@ def test_no_request_source_if_duration_too_short(
                 conn.getresponse()
 
         sentry_sdk.flush()
-        span = next(item.payload for item in items if item.type == "span")
+        span = next(item.payload for item in items)
         assert span["name"].startswith("GET")
 
         attributes = span["attributes"]
@@ -1056,7 +1054,7 @@ def test_request_source_if_duration_over_threshold(
                 conn.getresponse()
 
         sentry_sdk.flush()
-        span = next(item.payload for item in items if item.type == "span")
+        span = next(item.payload for item in items)
         assert span["name"].startswith("GET")
 
         attributes = span["attributes"]

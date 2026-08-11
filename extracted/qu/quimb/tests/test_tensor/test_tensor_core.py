@@ -21,6 +21,7 @@ from quimb.tensor import (
     tensor_contract,
     tensor_direct_product,
 )
+from quimb.tensor.tensor_core import _get_gauge_conditioner
 
 requires_autograd = pytest.mark.skipif(
     importlib.util.find_spec("autograd") is None,
@@ -30,6 +31,53 @@ requires_cotengra = pytest.mark.skipif(
     importlib.util.find_spec("cotengra") is None,
     reason="cotengra not installed",
 )
+
+
+def test_gauge_conditioner_relative_smudge():
+    g = np.array([0.2, 2.0])
+    condition = _get_gauge_conditioner(power=0.5, smudge=0.1)
+    expected = np.array([0.4, 2.2]) ** 0.5
+    assert_allclose(condition(g), expected)
+    assert_allclose(condition(9 * g), 3 * expected)
+
+
+def test_gauge_insert_simple_return_modes():
+    tn = TensorNetwork(
+        [
+            rand_tensor((2, 3), inds=("a", "x"), seed=1),
+            rand_tensor((3, 2), inds=("x", "b"), seed=2),
+        ]
+    )
+    gauges = {
+        "a": np.array([0.5, 1.0]),
+        "x": np.array([0.4, 0.7, 1.0]),
+        "b": np.array([0.6, 1.0]),
+    }
+
+    expected = tn.copy()
+    expected.gauge_simple_insert(gauges)
+
+    inserted = tn.copy()
+    assert inserted.gauge_insert(gauges, return_gauges=None) is None
+    assert inserted.distance_normalized(expected) == pytest.approx(
+        0.0,
+        abs=1e-12,
+    )
+
+    restored = tn.copy()
+    outer, inner = restored.gauge_insert(
+        gauges,
+        return_gauges="inverse",
+    )
+    for t, ix, ginv in outer:
+        t.multiply_index_diagonal_(ix, ginv)
+    for (tl, tr), ix, ginv in inner:
+        tl.multiply_index_diagonal_(ix, ginv)
+        tr.multiply_index_diagonal_(ix, ginv)
+    assert restored.distance_normalized(tn) == pytest.approx(
+        0.0,
+        abs=1e-7,
+    )
 
 
 class TestBasicTensorOperations:
@@ -630,28 +678,28 @@ class TestTensorSplit:
         assert trc == pytest.approx(55.0)
 
         tn2 = t.split(
-            "a", method="svd", cutoff=0.1, renorm=True, cutoff_mode="rsum2"
+            "a", method=method, cutoff=0.1, renorm=True, cutoff_mode="rsum2"
         )
         a_fn2 = tn2.H @ tn2
         assert qtn.bonds_size(*tn2) == 6
         assert a_fn2 == pytest.approx(fn2)
 
         tn2 = t.split(
-            "a", method="svd", cutoff=40, renorm=True, cutoff_mode="sum2"
+            "a", method=method, cutoff=40, renorm=True, cutoff_mode="sum2"
         )
         a_fn2 = tn2.H @ tn2
         assert qtn.bonds_size(*tn2) == 6
         assert a_fn2 == pytest.approx(fn2)
 
         tn1 = t.split(
-            "a", method="svd", cutoff=0.2, renorm=True, cutoff_mode="rsum1"
+            "a", method=method, cutoff=0.2, renorm=True, cutoff_mode="rsum1"
         )
         a_trc = tn1.trace("a", "b").real
         assert qtn.bonds_size(*tn1) == 6
         assert a_trc == pytest.approx(trc)
 
         tn1 = t.split(
-            "a", method="svd", cutoff=11, renorm=True, cutoff_mode="sum1"
+            "a", method=method, cutoff=11, renorm=True, cutoff_mode="sum1"
         )
         a_trc = tn1.trace("a", "b").real
         assert qtn.bonds_size(*tn1) == 6
@@ -820,6 +868,53 @@ class TestTensorFunctions:
         assert_allclose(col_nrm_x2, col_nrm_y2, rtol=10 * smudge)
         z2 = (t1 @ t2).data
         assert_allclose(z1, z2)
+
+    def test_canonize_swap_inds(self):
+        ta = rand_tensor((2, 2, 3, 4), inds="qaBc")
+        tb = rand_tensor((3, 4, 5), inds="Bxy")
+        taQ = ta.copy()
+        tbR = tb.copy()
+        qtn.tensor_canonize_bond(taQ, tbR)
+        assert taQ.inds == ta.inds
+        assert tbR.inds == tb.inds
+        assert taQ.shape == ta.shape
+
+        taQ = ta.copy()
+        tbR = tb.copy()
+        qtn.tensor_canonize_bond(taQ, tbR, swap_inds="a")
+        assert taQ.inds == ("q", "c", "B")
+        assert tbR.inds == ("B", "a", "x", "y")
+        assert taQ.ind_size("c") == 4
+        assert taQ.ind_size("B") == 6  # 2x3
+        assert tbR.ind_size("B") == 6  # 2x3
+        assert tbR.ind_size("a") == 2
+        assert tbR.ind_size("x") == 4
+        assert tbR.ind_size("y") == 5
+
+        tab = ta @ tb
+        tQR = taQ @ tbR
+        tQR.transpose_like_(tab)
+        assert_allclose(tab.data, tQR.data)
+
+    def test_canonize_swap_inds_already_isometric(self):
+        # the 'already isometric' early-return must not fire when we are also
+        # asked to move an index - else the swap is silently skipped
+        ta = rand_tensor((2, 2, 3, 4), inds="qaBc")
+        tb = rand_tensor((3, 4, 5), inds="Bxy")
+        # left_inds matches the *reduced* lix (everything but 'a' and bond 'B')
+        ta.modify(left_inds=("q", "c"))
+
+        taQ = ta.copy()
+        tbR = tb.copy()
+        qtn.tensor_canonize_bond(taQ, tbR, swap_inds="a")
+        # 'a' really moved across despite the matching left_inds
+        assert "a" not in taQ.inds
+        assert "a" in tbR.inds
+
+        tab = ta @ tb
+        tQR = taQ @ tbR
+        tQR.transpose_like_(tab)
+        assert_allclose(tab.data, tQR.data)
 
 
 class TestTensorNetwork:
@@ -1589,6 +1684,112 @@ class TestTensorNetwork:
         tn.fuse_multibonds(inplace=True)
         assert len(tn.inner_inds()) == 3
 
+    def test_make_single_bond_bond_ind(self):
+        from quimb.tensor.tensor_core import tensor_make_single_bond
+
+        def pair():
+            # t1 and t2 share a multibond ('b', 'c')
+            t1 = rand_tensor((2, 3, 4), ["a", "b", "c"])
+            t2 = rand_tensor((3, 4, 5), ["b", "c", "e"])
+            return t1, t2
+
+        # default (None) -> first shared index
+        t1, t2 = pair()
+        assert tensor_make_single_bond(t1, t2)[1] == "b"
+
+        # a set prefers a shared index that appears in it
+        t1, t2 = pair()
+        _, bix, _ = tensor_make_single_bond(t1, t2, bond_ind={"c", "zzz"})
+        assert bix == "c"
+        assert set(t1.inds) & set(t2.inds) == {"c"}  # fused down to one bond
+
+        # a set with no shared member falls back to the first shared index
+        t1, t2 = pair()
+        assert tensor_make_single_bond(t1, t2, bond_ind={"x", "y"})[1] == "b"
+
+        # an explicit str renames the fused multibond
+        t1, t2 = pair()
+        _, bix, _ = tensor_make_single_bond(t1, t2, bond_ind="b")
+        assert bix == "b"
+        assert set(t1.inds) & set(t2.inds) == {"b"}
+
+    def test_make_single_bond_create_bond(self):
+        from quimb.tensor.tensor_core import tensor_make_single_bond
+
+        # no shared bond + create_bond + str -> uses that exact name
+        t1 = rand_tensor((2, 3), ["a", "b"])
+        t2 = rand_tensor((4, 5), ["e", "f"])
+        _, bix, _ = tensor_make_single_bond(
+            t1, t2, create_bond=True, bond_ind="newbond"
+        )
+        assert bix == "newbond"
+        assert "newbond" in t1.inds and "newbond" in t2.inds
+
+        # create_bond + non-str (set/None) -> fresh random name on both
+        t1 = rand_tensor((2, 3), ["a", "b"])
+        t2 = rand_tensor((4, 5), ["e", "f"])
+        _, bix, _ = tensor_make_single_bond(
+            t1, t2, create_bond=True, bond_ind={"x"}
+        )
+        assert bix not in ("x", None)
+        assert bix in t1.inds and bix in t2.inds
+
+        # without create_bond there is no bond to make
+        t1 = rand_tensor((2, 3), ["a", "b"])
+        t2 = rand_tensor((4, 5), ["e", "f"])
+        assert tensor_make_single_bond(t1, t2)[1] is None
+
+    def test_gauge_simple_bond_create_bond(self):
+        # tensor_gauge_simple_bond can create the bond it gauges over, using an
+        # explicit name when supplied
+        t1 = rand_tensor((2, 3), ["a", "b"], tags="A")
+        t2 = rand_tensor((4, 5), ["e", "f"], tags="B")
+        gauges = {}
+        qtn.tensor_gauge_simple_bond(
+            t1, t2, gauges, create_bond=True, bond_ind="nb"
+        )
+        assert "nb" in t1.inds and "nb" in t2.inds
+        assert list(gauges) == ["nb"]
+
+        # ... or with no name at all, generating one (no shared bond to
+        # auto-detect, so this exercises the create_bond guard)
+        t1 = rand_tensor((2, 3), ["a", "b"], tags="A")
+        t2 = rand_tensor((4, 5), ["e", "f"], tags="B")
+        gauges = {}
+        qtn.tensor_gauge_simple_bond(t1, t2, gauges, create_bond=True)
+        (bix,) = gauges
+        assert bix in t1.inds and bix in t2.inds
+
+    def test_gauge_simple_bond_renorm(self):
+        # renorm=False (default) stores the raw singular values, renorm=True
+        # stores a unit-norm gauge and accrues the stripped scale into
+        # info["exponent"]
+        def pair():
+            ta = rand_tensor((4, 5), ["a", "b"], tags="A", seed=42)
+            tb = rand_tensor((5, 4), ["b", "c"], tags="B", seed=43)
+            return ta, tb
+
+        g_raw = {}
+        qtn.tensor_gauge_simple_bond(*pair(), g_raw)
+        (s_raw,) = g_raw.values()
+
+        g_norm = {}
+        info = {"exponent": 0.0}
+        qtn.tensor_gauge_simple_bond(*pair(), g_norm, renorm=True, info=info)
+        (s_norm,) = g_norm.values()
+
+        # normalized gauge has unit norm
+        assert np.linalg.norm(s_norm) == pytest.approx(1.0)
+        # and the stripped scale recovers the raw singular values
+        assert_allclose(s_raw, s_norm * 10 ** info["exponent"])
+
+        # no "exponent" key -> info left untouched, gauge still normalized
+        info = {}
+        g2 = {}
+        qtn.tensor_gauge_simple_bond(*pair(), g2, renorm=True, info=info)
+        assert info == {}
+        assert np.linalg.norm(next(iter(g2.values()))) == pytest.approx(1.0)
+
     def test_cut_bond(self):
         ta = qtn.rand_tensor((2, 2, 2), inds="abc", tags="A")
         tb = qtn.rand_tensor((2, 2, 2), inds="cde", tags="B")
@@ -1857,6 +2058,57 @@ class TestTensorNetwork:
         assert tn_other.num_tensors == 6
         d = tn_other.distance(tn)
         assert d == pytest.approx(d1)
+
+    @pytest.mark.parametrize(
+        "gauge_power,gauge_smudge",
+        [(1.0, 0.0), (0.5, 0.1)],
+    )
+    def test_insert_compressor_with_simple_gauges(
+        self,
+        gauge_power,
+        gauge_smudge,
+    ):
+        peps = qtn.PEPS.rand(4, 4, 2, dtype="complex128", seed=42)
+        ltags = (peps.site_tag(1, 1), peps.site_tag(2, 1))
+        rtags = (peps.site_tag(1, 2), peps.site_tag(2, 2))
+        pair = peps.select_any(ltags + rtags, virtual=False)
+        geometry_hash = pair.geometry_hash()
+        gauges = {
+            ix: np.linspace(0.4, 1.3, peps.ind_size(ix))
+            for ix in peps.inner_inds()
+        }
+
+        # construct the previous explicit simple-gauge reference
+        pair_gauged = pair.copy()
+        pair_gauged.gauge_simple_insert(
+            gauges,
+            smudge=gauge_smudge,
+            power=gauge_power,
+        )
+        reference = pair.copy()
+        pair_gauged.insert_compressor_between_regions_(
+            ltags,
+            rtags,
+            max_bond=2,
+            cutoff=0.0,
+            insert_into=reference,
+        )
+
+        direct = pair.insert_compressor_between_regions(
+            ltags,
+            rtags,
+            max_bond=2,
+            cutoff=0.0,
+            gauges=gauges,
+            gauge_smudge=gauge_smudge,
+            gauge_power=gauge_power,
+        )
+
+        assert pair.geometry_hash() == geometry_hash
+        assert direct.distance_normalized(reference) == pytest.approx(
+            0.0,
+            abs=1e-6,
+        )
 
 
 class TestTensorNetworkSimplifications:

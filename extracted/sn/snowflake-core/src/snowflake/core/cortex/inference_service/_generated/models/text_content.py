@@ -47,6 +47,7 @@ class TextContent(BaseModel):
 
     @field_validator("type")
     def type_validate_enum(cls, v):
+
         if v not in ("text"):
             raise ValueError("must validate the enum values ('text')")
         return v

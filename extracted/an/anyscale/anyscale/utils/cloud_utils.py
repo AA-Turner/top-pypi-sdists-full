@@ -22,10 +22,63 @@ from anyscale.client.openapi_client.models import (
     CreateAnalyticsEvent,
 )
 from anyscale.cloud_utils import get_cloud_id_and_name
+from anyscale.shared_anyscale_utils.aws import AwsArn
 from anyscale.shared_anyscale_utils.utils.collections import flatten
 
 
 V = TypeVar("V")
+
+
+# AWS's published documentation example account ID; no real AWS account uses it.
+# It appears in our cloud-registration docs, so users sometimes copy the example
+# IAM ARN verbatim instead of supplying their own account.
+PLACEHOLDER_AWS_ACCOUNT_ID = "123456789012"
+PLACEHOLDER_BUCKET_NAMES = frozenset({"s3://my-bucket", "gs://my-bucket"})
+
+
+def _arn_account_id(arn: str) -> Optional[str]:
+    """Return the account ID segment of an ARN, or None when it isn't an ARN.
+
+    GCP service-account emails and other non-ARN identities fail to parse, so
+    they never match the placeholder account. Case folding lets a copied example
+    match regardless of how it was pasted; account IDs are digits, so it cannot
+    change the segment being compared.
+    """
+    try:
+        return AwsArn.from_string(arn.strip().lower()).account_id
+    except ValueError:
+        return None
+
+
+def placeholder_credential_problems(cloud_resource: CloudDeployment) -> List[str]:
+    """Describe any documentation-example placeholder values in a cloud resource.
+
+    Mirrors the server-side check so the CLI can fail before the API call. Each
+    entry names the offending value and how to fix it.
+    """
+    iam_identity = (
+        cloud_resource.kubernetes_config.anyscale_operator_iam_identity
+        if cloud_resource.kubernetes_config
+        else None
+    )
+    bucket_name = (
+        cloud_resource.object_storage.bucket_name
+        if cloud_resource.object_storage
+        else None
+    )
+    problems: List[str] = []
+    if iam_identity and _arn_account_id(iam_identity) == PLACEHOLDER_AWS_ACCOUNT_ID:
+        problems.append(
+            f'The Anyscale operator IAM identity "{iam_identity}" uses AWS\'s '
+            f"documentation example account {PLACEHOLDER_AWS_ACCOUNT_ID}. Replace it "
+            "with your own AWS account's role."
+        )
+    if bucket_name and bucket_name.rstrip("/").lower() in PLACEHOLDER_BUCKET_NAMES:
+        problems.append(
+            f'The object storage bucket "{bucket_name}" is a documentation example '
+            "value. Replace it with your own bucket."
+        )
+    return problems
 
 
 def _resolve_cloud_provider(cloud_resource: CloudDeployment) -> str:

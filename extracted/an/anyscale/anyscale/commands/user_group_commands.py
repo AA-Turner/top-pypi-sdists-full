@@ -20,6 +20,7 @@ from anyscale.commands.output_format import (
     OUTPUT_FLAG_LONG,
     OutputFormat,
     print_output,
+    warn_deprecated_flag,
 )
 from anyscale.commands.util import AnyscaleCommand
 from anyscale.user_group.models import UserGroup
@@ -36,8 +37,12 @@ def user_group_cli() -> None:
 @command_metadata(
     status=ReleaseStatus.BETA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[
+        OutputFormat.TEXT,
+        OutputFormat.JSON,
+        OutputFormat.YAML,
+        OutputFormat.TABLE,
+    ],
     examples=[
         CommandExample(
             description="List user groups in the organization.",
@@ -75,7 +80,6 @@ def user_group_cli() -> None:
     type=click.Choice([f.value for f in OutputFormat]),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 def list_user_groups(max_items: int, output_format: str) -> None:
@@ -105,8 +109,7 @@ def list_user_groups(max_items: int, output_format: str) -> None:
 @command_metadata(
     status=ReleaseStatus.BETA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
     examples=[
         CommandExample(
             description="Get a user group by ID.",
@@ -136,10 +139,11 @@ def list_user_groups(max_items: int, output_format: str) -> None:
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 def get_user_group(id: str, output_format: str) -> None:  # noqa: A002
@@ -175,7 +179,13 @@ def membership_cli() -> None:
 @command_metadata(
     status=ReleaseStatus.BETA,
     since="0.0.0",
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
+    option_docs={
+        "--output": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use --output-file instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="List all user groups with their members.",
@@ -186,6 +196,11 @@ def membership_cli() -> None:
                 "Data Science": ["bob@example.com"],
             },
         ),
+        CommandExample(
+            description="Write the membership list to a JSON file.",
+            command="anyscale user-group membership list --output-file memberships.json",
+            output_raw="Results written to memberships.json\n",
+        ),
     ],
 )
 @membership_cli.command(
@@ -193,6 +208,13 @@ def membership_cli() -> None:
     short_help="List all user groups with their members.",
     cls=AnyscaleCommand,
     is_beta=True,
+)
+@click.option(
+    "--output-file",
+    "output_file",
+    type=click.Path(),
+    default=None,
+    help="Write JSON output to a file instead of stdout.",
 )
 @click.option(
     "--output",
@@ -204,13 +226,16 @@ def membership_cli() -> None:
 @click.option(
     "--output-format",
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
-    help="Output format for the result. Ignored when --output is provided.",
+    help="Output format for the result. Ignored when writing to a file.",
 )
-def list_memberships(output: Optional[str], output_format: str) -> None:
+def list_memberships(
+    output_file: Optional[str], output: Optional[str], output_format: str
+) -> None:
     """
     List all user groups with their members.
 
@@ -236,9 +261,12 @@ def list_memberships(output: Optional[str], output_format: str) -> None:
         json_output = json.dumps(simple_output, indent=2)
 
         if output:
-            with open(output, "w") as f:
+            warn_deprecated_flag("-o/--output", "--output-file")
+        file_target = output_file or output
+        if file_target:
+            with open(file_target, "w") as f:
                 f.write(json_output)
-            log.info(f"Results written to {output}")
+            log.info(f"Results written to {file_target}")
         elif output_format != OutputFormat.TEXT.value:
             print_output(simple_output, output_format)
         else:

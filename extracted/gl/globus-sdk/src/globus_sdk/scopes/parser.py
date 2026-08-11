@@ -95,7 +95,11 @@ class ScopeParser:
 
         Example usage:
 
-        .. code-block:: pycon
+        .. testsetup::
+
+            from globus_sdk.scopes import ScopeParser, Scope
+
+        .. doctest::
 
             >>> ScopeParser.serialize([Scope("foo"), "bar", Scope("qux")])
             'foo bar qux'

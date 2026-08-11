@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: brevo-python
-Version: 5.0.1
+Version: 5.0.2
 Summary: 
 Keywords: api,sdk,client,brevo,sendinblue,transactional,email,sms,marketing,automation
 Requires-Python: >=3.8,<4.0

@@ -7,36 +7,18 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .types import (
-        AssignAssignmentsRequestType,
-        BulkAssignAssignmentsRequestFilters,
-        BulkAssignAssignmentsRequestFiltersConjunction,
-        BulkAssignAssignmentsRequestFiltersItemsItem,
-        BulkAssignAssignmentsRequestFiltersItemsItemFilter,
-        BulkAssignAssignmentsRequestFiltersItemsItemOperator,
-        BulkAssignAssignmentsRequestFiltersItemsItemValue,
-        BulkAssignAssignmentsRequestSelectedItems,
-        BulkAssignAssignmentsRequestSelectedItemsExcluded,
-        BulkAssignAssignmentsRequestSelectedItemsIncluded,
-        BulkAssignAssignmentsRequestType,
         BulkAssignAssignmentsResponse,
+        BulkTaskAssigneesRequestRequestSelectedItems,
+        BulkTaskAssigneesRequestRequestSelectedItemsExcluded,
+        BulkTaskAssigneesRequestRequestSelectedItemsIncluded,
         DeleteAssignmentsRequestType,
-        UpdateAssignmentsRequestType,
     )
 _dynamic_imports: typing.Dict[str, str] = {
-    "AssignAssignmentsRequestType": ".types",
-    "BulkAssignAssignmentsRequestFilters": ".types",
-    "BulkAssignAssignmentsRequestFiltersConjunction": ".types",
-    "BulkAssignAssignmentsRequestFiltersItemsItem": ".types",
-    "BulkAssignAssignmentsRequestFiltersItemsItemFilter": ".types",
-    "BulkAssignAssignmentsRequestFiltersItemsItemOperator": ".types",
-    "BulkAssignAssignmentsRequestFiltersItemsItemValue": ".types",
-    "BulkAssignAssignmentsRequestSelectedItems": ".types",
-    "BulkAssignAssignmentsRequestSelectedItemsExcluded": ".types",
-    "BulkAssignAssignmentsRequestSelectedItemsIncluded": ".types",
-    "BulkAssignAssignmentsRequestType": ".types",
     "BulkAssignAssignmentsResponse": ".types",
+    "BulkTaskAssigneesRequestRequestSelectedItems": ".types",
+    "BulkTaskAssigneesRequestRequestSelectedItemsExcluded": ".types",
+    "BulkTaskAssigneesRequestRequestSelectedItemsIncluded": ".types",
     "DeleteAssignmentsRequestType": ".types",
-    "UpdateAssignmentsRequestType": ".types",
 }
 
 
@@ -62,18 +44,9 @@ def __dir__():
 
 
 __all__ = [
-    "AssignAssignmentsRequestType",
-    "BulkAssignAssignmentsRequestFilters",
-    "BulkAssignAssignmentsRequestFiltersConjunction",
-    "BulkAssignAssignmentsRequestFiltersItemsItem",
-    "BulkAssignAssignmentsRequestFiltersItemsItemFilter",
-    "BulkAssignAssignmentsRequestFiltersItemsItemOperator",
-    "BulkAssignAssignmentsRequestFiltersItemsItemValue",
-    "BulkAssignAssignmentsRequestSelectedItems",
-    "BulkAssignAssignmentsRequestSelectedItemsExcluded",
-    "BulkAssignAssignmentsRequestSelectedItemsIncluded",
-    "BulkAssignAssignmentsRequestType",
     "BulkAssignAssignmentsResponse",
+    "BulkTaskAssigneesRequestRequestSelectedItems",
+    "BulkTaskAssigneesRequestRequestSelectedItemsExcluded",
+    "BulkTaskAssigneesRequestRequestSelectedItemsIncluded",
     "DeleteAssignmentsRequestType",
-    "UpdateAssignmentsRequestType",
 ]

@@ -406,8 +406,12 @@ class PrivateJobSDK(WorkloadSDK):
     ) -> JobConfig:
         """Convert ProductionJobConfig to user-facing JobConfig."""
         runtime_env_config: RayRuntimeEnvConfig = prod_job_config.runtime_env if prod_job_config else None
-        compute_config = self.get_user_facing_compute_config(
-            prod_job_config.compute_config_id
+        # An imported KubeRay workload has no compute config (the field is ""),
+        # so skip the lookup, which would raise on an empty id.
+        compute_config = (
+            self.get_user_facing_compute_config(prod_job_config.compute_config_id)
+            if prod_job_config.compute_config_id
+            else None
         )
 
         # Get image_uri from build_id

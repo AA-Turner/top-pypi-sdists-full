@@ -22,7 +22,8 @@ def test_asyncgen_basics() -> None:
     async def example(cause: str) -> AsyncGenerator[int, None]:
         try:
             with contextlib.suppress(GeneratorExit):
-                yield 42
+                # we *want* to test what happens to delayed `await`
+                yield 42  # noqa: ASYNC119
             await _core.checkpoint()
         except _core.Cancelled:
             assert "exhausted" not in cause
@@ -277,14 +278,15 @@ async def test_fallback_when_no_hook_claims_it(
     async def well_behaved() -> AsyncGenerator[int, None]:
         yield 42
 
+    # these noqas are because we *want* to test delayed yield/await!
     async def yields_after_yield() -> AsyncGenerator[int, None]:
         with pytest.raises(GeneratorExit):
-            yield 42
+            yield 42  # noqa: ASYNC119
         yield 100
 
     async def awaits_after_yield() -> AsyncGenerator[int, None]:
         with pytest.raises(GeneratorExit):
-            yield 42
+            yield 42  # noqa: ASYNC119
         await _core.cancel_shielded_checkpoint()
 
     with restore_unraisablehook():
@@ -306,10 +308,12 @@ def test_delegation_to_existing_hooks() -> None:
 
     def my_firstiter(agen: AsyncGenerator[object, NoReturn]) -> None:
         assert isinstance(agen, AsyncGeneratorType)
+        assert agen.ag_frame is not None
         record.append("firstiter " + agen.ag_frame.f_locals["arg"])
 
     def my_finalizer(agen: AsyncGenerator[object, NoReturn]) -> None:
         assert isinstance(agen, AsyncGeneratorType)
+        assert agen.ag_frame is not None
         record.append("finalizer " + agen.ag_frame.f_locals["arg"])
 
     async def example(arg: str) -> AsyncGenerator[int, None]:

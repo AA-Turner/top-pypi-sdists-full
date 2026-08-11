@@ -123,14 +123,12 @@ class Registrar {
                 throw std::runtime_error("Failed to load class: " + desc->class_name);
             }
 
-            GlobalRef<jclass> class_target(local_cls);
-            env->DeleteLocalRef(local_cls);  // Clean up the local reference
+            GlobalRef<jclass> class_target(adopt_local_ref, local_cls);
 
-            // If *desc->class_target is null, we don't set it.
+            // Retain the class only when the descriptor needs it after preloading.
             if (desc->class_target != nullptr) {
                 *desc->class_target = class_target;
             }
-            class_targets[desc->class_name] = class_target;
 
             // Load each method
             for (const MethodDescriptor& method : desc->methods) {
@@ -158,14 +156,12 @@ class Registrar {
                 throw std::runtime_error("Failed to load class: " + desc->class_name);
             }
 
-            GlobalRef<jclass> class_target(local_cls);
-            env->DeleteLocalRef(local_cls);  // Clean up the local reference
+            GlobalRef<jclass> class_target(adopt_local_ref, local_cls);
 
-            // If *desc->class_target is null, we don't set it.
+            // Retain the class only when the descriptor needs it after preloading.
             if (desc->class_target != nullptr) {
                 *desc->class_target = class_target;
             }
-            static_class_targets[desc->class_name] = class_target;
 
             // Load each static method
             for (const MethodDescriptor& method : desc->static_methods) {
@@ -186,16 +182,8 @@ class Registrar {
         static_descriptors.clear();
     }
 
-    GlobalRef<jclass> get_class(const std::string& name) {
-        return class_targets[name];
-    }
-
     jmethodID get_method(const std::string& class_name, const std::string& method_name) {
         return method_targets[class_name][method_name];
-    }
-
-    GlobalRef<jclass> get_static_class(const std::string& name) {
-        return static_class_targets[name];
     }
 
     jmethodID get_static_method(const std::string& class_name, const std::string& method_name) {
@@ -208,10 +196,8 @@ class Registrar {
     Registrar(const Registrar&) = delete;
     Registrar& operator=(const Registrar&) = delete;
 
-    std::unordered_map<std::string, GlobalRef<jclass>> class_targets;
     std::unordered_map<std::string, std::unordered_map<std::string, jmethodID>> method_targets;
 
-    std::unordered_map<std::string, GlobalRef<jclass>> static_class_targets;
     std::unordered_map<std::string, std::unordered_map<std::string, jmethodID>> static_method_targets;
 
     std::vector<const JNIDescriptor*> descriptors;  ///< List of registered descriptors.

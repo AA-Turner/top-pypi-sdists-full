@@ -28,6 +28,10 @@ class ComputeClientV2(client.BaseClient):
     scopes = ComputeScopes
     default_scope_requirements = [ComputeScopes.all]
 
+    # annotate but do not assign 'resource_server'
+    # because we know that the classproperty of this name will evaluate to a string
+    resource_server: str
+
     def get_version(self, service: str | MissingType = MISSING) -> GlobusHTTPResponse:
         """Get the current version of the API and other services.
 

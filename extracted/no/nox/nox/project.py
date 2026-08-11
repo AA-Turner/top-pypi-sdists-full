@@ -1,3 +1,17 @@
+# Copyright 2016 Alethea Katherine Flowers
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from __future__ import annotations
 
 __lazy_modules__ = {
@@ -5,6 +19,7 @@ __lazy_modules__ = {
     "packaging",
     "packaging.requirements",
     "packaging.specifiers",
+    "packaging.version",
     "pathlib",
     "tomllib",
 }
@@ -16,6 +31,7 @@ from typing import TYPE_CHECKING
 
 import packaging.requirements
 import packaging.specifiers
+import packaging.version
 from dependency_groups import resolve
 
 if TYPE_CHECKING:
@@ -108,7 +124,7 @@ def _load_script_block(filepath: Path, *, missing_ok: bool) -> dict[str, Any]:
 
 
 def python_versions(
-    pyproject: dict[str, Any], *, max_version: str | None = None
+    pyproject: dict[str, Any], *, max_version: str | None = None, sort: bool = True
 ) -> list[str]:
     """
     Read a list of supported Python versions. Without ``max_version``, this
@@ -116,6 +132,9 @@ def python_versions(
     will read the requires-python setting for a lower bound, and will use the
     value of ``max_version`` as the upper bound. (Reminder: you should never
     set an upper bound in ``requires-python``).
+
+    Classifier-derived versions are sorted by default. Set ``sort=False`` to
+    preserve classifier order.
 
     Example:
 
@@ -137,6 +156,8 @@ def python_versions(
             if c.startswith("Programming Language :: Python :: 3.")
         ]
         if from_classifiers:
+            if sort:
+                return sorted(from_classifiers, key=packaging.version.Version)
             return from_classifiers
         msg = 'No Python version classifiers found in "project.classifiers"'
         raise ValueError(msg)
@@ -146,15 +167,17 @@ def python_versions(
         msg = 'No "project.requires-python" value set'
         raise ValueError(msg)
 
-    for spec in packaging.specifiers.SpecifierSet(requires_python_str):
-        if spec.operator in {">", ">=", "~="}:
-            min_minor_version = int(spec.version.split(".")[1])
-            break
-    else:
+    lower_bounds = [
+        int(spec.version.split(".")[1]) if "." in spec.version else 0
+        for spec in packaging.specifiers.SpecifierSet(requires_python_str)
+        if spec.operator in {">", ">=", "~="}
+    ]
+    if not lower_bounds:
         msg = 'No minimum version found in "project.requires-python"'
         raise ValueError(msg)
+    min_minor_version = max(lower_bounds)
 
-    max_minor_version = int(max_version.split(".")[1])
+    max_minor_version = int(max_version.split(".")[1]) if "." in max_version else 0
 
     return [f"3.{v}" for v in range(min_minor_version, max_minor_version + 1)]
 

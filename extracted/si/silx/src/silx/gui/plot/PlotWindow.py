@@ -33,6 +33,7 @@ __date__ = "12/04/2019"
 from collections import abc
 import logging
 import weakref
+from io import BytesIO, StringIO
 
 import silx
 from silx.utils.weakref import WeakMethodProxy
@@ -96,9 +97,10 @@ class PlotWindow(PlotWidget):
                      It also supports a list of (name, funct(x, y)->value)
                      to customize the displayed values.
                      See :class:`~silx.gui.plot.tools.PositionInfo`.
-    :param bool roi: Toggle visibilty of ROI action.
-    :param bool mask: Toggle visibilty of mask action.
-    :param bool fit: Toggle visibilty of fit action.
+    :param bool roi: Toggle visibility of ROI action.
+    :param bool mask: Toggle visibility of mask action.
+    :param bool fit: Toggle visibility of fit action.
+    :param bool axisScales: Toggle visibility of axes scale selection actions.
     """
 
     def __init__(
@@ -121,6 +123,7 @@ class PlotWindow(PlotWidget):
         roi=True,
         mask=True,
         fit=False,
+        axisScales=False,
     ):
         super().__init__(parent=parent, backend=backend)
         if parent is None:
@@ -183,6 +186,15 @@ class PlotWindow(PlotWidget):
         )
         self.yAxisLogarithmicAction.setVisible(logScale)
         self.addAction(self.yAxisLogarithmicAction)
+
+        self._xAxisScaleButton = PlotToolButtons.XAxisScaleToolButton(
+            parent=self, plot=self
+        )
+        self._xAxisScaleButton.setVisible(axisScales)
+        self._yAxisScaleButton = PlotToolButtons.YAxisScaleToolButton(
+            parent=self, plot=self
+        )
+        self._yAxisScaleButton.setVisible(axisScales)
 
         self.gridAction = self.group.addAction(
             actions.control.GridAction(self, gridMode="both", parent=self)
@@ -316,6 +328,16 @@ class PlotWindow(PlotWidget):
     @deprecated(since_version="3.0.0", replacement="getPlotOptionButton")
     def controlButton(self):
         return self.getPlotOptionButton()
+
+    @property
+    @deprecated(since_version="3.0.2", replacement="getXAxisScaleButton")
+    def xAxisScaleButton(self):
+        return self.getXAxisScaleButton()
+
+    @property
+    @deprecated(since_version="3.0.2", replacement="getYAxisScaleButton")
+    def yAxisScaleButton(self):
+        return self.getYAxisScaleButton()
 
     def __setCentralWidget(self):
         """Set central widget to host plot backend, colorbar, and bottom bar"""
@@ -476,8 +498,31 @@ class PlotWindow(PlotWidget):
         self.yAxisInvertedAction = toolbar.insertWidget(
             self.colorbarAction, self.yAxisInvertedButton
         )
-
+        toolbar.insertWidget(self.gridAction, self._xAxisScaleButton)
+        toolbar.insertWidget(self.gridAction, self._yAxisScaleButton)
         return toolbar
+
+    def saveGraph(
+        self,
+        filename: str | StringIO | BytesIO,
+        fileFormat: str | None = None,
+        dpi: int | None = None,
+    ) -> bool:
+        # Overwrite the original function to be able to grab the central widget and
+        # potentially have the colorbar embed.
+        if fileFormat == "png":
+            centralWidget = self.centralWidget()
+            pixmap = centralWidget.grab()
+            if dpi is None:
+                pixmap.save(filename)
+            else:
+                image = pixmap.toImage()
+                # note: 0.0254 is used to convert from inch to meter
+                image.setDotsPerMeterX(dpi / 0.0254)
+                image.setDotsPerMeterY(dpi / 0.0254)
+                image.save(filename)
+            return True
+        return super().saveGraph(filename=filename, fileFormat=fileFormat, dpi=dpi)
 
     def toolBar(self):
         """Return a QToolBar from the QAction of the PlotWindow."""
@@ -744,6 +789,12 @@ class PlotWindow(PlotWidget):
         """
         return self.yAxisLogarithmicAction
 
+    def getXAxisScaleButton(self) -> PlotToolButtons.XAxisScaleToolButton:
+        return self._xAxisScaleButton
+
+    def getYAxisScaleButton(self) -> PlotToolButtons.YAxisScaleToolButton:
+        return self._yAxisScaleButton
+
     def getGridAction(self):
         """Action to toggle the grid visibility in the plot
 
@@ -884,7 +935,8 @@ class Plot1D(PlotWindow):
             backend=backend,
             resetzoom=True,
             autoScale=True,
-            logScale=True,
+            logScale=False,
+            axisScales=True,
             grid=True,
             curveStyle=True,
             colormap=False,
@@ -936,6 +988,7 @@ class Plot2D(PlotWindow):
             resetzoom=True,
             autoScale=False,
             logScale=False,
+            axisScales=False,
             grid=False,
             curveStyle=False,
             colormap=True,

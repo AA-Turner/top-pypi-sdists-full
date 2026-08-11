@@ -11,7 +11,10 @@ from anyscale._private.models.integrations import ConnectionConfig, ConnectionTy
 from anyscale._private.workload import WorkloadConfig
 from anyscale.cli_logger import BlockLogger
 from anyscale.commands.doc_metadata import ReleaseStatus
-from anyscale.commands.help_examples_formatter import render_examples_for_help
+from anyscale.commands.help_examples_formatter import (
+    format_flag_for_command,
+    render_examples_for_help,
+)
 
 
 logger = BlockLogger()
@@ -92,7 +95,10 @@ class AnyscaleCommand(click.Command):
     def format_epilog(self, ctx, formatter) -> None:
         """Append an Examples section to --help from the command_metadata examples."""
         super().format_epilog(ctx, formatter)
-        rendered = render_examples_for_help(getattr(self, "doc_metadata", None))
+        rendered = render_examples_for_help(
+            getattr(self, "doc_metadata", None),
+            output_flag=format_flag_for_command(self),
+        )
         if not rendered:
             return
         with formatter.section("Examples"):

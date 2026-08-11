@@ -30,7 +30,7 @@ class ExportPricing(BaseModel):
     baseline_usd: Union[StrictFloat, StrictInt] = Field(description="Flat USD charged once per card export, independent of row count.")
     row_cpm_usd: Union[StrictFloat, StrictInt] = Field(description="USD charged per 1,000 rows on rows beyond the free allowance (free_rows). Card-level total across the card's priced sources; no per-source breakdown.")
     free_rows: StrictInt = Field(description="Rows included at the baseline price before the per-1,000-row rate (row_cpm_usd) begins to apply. This is the /contents free row allowance. It is not the inline free row allowance of a search or answer response, which can be larger.")
-    max_rows_ceiling: StrictInt = Field(description="Hard cap on rows a single export can return and bill; a larger requested max_rows is clamped to this. Applies to the row-based formats (csv, json_records, json_compact) only. A card_json export is a semantic document with no row cap: it bills every record row, so above this number the formula understates the charge. Send quote_only for an exact card_json price.")
+    max_rows_ceiling: StrictInt = Field(description="Hard cap on rows a single export can return and bill; a larger requested max_rows is clamped to this. No format bills more than the clamped max_rows, and none bills more rows than it returns. A card_json export returns the complete payload, which can hold more record rows than this ceiling. Tako delivers those rows and does not bill them.")
     __properties: ClassVar[List[str]] = ["baseline_usd", "row_cpm_usd", "free_rows", "max_rows_ceiling"]
 
     model_config = ConfigDict(

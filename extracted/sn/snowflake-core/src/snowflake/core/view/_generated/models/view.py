@@ -98,6 +98,7 @@ class View(BaseModel):
 
     @field_validator("kind")
     def kind_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("PERMANENT", "TEMPORARY"):

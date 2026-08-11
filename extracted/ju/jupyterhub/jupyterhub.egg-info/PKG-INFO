@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyterhub
-Version: 5.5.0
+Version: 5.5.1
 Summary: JupyterHub: A multi-user server for Jupyter notebooks
 Author-email: Jupyter Development Team <jupyter@googlegroups.com>
 License: BSD-3-Clause

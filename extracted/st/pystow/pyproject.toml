@@ -4,18 +4,9 @@ build-backend = "uv_build"
 
 [project]
 name = "pystow"
-version = "0.8.21"
+version = "0.9.0"
 description = "Easily pick a place to store data for your Python code"
 readme = "README.md"
-authors = [
-    { name = "Charles Tapley Hoyt", email = "cthoyt@gmail.com" }
-]
-maintainers = [
-    { name = "Charles Tapley Hoyt", email = "cthoyt@gmail.com" }
-]
-
-# See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#classifiers
-# Search tags using the controlled vocabulary at https://pypi.org/classifiers
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
@@ -26,7 +17,6 @@ classifiers = [
     "Framework :: Sphinx",
     "Natural Language :: English",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -35,23 +25,55 @@ classifiers = [
     "Typing :: Typed",
 ]
 keywords = [
-    "snekpack", # please keep this keyword to credit the cookiecutter-snekpack template
+    "snekpack",
     "cookiecutter",
     "caching",
-    "file management"
+    "file management",
 ]
-
-# License Information.
-# See PEP-639 at https://peps.python.org/pep-0639/#add-license-files-key
 license = "MIT"
 license-files = ["LICENSE"]
-
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "tqdm",
     "typing-extensions",
     "backports.zstd; python_version < '3.14'",
 ]
+
+[[project.authors]]
+name = "Charles Tapley Hoyt"
+email = "cthoyt@gmail.com"
+
+[[project.maintainers]]
+name = "Charles Tapley Hoyt"
+email = "cthoyt@gmail.com"
+
+[project.optional-dependencies]
+rdf = ["rdflib"]
+xml = ["lxml"]
+pandas = ["pandas"]
+aws = ["boto3"]
+ratelimit = [
+    "ratelimit",
+    "requests",
+]
+bs4 = [
+    "bs4",
+    "requests",
+]
+yaml = ["pyyaml"]
+pydantic = ["pydantic"]
+cli = ["click"]
+requests = ["requests"]
+
+[project.urls]
+"Bug Tracker" = "https://github.com/cthoyt/pystow/issues"
+Homepage = "https://github.com/cthoyt/pystow"
+Repository = "https://github.com/cthoyt/pystow.git"
+Documentation = "https://pystow.readthedocs.io"
+Funding = "https://github.com/sponsors/cthoyt"
+
+[project.scripts]
+pystow = "pystow.cli:main"
 
 [dependency-groups]
 tests = [
@@ -73,60 +95,25 @@ docs = [
     "sphinx-automodapi",
 ]
 
-[project.optional-dependencies]
-rdf = ["rdflib"]
-xml = ["lxml"]
-pandas = ["pandas"]
-aws = ["boto3"]
-ratelimit = ["ratelimit", "requests"]
-bs4 = ["bs4", "requests"]
-yaml = ["pyyaml"]
-pydantic = ["pydantic"]
-cli = ["click"]
-requests = ["requests"]
-
-# See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#urls
-# and also https://packaging.python.org/en/latest/specifications/well-known-project-urls/
-[project.urls]
-"Bug Tracker" = "https://github.com/cthoyt/pystow/issues"
-Homepage = "https://github.com/cthoyt/pystow"
-Repository = "https://github.com/cthoyt/pystow.git"
-Documentation = "https://pystow.readthedocs.io"
-Funding = "https://github.com/sponsors/cthoyt"
-
-[project.scripts]
-pystow = "pystow.cli:main"
-
 [tool.cruft]
 skip = [
     "**/__init__.py",
-    "tests/*"
+    "tests/*",
 ]
 
-# MyPy, see https://mypy.readthedocs.io/en/stable/config_file.html
 [tool.mypy]
-plugins = [
-]
+plugins = []
 
-# Doc8, see https://doc8.readthedocs.io/en/stable/readme.html#ini-file-usage
 [tool.doc8]
 max-line-length = 120
 
-# Pytest, see https://docs.pytest.org/en/stable/reference/customize.html#pyproject-toml
 [tool.pytest.ini_options]
-markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-]
-filterwarnings = [
-    "ignore::pyparsing.exceptions.PyparsingDeprecationWarning"
-]
+markers = ["""slow: marks tests as slow (deselect with '-m "not slow"')"""]
+filterwarnings = ["ignore::pyparsing.exceptions.PyparsingDeprecationWarning"]
 
-# Coverage, see https://coverage.readthedocs.io/en/latest/config.html
 [tool.coverage.run]
 branch = true
-source = [
-    "pystow",
-]
+source = ["pystow"]
 omit = [
     "tests/*",
     "docs/*",
@@ -143,7 +130,7 @@ show_missing = true
 exclude_lines = [
     "pragma: no cover",
     "raise NotImplementedError",
-    "if __name__ == \"__main__\":",
+    'if __name__ == "__main__":',
     "if TYPE_CHECKING:",
     "def __str__",
     "def __repr__",
@@ -154,39 +141,36 @@ line-length = 100
 extend-include = ["*.ipynb"]
 
 [tool.ruff.lint]
-# See https://docs.astral.sh/ruff/rules
 extend-select = [
-    "F", # pyflakes
-    "E", # pycodestyle errors
-    "W", # pycodestyle warnings
-    "C90", # mccabe
-    "I", # isort
-    "UP", # pyupgrade
-    "D", # pydocstyle
-    "DOC", # pydoclint
-    "B", # bugbear
-    "S", # bandit
-    "T20", # print
-    "N", # pep8 naming
-    "ERA", # eradicate commented out code
-    "NPY", # numpy checks
-    "RUF", # ruff rules
-    "C4", # comprehensions
+    "F",
+    "E",
+    "W",
+    "C90",
+    "I",
+    "UP",
+    "D",
+    "DOC",
+    "B",
+    "S",
+    "T20",
+    "N",
+    "ERA",
+    "NPY",
+    "RUF",
+    "C4",
 ]
 ignore = [
-    "D105", # Missing docstring in magic method
-    "E203", # Black conflicts with the following
-    "S301", # yolo pickle
+    "D105",
+    "E203",
+    "S301",
 ]
 
-
-# See https://docs.astral.sh/ruff/settings/#per-file-ignores
 [tool.ruff.lint.per-file-ignores]
-# Ignore security issues in the version.py, which are inconsistent
-"src/pystow/version.py" = ["S603", "S607"]
-# Ignore commented out code in Sphinx configuration file
+"src/pystow/version.py" = [
+    "S603",
+    "S607",
+]
 "docs/source/conf.py" = ["ERA001"]
-# Prints are okay in notebooks
 "notebooks/**/*.ipynb" = ["T201"]
 
 [tool.ruff.lint.pydocstyle]
@@ -194,21 +178,18 @@ convention = "pep257"
 
 [tool.ruff.lint.isort]
 relative-imports-order = "closest-to-furthest"
-known-third-party = [
-    "tqdm",
-]
+known-third-party = ["tqdm"]
 known-first-party = [
     "pystow",
     "tests",
 ]
 
 [tool.ruff.format]
-# see https://docs.astral.sh/ruff/settings/#format_docstring-code-format
 docstring-code-format = true
 
 [tool.bumpversion]
-current_version = "0.8.21"
-parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(?:-(?P<release>[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?(?:\\+(?P<build>[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?"
+current_version = "0.9.0"
+parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(?:-(?P<release>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+(?P<build>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?'
 serialize = [
     "{major}.{minor}.{patch}-{release}+{build}",
     "{major}.{minor}.{patch}+{build}",
@@ -228,15 +209,15 @@ values = [
 
 [[tool.bumpversion.files]]
 filename = "pyproject.toml"
-search = "version = \"{current_version}\""
-replace = "version = \"{new_version}\""
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
 
 [[tool.bumpversion.files]]
 filename = "docs/source/conf.py"
-search = "release = \"{current_version}\""
-replace = "release = \"{new_version}\""
+search = 'release = "{current_version}"'
+replace = 'release = "{new_version}"'
 
 [[tool.bumpversion.files]]
 filename = "src/pystow/version.py"
-search = "VERSION = \"{current_version}\""
-replace = "VERSION = \"{new_version}\""
+search = 'VERSION = "{current_version}"'
+replace = 'VERSION = "{new_version}"'

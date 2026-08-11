@@ -48,10 +48,16 @@ from openai.types.responses.response_reasoning_text_done_event import (
 )
 from openai.types.responses.response_usage import OutputTokensDetails
 
-from ..exceptions import ModelBehaviorError, UserError
+from ..exceptions import AgentsException, ModelBehaviorError, UserError
 from ..items import TResponseStreamEvent
 from ..logger import logger
-from ..usage import _cache_write_tokens, _make_input_tokens_details
+from ..usage import (
+    _attach_raw_usage_snapshot,
+    _cache_write_tokens,
+    _extract_raw_usage_snapshot,
+    _make_input_tokens_details,
+    _mark_request_completed_without_usage,
+)
 from .chatcmpl_helpers import ChatCmplHelpers
 from .fake_id import FAKE_RESPONSES_ID
 
@@ -288,6 +294,12 @@ class ChatCmplStreamHandler:
             return True
 
         if hasattr(delta, "thinking_blocks") and delta.thinking_blocks:
+            return True
+
+        if getattr(delta, "annotations", None):
+            return True
+
+        if getattr(delta, "audio", None):
             return True
 
         return False
@@ -581,6 +593,7 @@ class ChatCmplStreamHandler:
         stream: AsyncStream[ChatCompletionChunk],
         model: str | None = None,
         strict_feature_validation: bool = False,
+        preserve_raw_usage: bool = False,
     ) -> AsyncIterator[TResponseStreamEvent]:
         """
         Handle a streaming chat completion response and yield response events.
@@ -590,8 +603,11 @@ class ChatCmplStreamHandler:
             stream: The async stream of chat completion chunks from the model
             model: The source model that is generating this stream. Used to handle
                 provider-specific stream processing.
+            preserve_raw_usage: Whether to retain the last provider usage payload before
+                converting it to the Responses usage shape.
         """
         usage: CompletionUsage | None = None
+        raw_usage: dict[str, Any] | None = None
         state = StreamingState()
         output_layout = _StreamOutputLayout()
         sequence_number = SequenceNumber()
@@ -613,6 +629,8 @@ class ChatCmplStreamHandler:
             # Only update when chunk has usage data (not always in the last chunk)
             if hasattr(chunk, "usage") and chunk.usage is not None:
                 usage = chunk.usage
+                if preserve_raw_usage:
+                    raw_usage = _extract_raw_usage_snapshot(chunk, fallback=chunk.usage)
 
             if not chunk.choices:
                 continue
@@ -657,6 +675,11 @@ class ChatCmplStreamHandler:
 
             delta = choice.delta
             choice_logprobs = choice.logprobs
+
+            if getattr(delta, "audio", None):
+                # The sync converter rejects audio output; a silent empty stream would
+                # diverge from that released behavior.
+                raise AgentsException("Audio is not currently supported")
 
             # Handle thinking blocks from Anthropic (for preserving signatures)
             if hasattr(delta, "thinking_blocks") and delta.thinking_blocks:
@@ -811,23 +834,28 @@ class ChatCmplStreamHandler:
                             logprobs=[],
                         ),
                     )
-                    # Start a new assistant message stream
-                    assistant_item = ResponseOutputMessage(
-                        id=FAKE_RESPONSES_ID,
-                        content=[],
-                        role="assistant",
-                        type="message",
-                        status="in_progress",
-                    )
-                    if state.provider_data:
-                        assistant_item.provider_data = state.provider_data.copy()  # type: ignore[attr-defined]
-                    # Notify consumers of the start of a new output message + first content part
-                    yield ResponseOutputItemAddedEvent(
-                        item=assistant_item,
-                        output_index=output_layout.assistant_message_output_index(state),
-                        type="response.output_item.added",
-                        sequence_number=sequence_number.get_and_increment(),
-                    )
+                    # A refusal part already opened this assistant message, so only the new
+                    # content part is announced here. Re-announcing the message would emit a
+                    # second response.output_item.added for an item that is already open and
+                    # is closed by a single response.output_item.done.
+                    if content_index == 0:
+                        # Start a new assistant message stream
+                        assistant_item = ResponseOutputMessage(
+                            id=FAKE_RESPONSES_ID,
+                            content=[],
+                            role="assistant",
+                            type="message",
+                            status="in_progress",
+                        )
+                        if state.provider_data:
+                            assistant_item.provider_data = state.provider_data.copy()  # type: ignore[attr-defined]
+                        # Notify consumers of the start of a new output message
+                        yield ResponseOutputItemAddedEvent(
+                            item=assistant_item,
+                            output_index=output_layout.assistant_message_output_index(state),
+                            type="response.output_item.added",
+                            sequence_number=sequence_number.get_and_increment(),
+                        )
                     yield ResponseContentPartAddedEvent(
                         content_index=state.text_content_index_and_output[0],
                         item_id=FAKE_RESPONSES_ID,
@@ -843,12 +871,12 @@ class ChatCmplStreamHandler:
                     )
                 delta_logprobs = (
                     ChatCmplHelpers.convert_logprobs_for_text_delta(
-                        choice_logprobs.content if choice_logprobs else None
+                        choice_logprobs.content if choice_logprobs is not None else None
                     )
                     or []
                 )
                 output_logprobs = ChatCmplHelpers.convert_logprobs_for_output_text(
-                    choice_logprobs.content if choice_logprobs else None
+                    choice_logprobs.content if choice_logprobs is not None else None
                 )
                 # Emit the delta for this segment of content
                 yield ResponseTextDeltaEvent(
@@ -871,6 +899,13 @@ class ChatCmplStreamHandler:
                         # every content delta, which would be O(n^2) over a long stream.
                         existing_logprobs.extend(output_logprobs)
 
+            # Handle url citations. These can arrive on the delta carrying the cited text
+            # or on a later one, so this sits outside the content branch above.
+            if state.text_content_index_and_output:
+                state.text_content_index_and_output[1].annotations.extend(
+                    ChatCmplHelpers.convert_url_citations(getattr(delta, "annotations", None))
+                )
+
             # Handle refusals (model declines to answer)
             # This is always set by the OpenAI API, but not by others e.g. LiteLLM
             if hasattr(delta, "refusal") and delta.refusal:
@@ -883,23 +918,28 @@ class ChatCmplStreamHandler:
                         refusal_index,
                         ResponseOutputRefusal(refusal="", type="refusal"),
                     )
-                    # Start a new assistant message if one doesn't exist yet (in-progress)
-                    assistant_item = ResponseOutputMessage(
-                        id=FAKE_RESPONSES_ID,
-                        content=[],
-                        role="assistant",
-                        type="message",
-                        status="in_progress",
-                    )
-                    if state.provider_data:
-                        assistant_item.provider_data = state.provider_data.copy()  # type: ignore[attr-defined]
-                    # Notify downstream that assistant message + first content part are starting
-                    yield ResponseOutputItemAddedEvent(
-                        item=assistant_item,
-                        output_index=output_layout.assistant_message_output_index(state),
-                        type="response.output_item.added",
-                        sequence_number=sequence_number.get_and_increment(),
-                    )
+                    # A text part already opened this assistant message, so only the new
+                    # content part is announced here. Re-announcing the message would emit a
+                    # second response.output_item.added for an item that is already open and
+                    # is closed by a single response.output_item.done.
+                    if refusal_index == 0:
+                        # Start a new assistant message if one doesn't exist yet (in-progress)
+                        assistant_item = ResponseOutputMessage(
+                            id=FAKE_RESPONSES_ID,
+                            content=[],
+                            role="assistant",
+                            type="message",
+                            status="in_progress",
+                        )
+                        if state.provider_data:
+                            assistant_item.provider_data = state.provider_data.copy()  # type: ignore[attr-defined]
+                        # Notify downstream that the assistant message is starting
+                        yield ResponseOutputItemAddedEvent(
+                            item=assistant_item,
+                            output_index=output_layout.assistant_message_output_index(state),
+                            type="response.output_item.added",
+                            sequence_number=sequence_number.get_and_increment(),
+                        )
                     yield ResponseContentPartAddedEvent(
                         content_index=state.refusal_content_index_and_output[0],
                         item_id=FAKE_RESPONSES_ID,
@@ -1205,10 +1245,17 @@ class ChatCmplStreamHandler:
             )
             if state.provider_data:
                 assistant_msg.provider_data = state.provider_data.copy()  # type: ignore[attr-defined]
+            # Assemble the parts in the order of the content indexes already announced by
+            # the content_part events. A refusal that opened before any text holds index 0
+            # and the text holds index 1, so appending text first would contradict the
+            # indexes consumers already received.
+            content_parts: list[tuple[int, ResponseOutputText | ResponseOutputRefusal]] = []
             if state.text_content_index_and_output:
-                assistant_msg.content.append(state.text_content_index_and_output[1])
+                content_parts.append(state.text_content_index_and_output)
             if state.refusal_content_index_and_output:
-                assistant_msg.content.append(state.refusal_content_index_and_output[1])
+                content_parts.append(state.refusal_content_index_and_output)
+            content_parts.sort(key=lambda entry: entry[0])
+            assistant_msg.content.extend(part for _, part in content_parts)
             outputs.append(assistant_msg)
 
             # send a ResponseOutputItemDone for the assistant message
@@ -1245,6 +1292,13 @@ class ChatCmplStreamHandler:
             if usage
             else None
         )
+        if preserve_raw_usage:
+            _attach_raw_usage_snapshot(final_response, raw_usage)
+        if usage is None:
+            # The stream reached a terminal response, so a request was made even though the
+            # provider reported no usage. Record that without inventing a usage payload, so
+            # the raw usage snapshot stays absent and tokens are not reported as real zeros.
+            _mark_request_completed_without_usage(final_response)
 
         yield ResponseCompletedEvent(
             response=final_response,

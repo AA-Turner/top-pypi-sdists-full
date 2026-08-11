@@ -231,14 +231,6 @@ class CfnApp(
         return typing.cast("_aws_opsworks_6e5d4451.AppReference", jsii.get(self, "appRef"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -1233,14 +1225,6 @@ class CfnElasticLoadBalancerAttachment(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -1571,14 +1555,6 @@ class CfnInstance(
         :cloudformationAttribute: AvailabilityZone
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrAvailabilityZone"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
     @jsii.member(jsii_name="attrPrivateDnsName")
@@ -3035,14 +3011,6 @@ class CfnLayer(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -4656,41 +4624,6 @@ class CfnStack(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
-    @jsii.member(jsii_name="arnForStack")
-    @builtins.classmethod
-    def arn_for_stack(
-        cls,
-        resource: "_aws_opsworks_6e5d4451.IStackRef",
-    ) -> builtins.str:
-        '''
-        :param resource: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__015ca0f7b5228e7bd36cf5418d26e409a55fab7ddc33200ce3aa93de6c06b43e)
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForStack", [resource]))
-
-    @jsii.member(jsii_name="fromStackId")
-    @builtins.classmethod
-    def from_stack_id(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        stack_id: builtins.str,
-    ) -> "_aws_opsworks_6e5d4451.IStackRef":
-        '''Creates a new IStackRef from a stackId.
-
-        :param scope: -
-        :param id: -
-        :param stack_id: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__3a08e6effaea9838394d050971701d6c3eddd4c0f475e2848dc4ad9837e87246)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument stack_id", value=stack_id, expected_type=type_hints["stack_id"])
-        return typing.cast("_aws_opsworks_6e5d4451.IStackRef", jsii.sinvoke(cls, "fromStackId", [scope, id, stack_id]))
-
     @jsii.member(jsii_name="isCfnStack")
     @builtins.classmethod
     def is_cfn_stack(cls, x: typing.Any) -> builtins.bool:
@@ -4732,14 +4665,6 @@ class CfnStack(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -6296,14 +6221,6 @@ class CfnUserProfile(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="attrSshUsername")
     def attr_ssh_username(self) -> builtins.str:
         '''The user's SSH user name, as a string.
@@ -6600,14 +6517,6 @@ class CfnVolume(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -7532,20 +7441,6 @@ def _typecheckingstub__6bf36f6bd552e246cec8163081581d4887e2e1838c2af0dfdfec5a942
     use_custom_cookbooks: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     use_opsworks_security_groups: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     vpc_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__015ca0f7b5228e7bd36cf5418d26e409a55fab7ddc33200ce3aa93de6c06b43e(
-    resource: _aws_opsworks_6e5d4451.IStackRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3a08e6effaea9838394d050971701d6c3eddd4c0f475e2848dc4ad9837e87246(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    stack_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

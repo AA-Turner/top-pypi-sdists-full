@@ -19,16 +19,18 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
 class TravelRuleIssuer(BaseModel):
     """
-    TravelRuleIssuer
+    An attestation of a single VASP attribute by an issuing party.
     """ # noqa: E501
-    issuer_did: StrictStr = Field(alias="issuerDid")
-    __properties: ClassVar[List[str]] = ["issuerDid"]
+    issuer_did: StrictStr = Field(description="The Decentralized Identifier (DID) of the party that issued the attestation.", alias="issuerDid")
+    issued_date: Optional[StrictStr] = Field(default=None, description="Timestamp when the attestation was issued. Present on every attestation observed to date, but not guaranteed, so treat it as optional.", alias="issuedDate")
+    issuer_name: Optional[StrictStr] = Field(default=None, description="The human-readable name of the issuing party. Returned only for issuers that publish a name, such as GLEIF; absent for others, including in the same response.", alias="issuerName")
+    __properties: ClassVar[List[str]] = ["issuerDid", "issuedDate", "issuerName"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -81,7 +83,9 @@ class TravelRuleIssuer(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "issuerDid": obj.get("issuerDid")
+            "issuerDid": obj.get("issuerDid"),
+            "issuedDate": obj.get("issuedDate"),
+            "issuerName": obj.get("issuerName")
         })
         return _obj
 

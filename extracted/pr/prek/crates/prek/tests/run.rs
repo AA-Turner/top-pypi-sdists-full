@@ -45,12 +45,14 @@ fn run_basic() -> Result<()> {
     ----- stdout -----
     trim trailing whitespace.................................................Failed
     - hook id: trailing-whitespace
+    - description: trims trailing whitespace
     - exit code: 1
     - files were modified by this hook
 
       Fixing main.py
     fix end of files.........................................................Failed
     - hook id: end-of-file-fixer
+    - description: ensures that a file is either empty, or ends with one newline
     - exit code: 1
     - files were modified by this hook
 
@@ -58,6 +60,7 @@ fn run_basic() -> Result<()> {
       Fixing main.py
     fix requirements.txt.....................................................Failed
     - hook id: requirements-txt-fixer
+    - description: sorts entries in requirements.txt
     - exit code: 1
     - files were modified by this hook
 
@@ -110,6 +113,7 @@ fn fast_path_checks_filenames_from_entry_and_args() -> Result<()> {
     ----- stdout -----
     check json...............................................................Failed
     - hook id: check-json
+    - description: checks json files for parseable syntax
     - exit code: 1
 
       from-entry.json: Failed to json decode (expected value at line 1 column 1)
@@ -168,6 +172,54 @@ fn run_preserves_stdout_stderr_order() -> Result<()> {
     ");
 
     Ok(())
+}
+
+#[test]
+fn hook_details_include_first_description_line() {
+    let context = TestContext::new();
+    context.init_project();
+
+    context.write_pre_commit_config(indoc::indoc! {r#"
+        repos:
+          - repo: local
+            hooks:
+              - id: quiet-failure
+                name: Check project policy
+                description: |-
+                  Checks that the project follows its policy.
+                  Additional details are not printed.
+                language: system
+                entry: python3 -c 'raise SystemExit(1)'
+                always_run: true
+                pass_filenames: false
+              - id: verbose-success
+                name: Verbose success
+                description: This description is printed before the hook output.
+                language: system
+                entry: python3 -c 'print("specific output")'
+                always_run: true
+                pass_filenames: false
+                verbose: true
+    "#});
+    context.git_add(".");
+
+    cmd_snapshot!(context.filters(), context.run(), @r"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    Check project policy.....................................................Failed
+    - hook id: quiet-failure
+    - description: Checks that the project follows its policy
+    - exit code: 1
+    Verbose success..........................................................Passed
+    - hook id: verbose-success
+    - description: This description is printed before the hook output
+    - duration: [TIME]
+
+      specific output
+
+    ----- stderr -----
+    ");
 }
 
 #[test]
@@ -446,6 +498,7 @@ fn same_repo() -> Result<()> {
     ----- stdout -----
     trim trailing whitespace.................................................Failed
     - hook id: trailing-whitespace
+    - description: trims trailing whitespace
     - exit code: 1
     - files were modified by this hook
 
@@ -608,6 +661,52 @@ fn multiple_hook_ids() {
 
     ----- stderr -----
     "#);
+}
+
+#[test]
+fn run_displays_aliases_for_repeated_hook_ids() {
+    let context = TestContext::new();
+    context.init_project();
+
+    context.write_pre_commit_config(indoc::indoc! {r"
+        repos:
+          - repo: local
+            hooks:
+              - id: repeated
+                alias: repeated-format
+                name: Repeated hook
+                language: system
+                entry: git diff --quiet
+                always_run: true
+                pass_filenames: false
+                verbose: true
+              - id: repeated
+                alias: repeated-lint
+                name: Repeated hook
+                language: system
+                entry: git diff --quiet
+                always_run: true
+                pass_filenames: false
+                verbose: true
+    "});
+
+    context.git_add(".");
+
+    cmd_snapshot!(context.filters(), context.run().arg("repeated"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    Repeated hook............................................................Passed
+    - hook id: repeated
+    - hook alias: repeated-format
+    - duration: [TIME]
+    Repeated hook............................................................Passed
+    - hook id: repeated
+    - hook alias: repeated-lint
+    - duration: [TIME]
+
+    ----- stderr -----
+    ");
 }
 
 #[test]
@@ -923,6 +1022,33 @@ fn run_required_groups_intersect_and_compose_with_other_group_filters() {
             .arg("slow")
             .arg("--group")
             .arg("ci"),
+        @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    Black....................................................................Passed
+
+    ----- stderr -----
+    "
+    );
+
+    cmd_snapshot!(
+        context.filters(),
+        context
+            .run()
+            .arg("--all-files")
+            .arg("--group")
+            .arg("ci")
+            .arg("--require-group")
+            .arg("slow")
+            .arg("--no-group")
+            .arg("local")
+            .arg("--group")
+            .arg("lint")
+            .arg("--require-group")
+            .arg("format")
+            .arg("--no-group")
+            .arg("fast"),
         @r"
     success: true
     exit_code: 0
@@ -2659,12 +2785,14 @@ fn run_last_commit() -> Result<()> {
     ----- stdout -----
     trim trailing whitespace.................................................Failed
     - hook id: trailing-whitespace
+    - description: trims trailing whitespace
     - exit code: 1
     - files were modified by this hook
 
       Fixing file1.txt
     fix end of files.........................................................Failed
     - hook id: end-of-file-fixer
+    - description: ensures that a file is either empty, or ends with one newline
     - exit code: 1
     - files were modified by this hook
 
@@ -2685,6 +2813,7 @@ fn run_last_commit() -> Result<()> {
     ----- stdout -----
     trim trailing whitespace.................................................Failed
     - hook id: trailing-whitespace
+    - description: trims trailing whitespace
     - exit code: 1
     - files were modified by this hook
 
@@ -2692,6 +2821,7 @@ fn run_last_commit() -> Result<()> {
       Fixing file2.txt
     fix end of files.........................................................Failed
     - hook id: end-of-file-fixer
+    - description: ensures that a file is either empty, or ends with one newline
     - exit code: 1
     - files were modified by this hook
 
@@ -3356,6 +3486,7 @@ fn selectors_completion() -> Result<()> {
     install	Install prek Git hook shims
     prepare-hooks	Prepare environments for configured hooks
     run	Run configured hooks
+    exec	Run a command in the environment prepared for a configured hook
     list	List configured hooks
     uninstall	Uninstall prek Git hook shims
     validate-config	Validate prek configuration files

@@ -1,30 +1,7 @@
-# /*##########################################################################
-#
-# Copyright (c) 2017-2022 European Synchrotron Radiation Facility
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
-#
-# ###########################################################################*/
 """This package provides a collection of functions to work with h5py-like
 groups following the NeXus *NXdata* specification.
 
-See http://download.nexusformat.org/sphinx/classes/base_classes/NXdata.html
+See https://manual.nexusformat.org/classes/base_classes/NXdata.html
 
 The main class is :class:`NXdata`.
 You can also fetch the default NXdata in a NXroot or a NXentry with function
@@ -41,7 +18,7 @@ Other public functions:
 """
 
 import json
-from typing import Any
+from typing import Any, get_args
 
 import h5py
 import numpy
@@ -51,6 +28,7 @@ from silx.utils.deprecation import deprecated
 
 from ._utils import (
     Interpretation,
+    ScaleType,
     get_attr_as_unicode,
     INTERPDIM,
     get_dataset_name,
@@ -62,9 +40,7 @@ from ._utils import (
     validate_number_of_axes,
 )
 
-__authors__ = ["P. Knobel"]
-__license__ = "MIT"
-__date__ = "24/03/2020"
+_SCALES = get_args(ScaleType)
 
 
 class InvalidNXdataError(Exception):
@@ -80,8 +56,8 @@ class _SilxStyle:
 
     def __init__(self, nxdata):
         naxes = len(nxdata.axes)
-        self._axes_scale_types = [None] * naxes
-        self._signal_scale_type = None
+        self._axes_scale_types: tuple[ScaleType | None, ...] = tuple([None] * naxes)
+        self._signal_scale_type: ScaleType | None = None
 
         stylestr = get_attr_as_unicode(nxdata.group, "SILX_style")
         if stylestr is None:
@@ -107,10 +83,9 @@ class _SilxStyle:
                 nxdata_logger.error("Ignoring SILX_style:axes_scale_types, not a list")
             else:
                 for scale_type in axes_scale_types:
-                    if scale_type not in ("linear", "log"):
+                    if scale_type not in _SCALES:
                         nxdata_logger.error(
-                            "Ignoring SILX_style:axes_scale_types, invalid value: %s",
-                            str(scale_type),
+                            f"Ignoring SILX_style:axes_scale_types, invalid value: {scale_type} (supported values: {_SCALES})",
                         )
                         break
                 else:  # All values are valid
@@ -128,23 +103,20 @@ class _SilxStyle:
 
         if "signal_scale_type" in style:
             scale_type = style["signal_scale_type"]
-            if scale_type not in ("linear", "log"):
+            if scale_type not in _SCALES:
                 nxdata_logger.error(
-                    "Ignoring SILX_style:signal_scale_type, invalid value: %s",
-                    str(scale_type),
+                    f"Ignoring SILX_style:signal_scale_type, invalid value: {scale_type} (supported values: {_SCALES})",
                 )
             else:
                 self._signal_scale_type = scale_type
 
-    axes_scale_types = property(
-        lambda self: self._axes_scale_types,
-        doc="Tuple of NXdata axes scale types (None, 'linear' or 'log'). List[str]",
-    )
+    @property
+    def axes_scale_types(self) -> tuple[ScaleType | None, ...]:
+        return self._axes_scale_types
 
-    signal_scale_type = property(
-        lambda self: self._signal_scale_type,
-        doc="NXdata signal scale type (None, 'linear' or 'log'). str",
-    )
+    @property
+    def signal_scale_type(self) -> ScaleType | None:
+        return self._signal_scale_type
 
 
 class NXdata:
@@ -348,7 +320,8 @@ class NXdata:
                 if axis_len != signal_size:
                     if axis_len not in self.group[signal_name].shape + (1, 2):
                         self.issues.append(
-                            "Axis %s number of elements does not " % axis_name
+                            "Axis %s number of elements does not "
+                            % axis_name
                             + "correspond to the length of any signal dimension,"
                             " it does not appear to be a constant or a linear calibration,"
                             + " and this does not seem to be a scatter plot."
@@ -454,7 +427,7 @@ class NXdata:
                     signal_number = int(signal_attr)
                 except (ValueError, TypeError):
                     nxdata_logger.warning(
-                        "Could not parse attr @signal=%s on " "dataset %s as an int",
+                        "Could not parse attr @signal=%s on dataset %s as an int",
                         signal_attr,
                         dsname,
                     )
@@ -487,6 +460,16 @@ class NXdata:
             raise InvalidNXdataError("Unable to parse invalid NXdata")
 
         return [self.group[dsname] for dsname in self.auxiliary_signals_dataset_names]
+
+    @property
+    def auxiliary_signal_errors(self) -> list[h5py.Dataset | None]:
+        if not self.is_valid:
+            raise InvalidNXdataError("Unable to parse invalid NXdata")
+
+        return [
+            _get_errors(self.group, signal)
+            for signal in self.auxiliary_signals_dataset_names
+        ]
 
     @property
     def interpretation(self) -> Interpretation:
@@ -629,7 +612,7 @@ class NXdata:
                             axis_num = int(axis_attr)
                         except (ValueError, TypeError):
                             nxdata_logger.warning(
-                                "Could not interpret attr @axis as" "int on dataset %s",
+                                "Could not interpret attr @axis as int on dataset %s",
                                 dsname,
                             )
                             continue
@@ -737,48 +720,38 @@ class NXdata:
         if axis_name not in self.group:
             raise KeyError("group does not contain a dataset named '%s'" % axis_name)
 
-        len_axis = len(self.group[axis_name])
+        good_indices = _good_indices(self.group[axis_name])
+        # Try to find the errors dataset the standard way
+        error_dset = _get_errors(self.group, axis_name)
 
-        fg_idx = self.group[axis_name].attrs.get("first_good", 0)
-        lg_idx = self.group[axis_name].attrs.get("last_good", len_axis - 1)
+        if error_dset is not None:
+            return error_dset[good_indices] if good_indices is not None else error_dset
 
-        # case of axisname_errors dataset present
-        errors_name = axis_name + "_errors"
-        if errors_name in self.group and is_dataset(self.group[errors_name]):
-            if fg_idx != 0 or lg_idx != (len_axis - 1):
-                return self.group[errors_name][fg_idx : lg_idx + 1]
-            else:
-                return self.group[errors_name]
-        # case of uncertainties dataset name provided in @uncertainties
+        # Else, fallback on dataset name provided in @uncertainties
         uncertainties_names = get_attr_as_unicode(self.group, "uncertainties")
+        if uncertainties_names is None:
+            return None
         if isinstance(uncertainties_names, str):
             uncertainties_names = [uncertainties_names]
-        if uncertainties_names is not None:
-            # take the uncertainty with the same index as the axis in @axes
-            axes_ds_names = get_attr_as_unicode(self.group, "axes")
-            if axes_ds_names is None:
-                axes_ds_names = get_attr_as_unicode(self.signal, "axes")
-            if isinstance(axes_ds_names, str):
-                axes_ds_names = [axes_ds_names]
-            elif isinstance(axes_ds_names, numpy.ndarray):
-                # transform numpy.ndarray into list
-                axes_ds_names = list(axes_ds_names)
-            assert isinstance(axes_ds_names, list)
-            if hasattr(axes_ds_names[0], "decode"):
-                axes_ds_names = [ax_name.decode("utf-8") for ax_name in axes_ds_names]
-            if axis_name not in axes_ds_names:
-                raise KeyError(
-                    "group attr @axes does not mention a dataset "
-                    + "named '%s'" % axis_name
-                )
-            errors = self.group[
-                uncertainties_names[list(axes_ds_names).index(axis_name)]
-            ]
-            if fg_idx == 0 and lg_idx == (len_axis - 1):
-                return errors  # dataset
-            else:
-                return errors[fg_idx : lg_idx + 1]  # numpy array
-        return None
+        # take the uncertainty with the same index as the axis in @axes
+        axes_ds_names = get_attr_as_unicode(self.group, "axes")
+        if axes_ds_names is None:
+            axes_ds_names = get_attr_as_unicode(self.signal, "axes")
+        if isinstance(axes_ds_names, str):
+            axes_ds_names = [axes_ds_names]
+        elif isinstance(axes_ds_names, numpy.ndarray):
+            # transform numpy.ndarray into list
+            axes_ds_names = list(axes_ds_names)
+        assert isinstance(axes_ds_names, list)
+        if hasattr(axes_ds_names[0], "decode"):
+            axes_ds_names = [ax_name.decode("utf-8") for ax_name in axes_ds_names]
+        if axis_name not in axes_ds_names:
+            raise KeyError(
+                "group attr @axes does not mention a dataset "
+                + "named '%s'" % axis_name
+            )
+        errors = self.group[uncertainties_names[list(axes_ds_names).index(axis_name)]]
+        return errors[good_indices] if good_indices is not None else errors
 
     @property
     def errors(self) -> h5py.Dataset | None:
@@ -789,17 +762,14 @@ class NXdata:
         if not self.is_valid:
             raise InvalidNXdataError("Unable to parse invalid NXdata")
 
-        dataset_names = [
-            # From NXData:
-            "errors",
-            # Not Nexus (VARIABLE_errors is only for axes), but supported anyway
-            self.signal_dataset_name + "_errors",
-        ]
-        for name in dataset_names:
-            entity = self.group.get(name)
-            if entity is not None and is_dataset(entity):
-                return entity
+        errors = _get_errors(self.group, self.signal_dataset_name)
+        if errors is not None:
+            return errors
 
+        # Fallback on "errors" dataset: deprecated way of specifing errors (NIAC2018)
+        entity = self.group.get("errors")
+        if isinstance(entity, h5py.Dataset):
+            return entity
         return None
 
     @property
@@ -1103,3 +1073,27 @@ def get_default(group: Any, validate: bool = True) -> NXdata | None:
     :raise TypeError: if group is not a h5py-like group
     """
     return _get_default(group, validate, [])
+
+
+def _good_indices(dset: h5py.Dataset) -> slice | None:
+    first_good_index: int | None = dset.attrs.get("first_good")
+    last_good_index: int | None = dset.attrs.get("last_good")
+
+    if first_good_index is None and last_good_index is None:
+        return None
+
+    if last_good_index is None:
+        return slice(first_good_index, None)
+
+    return slice(first_good_index, last_good_index + 1)
+
+
+def _get_errors(group: h5py.Group, name: str) -> h5py.Dataset | None:
+    if name not in group:
+        raise KeyError(f"group does not contain a dataset named {name}")
+
+    errors = group.get(f"{name}_errors")
+    if not isinstance(errors, h5py.Dataset):
+        return None
+
+    return errors

@@ -2,21 +2,25 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
 
+from nab_python._conflict_kind import UnevaluableMarkerError
 from nab_python._vendor.packaging.requirements import Requirement
 from nab_python._vendor.packaging.specifiers import SpecifierSet
 from nab_python._vendor.packaging.utils import InvalidName
 from nab_python.requirements_file import (
     InvalidProjectRequirementError,
+    InvalidProjectTableError,
     _add_extra_marker,
-    _parse_project_requirement,
     expand_extra_requirements,
     expand_group_includes,
     expand_self_extras,
+    parse_project_requirement,
     raise_for_unsatisfiable,
+    read_pyproject_build_requires,
     read_pyproject_dependencies,
     read_pyproject_groups,
     read_pyproject_name,
@@ -25,6 +29,9 @@ from nab_python.requirements_file import (
     self_extra_markers,
 )
 from nab_resolver.errors import ResolutionError
+
+_AT_LIMIT = "1" * sys.get_int_max_str_digits()
+_OVERSIZED = _AT_LIMIT + "1"
 
 
 class TestAddExtraMarker:
@@ -89,7 +96,7 @@ class TestAddExtraMarker:
         """An invalid extra name is rejected by the synthesis path, not
         folded into a dependency with a marker that is always true."""
         with pytest.raises(InvalidProjectRequirementError):
-            _parse_project_requirement(
+            parse_project_requirement(
                 "pkg",
                 "[project.optional-dependencies] extra 'x'",
                 extra='a" or os_name != "x',
@@ -180,6 +187,25 @@ class TestReadPyprojectDependencies:
         ):
             read_pyproject_dependencies(p)
 
+    @pytest.mark.parametrize("operator", ["==", "==="])
+    def test_oversized_specifier_version_raises(
+        self, tmp_path: object, operator: str
+    ) -> None:
+        """An oversized version converts only on comparison; parsing forces it."""
+        p = Path(str(tmp_path)) / "pyproject.toml"
+        p.write_text(f'[project]\ndependencies = ["foo{operator}{_OVERSIZED}"]\n')
+        with pytest.raises(
+            InvalidProjectRequirementError,
+            match=r"\[project\].dependencies: Exceeds the limit",
+        ):
+            read_pyproject_dependencies(p)
+
+    def test_at_limit_specifier_version_is_read(self, tmp_path: object) -> None:
+        """A run of exactly the limit converts, so it stays a legal dependency."""
+        p = Path(str(tmp_path)) / "pyproject.toml"
+        p.write_text(f'[project]\ndependencies = ["foo=={_AT_LIMIT}"]\n')
+        assert [d.name for d in read_pyproject_dependencies(p)] == ["foo"]
+
     def test_string_dependencies_value_raises(self, tmp_path: object) -> None:
         """A bare string is rejected, not iterated character by character."""
         p = Path(str(tmp_path)) / "pyproject.toml"
@@ -211,6 +237,82 @@ class TestReadPyprojectDependencies:
         p.write_text('project = ["a", "b"]\n')
         with pytest.raises(TypeError, match=r"\[project\] must be a table"):
             read_pyproject_dependencies(p)
+
+
+class TestReadPyprojectBuildRequires:
+    def test_reads_requires(self, tmp_path: object) -> None:
+        """Parse [build-system].requires from a valid pyproject.toml."""
+        p = Path(str(tmp_path)) / "pyproject.toml"
+        p.write_text('[build-system]\nrequires = ["hatchling", "hatch-vcs>=0.4"]\n')
+        requires = read_pyproject_build_requires(p)
+        assert [str(r) for r in requires] == ["hatchling", "hatch-vcs>=0.4"]
+
+    def test_marker_is_kept(self, tmp_path: object) -> None:
+        """A build requirement may carry a PEP 508 marker."""
+        p = Path(str(tmp_path)) / "pyproject.toml"
+        p.write_text(
+            "[build-system]\n"
+            'requires = ["setuptools", "tomli; python_version < \'3.11\'"]\n'
+        )
+        requires = read_pyproject_build_requires(p)
+        assert str(requires[1].marker) == 'python_version < "3.11"'
+
+    def test_empty_requires_is_no_build_requirements(self, tmp_path: object) -> None:
+        """An empty array declares a build system that needs nothing."""
+        p = Path(str(tmp_path)) / "pyproject.toml"
+        p.write_text("[build-system]\nrequires = []\n")
+        assert read_pyproject_build_requires(p) == []
+
+    def test_missing_build_system_raises(self, tmp_path: object) -> None:
+        """No [build-system] is not the PEP 517 default, it is an error."""
+        p = Path(str(tmp_path)) / "pyproject.toml"
+        p.write_text('[project]\nname = "foo"\n')
+        with pytest.raises(
+            InvalidProjectRequirementError, match=r"declares no \[build-system\]"
+        ):
+            read_pyproject_build_requires(p)
+
+    def test_missing_requires_key_raises(self, tmp_path: object) -> None:
+        """PEP 518 makes requires mandatory once [build-system] is present."""
+        p = Path(str(tmp_path)) / "pyproject.toml"
+        p.write_text('[build-system]\nbuild-backend = "flit_core.buildapi"\n')
+        with pytest.raises(
+            InvalidProjectRequirementError, match=r"\[build-system\].requires"
+        ):
+            read_pyproject_build_requires(p)
+
+    def test_non_table_build_system_raises(self, tmp_path: object) -> None:
+        """A [build-system] that is not a table is malformed, not absent."""
+        p = Path(str(tmp_path)) / "pyproject.toml"
+        p.write_text('build-system = "hatchling"\n')
+        with pytest.raises(
+            InvalidProjectTableError, match=r"\[build-system\] must be a table"
+        ):
+            read_pyproject_build_requires(p)
+
+    def test_string_requires_raises(self, tmp_path: object) -> None:
+        """A bare string would iterate character by character."""
+        p = Path(str(tmp_path)) / "pyproject.toml"
+        p.write_text('[build-system]\nrequires = "hatchling"\n')
+        with pytest.raises(
+            InvalidProjectRequirementError, match="must be an array of strings"
+        ):
+            read_pyproject_build_requires(p)
+
+    def test_malformed_requirement_string_raises(self, tmp_path: object) -> None:
+        """A malformed PEP 508 string names the table it came from."""
+        p = Path(str(tmp_path)) / "pyproject.toml"
+        p.write_text('[build-system]\nrequires = ["hatchling >= 1 junk"]\n')
+        with pytest.raises(
+            InvalidProjectRequirementError, match=r"\[build-system\].requires"
+        ):
+            read_pyproject_build_requires(p)
+
+    def test_missing_file_raises(self, tmp_path: object) -> None:
+        """Raise FileNotFoundError for a missing pyproject.toml."""
+        p = Path(str(tmp_path)) / "missing.toml"
+        with pytest.raises(FileNotFoundError):
+            read_pyproject_build_requires(p)
 
 
 class TestReadPyprojectGroups:
@@ -283,6 +385,22 @@ class TestResolveGroupsToRequirements:
             InvalidProjectRequirementError, match=r"\[dependency-groups\]"
         ):
             resolve_groups_to_requirements({"dev": ["pytest >= bad junk"]}, ("dev",))
+
+    @pytest.mark.parametrize("operator", ["==", "==="])
+    def test_oversized_specifier_version_raises(self, operator: str) -> None:
+        """An oversized version converts only on comparison; parsing forces it."""
+        with pytest.raises(
+            InvalidProjectRequirementError,
+            match=r"\[dependency-groups\]: Exceeds the limit",
+        ):
+            resolve_groups_to_requirements(
+                {"dev": [f"foo{operator}{_OVERSIZED}"]}, ("dev",)
+            )
+
+    def test_at_limit_specifier_version_resolves(self) -> None:
+        """A run of exactly the limit converts, so it stays a legal requirement."""
+        reqs = resolve_groups_to_requirements({"dev": [f"foo=={_AT_LIMIT}"]}, ("dev",))
+        assert [r.name for r in reqs] == ["foo"]
 
 
 class TestReadPyprojectOptionalDependencies:
@@ -524,6 +642,18 @@ class TestExpandSelfExtras:
         assert expand_self_extras(opt, "mypkg", ["gpu"], env) == ["gpu", "fast"]
 
 
+class TestSelfReferenceUnevaluableMarker:
+    def test_self_reference_gate_no_comparison_decides(self) -> None:
+        """A self-ref gate is reduced against the walked extra, which is the
+        second place a marker with no meaning is read."""
+        opt = {
+            "all": ["mypkg[fast]; python_full_version ~= '3'"],
+            "fast": ["some-dep"],
+        }
+        with pytest.raises(UnevaluableMarkerError, match='python_full_version ~= "3"'):
+            expand_extra_requirements(opt, "mypkg", ["all"])
+
+
 class TestSelfExtraMarkers:
     def test_unknown_project_name_has_no_markers(self) -> None:
         """Without a project name nothing is a self-reference."""
@@ -570,6 +700,22 @@ class TestExpandExtraRequirements:
         opt = {"all": ["mypkg[fast]", "plain"], "fast": ["some-dep"]}
         out = expand_extra_requirements(opt, None, ["all"])
         assert sorted(r.name for r in out) == ["mypkg", "plain"]
+
+    @pytest.mark.parametrize("operator", ["==", "==="])
+    def test_oversized_specifier_version_raises(self, operator: str) -> None:
+        """An oversized version converts only on comparison; parsing forces it."""
+        with pytest.raises(
+            InvalidProjectRequirementError,
+            match=r"\[project.optional-dependencies\] extra 'x': Exceeds the limit",
+        ):
+            expand_extra_requirements(
+                {"x": [f"foo{operator}{_OVERSIZED}"]}, "mypkg", ["x"]
+            )
+
+    def test_at_limit_specifier_version_expands(self) -> None:
+        """A run of exactly the limit converts, so it stays a legal requirement."""
+        out = expand_extra_requirements({"x": [f"foo=={_AT_LIMIT}"]}, "mypkg", ["x"])
+        assert [r.name for r in out] == ["foo"]
 
     def test_plain_extra_requirements_keep_their_markers(self) -> None:
         opt = {"cpu": ["torch", "numpy; python_version < '3.10'"]}
@@ -728,8 +874,10 @@ class TestExpandExtraRequirements:
         it stays parseable, not collapse to two adjacent comparisons."""
         opt = {
             "all": [
-                'mypkg[fast]; extra == "all" and python_version < "3.10"'
-                ' and sys_platform == "linux"'
+                (
+                    'mypkg[fast]; extra == "all" and python_version < "3.10"'
+                    ' and sys_platform == "linux"'
+                )
             ],
             "fast": ["some-dep"],
         }
@@ -753,9 +901,11 @@ class TestExpandExtraRequirements:
         both surviving OR branches."""
         opt = {
             "all": [
-                'mypkg[fast]; (extra == "all" and python_version < "3.10"'
-                ' and sys_platform == "linux") or (extra == "all"'
-                ' and python_version >= "3.12" and sys_platform == "win32")'
+                (
+                    'mypkg[fast]; (extra == "all" and python_version < "3.10"'
+                    ' and sys_platform == "linux") or (extra == "all"'
+                    ' and python_version >= "3.12" and sys_platform == "win32")'
+                )
             ],
             "fast": ["some-dep"],
         }
@@ -779,8 +929,10 @@ class TestExpandExtraRequirements:
         the ``and`` between them, so the residual is ``env and (a or b)``."""
         opt = {
             "all": [
-                'mypkg[fast]; extra == "all" and python_version < "3.10"'
-                ' and (sys_platform == "linux" or sys_platform == "darwin")'
+                (
+                    'mypkg[fast]; extra == "all" and python_version < "3.10"'
+                    ' and (sys_platform == "linux" or sys_platform == "darwin")'
+                )
             ],
             "fast": ["some-dep"],
         }
@@ -844,8 +996,10 @@ class TestExpandExtraRequirements:
         disjunction after the satisfied extra clause drops."""
         opt = {
             "all": [
-                'mypkg[fast]; extra == "all" and '
-                '(python_version < "3.10" or sys_platform == "win32")'
+                (
+                    'mypkg[fast]; extra == "all" and '
+                    '(python_version < "3.10" or sys_platform == "win32")'
+                )
             ],
             "fast": ["some-dep"],
         }
@@ -897,8 +1051,10 @@ class TestExpandExtraRequirements:
         contradiction, so the self-reference does not activate."""
         opt = {
             "all": [
-                'mypkg[fast]; (extra == "other" or extra == "x") '
-                'and python_version < "3.10"'
+                (
+                    'mypkg[fast]; (extra == "other" or extra == "x") '
+                    'and python_version < "3.10"'
+                )
             ],
             "fast": ["some-dep"],
         }
@@ -1074,6 +1230,11 @@ class TestExpandGroupIncludes:
         """A malformed (non-string) include is skipped, not crashed on."""
         groups = {"a": [{"include-group": 123}]}
         assert expand_group_includes(groups, ["a"]) == ["a"]
+
+    def test_non_sequence_group_value_tolerated(self) -> None:
+        """A group whose value is not a list is skipped, not crashed on."""
+        groups = {"a": [{"include-group": "b"}], "docs": 5}
+        assert expand_group_includes(groups, ["a", "docs"]) == ["a", "docs", "b"]
 
     def test_cycle_terminates(self) -> None:
         groups = {

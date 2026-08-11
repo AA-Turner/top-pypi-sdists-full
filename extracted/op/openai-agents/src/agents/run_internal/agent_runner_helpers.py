@@ -202,8 +202,20 @@ def _extract_tool_call_id(raw: Any) -> str | None:
 
 
 def get_unsent_tool_call_ids_for_interrupted_state(run_state: RunState[Any] | None) -> set[str]:
-    """Return tool call IDs whose local outputs belong to the current interruption."""
-    if run_state is None or not isinstance(run_state._current_step, NextStepInterruption):
+    """Return tool call IDs whose local outputs have not reached a server conversation."""
+    if run_state is None:
+        return set()
+
+    if isinstance(run_state._current_step, NextStepRunAgain):
+        if not run_state._model_responses:
+            return set()
+        return {
+            call_id
+            for item in run_state._model_responses[-1].output
+            if (call_id := _extract_tool_call_id(item)) is not None
+        }
+
+    if not isinstance(run_state._current_step, NextStepInterruption):
         return set()
 
     processed_response = run_state._last_processed_response
@@ -260,7 +272,7 @@ def resolve_trace_settings(
     metadata: dict[str, Any] | None = run_config.trace_metadata
     tracing: TracingConfig | None = run_config.tracing
 
-    if trace_state:
+    if trace_state is not None:
         if workflow_name == default_workflow_name and trace_state.workflow_name:
             workflow_name = trace_state.workflow_name
         if trace_id is None:
@@ -283,8 +295,28 @@ def resolve_resumed_context(
     run_state: RunState[TContext],
     context: RunContextWrapper[TContext] | TContext | None,
 ) -> RunContextWrapper[TContext]:
-    """Return the context wrapper for a resumed run, overriding when provided."""
+    """Return the context wrapper for a resumed run, overriding when provided.
+
+    When an override is supplied, the restored ``RunContextWrapper`` stays
+    authoritative. Only its application ``context`` value is replaced so
+    run-owned wrapper state (approvals, usage, turn input, tool input, ...)
+    survives the override instead of being dropped by a fresh wrapper.
+    Nested ``Agent.as_tool()`` resumes should pass the parent application
+    context into ``Runner.run`` / ``Runner.run_streamed`` so this same path
+    applies there.
+    """
     if context is not None:
+        existing_context = run_state._context
+        if existing_context is not None:
+            application_context = (
+                context.context if isinstance(context, RunContextWrapper) else context
+            )
+            if existing_context is not context:
+                existing_context.context = application_context
+            set_agent_tool_state_scope(existing_context, run_state._agent_tool_state_scope_id)
+            run_state._context = existing_context
+            return existing_context
+
         context_wrapper = ensure_context_wrapper(context)
         set_agent_tool_state_scope(context_wrapper, run_state._agent_tool_state_scope_id)
         run_state._context = context_wrapper
@@ -347,7 +379,9 @@ def build_resumed_stream_debug_extra(
     """Build the logger extra payload when resuming a streamed run."""
     return {
         "current_turn": run_state._current_turn,
-        "current_agent": run_state._current_agent.name if run_state._current_agent else None,
+        "current_agent": (
+            run_state._current_agent.name if run_state._current_agent is not None else None
+        ),
         "generated_items_count": len(run_state._generated_items),
         "generated_items_types": [item.type for item in run_state._generated_items],
         "generated_items_details": build_generated_items_details(
@@ -474,6 +508,7 @@ async def save_turn_items_if_needed(
     items: list[RunItem],
     response_id: str | None,
     store: bool | None = None,
+    wrapper: RunContextWrapper[Any] | None = None,
 ) -> None:
     """Persist turn items when persistence is enabled and guardrails allow it."""
     if not session_persistence_enabled:
@@ -489,6 +524,7 @@ async def save_turn_items_if_needed(
         run_state,
         response_id=response_id,
         store=store,
+        wrapper=wrapper,
     )
 
 
@@ -501,6 +537,7 @@ async def save_final_turn_items_after_guardrails(
     items: list[RunItem],
     response_id: str | None,
     store: bool | None = None,
+    wrapper: RunContextWrapper[Any] | None = None,
 ) -> None:
     """Persist deferred final-turn items without skipping a partially persisted resumed turn."""
     if not session_persistence_enabled or not items:
@@ -515,6 +552,7 @@ async def save_final_turn_items_after_guardrails(
             response_id=response_id,
             reasoning_item_id_policy=run_state._reasoning_item_id_policy,
             store=store,
+            wrapper=wrapper,
         )
         return
     await save_result_to_session(
@@ -524,6 +562,7 @@ async def save_final_turn_items_after_guardrails(
         run_state,
         response_id=response_id,
         store=store,
+        wrapper=wrapper,
     )
 
 

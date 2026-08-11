@@ -52,7 +52,7 @@ class TakoCard(BaseModel):
     relevance_score: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Numeric relevance of this card to the query on a 1.0-5.0 scale (5.0 = exact match; higher is more relevant). Only populated for entitled accounts; null otherwise.")
     nodes: Optional[List[TakoCardNode]] = Field(default=None, description="Graph nodes (entities and metrics) behind this card. The response includes them by default. Absent for web-only cards or when node resolution was not available. Use each id with /v1/graph/node/{id} for full detail (aliases, subtype), or pass ids in sources.data.node_ids to pin these nodes in future searches.")
     metric_definitions: Optional[List[MetricDefinition]] = Field(default=None, description="Definitions of the metrics this card displays (name + definition). Null when no displayed metric has a definition available.")
-    data_freshness: Optional[DataFreshness] = Field(default=None, description="Freshness dates for the card's data: the coverage date (data_as_of) and the last refresh date (last_updated). Null when neither date is available.")
+    data_freshness: Optional[DataFreshness] = Field(default=None, description="Freshness dates for the card's data: where the data ends (coverage_end), the same point as a full date (data_as_of, deprecated), and the last refresh date (last_updated). Null when no date is available.")
     __properties: ClassVar[List[str]] = ["card_id", "title", "description", "semantic_description", "webpage_url", "image_url", "embed_url", "sources", "methodologies", "source_indexes", "card_type", "relevance", "content", "exportable", "relevance_score", "nodes", "metric_definitions", "data_freshness"]
 
     model_config = ConfigDict(

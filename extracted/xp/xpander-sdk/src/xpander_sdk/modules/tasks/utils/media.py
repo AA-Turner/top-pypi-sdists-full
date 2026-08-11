@@ -22,7 +22,9 @@ from loguru import logger
 
 from xpander_sdk.modules.tasks.utils.files import (
     _FETCH_TIMEOUT,
+    _MAX_INLINE_TEXT_CHARS,
     _download,
+    _pdf_markdown_or_none,
     _sniff_image,
     fetch_file,
     fetch_image,
@@ -47,6 +49,11 @@ _SCANNED_PDF_CHARS_PER_PAGE = 50
 
 SCANNED_PDF_NOTE = "appears to be a scanned PDF (no extractable text); use an OCR tool on the URL to read it"
 HUGE_FILE_NOTE = "too large to attach inline; fetch it via your tools/workspace using the URL"
+NO_INJECTION_NOTE = "content is NOT included in this message; fetch it via your tools/workspace using the URL"
+PDF_AS_TEXT_NOTE = (
+    "included as extracted text; any images, charts or diagrams it contains are not part of "
+    "that text, so use a tool on the URL if you need to see them"
+)
 
 
 def _pillow():
@@ -203,12 +210,17 @@ def prepare_pdf(
     caps: ModelCapabilities,
     known_size: Optional[int] = None,
     timeout: float = _FETCH_TIMEOUT,
+    allow_text: bool = True,
+    text_budget: Optional[int] = None,
 ) -> Tuple[str, Optional[Any], Optional[str]]:
     """Route a PDF under *caps*: returns (action, payload, note) with action in {"file","text","url_only"}.
 
     Native-PDF providers get an inline File (page-truncated when over the page cap);
     others get pypdf-extracted text; scanned/huge PDFs stay URL-only with a note for
-    the agent. Kill switch or missing pypdf -> legacy inline File.
+    the agent. Kill switch or missing pypdf -> legacy inline File. ``allow_text=False``
+    (attachment injection disabled) never returns text, so a caller that discards text
+    payloads still gets the native attachment rather than nothing. ``text_budget`` is how
+    many chars of Markdown the caller can actually deliver, and defaults to the per-file cap.
     """
     if media_pipeline_disabled():
         return "file", fetch_file(url=url), None
@@ -225,7 +237,22 @@ def prepare_pdf(
     except ValueError:
         return "url_only", None, HUGE_FILE_NOTE
 
-    if caps.supports_native_pdf and len(content) <= caps.max_pdf_bytes:
+    native_possible = caps.supports_native_pdf and len(content) <= caps.max_pdf_bytes
+
+    # Text-based PDFs: the Markdown carries the same content at roughly a third of the
+    # input tokens of a native attachment, which bills every page twice (text + page
+    # image). Scanned PDFs fail the density gate and take the native path below.
+    markdown = _pdf_markdown_or_none(content) if allow_text else None
+    if markdown is not None:
+        # Inlined text is clipped at the caller's budget while a native attachment carries
+        # the whole PDF, so the token saving is only free while the Markdown fits.
+        budget = _MAX_INLINE_TEXT_CHARS if text_budget is None else text_budget
+        if not (native_possible and len(markdown) > budget):
+            # Only a model that could have rendered the pages loses anything by reading text.
+            return "text", markdown, (PDF_AS_TEXT_NOTE if native_possible else None)
+        logger.debug(f"pdf markdown ({len(markdown)} chars) exceeds the inline cap; attaching natively: {url}")
+
+    if native_possible:
         try:
             page_count = len(_pdf_reader(content, pypdf_module).pages)
         except Exception:
@@ -236,6 +263,9 @@ def prepare_pdf(
         truncated, kept, total = _truncate_pdf(content, caps.max_pdf_pages, pypdf_module)
         note = f"attached first {kept} of {total} pages; full file at the URL"
         return "file", _agno_file_from_bytes(truncated, url), note
+
+    if not allow_text:
+        return "url_only", None, NO_INJECTION_NOTE
 
     try:
         text, page_count = _extract_pdf_text(content, pypdf_module)
@@ -253,6 +283,14 @@ async def aprepare_image(url: str, caps: ModelCapabilities, known_size: Optional
     return await asyncio.to_thread(prepare_image, url, caps, known_size)
 
 
-async def aprepare_pdf(url: str, caps: ModelCapabilities, known_size: Optional[int] = None):
-    """prepare_pdf off the event loop (pypdf parse is CPU-bound)."""
-    return await asyncio.to_thread(prepare_pdf, url, caps, known_size)
+async def aprepare_pdf(
+    url: str,
+    caps: ModelCapabilities,
+    known_size: Optional[int] = None,
+    allow_text: bool = True,
+    text_budget: Optional[int] = None,
+) -> Tuple[str, Optional[Any], Optional[str]]:
+    """prepare_pdf off the event loop (pypdf parse and anydoc conversion are CPU-bound)."""
+    return await asyncio.to_thread(
+        prepare_pdf, url, caps, known_size, _FETCH_TIMEOUT, allow_text, text_budget
+    )

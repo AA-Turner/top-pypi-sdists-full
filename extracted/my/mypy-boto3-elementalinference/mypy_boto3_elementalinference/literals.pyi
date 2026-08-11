@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_elementalinference.literals import DictionaryLanguageType
+    from mypy_boto3_elementalinference.literals import DataSourceSportType
 
-    data: DictionaryLanguageType = "deu"
+    data: DataSourceSportType = "american-football"
     ```
 """
 
@@ -22,32 +22,38 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "DataSourceSportType",
     "DictionaryLanguageType",
     "DictionaryStatusType",
     "ElementalInferenceServiceName",
     "FeedDeletedWaiterName",
     "FeedStatusType",
+    "FilterNameType",
     "ListDictionariesPaginatorName",
     "ListFeedsPaginatorName",
     "OutputStatusType",
     "PaginatorName",
     "ProfanityFilterModeType",
     "ResourceServiceName",
+    "SearchFixturesPaginatorName",
     "ServiceName",
     "TranscriptionLanguageType",
     "WaiterName",
 )
 
+DataSourceSportType = Literal["american-football", "basketball"]
 DictionaryLanguageType = Literal["deu", "eng", "fra", "ita", "por", "spa"]
 DictionaryStatusType = Literal["AVAILABLE", "CREATING", "DELETED", "DELETING", "REFERENCED"]
 FeedDeletedWaiterName = Literal["feed_deleted"]
 FeedStatusType = Literal[
     "ACTIVE", "ARCHIVED", "AVAILABLE", "CREATING", "DELETED", "DELETING", "UPDATING"
 ]
+FilterNameType = Literal["COMPETITOR"]
 ListDictionariesPaginatorName = Literal["list_dictionaries"]
 ListFeedsPaginatorName = Literal["list_feeds"]
 OutputStatusType = Literal["DISABLED", "ENABLED"]
 ProfanityFilterModeType = Literal["CENSOR", "DISABLED", "DROP"]
+SearchFixturesPaginatorName = Literal["search_fixtures"]
 TranscriptionLanguageType = Literal[
     "deu", "eng", "eng-au", "eng-gb", "eng-us", "fra", "ita", "por", "spa"
 ]
@@ -57,6 +63,8 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -483,5 +491,5 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_dictionaries", "list_feeds"]
+PaginatorName = Literal["list_dictionaries", "list_feeds", "search_fixtures"]
 WaiterName = Literal["feed_deleted"]

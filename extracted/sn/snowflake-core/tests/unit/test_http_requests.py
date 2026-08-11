@@ -27,10 +27,62 @@ import snowflake.core._http_requests as http
             ("items/{items}", {"items": ["bread", "butter", "cheese", "cold_cuts"]}, {"items": "csv"}, ",/"),
             "items/bread,butter,cheese,cold_cuts",
         ),
+        # Quoted identifier containing ".." — dots wrapped in percent-encoded quotes, not a dot-segment
+        (
+            (
+                "databases/{database}/schemas/{schema}/tables/{name}",
+                {"database": "db", "schema": "public", "name": '".."'},
+                {},
+                "",
+            ),
+            "databases/db/schemas/public/tables/%22..%22",
+        ),
+        # Quoted identifier containing "." — dot wrapped in percent-encoded quotes, not a dot-segment
+        (
+            ("databases/{database}", {"database": '"."'}, {}, ""),
+            "databases/%22.%22",
+        ),
     ),
 )
 def test_resolve_url(inputs, expected_output):
     assert http.resolve_url(*inputs) == expected_output
+
+
+@pytest.mark.parametrize(
+    ("dot_segment", "param_name"),
+    (
+        (".", "database"),
+        ("..", "database"),
+        (".", "schema"),
+        ("..", "schema"),
+        (".", "name"),
+        ("..", "name"),
+    ),
+)
+def test_resolve_url_rejects_dot_segments(dot_segment, param_name):
+    path = "databases/{database}/schemas/{schema}/tables/{name}"
+    params = {"database": "db", "schema": "public", "name": "t"}
+    params[param_name] = dot_segment
+    with pytest.raises(ValueError, match="may not be '\\.' or '\\.\\.'"):
+        http.resolve_url(path, params, {}, "")
+
+
+@pytest.mark.parametrize("dot_segment", [".", ".."])
+def test_path_traversal_rejected_in_table_name(tables, dot_segment):
+    with pytest.raises(ValueError, match="may not be"):
+        tables[dot_segment].drop()
+
+
+@pytest.mark.parametrize("dot_segment", [".", ".."])
+def test_path_traversal_rejected_in_schema_name(db, dot_segment):
+    with pytest.raises(ValueError, match="may not be"):
+        db.schemas[dot_segment].tables["mytable"].drop()
+
+
+@pytest.mark.parametrize("dot_segment", [".", ".."])
+def test_path_traversal_rejected_in_database_name(dbs, dot_segment):
+    with pytest.raises(ValueError, match="may not be"):
+        dbs[dot_segment].schemas["public"].tables["mytable"].drop()
 
 
 @pytest.fixture(autouse=True)

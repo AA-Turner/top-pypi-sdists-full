@@ -23,8 +23,8 @@ def lint(session):
     """
     Run the linter.
     """
-    session.install("pre-commit")
-    session.run("pre-commit", "run", "--all-files", *session.posargs)
+    session.install("prek")
+    session.run("prek", "run", "--all-files", *session.posargs)
 
 
 @nox.session
@@ -46,6 +46,19 @@ def tests(session):
     session.install("-e.[plot]", "--group=test")
     args = ["--mpl"] if sys.platform.startswith("linux") else []
     session.run("pytest", *args, *session.posargs)
+
+
+@nox.session(python="3.10", venv_backend="uv")
+def mypy(session):
+    """
+    Type check. Pinned to Python 3.10, where NumPy resolves to <2.3 and so
+    ``ndarray`` has no generic defaults -- this catches bare ``np.ndarray``
+    annotations that newer NumPy stubs silently accept. Mirrors the type check
+    in boost-histogram's downstream "hist" job.
+    """
+
+    session.install("-e.", "--group=test", "--group=plot", "mypy", "pandas-stubs")
+    session.run("mypy", *session.posargs)
 
 
 @nox.session(venv_backend="uv", default=False)

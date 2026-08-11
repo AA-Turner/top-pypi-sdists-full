@@ -20,6 +20,7 @@ from anyscale.commands.output_format import (
     OUTPUT_FLAG_LONG,
     OutputFormat,
     print_output,
+    warn_deprecated_flag,
 )
 from anyscale.commands.util import AnyscaleCommand
 from anyscale.compute_config.models import (
@@ -195,8 +196,13 @@ def archive_compute_config(
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to [TEXT, JSON] when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="List compute configs created by the current user.",
@@ -296,7 +302,6 @@ def archive_compute_config(
     type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 @click.option(
@@ -320,6 +325,8 @@ def list_compute_configs(  # noqa: A001, PLR0913
     output_json: bool,
 ):
     """List compute configurations with filtering, sorting, and pagination options."""
+    if output_json:
+        warn_deprecated_flag("--json", "-o json")
     output_json = output_json or output_format == OutputFormat.JSON.value
     # Validate mutual exclusion: cloud_id and cloud_name cannot be used together
     if cloud_id and cloud_name:
@@ -396,8 +403,7 @@ def list_compute_configs(  # noqa: A001, PLR0913
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
     examples=[
         CommandExample(
             description="Get the latest version of a compute config by name.",
@@ -405,7 +411,7 @@ def list_compute_configs(  # noqa: A001, PLR0913
             output_raw=command_examples.COMPUTE_CONFIG_GET_EXAMPLE,
             output_instance=lambda: ComputeConfigVersion(
                 name="my-compute-config:1",
-                id="cpt_8hzsv1t4jvb6kwjhfqbfjw5i6b",
+                id="cpt_abc123",
                 config=ComputeConfig(cloud="my-cloud"),
             ),
         ),
@@ -463,10 +469,11 @@ def list_compute_configs(  # noqa: A001, PLR0913
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result. Ignored with --old-format.",
 )
 def get_compute_config(

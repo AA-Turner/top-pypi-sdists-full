@@ -316,6 +316,51 @@ class _IPreparedStatementRefProxy(
 typing.cast(typing.Any, IPreparedStatementRef).__jsii_proxy_class__ = lambda : _IPreparedStatementRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_athena.ISessionRef")
+class ISessionRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Session.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="sessionRef")
+    def session_ref(self) -> "SessionReference":
+        '''(experimental) A reference to a Session resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISessionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Session.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_athena.ISessionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="sessionRef")
+    def session_ref(self) -> "SessionReference":
+        '''(experimental) A reference to a Session resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SessionReference", jsii.get(self, "sessionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISessionRef).__jsii_proxy_class__ = lambda : _ISessionRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_athena.IWorkGroupRef")
 class IWorkGroupRef(
     _constructs_77d1e7e8.IConstruct,
@@ -476,6 +521,55 @@ class PreparedStatementReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_athena.SessionReference",
+    jsii_struct_bases=[],
+    name_mapping={"session_arn": "sessionArn"},
+)
+class SessionReference:
+    def __init__(self, *, session_arn: builtins.str) -> None:
+        '''A reference to a Session resource.
+
+        :param session_arn: The Arn of the Session resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_athena as interfaces_athena
+            
+            session_reference = interfaces_athena.SessionReference(
+                session_arn="sessionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d7300c4e7702a921ac75adf044f7fc96c54eb12327879fb7d50d5ececa1c75f9)
+            check_type(argname="argument session_arn", value=session_arn, expected_type=type_hints["session_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "session_arn": session_arn,
+        }
+
+    @builtins.property
+    def session_arn(self) -> builtins.str:
+        '''The Arn of the Session resource.'''
+        result = self._values.get("session_arn")
+        assert result is not None, "Required property 'session_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SessionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_athena.WorkGroupReference",
     jsii_struct_bases=[],
     name_mapping={"work_group_name": "workGroupName"},
@@ -531,9 +625,11 @@ __all__ = [
     "IDataCatalogRef",
     "INamedQueryRef",
     "IPreparedStatementRef",
+    "ISessionRef",
     "IWorkGroupRef",
     "NamedQueryReference",
     "PreparedStatementReference",
+    "SessionReference",
     "WorkGroupReference",
 ]
 
@@ -568,6 +664,13 @@ def _typecheckingstub__8e79cee1079d75d49425539c959b6360f318a9ea2bf4dfcd757f36560
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d7300c4e7702a921ac75adf044f7fc96c54eb12327879fb7d50d5ececa1c75f9(
+    *,
+    session_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__cf5da3b7d36495d1cd424f8484a3dd86b735b00d96d9015bccbe52ba012f3bab(
     *,
     work_group_name: builtins.str,
@@ -575,5 +678,5 @@ def _typecheckingstub__cf5da3b7d36495d1cd424f8484a3dd86b735b00d96d9015bccbe52ba0
     """Type checking stubs"""
     pass
 
-for cls in [ICapacityReservationRef, IDataCatalogRef, INamedQueryRef, IPreparedStatementRef, IWorkGroupRef]:
+for cls in [ICapacityReservationRef, IDataCatalogRef, INamedQueryRef, IPreparedStatementRef, ISessionRef, IWorkGroupRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

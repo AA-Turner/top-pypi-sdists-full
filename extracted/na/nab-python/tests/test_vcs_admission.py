@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import pytest
 
+from nab_index.vcs import VcsRequest
 from nab_python._vcs_admission import (
     UnsupportedVcsError,
     VcsConfig,
@@ -454,6 +455,84 @@ class TestAdmitVcsUrlRepo:
                 config,
             )
 
+    @pytest.mark.parametrize(
+        ("prefix", "url"),
+        [
+            (
+                "file:///srv/work/lib.git",
+                f"git+file:///srv/work/lib.git/..@{_FORTY}",
+            ),
+            (
+                "https://github.com/myorg/",
+                f"git+https://github.com/myorg/lib.git/..@{_FORTY}",
+            ),
+            (
+                "https://github.com/myorg/lib.git",
+                f"git+https://github.com/myorg/lib.git/%2e%2e@{_FORTY}",
+            ),
+            (
+                "ssh://host/srv/trusted/repo",
+                f"git+ssh://host/srv/trusted/repo/..@{_FORTY}",
+            ),
+        ],
+    )
+    def test_dot_segment_in_final_segment_refused(self, prefix: str, url: str) -> None:
+        """The clone splits the ref off, so ``lib.git/..@<ref>`` fetches the parent."""
+        config = VcsConfig(
+            policy=VcsPolicy.ALLOW,
+            allowed_schemes=frozenset({"git+file", "git+https", "git+ssh"}),
+            allowed_repos=(prefix,),
+        )
+        with pytest.raises(UnsupportedVcsError, match="not in vcs.allowed-repos"):
+            admit_vcs_url(url, config)
+
+    def test_query_after_final_dot_segment_refused(self) -> None:
+        """A ``?`` following the ``..`` ends the path an http fetch sends."""
+        config = VcsConfig(
+            policy=VcsPolicy.ALLOW,
+            allowed_schemes=frozenset({"git+https"}),
+            allowed_repos=("https://github.com/myorg/lib.git",),
+        )
+        with pytest.raises(UnsupportedVcsError, match="not in vcs.allowed-repos"):
+            admit_vcs_url(
+                f"git+https://github.com/myorg/lib.git/..?x=1@{_FORTY}",
+                config,
+            )
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            f"git+https://github.com/myorg/lib@x/..?y@{_FORTY}",
+            f"git+https://github.com/myorg/lib.git@x/..?y@{_FORTY}",
+        ],
+    )
+    def test_at_in_query_does_not_hide_the_escape(self, url: str) -> None:
+        """The ref splits off the whole remainder, not the path alone.
+
+        Cutting the path at its own last ``@`` lands inside ``lib@x``, taking
+        the ``..`` with it.
+        """
+        config = VcsConfig(
+            policy=VcsPolicy.ALLOW,
+            allowed_schemes=frozenset({"git+https"}),
+            allowed_repos=("https://github.com/myorg/lib",),
+        )
+        with pytest.raises(UnsupportedVcsError, match="not in vcs.allowed-repos"):
+            admit_vcs_url(url, config)
+
+    def test_trailing_slash_repo_still_admits(self) -> None:
+        """A trailing ``/`` is not a rewrite: git clones the same repo."""
+        config = VcsConfig(
+            policy=VcsPolicy.ALLOW,
+            allowed_schemes=frozenset({"git+https"}),
+            allowed_repos=("https://github.com/myorg/lib.git",),
+        )
+        scheme = admit_vcs_url(
+            f"git+https://github.com/myorg/lib.git/@{_FORTY}",
+            config,
+        )
+        assert scheme == "git+https"
+
     def test_percent_encoded_repo_name_still_admits(self) -> None:
         """Encoding that decodes to no dot-segment leaves the repo admitted."""
         config = VcsConfig(
@@ -690,6 +769,38 @@ class TestPinAppendMonotonicity:
         assert self._admits(f"{url}@{_FORTY}", self._config(require_pin=True))
 
 
+class TestRefAppendMonotonicity:
+    """Appending a ref must never turn a refuse into an admit."""
+
+    URLS = (
+        "git+https://github.com/trusted/repo/..",
+        "git+https://github.com/trusted/repo/../..",
+        "git+https://github.com/trusted/repo/%2e%2e",
+        "git+https://github.com/trusted/repo/..?x=1",
+        "git+https://github.com/trusted/repo/../../other/repo",
+        "git+https://github.com/other/repo",
+    )
+
+    def _admits(self, url: str) -> bool:
+        config = VcsConfig(
+            policy=VcsPolicy.ALLOW,
+            allowed_schemes=frozenset({"git+https"}),
+            allowed_repos=("https://github.com/trusted/repo",),
+            require_pin=False,
+        )
+        try:
+            admit_vcs_url(url, config)
+        except UnsupportedVcsError:
+            return False
+        return True
+
+    @pytest.mark.parametrize("url", URLS)
+    def test_ref_append_never_turns_refuse_into_admit(self, url: str) -> None:
+        assert not self._admits(url)
+        assert not self._admits(f"{url}@{_FORTY}")
+        assert not self._admits(f"{url}@main")
+
+
 class TestAdmitVcsUrlUserinfoPosition:
     def test_allowed_prefix_in_userinfo_position_refused(self) -> None:
         """An allowed host sitting in the userinfo is not the host cloned from."""
@@ -701,6 +812,71 @@ class TestAdmitVcsUrlUserinfoPosition:
         )
         with pytest.raises(UnsupportedVcsError, match="not in vcs.allowed-repos"):
             admit_vcs_url("git+https://github.com@elsewhere.example/foo", config)
+
+
+class TestAdmitVcsUrlRawBytes:
+    """A login in the URL does not change which bytes the prefix sees.
+
+    ``urlsplit`` deletes every tab, CR and LF and reports an empty ``?``
+    as no query, so the match runs on the raw URL rather than a rebuilt
+    one.
+    """
+
+    @pytest.mark.parametrize("login", ["", "git@"], ids=["anonymous", "login"])
+    @pytest.mark.parametrize("control", ["\t", "\r", "\n"], ids=["tab", "cr", "lf"])
+    def test_control_character_after_repo_refused(
+        self, control: str, login: str
+    ) -> None:
+        config = VcsConfig(
+            policy=VcsPolicy.ALLOW,
+            allowed_schemes=frozenset({"git+ssh"}),
+            allowed_repos=("ssh://git@github.com/myorg/repo",),
+        )
+        url = f"git+ssh://{login}github.com/myorg/repo{control}@{_FORTY}"
+        with pytest.raises(UnsupportedVcsError, match="not in vcs.allowed-repos"):
+            admit_vcs_url(url, config)
+
+    @pytest.mark.parametrize("control", ["\t", "\r", "\n"], ids=["tab", "cr", "lf"])
+    def test_control_character_inside_host_refused(self, control: str) -> None:
+        """The entry names github.com; git would be handed a different host."""
+        config = VcsConfig(
+            policy=VcsPolicy.ALLOW,
+            allowed_schemes=frozenset({"git+https"}),
+            allowed_repos=("https://github.com/myorg/repo",),
+        )
+        host = f"git{control}hub.com"
+        url = f"git+https://user@{host}/myorg/repo@{_FORTY}"
+        assert VcsRequest.parse(url).repo_url == f"https://user@{host}/myorg/repo"
+
+        with pytest.raises(UnsupportedVcsError, match="not in vcs.allowed-repos"):
+            admit_vcs_url(url, config)
+
+    @pytest.mark.parametrize("login", ["", "user@"], ids=["anonymous", "login"])
+    def test_empty_query_after_repo_refused(self, login: str) -> None:
+        config = VcsConfig(
+            policy=VcsPolicy.ALLOW,
+            allowed_schemes=frozenset({"git+https"}),
+            allowed_repos=("https://github.com/myorg/repo",),
+            require_pin=False,
+        )
+        with pytest.raises(UnsupportedVcsError, match="not in vcs.allowed-repos"):
+            admit_vcs_url(f"git+https://{login}github.com/myorg/repo?", config)
+
+    def test_control_character_reaches_the_clone_url(self) -> None:
+        """The tab survives into the clone URL, not just the admission check."""
+        request = VcsRequest.parse(f"git+ssh://git@github.com/myorg/repo\t@{_FORTY}")
+        assert request.repo_url == "ssh://git@github.com/myorg/repo\t"
+        assert request.ref == _FORTY
+
+    def test_prefix_naming_the_control_character_admits(self) -> None:
+        """Both sides keep their raw bytes, so an entry can name that path."""
+        config = VcsConfig(
+            policy=VcsPolicy.ALLOW,
+            allowed_schemes=frozenset({"git+ssh"}),
+            allowed_repos=("ssh://git@github.com/myorg/repo\t",),
+        )
+        url = f"git+ssh://git@github.com/myorg/repo\t@{_FORTY}"
+        assert admit_vcs_url(url, config) == "git+ssh"
 
 
 class TestAdmitVcsUrlMalformed:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: runpod
-Version: 1.11.0
+Version: 1.12.0
 Summary: 🐍 | Python library for Runpod API and serverless worker SDK.
 Home-page: https://runpod.io
 Author: Runpod
@@ -28,14 +28,14 @@ Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: aiohttp[speedups]>=3.14.1
+Requires-Dist: aiohttp[speedups]>=3.14.3
 Requires-Dist: aiohttp-retry>=2.9.1
 Requires-Dist: backoff>=2.2.1
-Requires-Dist: boto3>=1.43.51
+Requires-Dist: boto3>=1.43.66
 Requires-Dist: click>=8.4.2
 Requires-Dist: colorama<0.4.7,>=0.4.6
-Requires-Dist: cryptography>=49.0.0
-Requires-Dist: fastapi[all]>=0.139.2
+Requires-Dist: cryptography>=50.0.0
+Requires-Dist: fastapi[all]>=0.141.1
 Requires-Dist: paramiko>=5.0.0
 Requires-Dist: prettytable>=3.18.0
 Requires-Dist: psutil>=7.2.2
@@ -202,6 +202,19 @@ runpod.serverless.start({"handler": handler})
 - Any check failure exits with code 1 (worker marked unhealthy)
 
 See [Worker Fitness Checks](https://github.com/runpod/runpod-python/blob/main/docs/serverless/worker_fitness_checks.md) documentation for more examples and best practices.
+
+### Network-Volume Warm Cache
+
+When a network volume is attached, `VolumeCache` warms local directories (such as a model cache) across cold starts — hydrating them on startup and syncing new files back on exit — so a repeated multi-GB model download becomes a one-time cost per endpoint. It is stdlib-only and best-effort.
+
+```python
+from runpod.serverless import VolumeCache
+
+with VolumeCache(dirs=["/root/.cache/huggingface"]):
+    model = load_model()
+```
+
+See [Network-Volume Warm Cache](https://github.com/runpod/runpod-python/blob/main/docs/serverless/volume_cache.md) documentation for configuration and details.
 
 ## 📚 | API Language Library (GraphQL Wrapper)
 

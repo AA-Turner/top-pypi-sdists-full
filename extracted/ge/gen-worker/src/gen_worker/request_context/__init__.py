@@ -19,6 +19,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    Iterable,
     Iterator,
     List,
     Literal,
@@ -55,6 +56,7 @@ from ..api.errors import (
     BlobForbiddenError,
     BlobNotFoundError,
     DatasetNotFoundError,
+    DeclaredSlotResolutionError,
 )
 from ..api.slot import ResolvedSlot
 
@@ -80,6 +82,7 @@ from ..io import (
     encode_image,
     image_format,
 )
+from ..output_integrity import guard_image, judged
 from ..stage_timing import StageTimer
 from ..api.types import (
     Asset,
@@ -98,22 +101,34 @@ class _SlotTable(Mapping):
     no code fallback, no ref for the slot) are stored per-key and raised
     lazily on ``__getitem__`` — "clear error at request time" means when the
     HANDLER actually reads that slot, not a blanket failure for every
-    Slot-declared endpoint whose handler never touches an unresolved one."""
+    Slot-declared endpoint whose handler never touches an unresolved one.
 
-    __slots__ = ("_resolved", "_errors")
+    ``declared`` (pgw#763/th#1288) names the failed slots whose ref is the
+    RELEASE'S OWN fixed declaration; those raise the typed
+    ``DeclaredSlotResolutionError``, so the hub classifies the resulting FATAL
+    by ORIGIN at any worker version instead of discarding it. A
+    ``Slot(selected_by=...)`` slot keeps the bare ``ValueError`` — the payload
+    participates in picking it, so its failure is not evidence about the
+    release."""
+
+    __slots__ = ("_resolved", "_errors", "_declared")
 
     def __init__(
         self,
         resolved: Mapping[str, "ResolvedSlot[Any]"],
         errors: Mapping[str, str],
+        declared: Iterable[str] = (),
     ) -> None:
         self._resolved = dict(resolved)
         self._errors = dict(errors)
+        self._declared = frozenset(declared)
 
     def __getitem__(self, key: str) -> "ResolvedSlot[Any]":
         if key in self._resolved:
             return self._resolved[key]
         if key in self._errors:
+            if key in self._declared:
+                raise DeclaredSlotResolutionError(self._errors[key])
             raise ValueError(self._errors[key])
         raise KeyError(key)
 
@@ -233,11 +248,6 @@ logger = logging.getLogger(__name__)
 # call sites (worker.py, tests) keep working.
 from ._helpers import (
     _MAX_OUTPUT_FILE_BYTES,
-    _FILE_API_HTTP_TIMEOUT_S,
-    _FILE_API_STREAM_ABORT_TIMEOUT_S,
-    _FILE_API_STREAM_CHUNK_TIMEOUT_S,
-    _FILE_API_STREAM_FINALIZE_TIMEOUT_S,
-    _FILE_API_STREAM_REPLAY_TIMEOUT_S,
     _decode_unverified_jwt_claims,
     _enforce_output_file_size_limit,
     _infer_mime_type,
@@ -290,7 +300,6 @@ class RequestContext(Generic[D]):
         emitter: Optional[Callable[[Dict[str, Any]], None]] = None,
         owner: Optional[str] = None,
         invoker_id: Optional[str] = None,
-        timeout_ms: Optional[int] = None,
         file_api_base_url: Optional[str] = None,
         worker_capability_token: Optional[str] = None,
         local_output_dir: Optional[str] = None,
@@ -299,6 +308,7 @@ class RequestContext(Generic[D]):
         loras: Optional[Dict[str, Any]] = None,
         resolved_slots: Optional[Mapping[str, "ResolvedSlot[Any]"]] = None,
         slot_errors: Optional[Mapping[str, str]] = None,
+        declared_slot_errors: Optional[Iterable[str]] = None,
         root_slot: str = "",
         boot_warmup: bool = False,
     ) -> None:
@@ -306,15 +316,11 @@ class RequestContext(Generic[D]):
         self._job_id = str(job_id or "").strip() or None
         self._owner = owner
         self._invoker_id = invoker_id
-        self._timeout_ms = timeout_ms
         self._file_api_base_url = (file_api_base_url or "").strip() or None
         self._worker_capability_token = (worker_capability_token or "").strip() or None
         self._local_output_dir = (local_output_dir or "").strip() or None
         self._execution_hints = dict(execution_hints or {})
         self._started_at = time.time()
-        self._deadline: Optional[float] = None
-        if timeout_ms is not None and timeout_ms > 0:
-            self._deadline = self._started_at + (timeout_ms / 1000.0)
         self._canceled = False
         self._boot_warmup = bool(boot_warmup)
         self._execution_lane = ""  # th#1050: executing lane, set by the executor
@@ -329,7 +335,8 @@ class RequestContext(Generic[D]):
         self._repo_scope_parse_reported = False
         self._models = _copy_context_metadata(models or {})
         self._loras = _copy_context_metadata(loras or {})
-        self._slots = _SlotTable(resolved_slots or {}, slot_errors or {})
+        self._slots = _SlotTable(
+            resolved_slots or {}, slot_errors or {}, declared_slot_errors or ())
         self._root_slot_name = str(root_slot or "").strip()
         # pgw#654: caller-visible adjustment warnings — structured rows the
         # merge/clamp layer emits whenever a requested value is modified.
@@ -381,11 +388,6 @@ class RequestContext(Generic[D]):
         (e.g. ``steps = 1 if ctx.boot_warmup else steps``) — the allocator
         peak is shape-driven, not step-driven."""
         return self._boot_warmup
-
-    @property
-    def deadline(self) -> Optional[float]:
-        """Absolute unix-time deadline, or None when the request is unbounded."""
-        return self._deadline
 
     @property
     def execution_lane(self) -> str:
@@ -445,11 +447,12 @@ class RequestContext(Generic[D]):
         resolved: Mapping[str, "ResolvedSlot[Any]"],
         errors: Optional[Mapping[str, str]] = None,
         root_slot: str = "",
+        declared_slot_errors: Optional[Iterable[str]] = None,
     ) -> None:
         """CLI-only mutator (``gen-worker run``/``serve``): the hub-less
         resolve step runs after context construction, unlike the executor
         which has every input up front."""
-        self._slots = _SlotTable(resolved, errors or {})
+        self._slots = _SlotTable(resolved, errors or {}, declared_slot_errors or ())
         if root_slot:
             self._root_slot_name = str(root_slot).strip()
 
@@ -1216,6 +1219,16 @@ class RequestContext(Generic[D]):
             ref = _normalize_output_ref(str(ref))
             if Path(ref).suffix == "":
                 ref += ext
+        # pgw#1094: the output-integrity floor, on the pixels, before anything
+        # is encoded or uploaded. Judged EAGERLY even on the deferred path: the
+        # check is sub-millisecond on one image and the handler is still on the
+        # stack here, so a rejected render raises where the request can see it
+        # instead of inside the post-handler finalize drain. Charged to
+        # its OWN stage so its wall is ATTRIBUTED (th#1111) without borrowing
+        # `image_encode`, which on the deferred path means the finalize tail.
+        if judged(self):
+            with self._stages.stage("output_integrity"):
+                guard_image(image, ref=ref)
         if not self._deferred.armed:
             with self._stages.stage("image_encode"):
                 payload, _ext = encode_image(

@@ -25,6 +25,7 @@ from .api.decorators import (
     endpoint,
     variant_of,
     worker_function,
+    AcceptsReferences,
 )
 from .api.export_contract import (
     Arg,
@@ -94,6 +95,7 @@ from .api.types import (
     AudioAsset,
     ExpectedOutput,
     ImageAsset,
+    PromptRole,
     StringEnum,
     VideoAsset,
 )
@@ -112,6 +114,7 @@ __all__ = [
     "endpoint",
     "variant_of",
     "worker_function",
+    "AcceptsReferences",
     "Resources",
     "Compile",
     "CompileAxis",
@@ -207,6 +210,7 @@ __all__ = [
     "AudioAsset",
     "ExpectedOutput",
     "ImageAsset",
+    "PromptRole",
     "StringEnum",
     "VideoAsset",
     "io",

@@ -24,6 +24,8 @@ log = BlockLogger()
 _OUTPUT_CHOICES_FULL = ["table", "json", "yaml"]
 _OUTPUT_CHOICES_SINGLE = ["json", "yaml"]
 
+_CONFIRMATION_PHRASE = "change config"
+
 
 @click.group(
     "scheduler", help="Manage the Anyscale Global Resource Scheduler.", hidden=True,
@@ -50,7 +52,10 @@ def config_cli() -> None:
     type=click.Path(exists=True, dir_okay=False),
     help="Path to a YAML file containing the scheduler config.",
 )
-def apply(config_file: str) -> None:
+@click.option(
+    "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation.",
+)
+def apply(config_file: str, yes: bool) -> None:
     """Apply a scheduler config, creating a new active version.
 
     The previous active version becomes inactive but remains queryable with
@@ -62,6 +67,32 @@ def apply(config_file: str) -> None:
         raise click.ClickException(
             f"Failed to load scheduler config from '{config_file}': {e}"
         ) from None
+
+    if _should_warn_no_catch_all_rule(config):
+        log.warning(
+            "No catch-all scheduling rule is configured (a rule with no selector "
+            "matches every workload). Workloads that do not match any scheduling "
+            "rule will be rejected and fail."
+        )
+
+    if not yes:
+        click.echo(
+            "\nOnce applied, all workloads in your organization will be admitted, "
+            "scheduled, run, or rejected according to this new configuration.\n",
+            err=True,
+        )
+        typed = click.prompt(
+            f'Type "{_CONFIRMATION_PHRASE}" to proceed, or press Ctrl+C to cancel',
+            type=str,
+            # Click re-prompts forever on a blank line unless a default is set.
+            default="",
+            show_default=False,
+            err=True,
+        )
+        if typed.strip() != _CONFIRMATION_PHRASE:
+            raise click.ClickException(
+                f'You must type "{_CONFIRMATION_PHRASE}" to apply. Nothing was applied.'
+            )
 
     try:
         with log.spinner("Applying scheduler config..."):
@@ -155,6 +186,20 @@ def list_versions(max_items: int, output: str,) -> None:  # noqa: A001
 
 
 # ---- helpers ----
+
+
+def _should_warn_no_catch_all_rule(config: SchedulerConfig) -> bool:
+    """Whether to warn that the config declares no catch-all scheduling rule.
+
+    A rule with no selector matches every workload, so one anywhere in the list
+    means nothing can go unmatched. A config declaring no rules at all admits
+    everything, so there is nothing to warn about. Mirrors the console's
+    condition.
+    """
+    rules = config.scheduling_rules
+    if not rules:
+        return False
+    return all(r.selector for r in rules)
 
 
 def _get_spinner_text(version: Optional[int]) -> str:

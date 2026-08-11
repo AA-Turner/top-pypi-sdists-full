@@ -23,10 +23,10 @@ and since pgw#1010 nothing mints into that key space — every publishable cell
 is STAMPED ``aot-inductor`` — so the push could never have selected a cell.
 
 **Nothing is DELIVERED to a pod any more.** th#1702 also deletes the hub's
-snapshot attach (HelloAck and RunJob both), so the worker ACQUIRES its own
-cell: ``aot_cells`` fetch-and-filter lists the family repo through the hub's
-catalog read API at arm time, downloads what this runtime can serve, and feeds
-it through the same gates. That is the only adoption there is. (pgw#904
+snapshot attach (HelloAck and RunJob both). pgw#904 then deleted worker-side
+fetch-and-filter discovery too: the hub RESOLVES the exact cell and names it
+in ``Arm.artifact``; the worker materializes only that identity and feeds it
+through the same gates. That is the only adoption there is. (pgw#904
 replaces the listing with a hub-RESOLVED ``Arm.artifact`` — still a pull, not
 a push.)
 
@@ -95,6 +95,11 @@ class EagerPhase(StrEnum):
     #: Eager with an END — a delegated mint child is building the cell.
     MINT_IN_PROGRESS = "mint_in_progress"
 
+    #: pgw#904: the hub's ExecutionSpec named ``eager_only`` for this arm.
+    #: Eager is the ORDER, not a degradation — the worker armed nothing
+    #: because nothing was named, which is a complete answer.
+    HUB_ORDERED_EAGER = "hub_ordered_eager"
+
     #: pgw#1035: the four tokens below rode the SAME wire columns as the ones
     #: above — `phase` on `self_mint_skipped`/`self_mint_started`, and the
     #: request row's `fallback_reason` — while living as bare literals in
@@ -116,6 +121,40 @@ class EagerPhase(StrEnum):
     #: in flight: this worker serves eager for the rest of its life. Terminal,
     #: and it must mean "nothing is dispatchable" (pgw#844), never "partial".
     BOOT_ENDED_UNCOMPILED = "boot_ended_uncompiled"
+
+    #: pgw#1082: the declared region did not trace WHOLE. Dynamo's fullgraph
+    #: refusal fired, the platform refused to serve eager-glued fragments as
+    #: compiled, and this instance degraded to explicit eager. An AUTHORING
+    #: defect in the endpoint's block, named as one — never a silent 1.0x
+    #: "compiled" lane (the ie#632/pgw#1078 failure class).
+    GRAPH_BREAK = "graph_break"
+
+    #: pgw#1082: the endpoint's `dynamic=(...)` declaration names a range its
+    #: own inputs leave, so the declared marks cannot be applied and the
+    #: target degraded to eager. Also an AUTHORING defect, and the one that
+    #: actually cost minimax-h3 its compiled wall.
+    DECLARED_RANGE_EXCEEDED = "declared_range_exceeded"
+
+    #: pgw#1093: the target WAS installed and armed, and a served call then
+    #: failed permanently for a reason that is neither a graph break nor a
+    #: declared-range refusal — a kernel that refuses this shape, an OOM
+    #: inside the region, a module the endpoint mutated after the arm. Before
+    #: this token that degrade reached the wire as NOTHING, so it was
+    #: indistinguishable from "no target was ever installed" and both read
+    #: `uncompiled`. The distinction is the whole point: one is an execution
+    #: failure with a named exception, the other is a WIRING failure.
+    COMPILED_DEGRADED = "compiled_degraded"
+
+    #: pgw#1093: an arm SUCCEEDED inside `setup()` and `_install_compile_targets`
+    #: then resolved no declared target on the same object — the boot compiled
+    #: graphs it can never dispatch to. The pgw#1078 D2 class, one layer up,
+    #: and previously a bare `continue` with no note, no counter, no event.
+    ARMED_TARGET_UNRESOLVED = "armed_target_unresolved"
+
+    #: pgw#1093: the record ended setup owning ZERO compile-capable candidate
+    #: objects while its spec declares a compile family. The candidate loop
+    #: never ran, so not one of the per-candidate omission tokens could fire.
+    NO_COMPILE_CANDIDATES = "no_compile_candidates"
 
     #: `_fail_closed`'s default, for a caller that has not classified its exit.
     #: A new decline landing here rather than on its own member is the

@@ -38,6 +38,7 @@ class TemplateEvaluationRunConfig(BaseModel):
     evaluator_version_id: Optional[StrictStr] = Field(default=None, description="EvaluatorVersion identifier (base64). Links this run to an Eval Hub evaluator version.")
     invocation_parameters: Optional[InvocationParams] = None
     provider_parameters: Optional[Dict[str, Any]] = Field(default=None, description="Provider-specific parameters. Defaults to `{}` (no overrides) if omitted.")
+    additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = ["experiment_type", "ai_integration_id", "model_name", "template", "provide_explanation", "classification_choices", "column_mapping", "evaluator_version_id", "invocation_parameters", "provider_parameters"]
 
     @field_validator('experiment_type')
@@ -77,8 +78,10 @@ class TemplateEvaluationRunConfig(BaseModel):
         * `None` is only added to the output dict for nullable fields that
           were set at model initialization. Other fields with value `None`
           are ignored.
+        * Fields in `self.additional_properties` are added to the output dict.
         """
         excluded_fields: Set[str] = set([
+            "additional_properties",
         ])
 
         _dict = self.model_dump(
@@ -89,6 +92,11 @@ class TemplateEvaluationRunConfig(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of invocation_parameters
         if self.invocation_parameters:
             _dict['invocation_parameters'] = self.invocation_parameters.to_dict()
+        # puts key-value pairs in additional_properties in the top level
+        if self.additional_properties is not None:
+            for _key, _value in self.additional_properties.items():
+                _dict[_key] = _value
+
         # set to None if evaluator_version_id (nullable) is None
         # and model_fields_set contains the field
         if self.evaluator_version_id is None and "evaluator_version_id" in self.model_fields_set:
@@ -105,11 +113,6 @@ class TemplateEvaluationRunConfig(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        # raise errors for additional fields in the input
-        for _key in obj.keys():
-            if _key not in cls.__properties:
-                raise ValueError("Error due to additional fields (not defined in TemplateEvaluationRunConfig) in the input: " + _key)
-
         _obj = cls.model_validate({
             "experiment_type": obj.get("experiment_type"),
             "ai_integration_id": obj.get("ai_integration_id"),
@@ -122,6 +125,11 @@ class TemplateEvaluationRunConfig(BaseModel):
             "invocation_parameters": InvocationParams.from_dict(obj["invocation_parameters"]) if obj.get("invocation_parameters") is not None else None,
             "provider_parameters": obj.get("provider_parameters")
         })
+        # store additional fields in additional_properties
+        for _key in obj.keys():
+            if _key not in cls.__properties:
+                _obj.additional_properties[_key] = obj.get(_key)
+
         return _obj
 
 

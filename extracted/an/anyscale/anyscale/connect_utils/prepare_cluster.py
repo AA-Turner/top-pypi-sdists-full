@@ -58,7 +58,7 @@ DEFAULT_AUTOSUSPEND_TIMEOUT = 120
 # Default docker images to use for connect clusters.
 def _get_base_image(image: str, ray_version: str, cpu_or_gpu: str) -> str:
     py_version = "".join(str(x) for x in sys.version_info[0:2])
-    if py_version not in ["36", "37", "38"]:
+    if py_version not in ["36", "37", "38", "39", "310", "311", "312", "313"]:
         raise ValueError(f"No default docker image for py{py_version}")
     return f"anyscale/{image}:{ray_version}-py{py_version}-{cpu_or_gpu}"
 
@@ -558,7 +558,7 @@ class PrepareClusterBlock:
         """
         major, minor = sys.version_info[:2]
         MIN_PY_VER = (3, 8)
-        MAX_PY_VER = (3, 12)
+        MAX_PY_VER = (3, 13)
 
         if not (MIN_PY_VER <= (major, minor) <= MAX_PY_VER):
             raise ValueError(

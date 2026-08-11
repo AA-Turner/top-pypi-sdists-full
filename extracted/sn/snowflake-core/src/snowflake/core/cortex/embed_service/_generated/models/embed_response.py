@@ -58,6 +58,7 @@ class EmbedResponse(BaseModel):
 
     @field_validator("object")
     def object_validate_enum(cls, v):
+
         if v not in ("list"):
             raise ValueError("must validate the enum values ('list')")
         return v

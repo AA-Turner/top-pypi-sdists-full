@@ -27,6 +27,13 @@ class FileUpload:
     stream: ByteStream
     expected_bytes: Optional[int] = None
 
+    def __post_init__(self):
+        """Normalize the path by trimming whitespace on creation."""
+        if isinstance(self.path, str):
+            trimmed_path = self.path.strip()
+            # Use object.__setattr__ since the dataclass is frozen
+            object.__setattr__(self, 'path', trimmed_path)
+
 
 # Short timeout for worker thread shutdown since it's a daemon thread
 _WORKER_SHUTDOWN_TIMEOUT_SEC = 0.1
@@ -45,7 +52,8 @@ def _validate_path(path: str) -> None:
         raise ValueError(
             f"Invalid file path: expected a string, but received {type(path).__name__}."
         )
-    if not path or not path.strip():
+    
+    if not path:
         raise ValueError(
             "Invalid file path: path cannot be empty or contain only whitespace."
         )

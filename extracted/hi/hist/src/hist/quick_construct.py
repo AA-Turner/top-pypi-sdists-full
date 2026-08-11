@@ -1,20 +1,26 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
-from typing import TYPE_CHECKING, Any
-
-import boost_histogram as bh
-import numpy as np
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, overload
 
 from . import axis, storage
-from .axis import AxisProtocol
-from .axis.transform import AxisTransform
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+
+    import numpy as np
+
+    from .axis import AxisProtocol
+    from .axis.transform import AxisTransform
     from .basehist import BaseHist
+    from .hist import Hist
+    from .namedhist import NamedHist
+
+# Carries the originating histogram class (Hist, NamedHist, or a user subclass)
+# through the construction chain so storage finalizers return the real subclass.
+H = TypeVar("H", bound="BaseHist[Any]")
 
 
-class QuickConstruct:
+class QuickConstruct(Generic[H]):
     """
     Create a quick construct instance. This is the "base" quick constructor; it will
     always require at least one axes to be added before allowing a storage or fill to be performed.
@@ -29,7 +35,7 @@ class QuickConstruct:
         inside = ", ".join(repr(ax) for ax in self.axes)
         return f"{self.__class__.__name__}({self.hist_class.__name__}, {inside})"
 
-    def __init__(self, hist_class: type[BaseHist[Any]], *axes: AxisProtocol) -> None:
+    def __init__(self, hist_class: type[H], *axes: AxisProtocol) -> None:
         self.hist_class = hist_class
         self.axes = axes
 
@@ -49,7 +55,7 @@ class QuickConstruct:
         circular: bool = False,
         transform: AxisTransform | None = None,
         __dict__: dict[str, Any] | None = None,
-    ) -> ConstructProxy:
+    ) -> ConstructProxy[H]:
         return ConstructProxy(
             self.hist_class,
             *self.axes,
@@ -82,7 +88,7 @@ class QuickConstruct:
         label: str = "",
         metadata: Any = None,
         __dict__: dict[str, Any] | None = None,
-    ) -> ConstructProxy:
+    ) -> ConstructProxy[H]:
         return ConstructProxy(
             self.hist_class,
             *self.axes,
@@ -108,7 +114,7 @@ class QuickConstruct:
         label: str = "",
         metadata: Any = None,
         __dict__: dict[str, Any] | None = None,
-    ) -> ConstructProxy:
+    ) -> ConstructProxy[H]:
         return ConstructProxy(
             self.hist_class,
             *self.axes,
@@ -135,7 +141,7 @@ class QuickConstruct:
         power: float,
         metadata: Any = None,
         __dict__: dict[str, Any] | None = None,
-    ) -> ConstructProxy:
+    ) -> ConstructProxy[H]:
         return ConstructProxy(
             self.hist_class,
             *self.axes,
@@ -163,7 +169,7 @@ class QuickConstruct:
         inverse: Callable[[float], float],
         metadata: Any = None,
         __dict__: dict[str, Any] | None = None,
-    ) -> ConstructProxy:
+    ) -> ConstructProxy[H]:
         return ConstructProxy(
             self.hist_class,
             *self.axes,
@@ -185,7 +191,7 @@ class QuickConstruct:
         label: str = "",
         metadata: Any = None,
         __dict__: dict[str, Any] | None = None,
-    ) -> ConstructProxy:
+    ) -> ConstructProxy[H]:
         return ConstructProxy(
             self.hist_class,
             *self.axes,
@@ -212,7 +218,7 @@ class QuickConstruct:
         growth: bool = False,
         circular: bool = False,
         __dict__: dict[str, Any] | None = None,
-    ) -> ConstructProxy:
+    ) -> ConstructProxy[H]:
         return ConstructProxy(
             self.hist_class,
             *self.axes,
@@ -246,7 +252,7 @@ class QuickConstruct:
         growth: bool = False,
         circular: bool = False,
         __dict__: dict[str, Any] | None = None,
-    ) -> ConstructProxy:
+    ) -> ConstructProxy[H]:
         return ConstructProxy(
             self.hist_class,
             *self.axes,
@@ -276,7 +282,7 @@ class QuickConstruct:
         metadata: Any = None,
         growth: bool = False,
         __dict__: dict[str, Any] | None = None,
-    ) -> ConstructProxy:
+    ) -> ConstructProxy[H]:
         return ConstructProxy(
             self.hist_class,
             *self.axes,
@@ -301,7 +307,7 @@ class QuickConstruct:
         metadata: Any = None,
         growth: bool = False,
         __dict__: dict[str, Any] | None = None,
-    ) -> ConstructProxy:
+    ) -> ConstructProxy[H]:
         return ConstructProxy(
             self.hist_class,
             *self.axes,
@@ -318,9 +324,41 @@ class QuickConstruct:
     StrCategory = StrCat
 
 
-class ConstructProxy(QuickConstruct):
+class ConstructProxy(QuickConstruct[H]):
     __slots__ = ()
 
+    # Each finalizer has self-type overloads that select the storage-typed
+    # return (e.g. Hist[storage.Double]) for the known classes. Python typing
+    # has no higher-kinded types, so user subclasses take the fallback, which
+    # keeps the subclass but not the storage type.
+
+    @overload
+    def Double(
+        self: ConstructProxy[NamedHist[Any]],
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> NamedHist[storage.Double]: ...
+    @overload
+    def Double(
+        self: ConstructProxy[Hist[Any]],
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> Hist[storage.Double]: ...
+    @overload
+    def Double(
+        self,
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> H: ...
     def Double(
         self,
         *,
@@ -328,7 +366,7 @@ class ConstructProxy(QuickConstruct):
         data: np.typing.NDArray[Any] | None = None,
         label: str | None = None,
         name: str | None = None,
-    ) -> BaseHist[bh.storage.Double]:
+    ) -> Any:
         return self.hist_class(
             *self.axes,
             storage=storage.Double(),
@@ -338,6 +376,33 @@ class ConstructProxy(QuickConstruct):
             name=name,
         )
 
+    @overload
+    def Int64(
+        self: ConstructProxy[NamedHist[Any]],
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> NamedHist[storage.Int64]: ...
+    @overload
+    def Int64(
+        self: ConstructProxy[Hist[Any]],
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> Hist[storage.Int64]: ...
+    @overload
+    def Int64(
+        self,
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> H: ...
     def Int64(
         self,
         *,
@@ -345,7 +410,7 @@ class ConstructProxy(QuickConstruct):
         data: np.typing.NDArray[Any] | None = None,
         label: str | None = None,
         name: str | None = None,
-    ) -> BaseHist[bh.storage.Int64]:
+    ) -> Any:
         return self.hist_class(
             *self.axes,
             storage=storage.Int64(),
@@ -355,6 +420,33 @@ class ConstructProxy(QuickConstruct):
             name=name,
         )
 
+    @overload
+    def AtomicInt64(
+        self: ConstructProxy[NamedHist[Any]],
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> NamedHist[storage.AtomicInt64]: ...
+    @overload
+    def AtomicInt64(
+        self: ConstructProxy[Hist[Any]],
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> Hist[storage.AtomicInt64]: ...
+    @overload
+    def AtomicInt64(
+        self,
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> H: ...
     def AtomicInt64(
         self,
         *,
@@ -362,7 +454,7 @@ class ConstructProxy(QuickConstruct):
         data: np.typing.NDArray[Any] | None = None,
         label: str | None = None,
         name: str | None = None,
-    ) -> BaseHist[bh.storage.AtomicInt64]:
+    ) -> Any:
         return self.hist_class(
             *self.axes,
             storage=storage.AtomicInt64(),
@@ -372,6 +464,33 @@ class ConstructProxy(QuickConstruct):
             name=name,
         )
 
+    @overload
+    def Weight(
+        self: ConstructProxy[NamedHist[Any]],
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> NamedHist[storage.Weight]: ...
+    @overload
+    def Weight(
+        self: ConstructProxy[Hist[Any]],
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> Hist[storage.Weight]: ...
+    @overload
+    def Weight(
+        self,
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> H: ...
     def Weight(
         self,
         *,
@@ -379,7 +498,7 @@ class ConstructProxy(QuickConstruct):
         data: np.typing.NDArray[Any] | None = None,
         label: str | None = None,
         name: str | None = None,
-    ) -> BaseHist[bh.storage.Weight]:
+    ) -> Any:
         return self.hist_class(
             *self.axes,
             storage=storage.Weight(),
@@ -389,6 +508,33 @@ class ConstructProxy(QuickConstruct):
             name=name,
         )
 
+    @overload
+    def Mean(
+        self: ConstructProxy[NamedHist[Any]],
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> NamedHist[storage.Mean]: ...
+    @overload
+    def Mean(
+        self: ConstructProxy[Hist[Any]],
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> Hist[storage.Mean]: ...
+    @overload
+    def Mean(
+        self,
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> H: ...
     def Mean(
         self,
         *,
@@ -396,7 +542,7 @@ class ConstructProxy(QuickConstruct):
         data: np.typing.NDArray[Any] | None = None,
         label: str | None = None,
         name: str | None = None,
-    ) -> BaseHist[bh.storage.Mean]:
+    ) -> Any:
         return self.hist_class(
             *self.axes,
             storage=storage.Mean(),
@@ -406,6 +552,33 @@ class ConstructProxy(QuickConstruct):
             name=name,
         )
 
+    @overload
+    def WeightedMean(
+        self: ConstructProxy[NamedHist[Any]],
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> NamedHist[storage.WeightedMean]: ...
+    @overload
+    def WeightedMean(
+        self: ConstructProxy[Hist[Any]],
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> Hist[storage.WeightedMean]: ...
+    @overload
+    def WeightedMean(
+        self,
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> H: ...
     def WeightedMean(
         self,
         *,
@@ -413,7 +586,7 @@ class ConstructProxy(QuickConstruct):
         data: np.typing.NDArray[Any] | None = None,
         label: str | None = None,
         name: str | None = None,
-    ) -> BaseHist[bh.storage.WeightedMean]:
+    ) -> Any:
         return self.hist_class(
             *self.axes,
             storage=storage.WeightedMean(),
@@ -423,6 +596,33 @@ class ConstructProxy(QuickConstruct):
             name=name,
         )
 
+    @overload
+    def Unlimited(
+        self: ConstructProxy[NamedHist[Any]],
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> NamedHist[storage.Unlimited]: ...
+    @overload
+    def Unlimited(
+        self: ConstructProxy[Hist[Any]],
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> Hist[storage.Unlimited]: ...
+    @overload
+    def Unlimited(
+        self,
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> H: ...
     def Unlimited(
         self,
         *,
@@ -430,7 +630,7 @@ class ConstructProxy(QuickConstruct):
         data: np.typing.NDArray[Any] | None = None,
         label: str | None = None,
         name: str | None = None,
-    ) -> BaseHist[bh.storage.Unlimited]:
+    ) -> Any:
         return self.hist_class(
             *self.axes,
             storage=storage.Unlimited(),
@@ -440,29 +640,60 @@ class ConstructProxy(QuickConstruct):
             name=name,
         )
 
-    if hasattr(storage, "MultiCell"):
-
-        def MultiCell(
-            self,
-            /,
-            nelem: int,
-            *,
-            metadata: Any = None,
-            data: np.typing.NDArray[Any] | None = None,
-            label: str | None = None,
-            name: str | None = None,
-        ) -> BaseHist[bh.storage.MultiCell]:
-            return self.hist_class(
-                *self.axes,
-                storage=storage.MultiCell(nelem),
-                metadata=metadata,
-                data=data,
-                label=label,
-                name=name,
-            )
+    @overload
+    def MultiCell(
+        self: ConstructProxy[NamedHist[Any]],
+        /,
+        nelem: int,
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> NamedHist[storage.MultiCell]: ...
+    @overload
+    def MultiCell(
+        self: ConstructProxy[Hist[Any]],
+        /,
+        nelem: int,
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> Hist[storage.MultiCell]: ...
+    @overload
+    def MultiCell(
+        self,
+        /,
+        nelem: int,
+        *,
+        metadata: Any = ...,
+        data: np.typing.NDArray[Any] | None = ...,
+        label: str | None = ...,
+        name: str | None = ...,
+    ) -> H: ...
+    def MultiCell(
+        self,
+        /,
+        nelem: int,
+        *,
+        metadata: Any = None,
+        data: np.typing.NDArray[Any] | None = None,
+        label: str | None = None,
+        name: str | None = None,
+    ) -> Any:
+        return self.hist_class(
+            *self.axes,
+            storage=storage.MultiCell(nelem),
+            metadata=metadata,
+            data=data,
+            label=label,
+            name=name,
+        )
 
 
 class MetaConstructor(type):
     @property
-    def new(cls: type[BaseHist[Any]]) -> QuickConstruct:  # type: ignore[misc]
+    def new(cls: type[H]) -> QuickConstruct[H]:  # type: ignore[misc]
         return QuickConstruct(cls)

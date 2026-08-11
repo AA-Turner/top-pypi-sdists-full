@@ -106,6 +106,7 @@ class TaskRun(BaseModel):
 
     @field_validator("state")
     def state_validate_enum(cls, v):
+
         if v not in ("SCHEDULED", "EXECUTING", "SUCCEEDED", "FAILED", "CANCELLED", "SKIPPED"):
             raise ValueError(
                 "must validate the enum values ('SCHEDULED','EXECUTING','SUCCEEDED','FAILED','CANCELLED','SKIPPED')"

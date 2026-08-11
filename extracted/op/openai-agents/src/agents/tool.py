@@ -3,7 +3,6 @@ from __future__ import annotations
 import ast
 import asyncio
 import copy
-import dataclasses
 import functools
 import inspect
 import json
@@ -67,7 +66,7 @@ from .exceptions import ModelBehaviorError, ToolTimeoutError, UserError
 from .function_schema import DocstringStyle, function_schema, generate_func_documentation
 from .logger import log_tool_action_warning, logger
 from .run_context import RunContextWrapper
-from .strict_schema import ensure_strict_json_schema
+from .strict_schema import _copy_json_schema, ensure_strict_json_schema
 from .tool_context import ToolContext
 from .tool_guardrails import ToolInputGuardrail, ToolOutputGuardrail
 from .tracing import SpanError
@@ -595,20 +594,23 @@ class FunctionTool:
             self.on_invoke_tool = bind_to_function_tool(self)
         if self.strict_json_schema:
             self.params_json_schema = ensure_strict_json_schema(
-                copy.deepcopy(self.params_json_schema)
+                _copy_json_schema(self.params_json_schema)
             )
         _validate_function_tool_timeout_config(self)
 
     def __copy__(self) -> FunctionTool:
-        copied_tool = dataclasses.replace(self)
-        dataclass_field_names = {tool_field.name for tool_field in dataclasses.fields(FunctionTool)}
-        for tool_field in dataclasses.fields(FunctionTool):
-            if tool_field.init:
-                continue
-            setattr(copied_tool, tool_field.name, getattr(self, tool_field.name))
-        for attr_name, attr_value in self.__dict__.items():
-            if attr_name not in dataclass_field_names:
-                setattr(copied_tool, attr_name, attr_value)
+        # Rebuild the instance state directly instead of re-running the constructor, so
+        # FunctionTool subclasses that define their own __init__ signature stay copyable.
+        copied_tool = object.__new__(type(self))
+        copied_tool.__dict__.update(self.__dict__)
+        # A subclass may pass one of its own bound methods as the invoker, e.g.
+        # on_invoke_tool=self._invoke. Copying the __dict__ carries that binding over
+        # unchanged, so the copy would run against the original instance's state.
+        invoker = copied_tool.__dict__.get("on_invoke_tool")
+        if inspect.ismethod(invoker) and getattr(invoker, "__self__", None) is self:
+            copied_tool.on_invoke_tool = invoker.__func__.__get__(copied_tool, type(copied_tool))
+        # Reapply FunctionTool normalization without rerunning subclass lifecycle hooks.
+        FunctionTool.__post_init__(copied_tool)
         return copied_tool
 
 
@@ -758,7 +760,11 @@ def get_function_tool_origin(function_tool: FunctionTool) -> ToolOrigin | None:
     """Return scalar origin metadata for a function tool."""
     if not function_tool._emit_tool_origin:
         return None
-    return function_tool._tool_origin or ToolOrigin(type=ToolOriginType.FUNCTION)
+    return (
+        function_tool._tool_origin
+        if function_tool._tool_origin is not None
+        else ToolOrigin(type=ToolOriginType.FUNCTION)
+    )
 
 
 @dataclass
@@ -903,7 +909,7 @@ async def resolve_computer(
         else None
     )
     initializer: ComputerCreate[Any] | None = None
-    disposer: ComputerDispose[Any] | None = lifecycle.dispose if lifecycle else None
+    disposer: ComputerDispose[Any] | None = lifecycle.dispose if lifecycle is not None else None
 
     if lifecycle is not None:
         initializer = lifecycle.create
@@ -914,7 +920,7 @@ async def resolve_computer(
         initializer = lifecycle_provider.create
         disposer = lifecycle_provider.dispose
 
-    if initializer:
+    if initializer is not None:
         computer_candidate = initializer(run_context=run_context)
         computer = (
             await computer_candidate
@@ -2193,7 +2199,7 @@ def _build_function_tool_output_type(
         output_json_schema = output_type_adapter.json_schema(mode="serialization")
         if not _json_schema_is_object(output_json_schema):
             raise UserError("the generated JSON Schema is not an object schema")
-        output_json_schema = ensure_strict_json_schema(copy.deepcopy(output_json_schema))
+        output_json_schema = ensure_strict_json_schema(_copy_json_schema(output_json_schema))
     except Exception as error:
         raise UserError(
             "Function tool output_type must define a strict JSON object schema. "
@@ -2228,7 +2234,7 @@ def _resolve_function_tool_output(
         return _build_function_tool_output_type(output_type)
 
     if output_json_schema is not None:
-        return copy.deepcopy(output_json_schema), None
+        return _copy_json_schema(output_json_schema), None
 
     if allowed_callers is None or "programmatic" not in allowed_callers:
         return None, None
@@ -2731,8 +2737,9 @@ def _normalize_function_tool_output_json_schema(
     """Copy and normalize a declared function output schema as a strict object schema."""
     if not isinstance(output_json_schema, dict) or not _json_schema_is_object(output_json_schema):
         raise UserError("Function tool output_json_schema must define a JSON object schema.")
+    copied_schema = _copy_json_schema(output_json_schema)
     try:
-        return ensure_strict_json_schema(copy.deepcopy(output_json_schema))
+        return ensure_strict_json_schema(copied_schema)
     except Exception as error:
         raise UserError(
             "Function tool output_json_schema must define a strict JSON object schema."

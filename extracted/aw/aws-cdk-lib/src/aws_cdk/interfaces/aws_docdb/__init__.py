@@ -237,13 +237,13 @@ class DBSubnetGroupReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_docdb.EventSubscriptionReference",
     jsii_struct_bases=[],
-    name_mapping={"event_subscription_id": "eventSubscriptionId"},
+    name_mapping={"subscription_name": "subscriptionName"},
 )
 class EventSubscriptionReference:
-    def __init__(self, *, event_subscription_id: builtins.str) -> None:
+    def __init__(self, *, subscription_name: builtins.str) -> None:
         '''A reference to a EventSubscription resource.
 
-        :param event_subscription_id: The Id of the EventSubscription resource.
+        :param subscription_name: The SubscriptionName of the EventSubscription resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -254,21 +254,21 @@ class EventSubscriptionReference:
             from aws_cdk.interfaces import aws_docdb as interfaces_docdb
             
             event_subscription_reference = interfaces_docdb.EventSubscriptionReference(
-                event_subscription_id="eventSubscriptionId"
+                subscription_name="subscriptionName"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__48d1757a2d0c92dd54faf578c5eecb7a2d61d57c75b45c13f8d31e21cf8f37f3)
-            check_type(argname="argument event_subscription_id", value=event_subscription_id, expected_type=type_hints["event_subscription_id"])
+            check_type(argname="argument subscription_name", value=subscription_name, expected_type=type_hints["subscription_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "event_subscription_id": event_subscription_id,
+            "subscription_name": subscription_name,
         }
 
     @builtins.property
-    def event_subscription_id(self) -> builtins.str:
-        '''The Id of the EventSubscription resource.'''
-        result = self._values.get("event_subscription_id")
-        assert result is not None, "Required property 'event_subscription_id' is missing"
+    def subscription_name(self) -> builtins.str:
+        '''The SubscriptionName of the EventSubscription resource.'''
+        result = self._values.get("subscription_name")
+        assert result is not None, "Required property 'subscription_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -670,7 +670,7 @@ def _typecheckingstub__ed49d8d68c7ea117d936be5f042ed3494a607b7eef69ae511b442f6c3
 
 def _typecheckingstub__48d1757a2d0c92dd54faf578c5eecb7a2d61d57c75b45c13f8d31e21cf8f37f3(
     *,
-    event_subscription_id: builtins.str,
+    subscription_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

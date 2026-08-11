@@ -112,6 +112,7 @@ class Pipe(BaseModel):
 
     @field_validator("copy_statement")
     def copy_statement_validate_regular_expression(cls, v):
+
         if not re.match(r"""(?i)^COPY INTO .*""", v):
             raise ValueError(r"""must validate the regular expression /(?i)^COPY INTO .*/""")
         return v

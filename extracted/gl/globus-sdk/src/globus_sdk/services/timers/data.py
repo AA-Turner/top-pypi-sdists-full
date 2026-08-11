@@ -43,23 +43,27 @@ class TransferTimer(GlobusPayload):
 
     **Example Schedules**
 
+    .. testsetup:: schedules
+
+        from globus_sdk import OnceTimerSchedule, RecurringTimerSchedule
+
     .. tab-set::
 
         .. tab-item:: Run Once, Right Now
 
-            .. code-block:: python
+            .. testcode:: schedules
 
                 schedule = OnceTimerSchedule()
 
         .. tab-item:: Run Once, At a Specific Time
 
-            .. code-block:: python
+            .. testcode:: schedules
 
                 schedule = OnceTimerSchedule(datetime="2023-09-22T00:00:00Z")
 
         .. tab-item:: Run Every 5 Minutes, Until a Specific Time
 
-            .. code-block:: python
+            .. testcode:: schedules
 
                 schedule = RecurringTimerSchedule(
                     interval_seconds=300,
@@ -68,7 +72,7 @@ class TransferTimer(GlobusPayload):
 
         .. tab-item:: Run Every 30 Minutes, 10 Times
 
-            .. code-block:: python
+            .. testcode:: schedules
 
                 schedule = RecurringTimerSchedule(
                     interval_seconds=1800,
@@ -77,20 +81,24 @@ class TransferTimer(GlobusPayload):
 
         .. tab-item:: Run Every 10 Minutes, Indefinitely
 
-            .. code-block:: python
+            .. testcode:: schedules
 
                 schedule = RecurringTimerSchedule(interval_seconds=600)
 
     Using these schedules, you can create a timer from a ``TransferData`` object:
 
-    .. code-block:: pycon
+    .. testsetup::
+
+        my_schedule = globus_sdk.OnceTimerSchedule()
+        sdk_doctest_patch("globus_sdk.TransferData")
+
+    .. doctest::
 
         >>> from globus_sdk import TransferData, TransferTimer
-        >>> schedule = ...
         >>> transfer_data = TransferData(...)
         >>> timer = TransferTimer(
         ...     name="my timer",
-        ...     schedule=schedule,
+        ...     schedule=my_schedule,
         ...     body=transfer_data,
         ... )
 
@@ -149,23 +157,27 @@ class FlowTimer(GlobusPayload):
 
     **Example Schedules**
 
+    .. testsetup:: schedules
+
+        from globus_sdk import OnceTimerSchedule, RecurringTimerSchedule
+
     .. tab-set::
 
         .. tab-item:: Run Once, Right Now
 
-            .. code-block:: python
+            .. testcode:: schedules
 
                 schedule = OnceTimerSchedule()
 
         .. tab-item:: Run Once, At a Specific Time
 
-            .. code-block:: python
+            .. testcode:: schedules
 
                 schedule = OnceTimerSchedule(datetime="2023-09-22T00:00:00Z")
 
         .. tab-item:: Run Every 5 Minutes, Until a Specific Time
 
-            .. code-block:: python
+            .. testcode:: schedules
 
                 schedule = RecurringTimerSchedule(
                     interval_seconds=300,
@@ -174,7 +186,7 @@ class FlowTimer(GlobusPayload):
 
         .. tab-item:: Run Every 30 Minutes, 10 Times
 
-            .. code-block:: python
+            .. testcode:: schedules
 
                 schedule = RecurringTimerSchedule(
                     interval_seconds=1800,
@@ -183,20 +195,23 @@ class FlowTimer(GlobusPayload):
 
         .. tab-item:: Run Every 10 Minutes, Indefinitely
 
-            .. code-block:: python
+            .. testcode:: schedules
 
-                schedule = RecurringTimerSchedule(interval_seconds=600)
+                my_schedule = RecurringTimerSchedule(interval_seconds=600)
 
     Using these schedules, you can create a timer:
 
-    .. code-block:: pycon
+    .. testsetup::
+
+        my_schedule = globus_sdk.OnceTimerSchedule()
+
+    .. doctest::
 
         >>> from globus_sdk import FlowTimer
-        >>> schedule = ...
         >>> timer = FlowTimer(
         ...     name="my timer",
         ...     flow_id="00000000-19a9-44e6-9c1a-867da59d84ab",
-        ...     schedule=schedule,
+        ...     schedule=my_schedule,
         ...     body={
         ...         "body": {
         ...             "input_key": "input_value",

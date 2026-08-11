@@ -2452,6 +2452,7 @@ class CfnMatchingWorkflow(
                 output_s3_path="outputS3Path"
             )],
             resolution_techniques=entityresolution.CfnMatchingWorkflow.ResolutionTechniquesProperty(
+                enable_real_time_matching=False,
                 provider_properties=entityresolution.CfnMatchingWorkflow.ProviderPropertiesProperty(
                     provider_service_arn="providerServiceArn",
         
@@ -3472,6 +3473,7 @@ class CfnMatchingWorkflow(
         jsii_type="aws-cdk-lib.aws_entityresolution.CfnMatchingWorkflow.ResolutionTechniquesProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "enable_real_time_matching": "enableRealTimeMatching",
             "provider_properties": "providerProperties",
             "resolution_type": "resolutionType",
             "rule_based_properties": "ruleBasedProperties",
@@ -3482,6 +3484,7 @@ class CfnMatchingWorkflow(
         def __init__(
             self,
             *,
+            enable_real_time_matching: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             provider_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMatchingWorkflow.ProviderPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             resolution_type: typing.Optional[builtins.str] = None,
             rule_based_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMatchingWorkflow.RuleBasedPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3489,6 +3492,7 @@ class CfnMatchingWorkflow(
         ) -> None:
             '''An object which defines the ``resolutionType`` and the ``ruleBasedProperties`` .
 
+            :param enable_real_time_matching: Enables the workflow to use real-time matching. Can only be set on creation for RULE_MATCHING workflows that define RuleConditionProperties.
             :param provider_properties: The properties of the provider service.
             :param resolution_type: The type of matching workflow to create. Specify one of the following types:. - ``RULE_MATCHING`` : Match records using configurable rule-based criteria - ``ML_MATCHING`` : Match records using machine learning models - ``PROVIDER`` : Match records using a third-party matching provider
             :param rule_based_properties: An object which defines the list of matching rules to run and has a field ``rules`` , which is a list of rule objects.
@@ -3504,6 +3508,7 @@ class CfnMatchingWorkflow(
                 from aws_cdk import aws_entityresolution as entityresolution
                 
                 resolution_techniques_property = entityresolution.CfnMatchingWorkflow.ResolutionTechniquesProperty(
+                    enable_real_time_matching=False,
                     provider_properties=entityresolution.CfnMatchingWorkflow.ProviderPropertiesProperty(
                         provider_service_arn="providerServiceArn",
                 
@@ -3541,11 +3546,14 @@ class CfnMatchingWorkflow(
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__d1c6ea89cbe5bb10bb721c60f7c5951a6a56729058a7b00d3dd16b091aa63ab9)
+                check_type(argname="argument enable_real_time_matching", value=enable_real_time_matching, expected_type=type_hints["enable_real_time_matching"])
                 check_type(argname="argument provider_properties", value=provider_properties, expected_type=type_hints["provider_properties"])
                 check_type(argname="argument resolution_type", value=resolution_type, expected_type=type_hints["resolution_type"])
                 check_type(argname="argument rule_based_properties", value=rule_based_properties, expected_type=type_hints["rule_based_properties"])
                 check_type(argname="argument rule_condition_properties", value=rule_condition_properties, expected_type=type_hints["rule_condition_properties"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enable_real_time_matching is not None:
+                self._values["enable_real_time_matching"] = enable_real_time_matching
             if provider_properties is not None:
                 self._values["provider_properties"] = provider_properties
             if resolution_type is not None:
@@ -3554,6 +3562,19 @@ class CfnMatchingWorkflow(
                 self._values["rule_based_properties"] = rule_based_properties
             if rule_condition_properties is not None:
                 self._values["rule_condition_properties"] = rule_condition_properties
+
+        @builtins.property
+        def enable_real_time_matching(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Enables the workflow to use real-time matching.
+
+            Can only be set on creation for RULE_MATCHING workflows that define RuleConditionProperties.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-resolutiontechniques.html#cfn-entityresolution-matchingworkflow-resolutiontechniques-enablerealtimematching
+            '''
+            result = self._values.get("enable_real_time_matching")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
         @builtins.property
         def provider_properties(
@@ -4027,6 +4048,7 @@ class CfnMatchingWorkflowProps:
                     output_s3_path="outputS3Path"
                 )],
                 resolution_techniques=entityresolution.CfnMatchingWorkflow.ResolutionTechniquesProperty(
+                    enable_real_time_matching=False,
                     provider_properties=entityresolution.CfnMatchingWorkflow.ProviderPropertiesProperty(
                         provider_service_arn="providerServiceArn",
             
@@ -5641,6 +5663,7 @@ def _typecheckingstub__9d0c8e14a190c02dfa2c1fa72a0c82e1ead9fb5ffa0de2fbba168caff
 
 def _typecheckingstub__d1c6ea89cbe5bb10bb721c60f7c5951a6a56729058a7b00d3dd16b091aa63ab9(
     *,
+    enable_real_time_matching: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     provider_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMatchingWorkflow.ProviderPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     resolution_type: typing.Optional[builtins.str] = None,
     rule_based_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMatchingWorkflow.RuleBasedPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

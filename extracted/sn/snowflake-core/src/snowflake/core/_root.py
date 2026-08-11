@@ -19,6 +19,7 @@ from ._utils import fix_hostname as _fix_hostname
 from .account import AccountCollection
 from .api_integration import ApiIntegrationCollection
 from .catalog_integration import CatalogIntegrationCollection
+from .code_bundle_execution import CodeBundleExecutionCollection
 from .compute_pool import ComputePoolCollection
 from .cortex.chat_service import CortexChatService
 from .cortex.embed_service import CortexEmbedService
@@ -121,6 +122,7 @@ class Root:
         self._catalog_integrations = CatalogIntegrationCollection(self)
         self._notification_integrations = NotificationIntegrationCollection(self)
         self._api_integrations = ApiIntegrationCollection(self)
+        self._code_bundle_execution = CodeBundleExecutionCollection(self)
 
         self._cortex_chat_service = CortexChatService(self)
         self._cortex_inference_service = CortexInferenceService(self)
@@ -207,6 +209,20 @@ class Root:
         >>> my_api_int = root.api_integrations["my_api_int"]
         """
         return self._api_integrations
+
+    @property
+    def code_bundle_execution(self) -> CodeBundleExecutionCollection:
+        """Returns the ``CodeBundleExecutionCollection`` that represents code bundle executions.
+
+        Examples
+        ________
+
+        Getting a reference to an existing code bundle execution:
+
+        >>> root = Root(session)
+        >>> execution = root.code_bundle_execution["<execution_id>"]
+        """
+        return self._code_bundle_execution
 
     @property
     def cortex_inference_service(self) -> CortexInferenceService:
@@ -436,6 +452,7 @@ class Root:
             SnowApiParameter.PRINT_VERBOSE_STACK_TRACE: os.getenv("_SNOWFLAKE_PRINT_VERBOSE_STACK_TRACE"),
             SnowApiParameter.FIX_HOSTNAME: os.getenv("_SNOWFLAKE_FIX_HOSTNAME", "true"),
             SnowApiParameter.MAX_THREADS: os.getenv("_SNOWFLAKE_MAX_THREADS"),
+            SnowApiParameter.SKIP_ASYNC_EXEC_POLLING: os.getenv("_SNOWFLAKE_SKIP_ASYNC_EXEC_POLLING"),
         }
         self._parameters = SnowApiParameters(parameters)
 

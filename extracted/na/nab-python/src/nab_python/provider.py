@@ -17,13 +17,15 @@ from dataclasses import dataclass, fields
 from typing import TYPE_CHECKING, cast
 
 from nab_index.client import (
+    MalformedSimpleResponseError,
     MetadataHashMismatchError,
     SdistFile,
     SdistHashMismatchError,
     WheelFile,
     WheelHashMismatchError,
 )
-from nab_index.transport import HttpError
+from nab_index.errors import IndexAccessError
+from nab_index.transport import UnserveableUrlError
 
 from ._conflict_kind import EMPTY_MEMBERSHIP_SETS
 from ._provider import extras as _extras
@@ -61,6 +63,7 @@ if TYPE_CHECKING:
 __all__ = [
     "ArchiveSource",
     "BuildPolicy",
+    "DecisionOrder",
     "DistFile",
     "DistPolicy",
     "ExtrasMode",
@@ -91,11 +94,6 @@ logger = logging.getLogger(__name__)
 _EXTRA_RE = re.compile(r"^(?P<base>[^\[]+)\[(?P<extra>[^\]]+)\]$")
 
 
-def _normalize_extra(extra: str) -> str:
-    """Normalize an extra name per PEP 685 (same rules as package names)."""
-    return canonicalize_name(extra)
-
-
 def split_extra(package: str) -> tuple[str, str | None]:
     """Split 'name[extra]' into ('name', 'extra'), or ('name', None).
 
@@ -104,7 +102,7 @@ def split_extra(package: str) -> tuple[str, str | None]:
     m = _EXTRA_RE.match(package)
     if m is None:
         return (package, None)
-    return (m.group("base"), _normalize_extra(m.group("extra")))
+    return (m.group("base"), canonicalize_name(m.group("extra")))
 
 
 def join_extra(base: str, extra: str) -> str:
@@ -112,7 +110,7 @@ def join_extra(base: str, extra: str) -> str:
 
     The extra name is normalized per PEP 685.
     """
-    return f"{base}[{_normalize_extra(extra)}]"
+    return f"{base}[{canonicalize_name(extra)}]"
 
 
 class MissingExtraError(Exception):
@@ -233,6 +231,16 @@ class ResolutionStrategy(enum.Enum):
 
     LOWEST_DIRECT = "lowest-direct"
     """Oldest for direct deps; newest for transitive deps."""
+
+
+class DecisionOrder(enum.Enum):
+    """Whether arrived listings may steer which package is decided next."""
+
+    ARRIVAL = "arrival"
+    """Rank on what has already landed, so the search keeps moving (default)."""
+
+    STABLE = "stable"
+    """Wait for each listing, so the sort key cannot see which had arrived."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -485,6 +493,11 @@ class Provider:
     and neither filter runs, since nothing has said which machine the
     resolve targets.
 
+    ``constraints`` are the user's version bounds, keyed as the resolver
+    keys packages, so an extras proxy carries its base's bound under its
+    own ``name[extra]`` key.  The provider reads them when deciding
+    whether a missing root extra is worth reporting.
+
     ``preferences`` are versions another resolve already decided, tried
     first when they are usable here.  A multi-target resolve passes the
     pins of an already-resolved target, which aligns the matrix on one
@@ -494,6 +507,10 @@ class Provider:
     ``listing_filter_cache`` shares the platform-independent half of the
     listing filter with the other targets of the same resolve; see
     :class:`ListingFilterCache`.
+
+    ``decision_order`` chooses whether the decision scan may rank a
+    package on whether its listing has landed yet.  See
+    :meth:`settled_listing`.
     """
 
     # Drives two prefetch paths: the speculative root-batch prefetch
@@ -510,11 +527,10 @@ class Provider:
     # destabilised hard scenarios.
     PREFETCH_DEPTH: int = 1
 
-    # Once the first look-ahead candidate fails, the resolver walks
-    # versions one at a time via the abort-skip path.  Front-load
-    # metadata for the next K so the walk hits cache instead of one
-    # RTT per visit.  Only fires from _scan_candidates_pipelined, so
-    # scenarios that accept the first candidate pay nothing.
+    # Versions front-loaded at the top of the pipelined scan, so a walk
+    # that runs past the first ``PREFETCH_BATCH`` hits cache instead of one
+    # RTT per visit.  The scan only starts once the first candidate is
+    # rejected, so accepting that candidate costs nothing.
     DEEP_PREFETCH_COUNT: int = 64
 
     # Per-call cap on decision-aware look-ahead rejections so tight version
@@ -533,9 +549,7 @@ class Provider:
     #
     # Set low because the trigger is conservative: a unique
     # ``(blocker_pkg, blocker_version)`` repeating across every rejection
-    # is already a strong signal. Combined with the per-package skip
-    # below, subsequent calls for the same package skip look-ahead while
-    # the blocker decision is unchanged.
+    # is already a strong signal.
     _LOOKAHEAD_ABORT_THRESHOLD = 8
 
     # Max force-backtracks one blocker can drive per resolution.
@@ -549,7 +563,7 @@ class Provider:
     CONFLICT_THRESHOLD = _priority.CONFLICT_THRESHOLD
     CULPRIT_DEMOTE_THRESHOLD = _priority.CULPRIT_DEMOTE_THRESHOLD
 
-    def __init__(  # noqa: PLR0913, PLR0915 - resolver config is wide; bundling all flags into one bag is worse for callers
+    def __init__(  # noqa: PLR0913, PLR0915, PLR0917 - resolver config is wide; bundling all flags into one bag is worse for callers
         self,
         coordinator: FetchCoordinator,
         target: ResolveTarget | None = None,
@@ -573,7 +587,9 @@ class Provider:
         preferences: Mapping[str, Version] | None = None,
         listing_filter_cache: ListingFilterCache | None = None,
         *,
+        constraints: Mapping[str, VersionRange] | None = None,
         trust_unverified_sdist_deps: bool = False,
+        decision_order: DecisionOrder = DecisionOrder.ARRIVAL,
     ) -> None:
         """Construct the provider; see the class docstring for parameters."""
         if isinstance(resolution_strategy, str):
@@ -609,6 +625,8 @@ class Provider:
             build_config is not None and build_config.trust_unverified_sdist_deps
         )
         self._resolution_strategy = resolution_strategy
+        # The scan asks this once per package, so keep the answer.
+        self.settle_listings = decision_order is DecisionOrder.STABLE
         self._direct_packages: frozenset[str] = direct_packages or frozenset()
         # Versions another target already decided, tried first when they are
         # usable here: uv-style cross-target alignment ("target A picked numpy
@@ -687,6 +705,7 @@ class Provider:
         self.base_filtered_packages: set[str] = set()
 
         self.root_requirements = root_requirements or {}
+        self.constraints: Mapping[str, VersionRange] = constraints or {}
         self.versions_cache: dict[str, list[tuple[Version, DistFile]]] = {}
         self.deps_cache: dict[tuple[str, Version], dict[str, VersionRange]] = {}
         # Unbounded by design and never evicted mid-resolve: it keeps every
@@ -704,8 +723,10 @@ class Provider:
             tuple[str, Version], dict[str, list[tuple[Requirement, str]]]
         ] = {}
 
-        # Memoised sdist-rejections so re-tries do not re-parse PKG-INFO.
-        self._unsupported_sdists: set[tuple[str, Version]] = set()
+        # Memoised sdist-rejections so re-tries do not re-parse PKG-INFO or
+        # rebuild.  Value is the cached error message so a re-ask raises the
+        # same rejection.
+        self._unsupported_sdists: dict[tuple[str, Version], str] = {}
 
         # Memoised metadata-parse failures (malformed Requires-Dist, etc.)
         # keyed by (canonical_name, Version).  Value is the cached error
@@ -774,8 +795,8 @@ class Provider:
 
         # The dep range each rejected candidate declared for the blocker,
         # unioned per group.  Feeds the membership widening of the flushed
-        # blocker term; the range-keyed union also feeds the no-versions
-        # message.
+        # blocker term, and the no-versions message, which names the range the
+        # candidate declared rather than negating the blocker it hit.
         self.pending_decision_dep_ranges: defaultdict[
             tuple[str, str, Version], _lookahead.DepRangeUnion
         ] = defaultdict(_lookahead.DepRangeUnion.zero)
@@ -783,16 +804,15 @@ class Provider:
             tuple[str, str, RangeProtocol[Version]], _lookahead.DepRangeUnion
         ] = defaultdict(_lookahead.DepRangeUnion.zero)
 
-        # Diagnostic-only: root_requirements feed PubGrub directly, so these
-        # blockers never need flushing as incompatibilities; they exist purely
-        # so the failure message can name the excluding root requirement.
+        # Root-requirement rejections, keyed by (candidate, blocker, the
+        # candidate's dependency range, the blocker's root range).
         self.pending_root_blocks: defaultdict[
             tuple[str, str, RangeProtocol[Version], RangeProtocol[Version]],
             list[Version],
         ] = defaultdict(list)
 
-        # Diagnostic-only: metadata-error rejections so the failure message
-        # can name the real cause (sdist build needed, malformed PKG-INFO, etc).
+        # Metadata-error rejections, carrying the message so the failure can
+        # name the real cause (sdist build needed, malformed PKG-INFO, etc).
         # Keyed by version so a re-checked candidate is counted once.
         self.pending_metadata_blocks: defaultdict[str, dict[Version, str]] = (
             defaultdict(dict)
@@ -801,14 +821,6 @@ class Provider:
         # Last NO_VERSIONS reason per package; consumed by resolve.py to
         # enrich ResolutionError messages.
         self._no_versions_reasons: dict[str, str] = {}
-
-        # Per-package record of "look-ahead aborted at this blocker decision".
-        # While the blocker is still decided to the recorded version, the next
-        # ``choose_version`` for this package skips look-ahead entirely and
-        # returns the first candidate; re-running the scan would just hit the
-        # same monolithic-rejection pattern and abort again.  Cleared per
-        # package when the blocker's decision changes (back-jump unblocks it).
-        self._lookahead_aborted: dict[str, tuple[str, Version]] = {}
 
         # Blocker packages queued for force back-track by the resolver after
         # the next ``choose_version`` returns.  Populated by the look-ahead
@@ -1278,7 +1290,9 @@ class Provider:
 
         version_list = self.fetch_versions(package)
         all_versions = self.versions_only(normalized, version_list)
-        candidates = list(version_range.filter(all_versions))
+        candidates = list(
+            version_range.filter(all_versions, assume_sorted="descending")
+        )
 
         # VersionRange.filter yields newest-first; reverse for LOWEST so
         # look-ahead walks oldest -> newest.
@@ -1288,12 +1302,10 @@ class Provider:
         no_lookahead = not self.root_requirements and not self.solution_decisions
         if no_lookahead or not candidates:
             if not candidates:
-                self._record_no_versions_reason(package, all_versions)
+                self._record_no_versions_reason(
+                    package, all_versions, version_range=version_range
+                )
             return candidates[0] if candidates else None
-
-        skip = self._try_abort_skip(normalized, candidates[0])
-        if skip is not None:
-            return skip
 
         wheel_by_version = self._wheel_by_version(normalized, version_list)
         return self._run_full_scan(
@@ -1332,7 +1344,8 @@ class Provider:
             if base_range is not None:
                 admit_range = version_range & base_range
 
-        if preferred not in set(admit_range.filter(all_versions)):
+        in_range = admit_range.filter(all_versions, assume_sorted="descending")
+        if preferred not in in_range:
             return None
 
         usable = (
@@ -1349,10 +1362,10 @@ class Provider:
 
         Runs the real ``choose_version`` over ``version_range`` so look-ahead
         rejections are honored, then rolls back the state it records: the queued
-        clauses and force-backtrack signal are drained, and the per-package abort
-        markers, force-backtrack budget, and no-versions reasons are restored to
-        their pre-probe values.  A failed-resolve attribution probe therefore
-        cannot alter a later decision.
+        clauses and force-backtrack signal are drained, and the force-backtrack
+        budget and no-versions reasons are restored to their pre-probe values.
+        A failed-resolve attribution probe therefore cannot alter a later
+        decision.
 
         The one exception is ``package``'s own no-versions reason.  When the
         un-narrowed range yields no version because a transitive conflict
@@ -1361,27 +1374,32 @@ class Provider:
         no-match the constraint-narrowed pass recorded.  The reason map only
         labels a ``NO_VERSIONS`` clause, so keeping it cannot alter a decision.
 
-        The probe also suppresses both look-ahead shortcuts, which could
-        otherwise report a version the decided blocker rejects: it hides the
-        abort markers (so neither a fresh abort nor a recorded skip fires) and
-        sets ``_probing_satisfiable`` to skip the abort and to keep checking
-        decisions past ``_BROAD_LA_REJECT_CAP``.
+        The probe also suppresses the two look-ahead shortcuts that could
+        otherwise report a version the decided blocker rejects:
+        ``_probing_satisfiable`` skips the abort and keeps checking decisions
+        past ``_BROAD_LA_REJECT_CAP``.
 
         The un-narrowed range spans versions the constraint clipped away, so
         look-ahead can reach one whose metadata raises a hard error the narrowed
-        resolve never touched (a failed integrity check, or a tie-ranked-wheel
-        divergence).  The probe catches those and returns ``False`` rather than
-        aborting; the crash still fires when the version is pinned for real.  The
-        ``finally`` restores the snapshot either way.
+        resolve never touched (a failed integrity check, a tie-ranked-wheel
+        divergence, or an advertised sidecar the index answered it will not
+        serve).  Each names a fault of that one version, so the probe catches
+        them and returns ``False`` rather than aborting; the crash still fires
+        when the version is pinned for real.
+
+        A transient transport failure is deliberately not in that tuple.  A 5xx
+        that outlived the retry budget, or a dropped connection, says nothing
+        about the version, and swallowing it would report "no satisfying
+        candidate" for a version that has one and hand back a different
+        resolution instead of failing.  The ``finally`` restores the snapshot
+        either way.
         """
         # Late import: config imports provider at module load.
         from .config import OverrideConflictError  # noqa: PLC0415
 
-        saved_aborted = dict(self._lookahead_aborted)
         saved_counts = dict(self._force_backtrack_counts)
         saved_reasons = dict(self._no_versions_reasons)
 
-        self._lookahead_aborted = {}
         self._probing_satisfiable = True
         try:
             return self.choose_version(package, version_range) is not None
@@ -1394,13 +1412,14 @@ class Provider:
             OverrideConflictError,
             SiblingMetadataDivergenceError,
             NotImplementedError,
+            MalformedSimpleResponseError,
+            UnserveableUrlError,
         ):
             return False
         finally:
             self._probing_satisfiable = False
             self.consume_pending_clauses()
             self.consume_force_backtrack_targets()
-            self._lookahead_aborted = saved_aborted
             self._force_backtrack_counts = saved_counts
 
             # Restore the snapshot but keep the probe's own blocker reason.
@@ -1408,29 +1427,6 @@ class Provider:
             self._no_versions_reasons = saved_reasons
             if probed_reason is not None:
                 self._no_versions_reasons[package] = probed_reason
-
-    def _try_abort_skip(self, normalized: str, first: Version) -> Version | None:
-        """Return the first candidate when a prior abort is still valid.
-
-        While the recorded blocker decision is unchanged, a re-run of
-        the full scan would just trip the abort again. A warm cache
-        hit returns directly; otherwise a non-decision look-ahead
-        guards against unreadable wheels. Returns None when no
-        recorded abort applies, or when the candidate fails the gate.
-        """
-        aborted = self._lookahead_aborted.get(normalized)
-        if aborted is None:
-            return None
-        blocker_pkg, blocker_version = aborted
-        if self.solution_decisions.get(blocker_pkg) != blocker_version:
-            del self._lookahead_aborted[normalized]
-            return None
-        if (normalized, first) in self.deps_cache:
-            return first
-        if self._look_ahead_ok(normalized, first, check_decisions=False):
-            self._flush_pending_blocks()
-            return first
-        return None
 
     def _run_full_scan(
         self,
@@ -1498,8 +1494,7 @@ class Provider:
         blocker on its own.  Sound because no clause is emitted by the
         abort path.
         """
-        # Front-load deep metadata before the scan: by the time the
-        # 8-batch trips the abort, the rest of the walk is in flight.
+        # Front-load deep metadata so a walk past the first batch hits cache.
         self.prefetch_walk_ahead(normalized)
 
         starts_iter = iter(range(0, len(remaining), self.PREFETCH_BATCH))
@@ -1568,17 +1563,15 @@ class Provider:
         return None, broad_rejections
 
     def _try_abort_lookahead(self, normalized: str) -> bool:
-        """Run the monolithic-rejection abort. Return True when fired.
+        """Run the monolithic-rejection abort. Return True when it fires.
 
-        Records the abort state, queues the blocker for force-backtrack
-        (up to the per-blocker cap), and returns True so the caller
-        falls back to its first candidate.
+        Firing queues the blocker for force-backtrack, up to the per-blocker
+        cap; the caller then falls back to its first candidate.
         """
         blocker = self._should_abort_lookahead(normalized)
         if blocker is None:
             return False
         self._discard_pending_decision_blocks(normalized)
-        self._lookahead_aborted[normalized] = blocker
         blocker_pkg, _ = blocker
         prior_fires = self._force_backtrack_counts.get(blocker_pkg, 0)
         if (
@@ -1661,6 +1654,7 @@ class Provider:
         all_versions: list[Version],
         *,
         blockers: list[str] | None = None,
+        version_range: VersionRange | None = None,
     ) -> None:
         """Record why ``choose_version`` returned ``None`` for ``package``.
 
@@ -1675,6 +1669,11 @@ class Provider:
         missing from the index when in fact it is the resolver's
         transitive constraints (or a too-strict build policy) that
         excluded every candidate.
+
+        ``version_range`` is passed only when no surviving version fell
+        inside it.  A version the listing filter dropped that does fall
+        inside it is the release the requirement asked for, so the reason
+        names the filter rather than reporting no match.
 
         ``all_versions`` is post-filter, so an empty one means either the
         index served no files or every file it served was dropped by the
@@ -1696,8 +1695,8 @@ class Provider:
         nothing falls in.  That second ask has no blockers of its own, so
         its no-match reason must not overwrite the one naming the blocker.
         """
+        _, _, normalized = self.split_and_normalize(package)
         if not all_versions:
-            _, _, normalized = self.split_and_normalize(package)
             raw_listing = self.coordinator.index.get_listing(normalized)
             tag_excluded = self.tag_excluded_wheels.get(normalized, 0)
             if not raw_listing:
@@ -1742,6 +1741,14 @@ class Provider:
         elif package in self._no_versions_reasons:
             # The weakest reason: keep whatever is already recorded.
             return
+        elif version_range is not None and _listing.has_filtered_in_range_release(
+            self, normalized, version_range, all_versions
+        ):
+            reason = (
+                "found on index but every version matching the requirement"
+                " was filtered (by requires-python, wheel tags, dist-policy,"
+                " or upload-time)"
+            )
         else:
             reason = "no version matches the requirement"
         self._no_versions_reasons[package] = reason
@@ -1757,7 +1764,15 @@ class Provider:
         for cand, blocker_pkg, blocker_version in self.pending_blocks:
             if cand != normalized:
                 continue
-            out.append(f"requires {blocker_pkg} != {blocker_version}")
+            dep_range = self.pending_decision_dep_ranges[
+                (cand, blocker_pkg, blocker_version)
+            ].union
+            # The blocker is decided, so the line names that version rather
+            # than a singleton range, which has no specifier spelling.
+            out.append(
+                f"requires {blocker_pkg} in {self.format_range(dep_range)}"
+                f" but solution has it at {blocker_version}"
+            )
 
         for cand, blocker_pkg, pos_range in self.pending_range_blocks:
             if cand != normalized:
@@ -1766,8 +1781,8 @@ class Provider:
                 (cand, blocker_pkg, pos_range)
             ].union
             out.append(
-                f"requires {blocker_pkg} in {dep_range}"
-                f" but solution has it in {pos_range}"
+                f"requires {blocker_pkg} in {self.format_range(dep_range)}"
+                f" but solution has it in {self.format_range(pos_range)}"
             )
 
         for (
@@ -1779,7 +1794,8 @@ class Provider:
             if cand != normalized:
                 continue
             out.append(
-                f"requires {blocker_pkg} in {dep_range} but root has it in {root_range}"
+                f"requires {blocker_pkg} in {self.format_range(dep_range)}"
+                f" but root has it in {self.format_range(root_range)}"
             )
 
         # Collapse repeated metadata-error blockers (one per version) into
@@ -2027,6 +2043,29 @@ class Provider:
             return VersionRange.full(admit_arbitrary=False)
         return constraint.snap_bounds(universe)
 
+    def format_range(self, constraint: RangeProtocol[Version]) -> str:
+        """Render ``constraint`` for a failure report.
+
+        ``VersionRange`` has no ``__str__``, so interpolating one gives the
+        debug repr, including the internal boundary-kind sentinels.  A range a
+        specifier set can spell reads as that specifier set, so ``==3.0.0``
+        shows the way a user would have written it.
+
+        An unconstrained range renders as nothing, leaving the package name to
+        carry the line, and the empty range gets a phrase rather than the
+        ``<0`` a specifier set spells it with.  A range with no specifier
+        spelling, such as a disjunction, keeps the range's own rendering.
+        """
+        assert isinstance(constraint, VersionRange)
+        if constraint.is_empty:
+            return "no version"
+        if (~constraint).is_empty:
+            return ""
+        specifier_set = constraint.to_specifier_set()
+        if specifier_set is None:
+            return str(constraint)
+        return str(specifier_set)
+
     def get_dependencies(
         self, package: str, version: Version
     ) -> dict[str, VersionRange]:
@@ -2040,15 +2079,9 @@ class Provider:
         cache_key = (normalized, version)
         if cache_key in self.deps_cache:
             return self.deps_cache[cache_key]
-        if cache_key in self._unsupported_sdists:
-            effective = self.effective_build_policy(
-                normalized, version, self.serving_index(normalized)
-            )
-            msg = (
-                f"{normalized}=={version} sdist metadata could not be extracted"
-                f" under BuildPolicy.{effective.name} (cached prior failure)"
-            )
-            raise UnsupportedSdistError(msg)
+        cached_unsupported = self._unsupported_sdists.get(cache_key)
+        if cached_unsupported is not None:
+            raise UnsupportedSdistError(cached_unsupported)
         cached_invalid = self._invalid_metadata.get(cache_key)
         if cached_invalid is not None:
             raise MetadataError(cached_invalid)
@@ -2104,8 +2137,8 @@ class Provider:
             self.parse_and_cache_metadata(
                 cache_key, metadata_text, from_sdist=from_sdist
             )
-        except UnsupportedSdistError:
-            self._unsupported_sdists.add(cache_key)
+        except UnsupportedSdistError as exc:
+            self._unsupported_sdists[cache_key] = str(exc)
             raise
         except (ForeignMetadataError, IncompatiblePythonError) as exc:
             self._invalid_metadata[cache_key] = str(exc)
@@ -2113,7 +2146,7 @@ class Provider:
         except (
             SdistHashMismatchError,
             MetadataHashMismatchError,
-            HttpError,
+            IndexAccessError,
             UnsupportedVcsError,
             NotImplementedError,
             InvalidUploadTimeError,
@@ -2229,11 +2262,38 @@ class Provider:
             self._absent_listing_scan[normalized] = self._scan_generation
         return listing
 
+    def settled_listing(self, normalized: str) -> list[DistFile] | None:
+        """Return ``normalized``'s listing, waiting once for it to land.
+
+        The blocking counterpart of :meth:`arrived_listing`, used by the
+        decision scan under :attr:`DecisionOrder.STABLE`: waiting for the
+        fetch gives the scan the same version count whatever the HTTP
+        cache held, where reading what has arrived so far does not.
+
+        A listing that already failed is not re-requested, and one wait is
+        enough because every terminal path in the fetcher sets the event.
+        ``None`` still means there is no listing to count, so a caller must
+        not spin on it.
+        """
+        listing = self.coordinator.index.get_listing(normalized)
+        if listing is not None:
+            return listing
+        if self.coordinator.index.get_listing_error(normalized) is not None:
+            return None
+        self.coordinator.request_listing(normalized).wait()
+        return self.coordinator.index.get_listing(normalized)
+
     def is_ready(self, package: str) -> bool:
         """Check if a package's listing is available without blocking.
 
         Used by the resolver to prefer packages with cached data,
         letting it make progress while other listings are in flight.
+
+        Under :attr:`DecisionOrder.STABLE` it needs no blocking half of its
+        own.  ``prioritize`` runs first in the same sort key and has already
+        settled the listing into ``versions_cache``; what is left is a
+        failed listing or a package served from a local, VCS, or archive
+        source, and no listing is ever requested for those.
         """
         _, extra, normalized = self.split_and_normalize(package)
         if extra is not None:

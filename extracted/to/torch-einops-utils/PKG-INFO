@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: torch-einops-utils
-Version: 0.1.15
+Version: 0.1.16
 Summary: Personal utility functions
 Project-URL: Homepage, https://pypi.org/project/torch-einops-utils/
 Project-URL: Repository, https://github.com/lucidrains/torch-einops-utils
@@ -38,6 +38,7 @@ Requires-Dist: einops>=0.8.1
 Requires-Dist: torch>=2.5
 Provides-Extra: examples
 Provides-Extra: test
+Requires-Dist: numpy; extra == 'test'
 Requires-Dist: pytest; extra == 'test'
 Description-Content-Type: text/markdown
 

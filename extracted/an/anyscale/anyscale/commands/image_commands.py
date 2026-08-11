@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from io import StringIO
 import json
 from typing import Dict, IO, Optional
@@ -19,6 +20,7 @@ from anyscale.commands.list_util import (
     display_list,
     MAX_PAGE_SIZE,
     NON_INTERACTIVE_DEFAULT_MAX_ITEMS,
+    resolve_interactive,
     validate_page_size,
 )
 from anyscale.commands.output_format import (
@@ -26,6 +28,7 @@ from anyscale.commands.output_format import (
     OUTPUT_FLAG_LONG,
     OutputFormat,
     print_output,
+    warn_deprecated_flag,
 )
 from anyscale.commands.util import AnyscaleCommand
 from anyscale.image.models import ImageBuild
@@ -188,18 +191,36 @@ def build(
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        },
+        "--yaml": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o yaml instead."},
+        },
+    },
     examples=[
         CommandExample(
             description="Get the details of an image by name.",
             command="anyscale image get -n my-image",
             output_raw=command_examples.IMAGE_GET_EXAMPLE,
-            # Serialized form of the ImageBuild model (what --json/--yaml emit).
             output_instance={
-                "id": "img_abc123",
+                "id": "apt_abc123",
                 "name": "my-image",
-                "status": "SUCCEEDED",
+                "creator_id": "usr_abc123",
+                "creator_email": "someone@myorg.com",
+                "is_anonymous": False,
+                "created_at": datetime(2026, 1, 1, 18, 42, 0, tzinfo=timezone.utc),
+                "last_modified_at": datetime(
+                    2026, 1, 1, 18, 42, 0, tzinfo=timezone.utc
+                ),
+                "latest_build_id": "bld_abc123",
+                "latest_build_revision": 1,
+                "latest_build_status": "SUCCEEDED",
+                "latest_image_uri": "anyscale/image/my-image:1",
             },
         ),
     ],
@@ -246,10 +267,11 @@ def build(
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 def get(  # noqa: PLR0913
@@ -260,13 +282,17 @@ def get(  # noqa: PLR0913
     cloud_id: Optional[str] = None,
     output_format: str = OutputFormat.TEXT.value,
 ) -> None:
+    if json_output:
+        warn_deprecated_flag("--json", "-o json")
+    if yaml_output:
+        warn_deprecated_flag("--yaml", "-o yaml")
     try:
         image = anyscale.image.get(name=name, cloud_id=cloud_id)
 
-        if json_output:
-            print(json.dumps(image.to_dict(), indent=2, cls=AnyscaleJSONEncoder))
-        elif output_format != OutputFormat.TEXT.value:
+        if output_format != OutputFormat.TEXT.value:
             print_output(image, output_format)
+        elif json_output:
+            print(json.dumps(image.to_dict(), indent=2, cls=AnyscaleJSONEncoder))
         elif yaml_output:
             stream = StringIO()
             yaml.safe_dump(image.to_dict(), stream, sort_keys=False)
@@ -312,12 +338,50 @@ def get(  # noqa: PLR0913
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="List images.",
             command="anyscale image list",
             output_raw=command_examples.IMAGE_LIST_EXAMPLE,
+            output_instance=[
+                {
+                    "id": "apt_abc123",
+                    "name": "my-image",
+                    "creator_id": "usr_abc123",
+                    "creator_email": "someone@myorg.com",
+                    "is_anonymous": False,
+                    "created_at": datetime(2026, 1, 1, 18, 42, 0, tzinfo=timezone.utc),
+                    "last_modified_at": datetime(
+                        2026, 1, 1, 18, 42, 0, tzinfo=timezone.utc
+                    ),
+                    "latest_build_id": "bld_abc123",
+                    "latest_build_revision": 3,
+                    "latest_build_status": "SUCCEEDED",
+                    "latest_image_uri": "anyscale/image/my-image:3",
+                },
+                {
+                    "id": "apt_def456",
+                    "name": "workspace",
+                    "creator_id": "usr_def456",
+                    "creator_email": "another@myorg.com",
+                    "is_anonymous": False,
+                    "created_at": datetime(2026, 1, 2, 9, 15, 0, tzinfo=timezone.utc),
+                    "last_modified_at": datetime(
+                        2026, 1, 2, 9, 15, 0, tzinfo=timezone.utc
+                    ),
+                    "latest_build_id": "bld_def456",
+                    "latest_build_revision": 1,
+                    "latest_build_status": "SUCCEEDED",
+                    "latest_image_uri": "anyscale/image/workspace:1",
+                },
+            ],
         ),
     ],
 )
@@ -370,6 +434,15 @@ def get(  # noqa: PLR0913
     help="Use interactive paging.",
 )
 @click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    help="Output format for the result.",
+)
+@click.option(
     "-j",
     "--json",
     "json_output",
@@ -401,10 +474,15 @@ def list(  # noqa: A001, PLR0913
     max_items: Optional[int],
     page_size: int,
     interactive: bool,
+    output_format: str,
     json_output: bool,
     verbose: bool,
     cloud_id: Optional[str] = None,
 ) -> None:
+    if json_output:
+        warn_deprecated_flag("--json", "-o json")
+    json_output = json_output or output_format == OutputFormat.JSON.value
+    interactive = resolve_interactive(interactive, json_output)
     if max_items is not None and interactive:
         raise click.UsageError("--max-items only allowed with --no-interactive")
 

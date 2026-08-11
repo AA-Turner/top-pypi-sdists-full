@@ -51,6 +51,7 @@ class ToolResults(BaseModel):
 
     @field_validator("type")
     def type_validate_enum(cls, v):
+
         if v not in ("tool_results"):
             raise ValueError("must validate the enum values ('tool_results')")
         return v

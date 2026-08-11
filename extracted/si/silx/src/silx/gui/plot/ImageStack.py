@@ -23,8 +23,6 @@
 # ###########################################################################*/
 """Image stack view with data prefetch capabilty."""
 
-from __future__ import annotations
-
 __authors__ = ["H. Payno"]
 __license__ = "MIT"
 __date__ = "04/03/2019"
@@ -302,7 +300,10 @@ class ImageStack(qt.QMainWindow):
         """
         if n < 0:
             raise ValueError("'n' should be positive")
-        if self._urlData.maxsize < self.__n_prefetch:
+        if (
+            self._urlData.maxsize is not None
+            and self._urlData.maxsize < self.__n_prefetch
+        ):
             _logger.warning(
                 "Number of prefetchs lower that data cache size: This is not optimal"
             )
@@ -349,9 +350,9 @@ class ImageStack(qt.QMainWindow):
     def createUrlIndexes(urls: tuple):
         indexes = {}
         for index, url in enumerate(urls):
-            assert isinstance(
-                url, DataUrl
-            ), f"url is expected to be a DataUrl. Get {type(url)}"
+            assert isinstance(url, DataUrl), (
+                f"url is expected to be a DataUrl. Get {type(url)}"
+            )
             indexes[index] = url
         return indexes
 

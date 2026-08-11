@@ -5038,6 +5038,497 @@ class CfnMaintenanceWindowTaskProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ssm_dd9d8611.IOpsItemRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnOpsItem(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ssm.CfnOpsItem",
+):
+    '''Resource schema for AWS::SSM::OpsItem.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-opsitem.html
+    :cloudformationResource: AWS::SSM::OpsItem
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_ssm as ssm
+        
+        cfn_ops_item = ssm.CfnOpsItem(self, "MyCfnOpsItem",
+            description="description",
+            source="source",
+            title="title",
+        
+            # the properties below are optional
+            category="category",
+            priority=123,
+            severity="severity",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        description: builtins.str,
+        source: builtins.str,
+        title: builtins.str,
+        category: typing.Optional[builtins.str] = None,
+        priority: typing.Optional[jsii.Number] = None,
+        severity: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::SSM::OpsItem``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param description: The description of the OpsItem.
+        :param source: The origin of the OpsItem.
+        :param title: The title of the OpsItem.
+        :param category: The category of the OpsItem.
+        :param priority: The priority of the OpsItem.
+        :param severity: The severity of the OpsItem.
+        :param tags: Tags for the OpsItem.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9becee331c2647a58ca6d745727bc6ea77031c731a3bbf2d5f3e80b4a6d0b185)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnOpsItemProps(
+            description=description,
+            source=source,
+            title=title,
+            category=category,
+            priority=priority,
+            severity=severity,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForOpsItem")
+    @builtins.classmethod
+    def arn_for_ops_item(
+        cls,
+        resource: "_aws_ssm_dd9d8611.IOpsItemRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6d328a4f78f4a840dac65357135fd37e925167bda234c9012cd99f445a58427f)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForOpsItem", [resource]))
+
+    @jsii.member(jsii_name="isCfnOpsItem")
+    @builtins.classmethod
+    def is_cfn_ops_item(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnOpsItem.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3f81cdb42fa8688471f88571540cae9d62240f7c35c8685e07fe155507adc463)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOpsItem", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bed443d8ce2ecdb7e67b9724b39ac2862d4e7a6bd584e353ab21259c1370420c)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__02fcfa5f0f437f00f07f138e50856705617909382509bc214640250750da8113)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedBy")
+    def attr_created_by(self) -> builtins.str:
+        '''The user who created the OpsItem.
+
+        :cloudformationAttribute: CreatedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedTime")
+    def attr_created_time(self) -> builtins.str:
+        '''The time the OpsItem was created.
+
+        :cloudformationAttribute: CreatedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedBy")
+    def attr_last_modified_by(self) -> builtins.str:
+        '''The user who last modified the OpsItem.
+
+        :cloudformationAttribute: LastModifiedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedBy"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedTime")
+    def attr_last_modified_time(self) -> builtins.str:
+        '''The time the OpsItem was last modified.
+
+        :cloudformationAttribute: LastModifiedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOpsItemArn")
+    def attr_ops_item_arn(self) -> builtins.str:
+        '''The ARN of the OpsItem.
+
+        :cloudformationAttribute: OpsItemArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOpsItemArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOpsItemId")
+    def attr_ops_item_id(self) -> builtins.str:
+        '''The ID of the OpsItem.
+
+        :cloudformationAttribute: OpsItemId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOpsItemId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOpsItemType")
+    def attr_ops_item_type(self) -> builtins.str:
+        '''The type of OpsItem.
+
+        :cloudformationAttribute: OpsItemType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOpsItemType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the OpsItem.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVersion")
+    def attr_version(self) -> builtins.str:
+        '''The version of the OpsItem.
+
+        :cloudformationAttribute: Version
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="opsItemRef")
+    def ops_item_ref(self) -> "_aws_ssm_dd9d8611.OpsItemReference":
+        '''A reference to a OpsItem resource.'''
+        return typing.cast("_aws_ssm_dd9d8611.OpsItemReference", jsii.get(self, "opsItemRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> builtins.str:
+        '''The description of the OpsItem.'''
+        return typing.cast(builtins.str, jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__16f7d743f8cda96b485d2ca0ce728479101d8178f9eff9395efc0a45c921a5e9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="source")
+    def source(self) -> builtins.str:
+        '''The origin of the OpsItem.'''
+        return typing.cast(builtins.str, jsii.get(self, "source"))
+
+    @source.setter
+    def source(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__626577d2046a6febb97359f5f33b722a1e8dcbd30cfd894955ec5f82496ea2c1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "source", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="title")
+    def title(self) -> builtins.str:
+        '''The title of the OpsItem.'''
+        return typing.cast(builtins.str, jsii.get(self, "title"))
+
+    @title.setter
+    def title(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__31ec262d619719f2a5a28a91e0e947aa85073ec64813928b942e464ccf27a6c2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "title", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="category")
+    def category(self) -> typing.Optional[builtins.str]:
+        '''The category of the OpsItem.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "category"))
+
+    @category.setter
+    def category(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__02a1637003286430f304fd928e06b6ad25be7abf6fb8b0c15347e792dfc7483e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "category", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="priority")
+    def priority(self) -> typing.Optional[jsii.Number]:
+        '''The priority of the OpsItem.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "priority"))
+
+    @priority.setter
+    def priority(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__57b20dbddaed11938c31fd36a1ca697dd65332e36dab0600d52c987d93aad12a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "priority", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="severity")
+    def severity(self) -> typing.Optional[builtins.str]:
+        '''The severity of the OpsItem.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "severity"))
+
+    @severity.setter
+    def severity(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8c57ec755505f45447f8e4abf797c2c8646d8fdeb6759e509a92b90ad36f25f4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "severity", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags for the OpsItem.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3a9e4461e6bab1db05d4387feb0f68d8fce7aa1a6df89403c1de39ef107fc856)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssm.CfnOpsItemProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "source": "source",
+        "title": "title",
+        "category": "category",
+        "priority": "priority",
+        "severity": "severity",
+        "tags": "tags",
+    },
+)
+class CfnOpsItemProps:
+    def __init__(
+        self,
+        *,
+        description: builtins.str,
+        source: builtins.str,
+        title: builtins.str,
+        category: typing.Optional[builtins.str] = None,
+        priority: typing.Optional[jsii.Number] = None,
+        severity: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnOpsItem``.
+
+        :param description: The description of the OpsItem.
+        :param source: The origin of the OpsItem.
+        :param title: The title of the OpsItem.
+        :param category: The category of the OpsItem.
+        :param priority: The priority of the OpsItem.
+        :param severity: The severity of the OpsItem.
+        :param tags: Tags for the OpsItem.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-opsitem.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ssm as ssm
+            
+            cfn_ops_item_props = ssm.CfnOpsItemProps(
+                description="description",
+                source="source",
+                title="title",
+            
+                # the properties below are optional
+                category="category",
+                priority=123,
+                severity="severity",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cb2efa1cb28a9e1fc33c5de535b678e3f71745922488981153ca847154edc7c2)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+            check_type(argname="argument title", value=title, expected_type=type_hints["title"])
+            check_type(argname="argument category", value=category, expected_type=type_hints["category"])
+            check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
+            check_type(argname="argument severity", value=severity, expected_type=type_hints["severity"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "description": description,
+            "source": source,
+            "title": title,
+        }
+        if category is not None:
+            self._values["category"] = category
+        if priority is not None:
+            self._values["priority"] = priority
+        if severity is not None:
+            self._values["severity"] = severity
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''The description of the OpsItem.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-opsitem.html#cfn-ssm-opsitem-description
+        '''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def source(self) -> builtins.str:
+        '''The origin of the OpsItem.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-opsitem.html#cfn-ssm-opsitem-source
+        '''
+        result = self._values.get("source")
+        assert result is not None, "Required property 'source' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def title(self) -> builtins.str:
+        '''The title of the OpsItem.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-opsitem.html#cfn-ssm-opsitem-title
+        '''
+        result = self._values.get("title")
+        assert result is not None, "Required property 'title' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def category(self) -> typing.Optional[builtins.str]:
+        '''The category of the OpsItem.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-opsitem.html#cfn-ssm-opsitem-category
+        '''
+        result = self._values.get("category")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def priority(self) -> typing.Optional[jsii.Number]:
+        '''The priority of the OpsItem.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-opsitem.html#cfn-ssm-opsitem-priority
+        '''
+        result = self._values.get("priority")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def severity(self) -> typing.Optional[builtins.str]:
+        '''The severity of the OpsItem.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-opsitem.html#cfn-ssm-opsitem-severity
+        '''
+        result = self._values.get("severity")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags for the OpsItem.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-opsitem.html#cfn-ssm-opsitem-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnOpsItemProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ssm_dd9d8611.IParameterRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnParameter(
     _aws_cdk_0cae9daa.CfnResource,
@@ -7983,6 +8474,274 @@ class CfnResourcePolicyProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ssm_dd9d8611.ISessionRef)
+class CfnSession(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ssm.CfnSession",
+):
+    '''Returns information about a Session Manager session.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-session.html
+    :cloudformationResource: AWS::SSM::Session
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_ssm as ssm
+        
+        cfn_session = ssm.CfnSession(self, "MyCfnSession",
+            reason="reason",
+            target="target"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        reason: typing.Optional[builtins.str] = None,
+        target: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::SSM::Session``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param reason: The reason for connecting to the instance.
+        :param target: The managed node to connect to for the session.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d0d0d1ff00915af59fe31cf083450991d3f03685688c773bf09447975ae636b7)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnSessionProps(reason=reason, target=target)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForSession")
+    @builtins.classmethod
+    def arn_for_session(cls, resource: "_aws_ssm_dd9d8611.ISessionRef") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2301bde9706dbbfcd82dce3d88cce89aa97335c991a3dc0fa7c5efbacbd83ad4)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSession", [resource]))
+
+    @jsii.member(jsii_name="isCfnSession")
+    @builtins.classmethod
+    def is_cfn_session(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSession.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ccac72a21482c6eefd34646509f1237804973837d42dfeccb3207a6b05e3a957)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSession", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__995da4d58803a4722e9d8c06d870074f9754cb6a4e3ac944bc38d1d884b3db0c)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c28304a6b6ad7ffb952383f43d6814235cfd62bbe9890b6adc1aa6f24e3e0e2d)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAccessType")
+    def attr_access_type(self) -> builtins.str:
+        '''The access type for the session.
+
+        :cloudformationAttribute: AccessType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAccessType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the session.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOwner")
+    def attr_owner(self) -> builtins.str:
+        '''The ID of the Amazon Web Services user that started the session.
+
+        :cloudformationAttribute: Owner
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOwner"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSessionId")
+    def attr_session_id(self) -> builtins.str:
+        '''The ID of the session.
+
+        :cloudformationAttribute: SessionId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSessionId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStartDate")
+    def attr_start_date(self) -> builtins.str:
+        '''The date and time, in ISO-8601 Extended format, when the session began.
+
+        :cloudformationAttribute: StartDate
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStartDate"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the session.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="sessionRef")
+    def session_ref(self) -> "_aws_ssm_dd9d8611.SessionReference":
+        '''A reference to a Session resource.'''
+        return typing.cast("_aws_ssm_dd9d8611.SessionReference", jsii.get(self, "sessionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="reason")
+    def reason(self) -> typing.Optional[builtins.str]:
+        '''The reason for connecting to the instance.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "reason"))
+
+    @reason.setter
+    def reason(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4f83075f0580838822738e1b43cd210b27a24d5c22d84434e4a217c0b900112a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "reason", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="target")
+    def target(self) -> typing.Optional[builtins.str]:
+        '''The managed node to connect to for the session.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "target"))
+
+    @target.setter
+    def target(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__830f90303f871e5bd7dacc0916dc4d443e936b02e89d16c598fac92248ec5185)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "target", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssm.CfnSessionProps",
+    jsii_struct_bases=[],
+    name_mapping={"reason": "reason", "target": "target"},
+)
+class CfnSessionProps:
+    def __init__(
+        self,
+        *,
+        reason: typing.Optional[builtins.str] = None,
+        target: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSession``.
+
+        :param reason: The reason for connecting to the instance.
+        :param target: The managed node to connect to for the session.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-session.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ssm as ssm
+            
+            cfn_session_props = ssm.CfnSessionProps(
+                reason="reason",
+                target="target"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__aa1d3f61febff3cacf593725042372ae2e82970990eb2fdd9d5e7f900d1a3d9a)
+            check_type(argname="argument reason", value=reason, expected_type=type_hints["reason"])
+            check_type(argname="argument target", value=target, expected_type=type_hints["target"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if reason is not None:
+            self._values["reason"] = reason
+        if target is not None:
+            self._values["target"] = target
+
+    @builtins.property
+    def reason(self) -> typing.Optional[builtins.str]:
+        '''The reason for connecting to the instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-session.html#cfn-ssm-session-reason
+        '''
+        result = self._values.get("reason")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def target(self) -> typing.Optional[builtins.str]:
+        '''The managed node to connect to for the session.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-session.html#cfn-ssm-session-target
+        '''
+        result = self._values.get("target")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSessionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_ssm.CommonStringParameterAttributes",
     jsii_struct_bases=[],
@@ -10103,6 +10862,8 @@ __all__ = [
     "CfnMaintenanceWindowTargetProps",
     "CfnMaintenanceWindowTask",
     "CfnMaintenanceWindowTaskProps",
+    "CfnOpsItem",
+    "CfnOpsItemProps",
     "CfnParameter",
     "CfnParameterProps",
     "CfnPatchBaseline",
@@ -10111,6 +10872,8 @@ __all__ = [
     "CfnResourceDataSyncProps",
     "CfnResourcePolicy",
     "CfnResourcePolicyProps",
+    "CfnSession",
+    "CfnSessionProps",
     "CommonStringParameterAttributes",
     "IParameter",
     "IStringListParameter",
@@ -10947,6 +11710,100 @@ def _typecheckingstub__a897371c334ec198a4346a790b33c5836646788eb0a73ef18f8c56d7c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9becee331c2647a58ca6d745727bc6ea77031c731a3bbf2d5f3e80b4a6d0b185(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    description: builtins.str,
+    source: builtins.str,
+    title: builtins.str,
+    category: typing.Optional[builtins.str] = None,
+    priority: typing.Optional[jsii.Number] = None,
+    severity: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d328a4f78f4a840dac65357135fd37e925167bda234c9012cd99f445a58427f(
+    resource: _aws_ssm_dd9d8611.IOpsItemRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f81cdb42fa8688471f88571540cae9d62240f7c35c8685e07fe155507adc463(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bed443d8ce2ecdb7e67b9724b39ac2862d4e7a6bd584e353ab21259c1370420c(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__02fcfa5f0f437f00f07f138e50856705617909382509bc214640250750da8113(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__16f7d743f8cda96b485d2ca0ce728479101d8178f9eff9395efc0a45c921a5e9(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__626577d2046a6febb97359f5f33b722a1e8dcbd30cfd894955ec5f82496ea2c1(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__31ec262d619719f2a5a28a91e0e947aa85073ec64813928b942e464ccf27a6c2(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__02a1637003286430f304fd928e06b6ad25be7abf6fb8b0c15347e792dfc7483e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__57b20dbddaed11938c31fd36a1ca697dd65332e36dab0600d52c987d93aad12a(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8c57ec755505f45447f8e4abf797c2c8646d8fdeb6759e509a92b90ad36f25f4(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a9e4461e6bab1db05d4387feb0f68d8fce7aa1a6df89403c1de39ef107fc856(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb2efa1cb28a9e1fc33c5de535b678e3f71745922488981153ca847154edc7c2(
+    *,
+    description: builtins.str,
+    source: builtins.str,
+    title: builtins.str,
+    category: typing.Optional[builtins.str] = None,
+    priority: typing.Optional[jsii.Number] = None,
+    severity: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__84f5ae628815b139c6b10b41675bde183ddd347469f32bde65a41e5d61495260(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11442,6 +12299,60 @@ def _typecheckingstub__641aa0c71c4c89cb2aee737e31b19b3ae0745b8943985fb6855da9826
     *,
     policy: typing.Any,
     resource_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d0d0d1ff00915af59fe31cf083450991d3f03685688c773bf09447975ae636b7(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    reason: typing.Optional[builtins.str] = None,
+    target: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2301bde9706dbbfcd82dce3d88cce89aa97335c991a3dc0fa7c5efbacbd83ad4(
+    resource: _aws_ssm_dd9d8611.ISessionRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ccac72a21482c6eefd34646509f1237804973837d42dfeccb3207a6b05e3a957(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__995da4d58803a4722e9d8c06d870074f9754cb6a4e3ac944bc38d1d884b3db0c(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c28304a6b6ad7ffb952383f43d6814235cfd62bbe9890b6adc1aa6f24e3e0e2d(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4f83075f0580838822738e1b43cd210b27a24d5c22d84434e4a217c0b900112a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__830f90303f871e5bd7dacc0916dc4d443e936b02e89d16c598fac92248ec5185(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa1d3f61febff3cacf593725042372ae2e82970990eb2fdd9d5e7f900d1a3d9a(
+    *,
+    reason: typing.Optional[builtins.str] = None,
+    target: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

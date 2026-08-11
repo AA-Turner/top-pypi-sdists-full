@@ -34,11 +34,11 @@ class Task(BaseModel):
     Parameters
     __________
     name : str
-        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
+        String that specifies the identifier (i.e. name) for the task.
     definition : str
         The SQL definition for the task. Any one of single SQL statement, call to stored procedure, or procedural logic using Snowflake scripting.
     warehouse : str, optional
-        A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
+        Specifies the virtual warehouse that provides compute resources for task runs. Omit this parameter to use serverless compute resources for runs of this task.
     schedule : TaskSchedule, optional
 
     comment : str, optional
@@ -73,6 +73,12 @@ class Task(BaseModel):
         Specifies whether to allow multiple instances of the DAG to run concurrently.
     error_integration : str, optional
         Specifies the name of the notification integration used to communicate with Amazon SNS, MS Azure Event Grid, or Google Pub/Sub.
+    success_integration : str, optional
+        Specifies the name of the notification integration used for success notifications when the task graph completes successfully.
+    overlap_policy : str, optional
+        Specifies the overlap policy for the task graph. Only applicable to root tasks.
+    execute_as_user : str, optional
+        Specifies the name of the user whose privileges are used to run the task.
     created_on : datetime, optional
         The time the task was created on — **Read-only:** *any user-provided value will be ignored.*
     id : str, optional
@@ -133,6 +139,12 @@ class Task(BaseModel):
 
     error_integration: Optional[StrictStr] = None
 
+    success_integration: Optional[StrictStr] = None
+
+    overlap_policy: Optional[StrictStr] = None
+
+    execute_as_user: Optional[StrictStr] = None
+
     created_on: Optional[datetime] = None
 
     id: Optional[StrictStr] = None
@@ -172,6 +184,9 @@ class Task(BaseModel):
         "condition",
         "allow_overlapping_execution",
         "error_integration",
+        "success_integration",
+        "overlap_policy",
+        "execute_as_user",
         "created_on",
         "id",
         "owner",
@@ -185,20 +200,32 @@ class Task(BaseModel):
 
     @field_validator("name")
     def name_validate_regular_expression(cls, v):
+
         if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$""", v):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
     @field_validator("warehouse")
     def warehouse_validate_regular_expression(cls, v):
+
         if v is None:
             return v
         if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$""", v):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
+    @field_validator("overlap_policy")
+    def overlap_policy_validate_enum(cls, v):
+
+        if v is None:
+            return v
+        if v not in ("NO_OVERLAP", "ALLOW_CHILD_OVERLAP", "ALLOW_ALL_OVERLAP"):
+            raise ValueError("must validate the enum values ('NO_OVERLAP','ALLOW_CHILD_OVERLAP','ALLOW_ALL_OVERLAP')")
+        return v
+
     @field_validator("state")
     def state_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("started", "suspended"):
@@ -295,6 +322,9 @@ class Task(BaseModel):
                 "condition": obj.get("condition"),
                 "allow_overlapping_execution": obj.get("allow_overlapping_execution"),
                 "error_integration": obj.get("error_integration"),
+                "success_integration": obj.get("success_integration"),
+                "overlap_policy": obj.get("overlap_policy"),
+                "execute_as_user": obj.get("execute_as_user"),
                 "created_on": obj.get("created_on"),
                 "id": obj.get("id"),
                 "owner": obj.get("owner"),
@@ -334,6 +364,9 @@ class TaskModel:
         condition: Optional[str] = None,
         allow_overlapping_execution: Optional[bool] = None,
         error_integration: Optional[str] = None,
+        success_integration: Optional[str] = None,
+        overlap_policy: Optional[str] = None,
+        execute_as_user: Optional[str] = None,
         created_on: Optional[datetime] = None,
         id: Optional[str] = None,
         owner: Optional[str] = None,
@@ -351,11 +384,11 @@ class TaskModel:
         Parameters
         __________
         name : str
-            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
+            String that specifies the identifier (i.e. name) for the task.
         definition : str
             The SQL definition for the task. Any one of single SQL statement, call to stored procedure, or procedural logic using Snowflake scripting.
         warehouse : str, optional
-            A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
+            Specifies the virtual warehouse that provides compute resources for task runs. Omit this parameter to use serverless compute resources for runs of this task.
         schedule : TaskSchedule, optional
 
         comment : str, optional
@@ -390,6 +423,12 @@ class TaskModel:
             Specifies whether to allow multiple instances of the DAG to run concurrently.
         error_integration : str, optional
             Specifies the name of the notification integration used to communicate with Amazon SNS, MS Azure Event Grid, or Google Pub/Sub.
+        success_integration : str, optional
+            Specifies the name of the notification integration used for success notifications when the task graph completes successfully.
+        overlap_policy : str, optional
+            Specifies the overlap policy for the task graph. Only applicable to root tasks.
+        execute_as_user : str, optional
+            Specifies the name of the user whose privileges are used to run the task.
         created_on : datetime, optional
             The time the task was created on.
         id : str, optional
@@ -429,6 +468,9 @@ class TaskModel:
         self.condition = condition
         self.allow_overlapping_execution = allow_overlapping_execution
         self.error_integration = error_integration
+        self.success_integration = success_integration
+        self.overlap_policy = overlap_policy
+        self.execute_as_user = execute_as_user
         self.created_on = created_on
         self.id = id
         self.owner = owner
@@ -460,6 +502,9 @@ class TaskModel:
         "condition",
         "allow_overlapping_execution",
         "error_integration",
+        "success_integration",
+        "overlap_policy",
+        "execute_as_user",
         "created_on",
         "id",
         "owner",
@@ -498,6 +543,9 @@ class TaskModel:
             condition=self.condition,
             allow_overlapping_execution=self.allow_overlapping_execution,
             error_integration=self.error_integration,
+            success_integration=self.success_integration,
+            overlap_policy=self.overlap_policy,
+            execute_as_user=self.execute_as_user,
             created_on=self.created_on,
             id=self.id,
             owner=self.owner,
@@ -534,6 +582,9 @@ class TaskModel:
             condition=model.condition,
             allow_overlapping_execution=model.allow_overlapping_execution,
             error_integration=model.error_integration,
+            success_integration=model.success_integration,
+            overlap_policy=model.overlap_policy,
+            execute_as_user=model.execute_as_user,
             created_on=model.created_on,
             id=model.id,
             owner=model.owner,

@@ -2652,8 +2652,6 @@ class CfnCertificate(
             certificate_transparency_logging_preference="certificateTransparencyLoggingPreference",
             domain_validation_options=[certificatemanager.CfnCertificate.DomainValidationOptionProperty(
                 domain_name="domainName",
-        
-                # the properties below are optional
                 hosted_zone_id="hostedZoneId",
                 validation_domain="validationDomain"
             )],
@@ -2728,27 +2726,6 @@ class CfnCertificate(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCertificate", [resource]))
 
-    @jsii.member(jsii_name="fromCertificateId")
-    @builtins.classmethod
-    def from_certificate_id(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        certificate_id: builtins.str,
-    ) -> "_aws_certificatemanager_7969630d.ICertificateRef":
-        '''Creates a new ICertificateRef from a certificateId.
-
-        :param scope: -
-        :param id: -
-        :param certificate_id: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__74ad5174285b28bb947e64c6319be4642c1bb37681ea5d0d736a58181c45689e)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument certificate_id", value=certificate_id, expected_type=type_hints["certificate_id"])
-        return typing.cast("_aws_certificatemanager_7969630d.ICertificateRef", jsii.sinvoke(cls, "fromCertificateId", [scope, id, certificate_id]))
-
     @jsii.member(jsii_name="isCfnCertificate")
     @builtins.classmethod
     def is_cfn_certificate(cls, x: typing.Any) -> builtins.bool:
@@ -2790,6 +2767,15 @@ class CfnCertificate(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCertificateArn")
+    def attr_certificate_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the private certificate authority (CA) that will be used to issue the certificate.
+
+        :cloudformationAttribute: CertificateArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCertificateArn"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -2969,7 +2955,7 @@ class CfnCertificate(
         def __init__(
             self,
             *,
-            domain_name: builtins.str,
+            domain_name: typing.Optional[builtins.str] = None,
             hosted_zone_id: typing.Optional[builtins.str] = None,
             validation_domain: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -2990,8 +2976,6 @@ class CfnCertificate(
                 
                 domain_validation_option_property = certificatemanager.CfnCertificate.DomainValidationOptionProperty(
                     domain_name="domainName",
-                
-                    # the properties below are optional
                     hosted_zone_id="hostedZoneId",
                     validation_domain="validationDomain"
                 )
@@ -3001,23 +2985,22 @@ class CfnCertificate(
                 check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
                 check_type(argname="argument hosted_zone_id", value=hosted_zone_id, expected_type=type_hints["hosted_zone_id"])
                 check_type(argname="argument validation_domain", value=validation_domain, expected_type=type_hints["validation_domain"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "domain_name": domain_name,
-            }
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if domain_name is not None:
+                self._values["domain_name"] = domain_name
             if hosted_zone_id is not None:
                 self._values["hosted_zone_id"] = hosted_zone_id
             if validation_domain is not None:
                 self._values["validation_domain"] = validation_domain
 
         @builtins.property
-        def domain_name(self) -> builtins.str:
+        def domain_name(self) -> typing.Optional[builtins.str]:
             '''A fully qualified domain name (FQDN) in the certificate request.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-certificatemanager-certificate-domainvalidationoption.html#cfn-certificatemanager-certificate-domainvalidationoption-domainname
             '''
             result = self._values.get("domain_name")
-            assert result is not None, "Required property 'domain_name' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def hosted_zone_id(self) -> typing.Optional[builtins.str]:
@@ -3128,8 +3111,6 @@ class CfnCertificateProps:
                 certificate_transparency_logging_preference="certificateTransparencyLoggingPreference",
                 domain_validation_options=[certificatemanager.CfnCertificate.DomainValidationOptionProperty(
                     domain_name="domainName",
-            
-                    # the properties below are optional
                     hosted_zone_id="hostedZoneId",
                     validation_domain="validationDomain"
                 )],
@@ -4923,14 +4904,6 @@ def _typecheckingstub__263afa57a98fb4b01e4f59aef3b2fc7273885bdf051ae65bfd7b734db
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__74ad5174285b28bb947e64c6319be4642c1bb37681ea5d0d736a58181c45689e(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    certificate_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__a7bf367e1e5fef77d7fe49eb5b807bb1245882802d067ab41913b92999222fcf(
     x: typing.Any,
 ) -> None:
@@ -5005,7 +4978,7 @@ def _typecheckingstub__234f3afa18fce0171662dad033e06d37b968d809b62314c6e62f4c1a4
 
 def _typecheckingstub__c300d5c33d86322345b2adb8237375463f7f5ab1e486b11b34f49a04524807a3(
     *,
-    domain_name: builtins.str,
+    domain_name: typing.Optional[builtins.str] = None,
     hosted_zone_id: typing.Optional[builtins.str] = None,
     validation_domain: typing.Optional[builtins.str] = None,
 ) -> None:

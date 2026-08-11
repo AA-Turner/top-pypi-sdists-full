@@ -123,6 +123,16 @@ _EVIDENCE_EPS = 0.05
 #: Bytes of the child's stderr kept for the failure report.
 _STDERR_TAIL_BYTES = 8192
 
+#: How long to wait for the CORPSE after `_terminate_group` has already signaled
+#: the child's process group. pgw#973 (§4.24 / gw#666): an explicitly EXEMPT
+#: fixed duration, on `executor._CANCEL_UNWIND_GRACE_S`'s model — the kill
+#: decision was made upstream on `_EVIDENCE_WINDOW_S`, which IS a progress
+#: signal, so nothing here can end work that was advancing. What it bounds is
+#: the parent's own control loop: a child ignoring SIGTERM must not hold the
+#: serving process's teardown open. Expiry is not a failure — the reap future
+#: outlives it (`shield`), and the exit status is simply not waited for.
+_REAP_GRACE_S = 15.0
+
 #: One retry, and only for the classes that can plausibly differ next time
 #: (a resource shortfall the tenant's peak caused, a crash). A deterministic
 #: refusal is terminal on the first attempt: re-running it burns a pod.
@@ -206,7 +216,10 @@ class MintRequest(msgspec.Struct, frozen=True, kw_only=True):
     function: str
     modules: Tuple[str, ...]
     family: str
-    cell_key: str
+    #: The parent's ArmIdentity token (``arm1-…``) — the obligation this
+    #: child discharges. NOT a cell key (pgw#1059): the cell's key is
+    #: stamped by the mint itself and returned in ``MintReport.cell_key``.
+    arm_token: str
     target: str          # artifact the child writes (.tar.gz), atomically
     #: The child's work root (target, export tree, snapshots). The parent
     #: watches its BYTE GROWTH as one of the two progress signals — pgw#1010
@@ -219,7 +232,13 @@ class MintRequest(msgspec.Struct, frozen=True, kw_only=True):
     #: See ``MintSlot``: the three views this replaced could disagree.
     slots: Dict[str, MintSlot] = {}
     device: int = -1     # CUDA ordinal; -1 = leave the child's default
-    vram_cap_bytes: int = 0   # 0 = uncapped (see mint_budget.co_residency)
+    #: The child's device ceiling in bytes. 0 = NO CAP, which is the honest
+    #: value for an unprobeable card (`mint_budget.co_residency` reports
+    #: `probed=False`) and is stated rather than inferred: `mint_child.cap_vram`
+    #: returns a "vram cap NOT applied" note the child frames, so an uncapped
+    #: mint is distinguishable from a capped one in the phase table (pgw#973
+    #: §4.24 item 4 — it used to return "" and record nothing at all).
+    vram_cap_bytes: int = 0
     #: pgw#848: where the child rewrites its live phase table, so a mint the
     #: parent KILLS still leaves its measurements behind. Empty = no snapshot.
     phases_snapshot: str = ""
@@ -296,6 +315,28 @@ class MintReport(msgspec.Struct, frozen=True, kw_only=True):
     #: measure pipe latency instead of work. Empty from a child that died before
     #: writing its report, which is honest: no measurement, not zero.
     phases: Dict[str, float] = msgspec.field(default_factory=dict)
+    #: pgw#1080 — the FAKE-EXPORT FOOTPRINT. The child builds its compile
+    #: targets from code + config, so the process that traces holds no
+    #: checkpoint values; these fields are how a reader knows that held, for
+    #: WHICH components, and what it cost instead.
+    #:
+    #: ``export_peak_bytes`` is the number the pgw#992 census must size the
+    #: next export child against: it is measured from a peak reset taken AFTER
+    #: the warm proof, so weight-scale random values cannot leak into it.
+    #: ``warm_proof_peak_bytes`` is the pgw#984 proof's own window, and
+    #: ``warm_proof_values`` records what it ran on (``random``) — a
+    #: numerics-adjacent surprise is then one lookup, not a re-derivation.
+    structure_only_components: Tuple[str, ...] = ()
+    #: Empty when the property held; the typed reason when a component could
+    #: not be built from config and that slot loaded its weights instead.
+    structure_refusal: str = ""
+    #: Checkpoint bytes the child would have held and did not.
+    virtual_param_bytes: int = 0
+    #: Config-derived tables it legitimately did hold (literals live here).
+    structure_real_bytes: int = 0
+    warm_proof_peak_bytes: int = 0
+    warm_proof_values: str = ""
+    export_peak_bytes: int = 0
     #: pgw#805: the AOT recipe's per-entry phase TABLE
     #: (``aot_mint._mint_phase_table``). The child emits it too, but a mint
     #: child holds no orchestrator session, so the child's events go nowhere —
@@ -364,6 +405,24 @@ class MintOutcome:
         if self.report is not None and self.report.peak_vram_bytes:
             parts.append(
                 f"child_peak_vram={self.report.peak_vram_bytes / (1 << 30):.2f}GiB")
+        # pgw#1080: the fake-export footprint travels on the SAME line the hub
+        # already reads, so "the child held no weights" is an observation
+        # anyone can make from the wire instead of a claim in a design doc.
+        if self.report is not None and self.report.structure_only_components:
+            parts.append(
+                "structure_only="
+                + ",".join(self.report.structure_only_components))
+            parts.append(
+                f"virtual_weights={self.report.virtual_param_bytes / (1 << 30):.2f}GiB")
+            parts.append(
+                f"export_peak={self.report.export_peak_bytes / (1 << 20):.1f}MiB")
+            if self.report.warm_proof_values:
+                parts.append(
+                    f"warm_proof_values={self.report.warm_proof_values} "
+                    f"peak={self.report.warm_proof_peak_bytes / (1 << 20):.1f}MiB")
+        if self.report is not None and self.report.structure_refusal:
+            parts.append(
+                f"structure_refusal={self.report.structure_refusal[:200]!r}")
         if self.detail:
             parts.append(f"detail={self.detail[:400]!r}")
         return " ".join(parts)
@@ -667,7 +726,7 @@ async def run_mint(
     )
     logger.info(
         "mint_process: spawned pid=%s family=%s key=%s device=%s cap=%s",
-        proc.pid, request.family, request.cell_key[:12] or "-",
+        proc.pid, request.family, request.arm_token[:12] or "-",
         request.device, request.vram_cap_bytes or "none")
 
     frames = asyncio.ensure_future(_pump_frames(proc.stdout, on_frame, state))
@@ -691,7 +750,8 @@ async def run_mint(
                 killed_reason = ABANDONED
             await asyncio.to_thread(_terminate_group, proc.pid)
             with contextlib.suppress(asyncio.TimeoutError):
-                await asyncio.wait_for(asyncio.shield(reap), timeout=15.0)
+                await asyncio.wait_for(
+                    asyncio.shield(reap), timeout=_REAP_GRACE_S)
     except asyncio.CancelledError:
         await asyncio.to_thread(_terminate_group, proc.pid)
         raise

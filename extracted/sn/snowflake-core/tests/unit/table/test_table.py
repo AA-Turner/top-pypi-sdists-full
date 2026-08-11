@@ -27,7 +27,7 @@ def test_create_table(fake_root, tables):
     )
     kwargs = extra_params(
         query_params=[("createMode", "errorIfExists"), ("copyGrants", False)],
-        body={"name": "my_tab", "kind": "TRANSIENT"},
+        body={"name": "my_tab", "kind": "TRANSIENT", "row_timestamp": None, "error_logging": None},
     )
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -59,7 +59,7 @@ def test_create_table_clone(fake_root, tables):
             ("targetDatabase", tables.database.name),
             ("targetSchema", tables.schema.name),
         ],
-        body={"name": "my_tab", "kind": "PERMANENT"},
+        body={"name": "my_tab", "kind": "PERMANENT", "row_timestamp": None, "error_logging": None},
     )
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
@@ -165,7 +165,7 @@ def test_create_table_using_template(fake_root, tables):
 
 def test_create_or_alter_table(fake_root, table):
     args = (fake_root, "PUT", BASE_URL + "/databases/my_db/schemas/my_schema/tables/my_tab")
-    kwargs = extra_params(body={"name": "my_tab", "kind": "TRANSIENT"})
+    kwargs = extra_params(body={"name": "my_tab", "kind": "TRANSIENT", "row_timestamp": None, "error_logging": None})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         table.create_or_alter(TABLE)

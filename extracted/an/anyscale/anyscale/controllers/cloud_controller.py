@@ -35,6 +35,7 @@ from anyscale.client.openapi_client.models import (
     CloudAnalyticsEventCloudResource,
     CloudAnalyticsEventCommandName,
     CloudAnalyticsEventName,
+    CloudConfig,
     CloudDeployment,
     CloudDeploymentConfig,
     CloudProviders,
@@ -2566,9 +2567,13 @@ class CloudController(BaseController):
         # this command is creating (passed as global.cloudDeploymentId in the Helm chart).
         # Skip verification to break this dependency.
         # Users should run verification separately after installing the operator.
-        if new_deployment.compute_stack == ComputeStack.K8S and not skip_verification:
+        # KubeRay (generic connector) clouds are likewise not locally verifiable.
+        if (
+            new_deployment.compute_stack in (ComputeStack.K8S, ComputeStack.KUBERAY)
+            and not skip_verification
+        ):
             self.log.info(
-                "Skipping verification is required for Kubernetes cloud resource creation. Doing this by default."
+                "Skipping verification for Kubernetes/KubeRay cloud resource creation by default."
             )
             skip_verification = True
 
@@ -2737,9 +2742,11 @@ class CloudController(BaseController):
             elif deployment.provider == CloudProviders.GCP:
                 self._preprocess_gcp(deployment=deployment)
 
-            # Skip verification for Kubernetes stacks or if explicitly requested
-            if deployment.compute_stack == ComputeStack.K8S:
-                self.log.info("Skipping verification for Kubernetes compute stack.")
+            # Skip verification for Kubernetes/KubeRay stacks or if explicitly requested
+            if deployment.compute_stack in (ComputeStack.K8S, ComputeStack.KUBERAY):
+                self.log.info(
+                    "Skipping verification for Kubernetes/KubeRay compute stack."
+                )
             elif not skip_verification and not self.verify_cloud_deployment(
                 cloud_id=cloud_id, cloud_deployment=deployment, yes=yes
             ):
@@ -3787,6 +3794,8 @@ class CloudController(BaseController):
         provider: str,
         cloud_resource: CloudDeployment,
         auto_add_user: bool = False,
+        per_cloud_domain: bool = False,
+        per_cloud_domain_label: Optional[str] = None,
     ) -> None:
         cloud_provider = (
             CloudProviders.AZURE if provider == "azure" else CloudProviders.GENERIC
@@ -3805,10 +3814,18 @@ class CloudController(BaseController):
                     name=name,
                     region=cloud_resource.region,
                     provider=cloud_provider,
+                    compute_stack=cloud_resource.compute_stack,
+                    is_k8s=cloud_resource.compute_stack == ComputeStack.K8S,
                     is_bring_your_own_resource=True,
                     cluster_management_stack_version=ClusterManagementStackVersions.V2,
                     auto_add_user=auto_add_user,
                     credentials="",
+                    config=CloudConfig(
+                        per_cloud_domain=True,
+                        per_cloud_domain_label=per_cloud_domain_label,
+                    )
+                    if per_cloud_domain
+                    else None,
                 )
             )
             cloud_id = created_cloud.result.id
@@ -3878,7 +3895,7 @@ class CloudController(BaseController):
             f"Cloud registration complete! To install the Anyscale operator, run:\n\n{helm_command}"
         )
 
-    def register_aws_cloud(  # noqa: C901, PLR0912
+    def register_aws_cloud(  # noqa: C901, PLR0912, PLR0913
         self,
         *,
         name: str,
@@ -3888,6 +3905,8 @@ class CloudController(BaseController):
         yes: bool = False,
         skip_verifications: bool = False,
         auto_add_user: bool = False,
+        per_cloud_domain: bool = False,
+        per_cloud_domain_label: Optional[str] = None,
     ):
         functions_to_verify = self._validate_functional_verification_args(
             functional_verify
@@ -3936,6 +3955,8 @@ class CloudController(BaseController):
             created_cloud = self.api_client.create_cloud_api_v2_clouds_post(
                 write_cloud=WriteCloud(
                     provider="AWS",
+                    compute_stack=cloud_resource.compute_stack,
+                    is_k8s=cloud_resource.compute_stack == ComputeStack.K8S,
                     region=cloud_resource.region,
                     credentials=credentials,
                     name=name,
@@ -3945,6 +3966,12 @@ class CloudController(BaseController):
                     cluster_management_stack_version=cluster_management_stack_version,
                     auto_add_user=auto_add_user,
                     external_id=cloud_resource.aws_config.external_id,
+                    config=CloudConfig(
+                        per_cloud_domain=True,
+                        per_cloud_domain_label=per_cloud_domain_label,
+                    )
+                    if per_cloud_domain
+                    else None,
                 )
             )
             cloud_id = created_cloud.result.id
@@ -4398,7 +4425,7 @@ class CloudController(BaseController):
                 "Please provide a valid host project ID. Note that project ID is not project number, see https://cloud.google.com/resource-manager/docs/creating-managing-projects#before_you_begin for details."
             )
 
-    def register_gcp_cloud(  # noqa: C901, PLR0912
+    def register_gcp_cloud(  # noqa: C901, PLR0912, PLR0913
         self,
         *,
         name: str,
@@ -4408,6 +4435,8 @@ class CloudController(BaseController):
         yes: bool = False,
         skip_verifications: bool = False,
         auto_add_user: bool = False,
+        per_cloud_domain: bool = False,
+        per_cloud_domain_label: Optional[str] = None,
     ):
         functions_to_verify = self._validate_functional_verification_args(
             functional_verify
@@ -4474,6 +4503,8 @@ class CloudController(BaseController):
             created_cloud = self.api_client.create_cloud_api_v2_clouds_post(
                 write_cloud=WriteCloud(
                     provider="GCP",
+                    compute_stack=cloud_resource.compute_stack,
+                    is_k8s=cloud_resource.compute_stack == ComputeStack.K8S,
                     region=cloud_resource.region,
                     credentials=credentials,
                     name=name,
@@ -4482,6 +4513,12 @@ class CloudController(BaseController):
                     cluster_management_stack_version=cluster_management_stack_version,
                     is_private_service_cloud=is_private_service_cloud,
                     auto_add_user=auto_add_user,
+                    config=CloudConfig(
+                        per_cloud_domain=True,
+                        per_cloud_domain_label=per_cloud_domain_label,
+                    )
+                    if per_cloud_domain
+                    else None,
                 )
             )
             cloud_id = created_cloud.result.id

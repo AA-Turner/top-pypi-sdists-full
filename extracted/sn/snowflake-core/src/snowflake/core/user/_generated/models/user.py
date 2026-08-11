@@ -236,6 +236,7 @@ class User(BaseModel):
 
     @field_validator("default_secondary_roles")
     def default_secondary_roles_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("ALL", "NONE"):

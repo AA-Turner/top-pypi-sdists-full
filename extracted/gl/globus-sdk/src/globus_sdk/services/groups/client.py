@@ -46,6 +46,10 @@ class GroupsClient(client.BaseClient):
     service_name = "groups"
     scopes = GroupsScopes
 
+    # annotate but do not assign 'resource_server'
+    # because we know that the classproperty of this name will evaluate to a string
+    resource_server: str
+
     @property
     def default_scope_requirements(self) -> list[Scope]:
         return [GroupsScopes.view_my_groups_and_memberships]

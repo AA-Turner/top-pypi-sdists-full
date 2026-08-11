@@ -985,7 +985,11 @@ class BaseChatOpenAI(BaseChatModel):
     """
 
     include_response_headers: bool = False
-    """Whether to include response headers in the output message `response_metadata`."""
+    """Whether to include response headers in the output message `response_metadata`.
+
+    Note: some inference providers return additional metadata (such as served model
+    names) in the response headers. Enable to capture these metadata.
+    """
 
     disabled_params: dict[str, Any] | None = Field(default=None)
     """Parameters of the OpenAI client or `chat.completions` endpoint that should be
@@ -3304,6 +3308,24 @@ class ChatOpenAI(BaseChatOpenAI):  # type: ignore[override]
                 api_key="EMPTY",
                 model="meta-llama/Llama-2-7b-chat-hf",
                 extra_body={"use_beam_search": True, "best_of": 4},
+            )
+            ```
+
+        !!! warning "Model name can trigger Responses API routing"
+
+            The choice between the Chat Completions API (`/v1/chat/completions`)
+            and the Responses API (`/v1/responses`) is inferred in part from the
+            model name, independent of `base_url`.
+
+            `use_responses_api` should generally be set explicitly to avoid ambiguity,
+            especially when using OpenAI-compatible providers:
+
+            ```python
+            model = ChatOpenAI(
+                base_url="http://localhost:8000/v1",
+                api_key="EMPTY",
+                model="codex-7b-instruct",
+                use_responses_api=False,
             )
             ```
 

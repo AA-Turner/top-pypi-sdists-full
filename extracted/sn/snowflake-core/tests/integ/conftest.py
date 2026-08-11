@@ -18,6 +18,8 @@ from snowflake.core import CreateMode, Root
 from snowflake.core.alert import AlertCollection
 from snowflake.core.api_integration import ApiIntegrationCollection
 from snowflake.core.catalog_integration import CatalogIntegration
+from snowflake.core.code_bundle import CodeBundleCollection
+from snowflake.core.code_bundle_execution import CodeBundleExecutionCollection
 from snowflake.core.compute_pool import ComputePoolCollection
 from snowflake.core.cortex.chat_service import CortexChatService
 from snowflake.core.cortex.embed_service import CortexEmbedService
@@ -398,6 +400,16 @@ def network_policies(root) -> NetworkPolicyCollection:
 @pytest.fixture(scope="module")
 def stages(schema) -> StageCollection:
     return schema.stages
+
+
+@pytest.fixture(scope="module")
+def code_bundles(schema) -> CodeBundleCollection:
+    return schema.code_bundles
+
+
+@pytest.fixture(scope="module")
+def code_bundle_execution(root) -> CodeBundleExecutionCollection:
+    return root.code_bundle_execution
 
 
 @pytest.fixture(scope="module")

@@ -34,8 +34,8 @@ from openai.types.responses import (
     ResponseReasoningItem,
 )
 
-from agents import Agent, Runner, function_tool
-from agents.exceptions import ModelBehaviorError, UserError
+from agents import Agent, Runner, function_tool, trace
+from agents.exceptions import AgentsException, ModelBehaviorError, UserError
 from agents.model_settings import ModelSettings
 from agents.models.chatcmpl_converter import Converter
 from agents.models.chatcmpl_stream_handler import (
@@ -50,6 +50,7 @@ from agents.models.chatcmpl_stream_handler import (
 from agents.models.interface import ModelTracing
 from agents.models.openai_chatcompletions import OpenAIChatCompletionsModel
 from agents.models.openai_provider import OpenAIProvider
+from tests.testing_processor import fetch_ordered_spans
 from tests.utils.simple_session import SimpleListSession
 
 
@@ -100,6 +101,50 @@ async def _collect_buffered_tool_call_chunks(
             _completion_stream(*chunks)
         )
     ]
+
+
+def _url_citation(
+    url: str = "https://example.com/weather",
+    title: str = "Weather",
+    start_index: int = 0,
+    end_index: int = 22,
+) -> dict[str, Any]:
+    return {
+        "type": "url_citation",
+        "url_citation": {
+            "start_index": start_index,
+            "end_index": end_index,
+            "url": url,
+            "title": title,
+        },
+    }
+
+
+def _annotated_chunk(
+    delta_payload: dict[str, Any], finish_reason: str | None = None
+) -> ChatCompletionChunk:
+    # `annotations` is not a declared field on ChoiceDelta, so it is built through
+    # model_validate to reach the object the same way a provider payload does.
+    return ChatCompletionChunk(
+        id="chunk-id",
+        created=1,
+        model="fake",
+        object="chat.completion.chunk",
+        choices=[
+            Choice(
+                index=0,
+                delta=ChoiceDelta.model_validate(delta_payload),
+                finish_reason=cast(Any, finish_reason),
+            )
+        ],
+    )
+
+
+def _streamed_annotations(events: list[Any]) -> list[dict[str, Any]]:
+    completed = cast(ResponseCompletedEvent, events[-1])
+    message = cast(ResponseOutputMessage, completed.response.output[0])
+    text_part = cast(ResponseOutputText, message.content[0])
+    return [annotation.model_dump() for annotation in text_part.annotations]
 
 
 @pytest.mark.allow_call_model_methods
@@ -165,7 +210,9 @@ async def test_stream_response_forwards_dictionary_agent_model_settings(
             system_instructions=None,
             input="hi",
             model_settings=agent.model_settings,
-            tools=[],
+            # parallel_tool_calls is only forwarded alongside tools, so this parity check
+            # needs a tool for that setting to reach the request.
+            tools=[function_tool(lambda: "ok", name_override="test_tool")],
             output_schema=None,
             handoffs=[],
             tracing=ModelTracing.DISABLED,
@@ -524,7 +571,14 @@ async def test_stream_handler_keeps_empty_choice_usage_chunks() -> None:
         model="fake",
         object="chat.completion.chunk",
         choices=[],
-        usage=CompletionUsage(completion_tokens=1, prompt_tokens=2, total_tokens=3),
+        usage=CompletionUsage.model_validate(
+            {
+                "completion_tokens": 1,
+                "prompt_tokens": 2,
+                "total_tokens": 3,
+                "prompt_tokens_details": {"cached_tokens": 0},
+            }
+        ),
     )
 
     async def fake_stream() -> AsyncIterator[ChatCompletionChunk]:
@@ -533,7 +587,7 @@ async def test_stream_handler_keeps_empty_choice_usage_chunks() -> None:
     events = [
         event
         async for event in ChatCmplStreamHandler.handle_stream(
-            _empty_response(), cast(Any, fake_stream())
+            _empty_response(), cast(Any, fake_stream()), preserve_raw_usage=True
         )
     ]
 
@@ -543,6 +597,12 @@ async def test_stream_handler_keeps_empty_choice_usage_chunks() -> None:
     assert completed_event.response.output == []
     assert completed_event.response.usage
     assert completed_event.response.usage.total_tokens == 3
+    assert cast(Any, completed_event.response)._agents_sdk_raw_usage == {
+        "completion_tokens": 1,
+        "prompt_tokens": 2,
+        "total_tokens": 3,
+        "prompt_tokens_details": {"cached_tokens": 0},
+    }
 
 
 @pytest.mark.asyncio
@@ -725,6 +785,26 @@ def test_finish_reasoning_summary_part_clears_invalid_active_index() -> None:
 
 
 @pytest.mark.asyncio
+async def test_audio_delta_raises_like_the_sync_path() -> None:
+    """Audio output must fail loudly on the streamed path, matching the sync converter."""
+    chunk = _annotated_chunk({"content": "partial", "audio": {"id": "audio-1", "transcript": "hi"}})
+
+    with pytest.raises(AgentsException, match="Audio is not currently supported"):
+        await _collect_handler_events(chunk)
+
+
+@pytest.mark.asyncio
+async def test_buffered_audio_only_delta_raises_instead_of_completing_empty() -> None:
+    """Tool-call buffering must not swallow an audio-only delta into a silent empty run."""
+    audio_chunk = _annotated_chunk({"audio": {"id": "audio-1", "transcript": "hi"}})
+
+    buffered = ChatCmplStreamHandler.buffer_tool_call_stream(_completion_stream(audio_chunk))
+    with pytest.raises(AgentsException, match="Audio is not currently supported"):
+        async for _ in ChatCmplStreamHandler.handle_stream(_empty_response(), cast(Any, buffered)):
+            pass
+
+
+@pytest.mark.asyncio
 async def test_buffer_tool_call_stream_preserves_empty_choice_chunks() -> None:
     chunk = ChatCompletionChunk(
         id="chunk-id",
@@ -784,6 +864,7 @@ async def test_buffer_tool_call_stream_keeps_passthrough_index_passthrough() -> 
         (ChoiceDelta.model_construct(reasoning_content="summary"), True),
         (ChoiceDelta.model_construct(reasoning="scratchpad"), True),
         (ChoiceDelta.model_construct(thinking_blocks=[{"thinking": "hidden"}]), True),
+        (ChoiceDelta.model_construct(audio={"id": "audio-1"}), True),
     ],
 )
 def test_stream_handler_detects_passthrough_delta_shapes(
@@ -1326,6 +1407,13 @@ async def test_stream_handler_places_text_after_existing_refusal_part() -> None:
 
     events = await _collect_handler_events(*chunks)
 
+    refusal_part_added = next(
+        event
+        for event in events
+        if event.type == "response.content_part.added"
+        and isinstance(event.part, ResponseOutputRefusal)
+    )
+    assert refusal_part_added.content_index == 0
     text_part_added = next(
         event
         for event in events
@@ -1337,10 +1425,76 @@ async def test_stream_handler_places_text_after_existing_refusal_part() -> None:
     completed_event = next(event for event in events if event.type == "response.completed")
     assistant_item = completed_event.response.output[0]
     assert isinstance(assistant_item, ResponseOutputMessage)
-    assert isinstance(assistant_item.content[0], ResponseOutputText)
-    assert isinstance(assistant_item.content[1], ResponseOutputRefusal)
-    assert assistant_item.content[0].text == "partial"
-    assert assistant_item.content[1].refusal == "blocked"
+    # The completed content must line up with the content indexes announced above: the
+    # refusal opened first at index 0 and the text followed at index 1.
+    assert isinstance(assistant_item.content[0], ResponseOutputRefusal)
+    assert isinstance(assistant_item.content[1], ResponseOutputText)
+    assert assistant_item.content[0].refusal == "blocked"
+    assert assistant_item.content[1].text == "partial"
+
+
+@pytest.mark.parametrize(
+    "deltas",
+    [
+        pytest.param(
+            [
+                ChoiceDelta.model_construct(refusal="blocked"),
+                ChoiceDelta.model_construct(content="partial"),
+            ],
+            id="refusal_then_text",
+        ),
+        pytest.param(
+            [
+                ChoiceDelta.model_construct(content="partial"),
+                ChoiceDelta.model_construct(refusal="blocked"),
+            ],
+            id="text_then_refusal",
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_stream_handler_announces_assistant_message_once_for_text_and_refusal(
+    deltas: list[ChoiceDelta],
+) -> None:
+    """A message holding both a text and a refusal part is announced by a single added event."""
+    chunks = [
+        ChatCompletionChunk(
+            id="chunk-id",
+            created=1,
+            model="fake",
+            object="chat.completion.chunk",
+            choices=[Choice(index=0, delta=delta)],
+        )
+        for delta in deltas
+    ]
+
+    events = await _collect_handler_events(*chunks)
+
+    message_added = [
+        event
+        for event in events
+        if event.type == "response.output_item.added"
+        and isinstance(event.item, ResponseOutputMessage)
+    ]
+    message_done = [
+        event
+        for event in events
+        if event.type == "response.output_item.done"
+        and isinstance(event.item, ResponseOutputMessage)
+    ]
+    assert len(message_added) == 1
+    assert len(message_done) == 1
+    assert message_added[0].output_index == message_done[0].output_index
+
+    # The single added event still opens the message before its first content part.
+    event_types = [event.type for event in events]
+    assert event_types.index("response.output_item.added") < event_types.index(
+        "response.content_part.added"
+    )
+    # Both content parts are still announced, one each.
+    part_added = [event for event in events if event.type == "response.content_part.added"]
+    assert sorted(event.content_index for event in part_added) == [0, 1]
+    assert {event.part.type for event in part_added} == {"output_text", "refusal"}
 
 
 @pytest.mark.allow_call_model_methods
@@ -3536,3 +3690,408 @@ async def test_buffer_tool_call_stream_does_not_duplicate_tool_calls_finish() ->
     ]
     assert len(finish_choices) == 1
     assert finish_choices[0].delta.tool_calls
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_stream_response_propagates_request_id(monkeypatch) -> None:
+    """The OpenAI request ID must reach the terminal streamed response.
+
+    `Runner` reads `_request_id` off the terminal response to populate
+    `ModelResponse.request_id`, so the streamed Chat Completions path has to carry the
+    `x-request-id` header from the underlying HTTP response.
+    """
+    chunk = ChatCompletionChunk(
+        id="chunk-id",
+        created=1,
+        model="fake",
+        object="chat.completion.chunk",
+        choices=[Choice(index=0, delta=ChoiceDelta(content="Hello"))],
+    )
+
+    class FakeStream:
+        """Mimics `openai.AsyncStream`, which exposes the raw HTTP response."""
+
+        def __init__(self) -> None:
+            self.response = httpx.Response(
+                200,
+                headers={"x-request-id": "req_streamed_456"},
+                request=httpx.Request("POST", "https://api.openai.com/v1/chat/completions"),
+            )
+
+        def __aiter__(self) -> AsyncIterator[ChatCompletionChunk]:
+            async def gen() -> AsyncIterator[ChatCompletionChunk]:
+                yield chunk
+
+            return gen()
+
+    async def patched_fetch_response(self, *args, **kwargs):
+        resp = Response(
+            id="resp-id",
+            created_at=0,
+            model="fake-model",
+            object="response",
+            output=[],
+            tool_choice="none",
+            tools=[],
+            parallel_tool_calls=False,
+        )
+        return resp, FakeStream()
+
+    monkeypatch.setattr(OpenAIChatCompletionsModel, "_fetch_response", patched_fetch_response)
+    model = OpenAIProvider(use_responses=False).get_model("gpt-4")
+
+    completed: ResponseCompletedEvent | None = None
+    async for event in model.stream_response(
+        system_instructions=None,
+        input="",
+        model_settings=ModelSettings(),
+        tools=[],
+        output_schema=None,
+        handoffs=[],
+        tracing=ModelTracing.DISABLED,
+        previous_response_id=None,
+        conversation_id=None,
+        prompt=None,
+    ):
+        if event.type == "response.completed":
+            completed = event
+
+    assert completed is not None
+    assert getattr(completed.response, "_request_id", None) == "req_streamed_456"
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_stream_response_without_http_response_has_no_request_id(monkeypatch) -> None:
+    """Custom clients and test doubles that yield a bare async iterator still stream."""
+    chunk = ChatCompletionChunk(
+        id="chunk-id",
+        created=1,
+        model="fake",
+        object="chat.completion.chunk",
+        choices=[Choice(index=0, delta=ChoiceDelta(content="Hello"))],
+    )
+
+    async def fake_stream() -> AsyncIterator[ChatCompletionChunk]:
+        yield chunk
+
+    async def patched_fetch_response(self, *args, **kwargs):
+        resp = Response(
+            id="resp-id",
+            created_at=0,
+            model="fake-model",
+            object="response",
+            output=[],
+            tool_choice="none",
+            tools=[],
+            parallel_tool_calls=False,
+        )
+        return resp, fake_stream()
+
+    monkeypatch.setattr(OpenAIChatCompletionsModel, "_fetch_response", patched_fetch_response)
+    model = OpenAIProvider(use_responses=False).get_model("gpt-4")
+
+    completed: ResponseCompletedEvent | None = None
+    async for event in model.stream_response(
+        system_instructions=None,
+        input="",
+        model_settings=ModelSettings(),
+        tools=[],
+        output_schema=None,
+        handoffs=[],
+        tracing=ModelTracing.DISABLED,
+        previous_response_id=None,
+        conversation_id=None,
+        prompt=None,
+    ):
+        if event.type == "response.completed":
+            completed = event
+
+    assert completed is not None
+    assert getattr(completed.response, "_request_id", None) is None
+
+
+@pytest.mark.asyncio
+async def test_stream_handler_keeps_url_citations_on_the_text_delta() -> None:
+    """Citations reported alongside the text reach the output text, as when not streaming."""
+    events = await _collect_handler_events(
+        _annotated_chunk(
+            {
+                "role": "assistant",
+                "content": "It will rain tomorrow.",
+                "annotations": [_url_citation()],
+            },
+            finish_reason="stop",
+        )
+    )
+
+    assert _streamed_annotations(events) == [
+        {
+            "type": "url_citation",
+            "start_index": 0,
+            "end_index": 22,
+            "url": "https://example.com/weather",
+            "title": "Weather",
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_stream_handler_keeps_url_citations_reported_after_the_text() -> None:
+    """A provider may cite on a later delta, once the text the citation indexes is sent."""
+    events = await _collect_handler_events(
+        _annotated_chunk({"role": "assistant", "content": "It will rain tomorrow."}),
+        _annotated_chunk({"annotations": [_url_citation()]}, finish_reason="stop"),
+    )
+
+    assert [annotation["url"] for annotation in _streamed_annotations(events)] == [
+        "https://example.com/weather"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_stream_handler_accumulates_url_citations_across_deltas() -> None:
+    """Citations accumulate rather than replace, as LiteLLM does in `stream_chunk_builder`.
+
+    `delta.annotations` is undocumented, so a provider may spread citations over several
+    deltas or report them only on the last one, and accumulating keeps both cases whole.
+    A provider repeating its full list on every delta would report duplicates, which is
+    the same tradeoff LiteLLM makes.
+    """
+    events = await _collect_handler_events(
+        _annotated_chunk(
+            {
+                "role": "assistant",
+                "content": "It will rain tomorrow.",
+                "annotations": [_url_citation()],
+            }
+        ),
+        _annotated_chunk(
+            {"annotations": [_url_citation(url="https://example.com/forecast", title="Forecast")]},
+            finish_reason="stop",
+        ),
+    )
+
+    assert [annotation["url"] for annotation in _streamed_annotations(events)] == [
+        "https://example.com/weather",
+        "https://example.com/forecast",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_stream_handler_buffering_keeps_a_citation_only_delta() -> None:
+    """Tool call buffering must forward a delta whose only output is a citation."""
+    chunks = await _collect_buffered_tool_call_chunks(
+        _annotated_chunk({"role": "assistant", "content": "It will rain tomorrow."}),
+        _annotated_chunk({"annotations": [_url_citation()]}, finish_reason="stop"),
+    )
+    events = await _collect_handler_events(*chunks)
+
+    assert [annotation["url"] for annotation in _streamed_annotations(events)] == [
+        "https://example.com/weather"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_stream_handler_skips_unsupported_annotation_shapes() -> None:
+    """An unsupported or incomplete citation is dropped instead of failing the turn."""
+    other_type = {"type": "file_citation", "file_citation": {"file_id": "file-1", "index": 0}}
+    incomplete = {"type": "url_citation", "url_citation": {"url": "https://example.com/partial"}}
+    events = await _collect_handler_events(
+        _annotated_chunk(
+            {
+                "role": "assistant",
+                "content": "It will rain tomorrow.",
+                "annotations": [other_type, incomplete, _url_citation()],
+            },
+            finish_reason="stop",
+        )
+    )
+
+    assert [annotation["url"] for annotation in _streamed_annotations(events)] == [
+        "https://example.com/weather"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_stream_handler_ignores_annotations_that_are_not_a_sequence() -> None:
+    """The streamed field is untyped, so an unexpected shape must not fail the turn."""
+    events = await _collect_handler_events(
+        _annotated_chunk(
+            {"role": "assistant", "content": "It will rain tomorrow.", "annotations": 5},
+            finish_reason="stop",
+        )
+    )
+
+    assert _streamed_annotations(events) == []
+
+
+@pytest.mark.asyncio
+async def test_stream_handler_drops_citations_reported_before_any_text() -> None:
+    """Citations index into text, so one reported before any text part opens is dropped."""
+    events = await _collect_handler_events(
+        _annotated_chunk({"role": "assistant", "annotations": [_url_citation()]}),
+        _annotated_chunk({"content": "It will rain tomorrow."}, finish_reason="stop"),
+    )
+
+    assert _streamed_annotations(events) == []
+    completed = cast(ResponseCompletedEvent, events[-1])
+    message = cast(ResponseOutputMessage, completed.response.output[0])
+    assert len(message.content) == 1
+    assert cast(ResponseOutputText, message.content[0]).text == "It will rain tomorrow."
+
+
+def _usageless_stream_patch(usage: CompletionUsage | None = None):
+    """Patch `_fetch_response` with a stream whose only chunk carries `usage`."""
+    chunk = ChatCompletionChunk(
+        id="chunk-id",
+        created=1,
+        model="fake",
+        object="chat.completion.chunk",
+        choices=[Choice(index=0, delta=ChoiceDelta(content="Hello"))],
+        usage=usage,
+    )
+
+    async def fake_stream() -> AsyncIterator[ChatCompletionChunk]:
+        yield chunk
+
+    async def patched_fetch_response(self, *args, **kwargs):
+        resp = Response(
+            id="resp-id",
+            created_at=0,
+            model="fake-model",
+            object="response",
+            output=[],
+            tool_choice="none",
+            tools=[],
+            parallel_tool_calls=False,
+        )
+        return resp, fake_stream()
+
+    return patched_fetch_response
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_streamed_run_counts_request_when_provider_omits_usage(monkeypatch) -> None:
+    """A stream that never carries a usage chunk still made a request.
+
+    Providers without `stream_options.include_usage` finish the stream with no usage payload.
+    The run must still report the request, while token counts stay at zero because the
+    provider genuinely did not report them.
+    """
+    monkeypatch.setattr(
+        OpenAIChatCompletionsModel, "_fetch_response", _usageless_stream_patch(usage=None)
+    )
+    agent = Agent(name="test", model=OpenAIProvider(use_responses=False).get_model("gpt-4"))
+
+    result = Runner.run_streamed(agent, "hi")
+    completed: ResponseCompletedEvent | None = None
+    async for event in result.stream_events():
+        raw = getattr(event, "data", None)
+        if isinstance(raw, ResponseCompletedEvent):
+            completed = raw
+
+    assert result.context_wrapper.usage.requests == 1
+    assert result.context_wrapper.usage.total_tokens == 0
+    # No usage payload is synthesized, so nothing reports token counts that never arrived.
+    assert completed is not None
+    assert completed.response.usage is None
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_streamed_run_does_not_double_count_when_usage_is_present(monkeypatch) -> None:
+    """The usage-less path must not add a second request when usage did arrive."""
+    monkeypatch.setattr(
+        OpenAIChatCompletionsModel,
+        "_fetch_response",
+        _usageless_stream_patch(
+            usage=CompletionUsage(completion_tokens=5, prompt_tokens=7, total_tokens=12)
+        ),
+    )
+    agent = Agent(name="test", model=OpenAIProvider(use_responses=False).get_model("gpt-4"))
+
+    result = Runner.run_streamed(agent, "hi")
+    async for _ in result.stream_events():
+        pass
+
+    assert result.context_wrapper.usage.requests == 1
+    assert result.context_wrapper.usage.total_tokens == 12
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_streamed_span_records_the_request_when_provider_omits_usage(monkeypatch) -> None:
+    """Streamed tracing must record the request the same way the non-streaming path does.
+
+    Non-streaming writes a span usage object with `requests: 1` when the provider reports no
+    usage. Streaming used to omit span usage entirely, so the run reported one request while
+    the model span showed none.
+    """
+    monkeypatch.setattr(
+        OpenAIChatCompletionsModel, "_fetch_response", _usageless_stream_patch(usage=None)
+    )
+    model = OpenAIProvider(use_responses=False).get_model("gpt-4")
+
+    with trace(workflow_name="test"):
+        async for _ in model.stream_response(
+            system_instructions=None,
+            input="",
+            model_settings=ModelSettings(),
+            tools=[],
+            output_schema=None,
+            handoffs=[],
+            tracing=ModelTracing.ENABLED,
+            previous_response_id=None,
+            conversation_id=None,
+            prompt=None,
+        ):
+            pass
+
+    spans = fetch_ordered_spans()
+    generation = next(s for s in spans if s.span_data.type == "generation")
+    assert generation.span_data.usage is not None
+    assert generation.span_data.usage["requests"] == 1
+    # The provider reported no tokens, so every total stays at zero.
+    assert generation.span_data.usage["total_tokens"] == 0
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_stream_span_is_recorded_for_a_consumer_that_stops_at_the_terminal_event(
+    monkeypatch,
+) -> None:
+    """A caller that stops at `response.completed` closes the generator.
+
+    Anything recorded only after the yield loop never runs for such a consumer, so the span
+    has to be populated before the terminal event is handed out.
+    """
+    monkeypatch.setattr(
+        OpenAIChatCompletionsModel, "_fetch_response", _usageless_stream_patch(usage=None)
+    )
+    model = OpenAIProvider(use_responses=False).get_model("gpt-4")
+
+    with trace(workflow_name="test"):
+        stream = model.stream_response(
+            system_instructions=None,
+            input="",
+            model_settings=ModelSettings(),
+            tools=[],
+            output_schema=None,
+            handoffs=[],
+            tracing=ModelTracing.ENABLED,
+            previous_response_id=None,
+            conversation_id=None,
+            prompt=None,
+        )
+        stream_agen = cast(Any, stream)
+        async for event in stream_agen:
+            if event.type == "response.completed":
+                break  # stop consuming, as a caller watching for the terminal event would
+        await stream_agen.aclose()
+
+    generation = next(s for s in fetch_ordered_spans() if s.span_data.type == "generation")
+    assert generation.span_data.usage is not None
+    assert generation.span_data.usage["requests"] == 1

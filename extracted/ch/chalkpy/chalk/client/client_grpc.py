@@ -23,7 +23,7 @@ from rich.style import Style
 from rich.text import Text
 
 from chalk import DataFrame, EnvironmentId, chalk_logger
-from chalk._gen.chalk.aggregate.v1.service_pb2 import CreateAggregateBackfillJobResponse
+from chalk._gen.chalk.aggregate.v1.service_pb2 import CreateAggregateBackfillJobResponse, PlanAggregateBackfillResponse
 from chalk._gen.chalk.aggregate.v1.service_pb2_grpc import AggregateServiceStub
 from chalk._gen.chalk.auth.v1.agent_pb2 import CustomClaim
 from chalk._gen.chalk.auth.v1.permissions_pb2 import Permission
@@ -291,6 +291,19 @@ _BUILD_PROFILE_MAP = {
 class ParsedUri:
     uri_without_scheme: str
     use_tls: bool
+
+
+@dataclasses.dataclass(frozen=True)
+class _CachedQueueClient:
+    """A function-queue client alongside the metadata baked into it at construction."""
+
+    metadata: List[Tuple[str, str]]
+    client: Any
+    """``chalkcompute.RemoteCallClient``; untyped here since chalkcompute is an optional dependency."""
+
+    def is_stale(self, current_metadata: Sequence[Tuple[str, str]]) -> bool:
+        """True once the baked-in metadata no longer matches what a fresh call would send."""
+        return self.metadata != list(current_metadata)
 
 
 def get_trace_id_from_response(call: grpc.Call) -> Optional[str]:
@@ -1025,6 +1038,8 @@ class ChalkGRPCClient:
             skip_api_server=kwargs.get("_skip_api_server", False),
             channel_options=channel_options,
         )
+        self._queue_client_cache: Optional[_CachedQueueClient] = None
+        """Lazily built by _get_queue_client; rebuilt when its metadata goes stale."""
 
     _INPUT_ENCODE_OPTIONS = GRPC_ENCODE_OPTIONS
 
@@ -1032,6 +1047,9 @@ class ChalkGRPCClient:
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any):
+        if self._queue_client_cache is not None:
+            self._queue_client_cache.client.close()
+            self._queue_client_cache = None
         self._stub_refresher.close()
 
     def ping_engine(self, num: Optional[int] = None) -> int:
@@ -4550,7 +4568,8 @@ class ChalkGRPCClient:
         enable_profiling: bool = False,
         resource_group: str | None = None,
         input_sql: str | None = None,
-    ) -> list[CreateAggregateBackfillJobResponse]:
+        plan_only: bool = False,
+    ) -> list[CreateAggregateBackfillJobResponse] | PlanAggregateBackfillResponse:
         """Trigger one or more aggregate backfill jobs.
 
         Parameters
@@ -4580,6 +4599,8 @@ class ChalkGRPCClient:
             Resource group to use for the created backfill jobs.
         input_sql : str, optional
             Chalk SQL query to use to resolve event data. Mutually exclusive with `resolver`.
+        plan_only : bool, optional
+            If `True`, return the aggregate backfill plan without creating jobs.
         """
         from chalk._gen.chalk.aggregate.v1.backfill_pb2 import AggregateBackfillUserParams
         from chalk._gen.chalk.aggregate.v1.service_pb2 import (
@@ -4610,6 +4631,8 @@ class ChalkGRPCClient:
                 "Failed to plan aggregate backfill.",
                 detail="\n".join(plan_response.errors),
             )
+        if plan_only:
+            return plan_response
 
         create_responses: list[CreateAggregateBackfillJobResponse] = []
         for backfill_with_estimate in plan_response.backfills:
@@ -5037,3 +5060,19 @@ class ChalkGRPCClient:
     def _get_engine_grpc_target(self) -> tuple[str, bool]:
         """``(target, use_tls)`` of the grpc-engine ingress that fronts the function queue."""
         return self._stub_refresher.get_engine_grpc_target()
+
+    def _get_queue_client(self) -> Any:
+        """
+        Cached function-queue client, rebuilt when its baked-in metadata goes stale.
+        """
+        from chalk.client._model_remote import new_queue_client
+
+        metadata = self._get_queue_call_metadata()
+        cached = self._queue_client_cache
+        if cached is not None:
+            if not cached.is_stale(metadata):
+                return cached.client
+            cached.client.close()
+        client = new_queue_client(self)
+        self._queue_client_cache = _CachedQueueClient(metadata=metadata, client=client)
+        return client

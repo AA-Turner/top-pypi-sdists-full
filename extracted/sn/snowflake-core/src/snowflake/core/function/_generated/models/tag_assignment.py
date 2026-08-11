@@ -1,7 +1,7 @@
 """
 Snowflake Function API.
 
-The Snowflake Function API is a REST API that allows caller to create, execute and drop functions in a Snowflake database.  # noqa: E501
+The Snowflake Function API is a REST API that allows caller to create, execute and drop service functions in a Snowflake database.  # noqa: E501
 
 The version of the OpenAPI document: 0.0.1
 Contact: support@snowflake.com
@@ -55,6 +55,7 @@ class TagAssignment(BaseModel):
 
     @field_validator("tag_database")
     def tag_database_validate_regular_expression(cls, v):
+
         if v is None:
             return v
         if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$""", v):
@@ -63,6 +64,7 @@ class TagAssignment(BaseModel):
 
     @field_validator("tag_schema")
     def tag_schema_validate_regular_expression(cls, v):
+
         if v is None:
             return v
         if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$""", v):
@@ -71,6 +73,7 @@ class TagAssignment(BaseModel):
 
     @field_validator("tag_name")
     def tag_name_validate_regular_expression(cls, v):
+
         if not re.match(r"""^\"([^\"]|\"\")+\"|[a-zA-Z_][a-zA-Z0-9_$]*$""", v):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v

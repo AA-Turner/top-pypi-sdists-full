@@ -35,6 +35,7 @@ from anyscale.commands.list_util import (
     display_list,
     MAX_PAGE_SIZE,
     NON_INTERACTIVE_DEFAULT_MAX_ITEMS,
+    resolve_interactive,
     validate_page_size,
 )
 from anyscale.commands.output_format import (
@@ -42,6 +43,7 @@ from anyscale.commands.output_format import (
     OUTPUT_FLAG_LONG,
     OutputFormat,
     print_output,
+    warn_deprecated_flag,
 )
 from anyscale.commands.util import (
     AnyscaleCommand,
@@ -1124,8 +1126,18 @@ def remove_tags(
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[
+        OutputFormat.TEXT,
+        OutputFormat.JSON,
+        OutputFormat.YAML,
+        OutputFormat.TABLE,
+    ],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="List the tags of a workspace by name.",
@@ -1169,7 +1181,6 @@ def remove_tags(
     type=click.Choice([f.value for f in OutputFormat]),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 @click.option("--json", "json_output", is_flag=True, default=False, help="JSON output.")
@@ -1181,6 +1192,8 @@ def list_tags(
     output_format: str,
     json_output: bool,
 ) -> None:
+    if json_output:
+        warn_deprecated_flag("--json", "-o json")
     if not workspace_id and not name:
         raise click.ClickException("Provide either --id or --name.")
     tag_map = anyscale.workspace.list_tags(  # type: ignore
@@ -1646,7 +1659,7 @@ id should be used, specifying both will result in an error.
     examples=[
         CommandExample(
             description="Update a workspace from a YAML config file.",
-            command="anyscale workspace_v2 update expwrk_6l2ldwbu8299ympgltn725ciak --config-file config.yaml",
+            command="anyscale workspace_v2 update expwrk_abc123 --config-file config.yaml",
             output_raw=command_examples.WORKSPACE_UPDATE_EXAMPLE,
         ),
     ],
@@ -1812,15 +1825,24 @@ def update(  # noqa: PLR0913, PLR0912, C901
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        },
+        "--yaml": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o yaml instead."},
+        },
+    },
     examples=[
         CommandExample(
             description="Get a workspace by name.",
             command="anyscale workspace_v2 get --name my-workspace",
             output_raw=command_examples.WORKSPACE_GET_EXAMPLE,
             output_instance={
-                "id": "expwrk_jstjkv15a1vmle2j1t59s4bm35",
+                "id": "expwrk_abc123",
                 "name": "my-workspace",
                 "state": "RUNNING",
             },
@@ -1867,10 +1889,11 @@ def update(  # noqa: PLR0913, PLR0912, C901
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 def get(
@@ -1887,6 +1910,10 @@ def get(
 
     Use --name to specify by name or --id for the workspace ID; using both will result in an error.
     """
+    if json_output:
+        warn_deprecated_flag("--json", "-o json")
+    if yaml_output:
+        warn_deprecated_flag("--yaml", "-o yaml")
     _validate_workspace_name_and_id(name=name, id=id)
 
     try:
@@ -1954,19 +1981,21 @@ def get(
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(MLDX-1486): flip to [TEXT, JSON] when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="List workspaces.",
             command="anyscale workspace_v2 list",
             output_raw=command_examples.WORKSPACE_LIST_EXAMPLE,
             output_instance=[
-                {
-                    "id": "expwrk_jstjkv15a1vmle2j1t59s4bm35",
-                    "name": "my-workspace-1",
-                    "state": "RUNNING",
-                }
+                {"id": "expwrk_abc123", "name": "my-workspace-1", "state": "RUNNING"},
+                {"id": "expwrk_def456", "name": "my-workspace-2", "state": "STARTING"},
             ],
         ),
     ],
@@ -2050,7 +2079,6 @@ def get(
     type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 @click.option(
@@ -2086,6 +2114,8 @@ def list(  # noqa: A001, PLR0912, PLR0913, PLR0917
     verbose: bool,
 ) -> None:
     """List workspaces with optional filters."""
+    if json_output:
+        warn_deprecated_flag("--json", "-o json")
     json_output = json_output or output_format == OutputFormat.JSON.value
     if include_archived:
         # --include-archived no longer has any effect (it was never forwarded to
@@ -2096,6 +2126,8 @@ def list(  # noqa: A001, PLR0912, PLR0913, PLR0917
             "The --include-archived flag is deprecated and has no effect; "
             "it will be removed in a future release."
         )
+    interactive = resolve_interactive(interactive, json_output)
+
     if max_items is not None and interactive:
         raise click.UsageError("--max-items only allowed with --no-interactive")
 

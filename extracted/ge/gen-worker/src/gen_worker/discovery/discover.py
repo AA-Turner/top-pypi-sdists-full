@@ -769,7 +769,6 @@ def _extract_entries(obj: Any, module_name: str) -> List[Dict[str, Any]]:
             "output_schema": output_schema,
             "incremental_output": incremental,
             "is_async": es.is_async,
-            "timeout_ms": es.timeout_ms,
         }
         # th#826: the child-call declaration — the hub mints the invoke_child
         # capability grant only for declaring functions. Omitted when false.
@@ -806,6 +805,10 @@ def _extract_entries(obj: Any, module_name: str) -> List[Dict[str, Any]]:
         # resolves unmeasured (serves at base precision).
         if es.tasks is not None:
             fn["tasks"] = list(es.tasks)
+        # th#1757: the opt-in reference contract. Omitted = this function
+        # never sees the concept; the hub refuses a ref_text sent to it.
+        if es.accepts_references is not None:
+            fn["accepts_references"] = es.accepts_references.to_manifest()
         # th#1050: opt-in declared lane bodies (behavioral divergence marker).
         if es.handles:
             fn["handles"] = list(es.handles)

@@ -10,11 +10,12 @@ from __future__ import annotations
 
 import hashlib
 import io
+import itertools
 import logging
 import subprocess
 import tarfile
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -35,6 +36,7 @@ from nab_python.config import (
     ConflictSet,
     NabProjectConfig,
     conflict_forks,
+    read_pyproject_config,
 )
 from nab_python.lockfile import (
     DisjointnessError,
@@ -68,6 +70,7 @@ from nab_python.requirements_file import (
     read_pyproject_optional_dependencies,
 )
 from nab_python.resolve import (
+    InstallContexts,
     ResolveFork,
     ResolveResult,
     TargetResult,
@@ -88,14 +91,16 @@ if TYPE_CHECKING:
     from nab_index.vcs import VcsClone, VcsRequest
 
 
-def _make_wheel(version: str, *, package: str) -> WheelFile:
+def _make_wheel(
+    version: str, *, package: str, upload_time: str | None = None
+) -> WheelFile:
     return WheelFile(
         filename=f"{package}-{version}-py3-none-any.whl",
         url=f"https://example.com/{package}-{version}.whl",
         version=version,
         requires_python=None,
         has_metadata=True,
-        upload_time=None,
+        upload_time=upload_time,
         hashes=(("sha256", "a" * 64),),
     )
 
@@ -189,6 +194,46 @@ class TestConflictForks:
         assert forks[0].selection == ()
         assert forks[0].active_extras == ("docs",)
         assert forks[0].active_groups == ("dev",)
+
+    def test_a_configured_name_is_active_without_being_selected(self) -> None:
+        """A configured group is active whenever it is set, so its set engages."""
+        forks = conflict_forks(
+            (), (), (_group_set("main", "build"),), ("main", "build")
+        )
+
+        assert [f.selection for f in forks] == [
+            (("group", "main"),),
+            (("group", "build"),),
+        ]
+        assert [f.active_configured for f in forks] == [("main",), ("build",)]
+        assert [f.active_groups for f in forks] == [(), ()]
+
+    def test_configured_names_stay_out_of_the_unforked_group_list(self) -> None:
+        """``active_groups`` stays what the [dependency-groups] loader can read."""
+        forks = conflict_forks((), ("dev",), (), ("main", "build"))
+
+        assert len(forks) == 1
+        assert forks[0].active_groups == ("dev",)
+        assert forks[0].active_configured == ("main", "build")
+
+    def test_a_configured_name_in_a_dormant_set_is_still_carried(self) -> None:
+        """The set does not engage, so every fork keeps both configured names."""
+        forks = conflict_forks((), (), (_group_set("main", "dev"),), ("main", "build"))
+
+        assert len(forks) == 1
+        assert forks[0].selection == ()
+        assert forks[0].active_configured == ("main", "build")
+
+    def test_a_configured_and_a_declared_name_fork_together(self) -> None:
+        """Selecting the declared member engages the set the configured one is in."""
+        forks = conflict_forks((), ("dev",), (_group_set("build", "dev"),), ("build",))
+
+        assert [f.selection for f in forks] == [
+            (("group", "build"),),
+            (("group", "dev"),),
+        ]
+        assert [f.active_configured for f in forks] == [("build",), ()]
+        assert [f.active_groups for f in forks] == [(), ("dev",)]
 
     def test_single_selected_member_does_not_engage(self) -> None:
         # Only cpu selected, gpu absent: no conflict, no fork.
@@ -635,6 +680,128 @@ class TestConflictForkBaseNames:
         assert any("Base attribution skipped" in rec.message for rec in caplog.records)
 
 
+class TestTwoConflictSetsPartialInstall:
+    """Two engaged conflict sets serve an install that draws from one.
+
+    ``at-most-one`` lets an install pick no member of a set, so the lock of a
+    four-fork resolve has to install the a1 packages for ``--extra a1`` alone,
+    not only for a full ``(a, b)`` pair. The resolve runs through the engine so
+    the gates come from the resolved graph rather than a hand-written
+    ``package_gates``.
+    """
+
+    _GRAPH: ClassVar[dict[str, tuple[str, ...]]] = {
+        "base": (),
+        "pkga1": ("shared==1.0",),
+        "pkga2": ("shared==2.0",),
+        "pkgb1": (),
+        "pkgb2": (),
+    }
+
+    def _coordinator(self) -> MagicMock:
+        listings = {name: [_make_wheel("1.0", package=name)] for name in self._GRAPH}
+        listings["shared"] = [
+            _make_wheel(version, package="shared") for version in ("1.0", "2.0")
+        ]
+
+        metadata: dict[str, str | None] = {}
+        for name, wheels in listings.items():
+            for wheel in wheels:
+                assert wheel.metadata_url is not None
+                requires = "".join(
+                    f"Requires-Dist: {dep}\n" for dep in self._GRAPH.get(name, ())
+                )
+                metadata[wheel.metadata_url] = (
+                    "Metadata-Version: 2.1\n"
+                    f"Name: {name}\nVersion: {wheel.version}\n{requires}\n"
+                )
+
+        return make_coordinator(listings=listings, metadata_by_url=metadata)
+
+    def _forks(self) -> list[ResolveFork]:
+        return [
+            ResolveFork(
+                selection=(("extra", first), ("extra", second)),
+                requirements=tuple(_reqs("base", f"pkg{first}", f"pkg{second}")),
+                contexts=InstallContexts(
+                    project=tuple(_reqs("base")),
+                    selectors={
+                        ("extra", first): tuple(_reqs(f"pkg{first}")),
+                        ("extra", second): tuple(_reqs(f"pkg{second}")),
+                    },
+                ),
+            )
+            for first, second in itertools.product(("a1", "a2"), ("b1", "b2"))
+        ]
+
+    def _installed(
+        self, extras: list[str], *, b_members: tuple[str, ...] = ("b1", "b2")
+    ) -> set[str]:
+        """Lock all four extras, then select ``extras`` from the emitted lock.
+
+        ``b_members`` is what the b-set declares; only b1 and b2 are ever
+        selected, so a longer tuple names a member no fork carries.
+        """
+        result = resolve_with_coordinator(
+            self._coordinator(),
+            _one_target(),
+            forks=self._forks(),
+            base_requirements=_reqs("base"),
+            config=_no_build(),
+        )
+        assert result.success
+
+        pylock = build_pylock(
+            build_lock_input(
+                result,
+                config=_no_build(
+                    conflicts=(_extra_set("a1", "a2"), _extra_set(*b_members))
+                ),
+                extras=("a1", "a2", "b1", "b2"),
+            )
+        )
+
+        return {
+            f"{pkg.name}=={pkg.version}"
+            for pkg, _ in pylock.select(
+                environment=dict(result.target_results[0].target.marker_env),  # type: ignore[arg-type]
+                extras=extras,
+                dependency_groups=(),
+            )
+        }
+
+    def test_one_member_installs_its_own_packages(self) -> None:
+        assert self._installed(["a1"]) == {
+            "base==1.0",
+            "pkga1==1.0",
+            "shared==1.0",
+        }
+
+    def test_a_member_of_the_other_set_installs_alone(self) -> None:
+        assert self._installed(["b1"]) == {"base==1.0", "pkgb1==1.0"}
+
+    def test_one_member_of_each_set_installs_both(self) -> None:
+        assert self._installed(["a1", "b1"]) == {
+            "base==1.0",
+            "pkga1==1.0",
+            "pkgb1==1.0",
+            "shared==1.0",
+        }
+
+    def test_no_extras_installs_the_base_alone(self) -> None:
+        assert self._installed([]) == {"base==1.0"}
+
+    def test_a_declared_member_no_fork_carries_gates_nothing(self) -> None:
+        # b3 is declared conflicting but never selected, so the resolve
+        # never forked over it and the lock does not offer it; the a1
+        # packages install for a1 alone just as they do without it.
+        assert self._installed(["a1"], b_members=("b1", "b2", "b3")) == {
+            "base==1.0",
+            "pkga1==1.0",
+            "shared==1.0",
+        }
+
+
 class TestDroppedRootMarkerWarnedOnce:
     """One mistaken root requirement is reported once per run, however
     many targets, forks and base passes read it."""
@@ -889,33 +1056,33 @@ class TestBuildResolverInputs:
     def test_marker_true_keeps_requirement(self) -> None:
         """A requirement whose marker matches the env is kept."""
         env = _linux_311().marker_env
-        out, _ = _build_resolver_inputs(
+        out = _build_resolver_inputs(
             _reqs('pkg; sys_platform == "linux"'), NabProjectConfig(), environment=env
-        )
+        ).ranges
         assert "pkg" in out
 
     def test_marker_false_drops_requirement(self) -> None:
         """A requirement whose marker excludes the env is dropped."""
         env = _linux_311().marker_env
-        out, _ = _build_resolver_inputs(
+        out = _build_resolver_inputs(
             _reqs('pkg; sys_platform == "win32"'), NabProjectConfig(), environment=env
-        )
+        ).ranges
         assert out == {}
 
     def test_set_marker_drops_without_crash(self) -> None:
         """A lockfile-only set marker is empty at resolve time, so the dep drops."""
         env = _linux_311().marker_env
-        out, _ = _build_resolver_inputs(
+        out = _build_resolver_inputs(
             _reqs('pkg ; "x" in extras'), NabProjectConfig(), environment=env
-        )
+        ).ranges
         assert out == {}
 
     def test_extras_get_separate_entries(self) -> None:
         """Extras become ``name[extra]`` entries with any-version range."""
         env = _linux_311().marker_env
-        out, _ = _build_resolver_inputs(
+        out = _build_resolver_inputs(
             _reqs("pkg[foo,bar]"), NabProjectConfig(), environment=env
-        )
+        ).ranges
         assert "pkg" in out
         assert "pkg[foo]" in out
         assert "pkg[bar]" in out
@@ -932,24 +1099,24 @@ class TestBuildResolverInputs:
         env = _linux_311().marker_env
         req = Requirement("pkg[a,b,c]")
         monkeypatch.setattr(req, "extras", sorted(req.extras, reverse=True))
-        out, _ = _build_resolver_inputs([req], NabProjectConfig(), environment=env)
+        out = _build_resolver_inputs([req], NabProjectConfig(), environment=env).ranges
         proxy_keys = [k for k in out if k.startswith("pkg[")]
         assert proxy_keys == ["pkg[a]", "pkg[b]", "pkg[c]"]
 
     def test_no_specifier_yields_any(self) -> None:
         """An unconstrained requirement gets the any() range."""
         env = _linux_311().marker_env
-        out, _ = _build_resolver_inputs(
+        out = _build_resolver_inputs(
             _reqs("pkg"), NabProjectConfig(), environment=env
-        )
+        ).ranges
         assert out["pkg"] == VersionRange.full(admit_arbitrary=False)
 
     def test_specifier_yields_intervals(self) -> None:
         """A bounded specifier produces the corresponding interval."""
         env = _linux_311().marker_env
-        out, _ = _build_resolver_inputs(
+        out = _build_resolver_inputs(
             _reqs("pkg>=1.0,<2.0"), NabProjectConfig(), environment=env
-        )
+        ).ranges
         # The specifier should be stricter than unbounded; we check
         # by confirming a known-out-of-range version is excluded.
         assert Version("0.5") not in out["pkg"]
@@ -963,9 +1130,9 @@ class TestBuildResolverInputs:
         Declared extras still flow through.
         """
         env = _linux_311().marker_env
-        out, _ = _build_resolver_inputs(
+        out = _build_resolver_inputs(
             _reqs("pkg[ext]===1.0.special"), NabProjectConfig(), environment=env
-        )
+        ).ranges
         assert "pkg" in out
         assert "1.0.special" in out["pkg"]
         assert Version("1.0") not in out["pkg"]
@@ -974,20 +1141,21 @@ class TestBuildResolverInputs:
     def test_duplicate_name_intersects(self) -> None:
         """Two requirements for one package combine to their overlap."""
         env = _linux_311().marker_env
-        out, _ = _build_resolver_inputs(
+        out = _build_resolver_inputs(
             _reqs("pkg>=2.0", "pkg<3.0"), NabProjectConfig(), environment=env
-        )
+        ).ranges
         assert Version("2.5") in out["pkg"]
         assert Version("1.0") not in out["pkg"]
         assert Version("5.0") not in out["pkg"]
 
-    def test_conflicting_names_raise(self) -> None:
-        """Contradictory pins for one package raise ResolutionError."""
+    def test_conflicting_names_stay_separate_roots(self) -> None:
+        """Contradictory pins reach the solver as their own clauses."""
         env = _linux_311().marker_env
-        with pytest.raises(ResolutionError, match="pkg==1.0"):
-            _build_resolver_inputs(
-                _reqs("pkg==1.0", "pkg==2.0"), NabProjectConfig(), environment=env
-            )
+        inputs = _build_resolver_inputs(
+            _reqs("pkg==1.0", "pkg==2.0"), NabProjectConfig(), environment=env
+        )
+        assert [root.origin for root in inputs.roots] == ["pkg==1.0", "pkg==2.0"]
+        assert inputs.ranges["pkg"].is_empty
 
     def test_constraint_extras_rejected(self) -> None:
         """A constraint carrying extras is rejected, matching pip."""
@@ -1008,32 +1176,32 @@ class TestBuildResolverInputs:
         path once enforced such constraints unconditionally (issue #38).
         """
         env = _linux_311().marker_env
-        out, _ = _build_resolver_inputs(
+        out = _build_resolver_inputs(
             _reqs('pkg<2.0 ; sys_platform == "win32"'),
             NabProjectConfig(),
             environment=env,
             kind="constraint",
-        )
+        ).ranges
         assert out == {}
 
     def test_marker_true_keeps_constraint(self) -> None:
         """A constraint whose marker matches the env binds its range."""
         env = _linux_311().marker_env
-        out, _ = _build_resolver_inputs(
+        out = _build_resolver_inputs(
             _reqs('pkg<2.0 ; sys_platform == "linux"'),
             NabProjectConfig(),
             environment=env,
             kind="constraint",
-        )
+        ).ranges
         assert Version("1.0") in out["pkg"]
         assert Version("2.0") not in out["pkg"]
 
     def test_extra_proxy_key_normalized(self) -> None:
         """The proxy key is PEP 685 normalized."""
         env = _linux_311().marker_env
-        out, _ = _build_resolver_inputs(
+        out = _build_resolver_inputs(
             _reqs("pkg[My_Extra]"), NabProjectConfig(), environment=env
-        )
+        ).ranges
         assert "pkg[my-extra]" in out
 
     def test_plain_url_requirement_refused(self) -> None:
@@ -1105,18 +1273,18 @@ class TestSelfRefMarker:
                 ["all"],
             )
         )
-        excluded, _ = _build_resolver_inputs(
+        excluded = _build_resolver_inputs(
             reqs, NabProjectConfig(), environment=_linux_311().marker_env
-        )
+        ).ranges
         assert "some-dep" not in excluded
         included_env = {
             **_linux_311().marker_env,
             "python_version": "3.9",
             "python_full_version": "3.9.0",
         }
-        included, _ = _build_resolver_inputs(
+        included = _build_resolver_inputs(
             reqs, NabProjectConfig(), environment=included_env
-        )
+        ).ranges
         assert "some-dep" in included
 
 
@@ -1125,16 +1293,16 @@ class TestRootExtras:
 
     def test_recovers_and_normalizes_extras(self) -> None:
         env = _linux_311().marker_env
-        _, root_extras = _build_resolver_inputs(
+        root_extras = _build_resolver_inputs(
             _reqs("pkg[My_Extra]", "other"), NabProjectConfig(), environment=env
-        )
+        ).extras
         assert root_extras == {("pkg", "my-extra")}
 
     def test_no_extras_yields_empty(self) -> None:
         env = _linux_311().marker_env
-        _, root_extras = _build_resolver_inputs(
+        root_extras = _build_resolver_inputs(
             _reqs("pkg"), NabProjectConfig(), environment=env
-        )
+        ).extras
         assert root_extras == set()
 
 
@@ -1380,6 +1548,113 @@ class TestVcsConfigPlumbing:
         assert len(roots) == 1
         assert not roots[0].exists()
 
+    def test_vcs_source_resolves_under_a_relative_cache_dir(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """``nab lock --cache-dir relcache`` materialises a declared VCS source.
+
+        ``cache-dir`` is cwd-relative, so the clone root can be relative.
+        """
+
+        def fake_run(cmd: list[str], **kwargs: object) -> object:
+            cwd = Path(str(kwargs["cwd"]))
+            if cmd[:2] == ["git", "init"]:
+                (cwd / ".git").mkdir(exist_ok=True)
+            if cmd[:2] == ["git", "checkout"]:
+                (cwd / "pyproject.toml").write_text(
+                    '[project]\nname = "pkg"\nversion = "1.0"\n', encoding="utf-8"
+                )
+            return type("P", (), {"returncode": 0})()
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+        monkeypatch.chdir(tmp_path)
+
+        result = resolve_with_coordinator(
+            _make_coordinator({}),
+            _one_target(),
+            _reqs("pkg"),
+            config=_no_build(vcs=self._allow(), vcs_sources=(self._source(),)),
+            cache_dir=Path("relcache"),
+        )
+
+        assert result.success
+        assert result.target_results[0].pins == {"pkg": Version("1.0")}
+
+
+class TestCutoffAndOverridePlumbing:
+    """The upload cutoff and the two override tables reach the provider.
+
+    Each key is parsed from a pyproject and driven through
+    ``resolve_with_coordinator``, so the pins show whether it arrived.
+    """
+
+    _PYPROJECT = (
+        '[project]\nname = "proj"\nversion = "0"\n[tool.nab]\nbuild-policy = "never"\n'
+    )
+
+    def _coordinator(self) -> MagicMock:
+        """Two foo releases either side of March 2024, plus a bar to depend on."""
+        return _make_coordinator(
+            {
+                "foo": [
+                    _make_wheel(
+                        "2.0", package="foo", upload_time="2024-06-01T00:00:00Z"
+                    ),
+                    _make_wheel(
+                        "1.0", package="foo", upload_time="2024-01-01T00:00:00Z"
+                    ),
+                ],
+                "bar": [_make_wheel("1.0", package="bar")],
+            }
+        )
+
+    def _pins(self, tmp_path: Path, body: str = "") -> dict[str, Version]:
+        """Resolve ``foo`` under a pyproject carrying ``body``."""
+        path = tmp_path / "pyproject.toml"
+        path.write_text(self._PYPROJECT + body, encoding="utf-8")
+
+        result = resolve_with_coordinator(
+            self._coordinator(),
+            _one_target(),
+            _reqs("foo"),
+            config=read_pyproject_config(path),
+        )
+        assert result.success
+
+        return result.target_results[0].pins
+
+    def test_project_cutoff_excludes_the_newer_release(self, tmp_path: Path) -> None:
+        """``[tool.nab] uploaded-prior-to`` narrows the candidate listing."""
+        assert self._pins(tmp_path) == {"foo": Version("2.0")}
+
+        cutoff = 'uploaded-prior-to = "2024-03-01T00:00:00Z"\n'
+        assert self._pins(tmp_path, cutoff) == {"foo": Version("1.0")}
+
+    def test_package_override_replaces_declared_dependencies(
+        self, tmp_path: Path
+    ) -> None:
+        """``[tool.nab.packages.<name>] dependencies`` reaches the resolve.
+
+        The listing declares no dependencies, so bar is pinned only
+        because the override supplies it.
+        """
+        assert self._pins(tmp_path) == {"foo": Version("2.0")}
+
+        override = '[tool.nab.packages.foo]\ndependencies = ["bar"]\n'
+        assert self._pins(tmp_path, override) == {
+            "foo": Version("2.0"),
+            "bar": Version("1.0"),
+        }
+
+    def test_index_override_cutoff_excludes_the_newer_release(
+        self, tmp_path: Path
+    ) -> None:
+        """``[tool.nab.index.<name>] uploaded-prior-to`` reaches the resolve."""
+        assert self._pins(tmp_path) == {"foo": Version("2.0")}
+
+        override = '[tool.nab.index.pypi]\nuploaded-prior-to = "2024-03-01T00:00:00Z"\n'
+        assert self._pins(tmp_path, override) == {"foo": Version("1.0")}
+
 
 class TestRunPassSerial:
     """``_run_pass`` resolves each target in turn, covering the alignment chain."""
@@ -1581,6 +1856,48 @@ class TestBuildLockInput:
         versions = {lock.pins["pkg"].version for lock in merged.targets.values()}
         assert versions == {"1.0", "2.0"}
 
+    def test_a_double_quote_in_a_consulted_marker_value_still_locks(self) -> None:
+        """A marker value carrying a double quote still locks.
+
+        urllib3 1.11 gates a dependency on
+        ``extra == 'secure;python_version>"2.7"'``, and the lock's
+        ``environments`` come from re-parsing the markers the resolve read,
+        so the value has to survive that round trip.
+        """
+        metadata = (
+            "Metadata-Version: 2.1\n"
+            "Name: foo\n"
+            "Version: 1.0\n"
+            'Provides-Extra: secure;python_version>"2.7"\n'
+            "Requires-Dist: mid ; extra == 'secure;python_version>\"2.7\"'\n"
+        )
+
+        coordinator = make_coordinator(
+            listings={
+                "foo": [_make_wheel("1.0", package="foo")],
+                "mid": [_make_wheel("2.0", package="mid")],
+            },
+            metadata_by_version={
+                "1.0": metadata,
+                "2.0": "Metadata-Version: 2.1\nName: mid\nVersion: 2.0\n",
+            },
+        )
+        result = resolve_with_coordinator(
+            coordinator, [_linux_311()], _reqs("foo"), config=_no_build()
+        )
+
+        assert result.success
+        assert set(result.target_results[0].pins) == {"foo"}
+
+        merged = build_lock_input(result, config=_no_build())
+        assert set(merged.targets) == {"py311-linux_x86_64"}
+        assert [str(row) for row in merged.environments] == [
+            (
+                'python_version == "3.11" and sys_platform == "linux"'
+                ' and platform_machine == "x86_64"'
+            )
+        ]
+
 
 class TestResolveWithCoordinator:
     """End-to-end orchestration via the testable injected-coordinator entry."""
@@ -1715,6 +2032,82 @@ class TestResolveWithCoordinator:
         )
         assert result.success
         assert result.target_results[0].pins == {"pkg": Version("1.0")}
+
+    @staticmethod
+    def _dropped_extra_coordinator() -> MagicMock:
+        """An index whose newest ``aaa`` no longer declares the ``x`` extra.
+
+        1.0 and 2.0 declare ``x`` and pull ``bbb`` through it; 3.0
+        provides no extras at all.
+        """
+        aaa_wheels = [_make_wheel(v, package="aaa") for v in ("1.0", "2.0", "3.0")]
+        coordinator = make_coordinator(
+            listings={"aaa": aaa_wheels, "bbb": [_make_wheel("1.0", package="bbb")]},
+            auto_metadata=True,
+        )
+        for wheel in aaa_wheels[:-1]:
+            coordinator.index.store_metadata(
+                "aaa",
+                wheel.version,
+                f"Metadata-Version: 2.1\nName: aaa\nVersion: {wheel.version}\n"
+                "Provides-Extra: x\n"
+                'Requires-Dist: bbb; extra == "x"\n\n',
+                wheel.metadata_url,
+            )
+        return coordinator
+
+    @pytest.mark.parametrize(
+        "constraint", ["aaa==2.0", "aaa<=2.0", "aaa<3.0", "aaa!=3.0"]
+    )
+    def test_constraint_bounds_an_extras_proxy(self, constraint: str) -> None:
+        """A constraint on the base bounds ``aaa[x]`` as well.
+
+        The proxy decides before its base, so a constraint it cannot see
+        lets it pin ``aaa==3.0`` and abort on the extra 3.0 dropped.
+        """
+        result = resolve_with_coordinator(
+            self._dropped_extra_coordinator(),
+            _one_target(),
+            _reqs("aaa[x]"),
+            config=NabProjectConfig(constraints=(constraint,)),
+        )
+        assert result.success
+        assert result.target_results[0].pins == {
+            "aaa": Version("2.0"),
+            "bbb": Version("1.0"),
+        }
+
+    def test_constraint_that_empties_an_extras_proxy_is_blamed(self) -> None:
+        """A constraint that leaves the proxy nothing is named in the failure.
+
+        Three versions of ``aaa`` exist, so blaming the proxy's own
+        listing would be wrong.
+        """
+        result = resolve_with_coordinator(
+            self._dropped_extra_coordinator(),
+            _one_target(),
+            _reqs("aaa[x]"),
+            config=NabProjectConfig(constraints=("aaa<0.5",)),
+        )
+        assert not result.success
+        message = str(result.target_results[0].error)
+        assert "the user constrained aaa[x]" in message
+        assert "0.5" in message
+        assert "no versions of aaa[x]" not in message
+
+    def test_constraint_off_the_extra_still_reports_the_miss(self) -> None:
+        """A constraint pinning a version without the extra reports it.
+
+        The constraint leaves ``aaa==3.0`` the only candidate, so the
+        proxy pins it and the miss is reported against it.
+        """
+        with pytest.raises(MissingExtraError, match="aaa==3.0"):
+            resolve_with_coordinator(
+                self._dropped_extra_coordinator(),
+                _one_target(),
+                _reqs("aaa[x]"),
+                config=NabProjectConfig(constraints=("aaa==3.0",)),
+            )
 
     def test_resolution_strategy_overrides_the_config(self) -> None:
         """An explicit strategy wins over the config's ``resolution``."""
@@ -2152,6 +2545,42 @@ class TestMicroBoundaryNarrowing:
         assert len(result.target_results) == 1
         assert spy.call_count == 1
 
+    @pytest.mark.parametrize(
+        "value",
+        [
+            'x;python_full_version>="3.10.4"',
+            'a python_full_version in "3.10.4"',
+        ],
+    )
+    def test_a_quote_in_a_marker_value_does_not_cut_the_minor(self, value: str) -> None:
+        """A single-quoted value is consumed whole by the micro scanner, so
+        the clause inside it neither splits 3.10 at a boundary no dependency
+        gates on nor trips the splitter on an operator it cannot tile."""
+        coordinator = self._coordinator(
+            {
+                "1.0": self._meta("foo", "1.0", f"mid ; platform_release == '{value}'"),
+                "2.0": self._meta("mid", "2.0"),
+            }
+        )
+        targets = Matrix(
+            python="==3.10", platforms=(PlatformSpec("linux_x86_64"),)
+        ).expand()
+
+        result = resolve_with_coordinator(
+            coordinator, targets, _reqs("foo"), config=_no_build()
+        )
+
+        assert result.success
+        assert self._pins_by_label(result) == {"py310-linux_x86_64": {"foo"}}
+
+        merged = build_lock_input(result, config=_no_build())
+        assert [str(row) for row in merged.environments] == [
+            (
+                'python_version == "3.10" and sys_platform == "linux"'
+                ' and platform_machine == "x86_64"'
+            )
+        ]
+
     @staticmethod
     def _linux_host_env() -> dict[str, str]:
         return {
@@ -2199,6 +2628,55 @@ class TestMicroBoundaryNarrowing:
             "implementation_name": "cpython",
         }
         assert any(row.evaluate(real_3119) for row in rows)
+
+    def test_an_epoch_tagged_marker_leaves_the_minor_whole(self) -> None:
+        """``>= "1!3.10.4"`` is False on every interpreter, since none reports
+        an epoch. Cutting the minor there would resolve a slice at
+        ``1!3.10.4`` and gate ``mid`` behind a row nothing matches.
+        """
+        coordinator = self._coordinator(
+            {
+                "1.0": self._meta(
+                    "foo", "1.0", 'mid ; python_full_version >= "1!3.10.4"'
+                ),
+                "2.0": self._meta("mid", "2.0"),
+            }
+        )
+        targets = Matrix(
+            python="==3.10", platforms=(PlatformSpec("linux_x86_64"),)
+        ).expand()
+
+        result = resolve_with_coordinator(
+            coordinator, targets, _reqs("foo"), config=_no_build()
+        )
+
+        assert result.success
+        assert self._pins_by_label(result) == {"py310-linux_x86_64": {"foo"}}
+        rows = build_lock_input(result, config=_no_build()).environments
+        assert len(rows) == 1
+
+    def test_an_epoch_tagged_marker_does_not_fail_the_resolve(self) -> None:
+        """A dep the index does not serve, gated on an epoch, is inactive on
+        every real 3.10, so the resolve succeeds rather than failing on a
+        slice no interpreter reaches.
+        """
+        coordinator = self._coordinator(
+            {
+                "1.0": self._meta(
+                    "foo", "1.0", 'absent ; python_full_version >= "1!3.10.4"'
+                )
+            }
+        )
+        targets = Matrix(
+            python="==3.10", platforms=(PlatformSpec("linux_x86_64"),)
+        ).expand()
+
+        result = resolve_with_coordinator(
+            coordinator, targets, _reqs("foo"), config=_no_build()
+        )
+
+        assert result.success
+        assert self._pins_by_label(result) == {"py310-linux_x86_64": {"foo"}}
 
     def _fixpoint_coordinator(self) -> MagicMock:
         return self._coordinator(
@@ -2324,3 +2802,153 @@ class TestMicroBoundaryNarrowing:
                 "implementation_name": "cpython",
             }
             assert sum(row.evaluate(env) for row in rows) == 1
+
+
+class TestMicroSliceAlignmentDirection:
+    """Splitting a minor does not turn cross-target alignment around.
+
+    Within a fork's pass alignment threads forward: a target's slices start
+    from what the targets before it settled on, and a target that resolves
+    later leaves them alone.
+    """
+
+    @staticmethod
+    def _meta(name: str, version: str, *requires: str) -> str:
+        head = f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n"
+        return head + "".join(f"Requires-Dist: {req}\n" for req in requires)
+
+    @classmethod
+    def _coordinator(cls, *split_markers: str) -> MagicMock:
+        """A graph whose ``foo`` splits every minor ``split_markers`` cuts.
+
+        ``bar`` is the package under test: nothing in the split concerns it,
+        and both its versions resolve everywhere, so whichever one a slice
+        pins came from that slice's preferences.
+        """
+        requires = {"foo": [f"mid ; {marker}" for marker in split_markers]}
+        listings = {
+            "foo": [_make_wheel("1.0", package="foo")],
+            "mid": [_make_wheel("1.0", package="mid")],
+            "bar": [
+                _make_wheel("1.0", package="bar"),
+                _make_wheel("2.0", package="bar"),
+            ],
+        }
+        metadata: dict[str, str | None] = {}
+        for name, wheels in listings.items():
+            for wheel in wheels:
+                assert wheel.metadata_url is not None
+                metadata[wheel.metadata_url] = cls._meta(
+                    name, wheel.version, *requires.get(name, ())
+                )
+        return make_coordinator(listings=listings, metadata_by_url=metadata)
+
+    @staticmethod
+    def _bar_versions(result: ResolveResult) -> dict[str, str]:
+        return {tr.target.label: str(tr.pins["bar"]) for tr in result.target_results}
+
+    def test_a_later_target_does_not_seed_the_slices_before_it(self) -> None:
+        """Windows resolves after linux and caps ``bar`` at 1.0, so the linux
+        slices keep 2.0."""
+        targets = Matrix(
+            python="==3.11",
+            platforms=(PlatformSpec("linux_x86_64"), PlatformSpec("windows_amd64")),
+        ).expand()
+
+        result = resolve_with_coordinator(
+            self._coordinator('python_full_version >= "3.11.4"'),
+            targets,
+            _reqs("foo", "bar", 'bar<2.0 ; sys_platform == "win32"'),
+            config=_no_build(),
+        )
+
+        assert result.success
+        assert self._bar_versions(result) == {
+            "py311-linux_x86_64-pf3110": "2.0",
+            "py311-linux_x86_64-pf3114": "2.0",
+            "py311-windows_amd64-pf3110": "1.0",
+            "py311-windows_amd64-pf3114": "1.0",
+        }
+
+    def test_a_desc_matrix_keeps_the_newest_python_pin_on_its_slices(self) -> None:
+        """``python_order = "desc"`` resolves 3.12 first, so 3.11's narrower
+        answer must not propagate back onto the 3.12 slices."""
+        targets = Matrix(
+            python=">=3.11,<3.13",
+            platforms=(PlatformSpec("linux_x86_64"),),
+            python_order="desc",
+        ).expand()
+
+        result = resolve_with_coordinator(
+            self._coordinator(
+                'python_full_version >= "3.11.4"', 'python_full_version >= "3.12.3"'
+            ),
+            targets,
+            _reqs("foo", "bar", 'bar<2.0 ; python_version == "3.11"'),
+            config=_no_build(),
+        )
+
+        assert result.success
+        assert self._bar_versions(result) == {
+            "py312-linux_x86_64-pf3120": "2.0",
+            "py312-linux_x86_64-pf3123": "2.0",
+            "py311-linux_x86_64-pf3110": "1.0",
+            "py311-linux_x86_64-pf3114": "1.0",
+        }
+
+    def test_an_earlier_unsplit_target_still_seeds_a_later_split_one(self) -> None:
+        """3.10 does not split and caps ``bar`` at 1.0.  It resolves first, so
+        the 3.11 slices still align onto it rather than jumping to 2.0."""
+        targets = Matrix(
+            python=">=3.10,<3.12", platforms=(PlatformSpec("linux_x86_64"),)
+        ).expand()
+
+        result = resolve_with_coordinator(
+            self._coordinator('python_full_version >= "3.11.4"'),
+            targets,
+            _reqs("foo", "bar", 'bar<2.0 ; python_version == "3.10"'),
+            config=_no_build(),
+        )
+
+        assert result.success
+        assert self._bar_versions(result) == {
+            "py310-linux_x86_64": "1.0",
+            "py311-linux_x86_64-pf3110": "1.0",
+            "py311-linux_x86_64-pf3114": "1.0",
+        }
+
+    def test_slices_align_within_their_own_fork(self) -> None:
+        """Only group ``b`` caps ``bar``, and only on 3.11.  Group ``a``'s
+        slices walk the matrix under its own answers, so they keep 2.0
+        throughout."""
+        targets = Matrix(
+            python=">=3.11,<3.13", platforms=(PlatformSpec("linux_x86_64"),)
+        ).expand()
+        forks = [
+            ResolveFork((("group", "a"),), tuple(_reqs("foo", "bar"))),
+            ResolveFork(
+                (("group", "b"),),
+                tuple(_reqs("foo", "bar", 'bar<2.0 ; python_version == "3.11"')),
+            ),
+        ]
+
+        result = resolve_with_coordinator(
+            self._coordinator(
+                'python_full_version >= "3.11.4"', 'python_full_version >= "3.12.3"'
+            ),
+            targets,
+            forks=forks,
+            config=_no_build(),
+        )
+
+        assert result.success
+        assert self._bar_versions(result) == {
+            "py311-linux_x86_64-pf3110-group-a": "2.0",
+            "py311-linux_x86_64-pf3114-group-a": "2.0",
+            "py312-linux_x86_64-pf3120-group-a": "2.0",
+            "py312-linux_x86_64-pf3123-group-a": "2.0",
+            "py311-linux_x86_64-pf3110-group-b": "1.0",
+            "py311-linux_x86_64-pf3114-group-b": "1.0",
+            "py312-linux_x86_64-pf3120-group-b": "1.0",
+            "py312-linux_x86_64-pf3123-group-b": "1.0",
+        }

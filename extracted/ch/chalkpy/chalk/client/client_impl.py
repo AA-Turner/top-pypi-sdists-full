@@ -55,6 +55,7 @@ from typing_extensions import override
 from urllib3 import Retry
 
 import chalk._repr.utils as repr_utils
+from chalk._gen.chalk.aggregate.v1.service_pb2 import PlanAggregateBackfillResponse
 from chalk._reporting.models import BatchReport, BatchReportResponse
 from chalk._reporting.progress import ProgressService
 from chalk._upload_features.utils import to_multi_upload_inputs
@@ -6689,7 +6690,8 @@ https://docs.chalk.ai/cli/apply
         enable_profiling: bool = False,
         resource_group: str | None = None,
         input_sql: str | None = None,
-    ) -> list[Any]:
+        plan_only: bool = False,
+    ) -> list[Any] | PlanAggregateBackfillResponse:
         return self._grpc_client.trigger_aggregate_backfill(
             features=features,
             lower_bound=lower_bound,
@@ -6702,6 +6704,7 @@ https://docs.chalk.ai/cli/apply
             enable_profiling=enable_profiling,
             resource_group=resource_group,
             input_sql=input_sql,
+            plan_only=plan_only,
         )
 
     def _workflow_auth_context(self, environment: Optional[EnvironmentId]) -> tuple[str | None, str | None, str | None]:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiolyric
-Version: 2.1.1
+Version: 2.1.2
 Summary: Python package for the Honeywell Lyric Platform
 Home-page: https://github.com/timmo001/aiolyric
 Author: Aidan Timson (Timmo)

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Optional
 from typing_extensions import TypedDict
 
+from .managed_auth_browser_config_param import ManagedAuthBrowserConfigParam
 from ..browsers.browser_telemetry_categories_config_param import BrowserTelemetryCategoriesConfigParam
 
 __all__ = [
@@ -18,22 +19,20 @@ __all__ = [
 
 
 class ConnectionLoginParams(TypedDict, total=False):
-    browser_telemetry: Optional[BrowserTelemetry]
-    """Override the connection's default browser telemetry configuration for this
-    login.
+    browser: ManagedAuthBrowserConfigParam
+    """Browser configuration override for this login.
 
-    When omitted, the connection's browser_telemetry default is used. Uses the exact
-    create-browser configuration.
+    Omitted properties inherit the connection defaults.
+    """
+
+    browser_telemetry: Optional[BrowserTelemetry]
+    """Deprecated.
+
+    Use browser.telemetry. Retained during migration for existing clients.
     """
 
     proxy: Proxy
-    """Proxy selection.
-
-    Provide either id or name. The proxy must be in the same project as the resource
-    referencing it. When selecting by name, the name must match exactly one active
-    proxy in the project. Ambiguous names return a 400; use id for stable
-    references.
-    """
+    """Deprecated. Use browser.proxy. Retained during migration for existing clients."""
 
     record_session: bool
     """Override the connection's default for recording this login's browser session.
@@ -87,9 +86,9 @@ class BrowserTelemetryExport(TypedDict, total=False):
 
 
 class BrowserTelemetry(TypedDict, total=False):
-    """Override the connection's default browser telemetry configuration for this login.
+    """Deprecated.
 
-    When omitted, the connection's browser_telemetry default is used. Uses the exact create-browser configuration.
+    Use browser.telemetry. Retained during migration for existing clients.
     """
 
     browser: BrowserTelemetryCategoriesConfigParam
@@ -127,11 +126,7 @@ class BrowserTelemetry(TypedDict, total=False):
 
 
 class Proxy(TypedDict, total=False):
-    """Proxy selection.
-
-    Provide either id or name. The proxy must be in the same project as the resource referencing it.
-    When selecting by name, the name must match exactly one active proxy in the project. Ambiguous names return a 400; use id for stable references.
-    """
+    """Deprecated. Use browser.proxy. Retained during migration for existing clients."""
 
     id: str
     """Proxy ID"""

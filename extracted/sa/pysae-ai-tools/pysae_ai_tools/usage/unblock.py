@@ -34,7 +34,7 @@ def _read() -> dict[str, object]:
 
 
 def _write(mode: str, window: str, until: float) -> None:
-    OVERRIDE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    account.ensure_dir(OVERRIDE_PATH.parent)
     OVERRIDE_PATH.write_text(
         json.dumps({"mode": mode, "window": window, "until": until}, ensure_ascii=False),
         encoding="utf-8",

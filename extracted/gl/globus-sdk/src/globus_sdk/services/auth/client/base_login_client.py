@@ -46,6 +46,10 @@ class AuthLoginClient(client.BaseClient):
     error_class = AuthAPIError
     scopes = AuthScopes
 
+    # annotate but do not assign 'resource_server'
+    # because we know that the classproperty of this name will evaluate to a string
+    resource_server: str
+
     def __init__(
         self,
         client_id: uuid.UUID | str | None = None,

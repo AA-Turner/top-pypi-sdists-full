@@ -298,6 +298,53 @@ class _IMultiRegionClusterRefProxy(
 typing.cast(typing.Any, IMultiRegionClusterRef).__jsii_proxy_class__ = lambda : _IMultiRegionClusterRefProxy
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_memorydb.IMultiRegionParameterGroupRef"
+)
+class IMultiRegionParameterGroupRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a MultiRegionParameterGroup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="multiRegionParameterGroupRef")
+    def multi_region_parameter_group_ref(self) -> "MultiRegionParameterGroupReference":
+        '''(experimental) A reference to a MultiRegionParameterGroup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMultiRegionParameterGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MultiRegionParameterGroup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_memorydb.IMultiRegionParameterGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="multiRegionParameterGroupRef")
+    def multi_region_parameter_group_ref(self) -> "MultiRegionParameterGroupReference":
+        '''(experimental) A reference to a MultiRegionParameterGroup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MultiRegionParameterGroupReference", jsii.get(self, "multiRegionParameterGroupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMultiRegionParameterGroupRef).__jsii_proxy_class__ = lambda : _IMultiRegionParameterGroupRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_memorydb.IParameterGroupRef")
 class IParameterGroupRef(
     _constructs_77d1e7e8.IConstruct,
@@ -341,6 +388,51 @@ class _IParameterGroupRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IParameterGroupRef).__jsii_proxy_class__ = lambda : _IParameterGroupRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_memorydb.IReservedNodeRef")
+class IReservedNodeRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ReservedNode.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="reservedNodeRef")
+    def reserved_node_ref(self) -> "ReservedNodeReference":
+        '''(experimental) A reference to a ReservedNode resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IReservedNodeRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ReservedNode.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_memorydb.IReservedNodeRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="reservedNodeRef")
+    def reserved_node_ref(self) -> "ReservedNodeReference":
+        '''(experimental) A reference to a ReservedNode resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ReservedNodeReference", jsii.get(self, "reservedNodeRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IReservedNodeRef).__jsii_proxy_class__ = lambda : _IReservedNodeRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_memorydb.ISubnetGroupRef")
@@ -502,6 +594,55 @@ class MultiRegionClusterReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_memorydb.MultiRegionParameterGroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"multi_region_parameter_group_arn": "multiRegionParameterGroupArn"},
+)
+class MultiRegionParameterGroupReference:
+    def __init__(self, *, multi_region_parameter_group_arn: builtins.str) -> None:
+        '''A reference to a MultiRegionParameterGroup resource.
+
+        :param multi_region_parameter_group_arn: The Arn of the MultiRegionParameterGroup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_memorydb as interfaces_memorydb
+            
+            multi_region_parameter_group_reference = interfaces_memorydb.MultiRegionParameterGroupReference(
+                multi_region_parameter_group_arn="multiRegionParameterGroupArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__adcf11ee1e7ca60cbd46284d9a38d4810113f6e0ca1f64b02e4504914071f1ab)
+            check_type(argname="argument multi_region_parameter_group_arn", value=multi_region_parameter_group_arn, expected_type=type_hints["multi_region_parameter_group_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "multi_region_parameter_group_arn": multi_region_parameter_group_arn,
+        }
+
+    @builtins.property
+    def multi_region_parameter_group_arn(self) -> builtins.str:
+        '''The Arn of the MultiRegionParameterGroup resource.'''
+        result = self._values.get("multi_region_parameter_group_arn")
+        assert result is not None, "Required property 'multi_region_parameter_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MultiRegionParameterGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_memorydb.ParameterGroupReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -565,6 +706,55 @@ class ParameterGroupReference:
 
     def __repr__(self) -> str:
         return "ParameterGroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_memorydb.ReservedNodeReference",
+    jsii_struct_bases=[],
+    name_mapping={"reserved_node_arn": "reservedNodeArn"},
+)
+class ReservedNodeReference:
+    def __init__(self, *, reserved_node_arn: builtins.str) -> None:
+        '''A reference to a ReservedNode resource.
+
+        :param reserved_node_arn: The Arn of the ReservedNode resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_memorydb as interfaces_memorydb
+            
+            reserved_node_reference = interfaces_memorydb.ReservedNodeReference(
+                reserved_node_arn="reservedNodeArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9d5bb73ea9afca5c743efce9b7bf38d3630cdad4eab3d99ccd0667304a988592)
+            check_type(argname="argument reserved_node_arn", value=reserved_node_arn, expected_type=type_hints["reserved_node_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "reserved_node_arn": reserved_node_arn,
+        }
+
+    @builtins.property
+    def reserved_node_arn(self) -> builtins.str:
+        '''The Arn of the ReservedNode resource.'''
+        result = self._values.get("reserved_node_arn")
+        assert result is not None, "Required property 'reserved_node_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ReservedNodeReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -703,11 +893,15 @@ __all__ = [
     "IACLRef",
     "IClusterRef",
     "IMultiRegionClusterRef",
+    "IMultiRegionParameterGroupRef",
     "IParameterGroupRef",
+    "IReservedNodeRef",
     "ISubnetGroupRef",
     "IUserRef",
     "MultiRegionClusterReference",
+    "MultiRegionParameterGroupReference",
     "ParameterGroupReference",
+    "ReservedNodeReference",
     "SubnetGroupReference",
     "UserReference",
 ]
@@ -738,10 +932,24 @@ def _typecheckingstub__75089b41f224535ca8b53af8adb788da8ab8d10bb872bc9a10a092a1a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__adcf11ee1e7ca60cbd46284d9a38d4810113f6e0ca1f64b02e4504914071f1ab(
+    *,
+    multi_region_parameter_group_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f4ce9a12bead66527ba95eaf76ca4ea36b47fd939e732e4960545097be001fdb(
     *,
     parameter_group_arn: builtins.str,
     parameter_group_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9d5bb73ea9afca5c743efce9b7bf38d3630cdad4eab3d99ccd0667304a988592(
+    *,
+    reserved_node_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -762,5 +970,5 @@ def _typecheckingstub__203a6447b73a85638b9a88eb98c6073ff4f32f7b65519ff5e6d5f08d2
     """Type checking stubs"""
     pass
 
-for cls in [IACLRef, IClusterRef, IMultiRegionClusterRef, IParameterGroupRef, ISubnetGroupRef, IUserRef]:
+for cls in [IACLRef, IClusterRef, IMultiRegionClusterRef, IMultiRegionParameterGroupRef, IParameterGroupRef, IReservedNodeRef, ISubnetGroupRef, IUserRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

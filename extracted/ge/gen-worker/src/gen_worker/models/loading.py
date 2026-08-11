@@ -5,10 +5,12 @@ synthesis. There is no PipelineLoader — callers own ``from_pretrained``.
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from .. import activity as activity_mod
 from ..component_vocab import (
@@ -27,9 +29,15 @@ import sys
 
 from ..capability import HostRamCapacityError, InsufficientHostRamError
 from . import disk_gc, load_progress
-from .artifact_contract import CONTRACT_PLAIN_BF16, implements_contract
+from .tensor_layout_contract import CONTRACT_PLAIN_BF16, implements_contract
 from .fp8_storage import restructure_fp8_storage
-from .memory import get_available_vram_gb, meta_tensors, probe_host_ram
+from .memory import (
+    flush_memory,
+    get_available_vram_gb,
+    keeps_weights_in_host_ram,
+    meta_tensors,
+    probe_host_ram,
+)
 from .safetensors_header import header_len_ok
 from .svdq import detect_svdq_artifact, load_svdq_pipeline
 from .w4a4 import (
@@ -1050,8 +1058,20 @@ _INCOMPATIBLE_COMPUTE = ("float16", "bfloat16")
 def _gemm_param_dtypes(module: Any) -> Dict[str, str]:
     """``{parameter path: dtype name}`` for every GEMM input under ``module``
     — Linear/conv weights and biases, the tensors torch actually refuses to
-    mix. Norms/embeddings are excluded: they carry their own (legitimately
-    wider) precision and never meet a weight in one kernel."""
+    mix, plus every quantized leaf's DECLARED ``compute_dtype``. Norms and
+    embeddings are excluded: they carry their own (legitimately wider)
+    precision and never meet a weight in one kernel.
+
+    pgw#1020: the isinstance selector alone is BLIND to the quantized lanes.
+    All five quantized leaves (``_Fp8ScaledLinear``, ``_W4A4Linear``,
+    ``_SvdqLinear``, ``_SvdqFusedLinear``, ``_AwqPackedLinear``) subclass
+    ``nn.Module`` directly, so a w8a8 fp16 denoiser inside a bf16 composition
+    — the exact cross-composition aliasing shape pgw#683 exists to refuse —
+    read as ``{}`` here and PASSED the guard. Their upcast target is a fact
+    they state: ``self.compute_dtype`` is what every one of their forwards
+    computes in (and what its bias must match), so it is a GEMM input dtype
+    whether or not a bias tensor exists to carry it.
+    """
     import torch.nn as nn
 
     gemm_types = (
@@ -1060,7 +1080,14 @@ def _gemm_param_dtypes(module: Any) -> Dict[str, str]:
     )
     out: Dict[str, str] = {}
     for name, leaf in module.named_modules():
-        if not isinstance(leaf, gemm_types):
+        declared = getattr(leaf, "compute_dtype", None)
+        # An embedding declares one on the fp8-storage lane
+        # (`restructure_fp8_storage` stamps every covered leaf, embeddings
+        # included). It stays excluded — the exclusion is about the kernel it
+        # feeds, not about how it stores its rows.
+        if isinstance(leaf, nn.Embedding):
+            continue
+        if not isinstance(leaf, gemm_types) and declared is None:
             continue
         for attr in ("weight", "bias"):
             t = getattr(leaf, attr, None)
@@ -1070,6 +1097,12 @@ def _gemm_param_dtypes(module: Any) -> Dict[str, str]:
             dt_name = str(dt).rsplit(".", 1)[-1]
             if dt_name in _COMPUTE_DTYPE_NAMES:
                 out[f"{name}.{attr}" if name else attr] = dt_name
+        # Storage dtypes stay uncounted here too: a leaf declaring an fp8
+        # `compute_dtype` fails the membership test exactly as its fp8 weight
+        # does, so pgw#683's carve-out is unchanged.
+        dec_name = str(declared).rsplit(".", 1)[-1] if declared is not None else ""
+        if dec_name in _COMPUTE_DTYPE_NAMES:
+            out[f"{name}.compute_dtype" if name else "compute_dtype"] = dec_name
     return out
 
 
@@ -1182,6 +1215,86 @@ def _component_dtype_map(
         return None
     out["default"] = default
     return out
+
+
+#: Load dtype a component asks for, keyed by what its OWN safetensors headers
+#: store (pgw#1071). fp8 is a STORAGE fact — the artifact carries its own
+#: quantization config and bf16 is the compute dtype over it, which is why it
+#: maps to :data:`QUANT_EXECUTION_LANE_COMPUTE_DEFAULT` rather than to itself.
+_CHECKPOINT_LOAD_DTYPE = {
+    "bf16": "bf16",
+    "fp16": "fp16",
+    "fp32": "fp32",
+    "fp8": QUANT_EXECUTION_LANE_COMPUTE_DEFAULT,
+}
+
+
+def checkpoint_load_dtype(source: str | Path) -> str:
+    """The dtype ONE component tree's own bytes ask to be loaded at, or ``""``
+    when its headers say nothing (pgw#1071).
+
+    Read per COMPONENT, never per snapshot: a majority vote over a whole
+    mixed-precision tree upcasts every narrow component when the vote lands
+    wide and truncates every wide one when it lands narrow. ie#615 measured
+    both halves on minimax-h3 — a 66.28 GB bf16 DiT hydrating at 74.9 GiB
+    (4 bytes/param) because the tree-wide vote fell outside the map and
+    diffusers' fp32 default took over."""
+    return _CHECKPOINT_LOAD_DTYPE.get(detect_on_disk_dtype(Path(source)), "")
+
+
+def _declared_component_dtype(name: str, declared: Any) -> Any:
+    """The dtype the CALLER declared for ``name`` — diffusers' own
+    ``{"default": ..., "<part>": ...}`` routing, or a scalar that governs
+    every component. None when nothing was declared for it."""
+    if isinstance(declared, dict):
+        if name in declared:
+            return declared[name]
+        return declared.get("default")
+    return declared
+
+
+def _modular_declared_dtypes(
+    cls: Any, path: str | Path, scalar_dtype: Any,
+) -> Any:
+    """Everything the modular lane DECLARES about component dtypes: the
+    binding's own dtype when it has one, plus pgw#667's per-part facts.
+
+    ``None`` when nothing is declared — the hydration loop then reads each
+    component's checkpoint (pgw#1071). With a declared composition dtype this
+    is exactly :func:`_component_dtype_map`; without one the facts stand
+    alone, because a ``"default"`` key would put every unlisted component
+    back under a guess."""
+    if scalar_dtype is not None:
+        return _component_dtype_map(cls, path, scalar_dtype) or scalar_dtype
+    out: Dict[str, Any] = {}
+    for part, fact in component_load_dtypes(cls, path).items():
+        try:
+            out[part] = get_torch_dtype(fact.dtype)
+        except ImportError:
+            return None
+        logger.info(
+            "COMPONENT_DTYPE model=%s: loading %r at %s (no composition "
+            "dtype declared; every other component loads at its own "
+            "checkpoint dtype) — %s", path, part, fact.dtype, fact.reason,
+        )
+    return out or None
+
+
+def _hydration_dtype(name: str, declared: Any, source: str | Path) -> Any:
+    """Load dtype for ONE modular component: what the caller declared, else
+    what the component's own checkpoint stores, else None (nothing is known,
+    so diffusers keeps its own default and the load stays as honest as the
+    bytes allow)."""
+    wanted = _declared_component_dtype(name, declared)
+    if wanted is not None:
+        return wanted
+    token = checkpoint_load_dtype(source)
+    if not token:
+        return None
+    try:
+        return get_torch_dtype(token)
+    except ImportError:
+        return None  # torch-less host: the loader fails on its own terms
 
 
 class ComponentExecutionLaneUnsupported(RuntimeError):
@@ -1347,6 +1460,154 @@ class ModularHydrationError(RuntimeError):
     snapshot's index happens to name."""
 
 
+class ComponentSubstitutionError(RuntimeError):
+    """A non-modular diffusers composition names a component the local tree
+    does not carry and the dispatch injected nothing for it (pgw#1048).
+
+    DETERMINISTIC: the tree is already materialized and the injected set is
+    already known, so nothing about a retry can change the answer — a refetch
+    cannot widen a manifest the hub narrowed. Callers classify it terminal for
+    the dispatched identity rather than retryable.
+
+    ``missing``/``expected``/``injected``/``tree`` carry the comparison the
+    raw ``OSError: Error no file named config.json found in directory <root>``
+    does not: what the composition wanted, what the tree had, what arrived."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        tree: str = "",
+        missing: Sequence[str] = (),
+        expected: Sequence[str] = (),
+        injected: Sequence[str] = (),
+    ) -> None:
+        super().__init__(message)
+        self.tree = tree
+        self.missing = tuple(missing)
+        self.expected = tuple(expected)
+        self.injected = tuple(injected)
+
+
+def _component_dir_present(root: Path, component: str) -> bool:
+    """True when the tree carries a non-empty ``<root>/<component>/`` dir.
+
+    Deliberately not a config-name check: schedulers, tokenizers, processors
+    and models each name their config differently, and a layout we do not
+    model must not be refused. An ABSENT (or empty) dir is the narrowing this
+    guards — the shape th#1711 produces when it withholds a component's files
+    from the outbound snapshot."""
+    src = root / component
+    if not src.is_dir():
+        return False
+    return next(src.iterdir(), None) is not None
+
+
+def _pipeline_component_names(cls: Any) -> Optional[set]:
+    """Component names the pipeline CLASS will actually construct, by
+    diffusers' OWN rule (``_get_signature_keys``: required ``__init__``
+    parameters plus the declared optional components), falling back to the
+    ``__init__`` signature for classes that predate it.
+
+    None when the class cannot be introspected (``**kwargs`` catch-alls), in
+    which case the index is judged in full. Judging the index alone would
+    refuse a load diffusers would have completed: a component the index names
+    and the signature does not is one ``from_pretrained`` never touches."""
+    getter = getattr(cls, "_get_signature_keys", None)
+    if callable(getter):
+        try:
+            expected, _optional = getter(cls)
+            return set(expected)
+        except Exception:  # noqa: BLE001 — any introspection gap => judge all
+            pass
+    init = getattr(cls, "__init__", None)
+    if init is None:
+        return None
+    try:
+        params = inspect.signature(init).parameters
+    except (TypeError, ValueError):
+        return None
+    if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()):
+        return None
+    names = {
+        name for name, p in params.items()
+        if name != "self"
+        and p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)
+    }
+    return names or None
+
+
+def assert_composition_satisfiable(
+    cls: Any,
+    path: str | Path,
+    *,
+    components: Optional[Dict[str, Any]] = None,
+    ref: str = "",
+) -> None:
+    """Refuse a diffusers-layout load whose composition cannot be satisfied.
+
+    ``model_index.json`` names the parts; each must arrive either from its own
+    dir in the local tree or through the pgw#617 ``components=`` injection the
+    dispatched binding's overrides derive. When one does neither, diffusers
+    raises ``OSError: Error no file named config.json found in directory
+    <snapshot root>`` — naming neither the component nor the cause — and the
+    caller retries a condition no retry can fix (pgw#1047: a pod burned 9
+    minutes on it before the hub reaped it).
+
+    Skipped, because the composition is not this tree's to satisfy: layouts
+    with no readable ``model_index.json`` (single-file checkpoints,
+    transformers trees, root-layout quantized artifacts — all of which
+    detect only in the absence of an index), the svdq lane (it swaps a
+    nunchaku denoiser in and ignores ``components=`` outright), and gguf
+    snapshots (the denoiser is a loose ``.gguf``, not a component dir).
+    Also skipped per-component: anything the index names that the pipeline
+    class's own signature does not (see :func:`_pipeline_component_names`).
+    The modular lane never reaches here — it refuses in
+    :func:`hydrate_modular_pipeline` with ``ModularHydrationError``."""
+    root = Path(path)
+    expected = model_index_component_classes(root)
+    if not expected:
+        return
+    declared = _pipeline_component_names(cls)
+    if declared is not None:
+        expected = {k: v for k, v in expected.items() if k in declared}
+        if not expected:
+            return
+    injected = tuple(sorted(components or ()))
+    missing = tuple(
+        name for name in sorted(expected)
+        if name not in (components or {})
+        and not _component_dir_present(root, name)
+    )
+    if not missing:
+        return
+    # Only on the refusal path: both probes walk the tree, and the happy path
+    # must not pay for a lane it is not on.
+    if detect_svdq_artifact(root) is not None:
+        return
+    if detect_gguf_snapshot(root) is not None:
+        return
+    detail = (
+        f"pipeline={getattr(cls, '__name__', cls)} "
+        f"ref={ref or '<none>'} tree={root} "
+        f"missing={','.join(missing)} "
+        f"expected={','.join(sorted(expected))} "
+        f"injected={','.join(injected) or '<nothing>'}"
+    )
+    activity_mod.emit_event(
+        activity_mod.KIND_COMPONENT_MISS, detail, phase="refused")
+    raise ComponentSubstitutionError(
+        f"base tree {root} carries no {missing[0]!r}/ and the dispatch "
+        f"injected " + (f"only {list(injected)}" if injected else "nothing")
+        + f" for it (composition {getattr(cls, '__name__', cls)} names "
+        f"{sorted(expected)}; missing {list(missing)}). A narrowed snapshot "
+        f"with no matching component override is the th#1711/th#1715 shape — "
+        f"deterministic, so this load is refused rather than retried.",
+        tree=str(root), missing=missing,
+        expected=tuple(sorted(expected)), injected=injected,
+    )
+
+
 def is_modular_pipeline_class(cls: Any) -> bool:
     """Duck-typed: a modular pipeline class exposes ``load_components``
     (weights hydrate AFTER construction) — ``DiffusionPipeline`` does not."""
@@ -1415,12 +1676,28 @@ def _admit_component_staging(component: str, nbytes: int) -> None:
     never blocks its own load. A component that cannot fit an EMPTY host is
     the structural pgw#752 verdict; one that cannot fit right now is the
     transient one. Both carry the measured numbers. An unreadable probe
-    fails open — no worse than the unchecked load it replaces."""
+    fails open — no worse than the unchecked load it replaces.
+
+    pgw#1063: the estimate can be wrong (an upcast, a quant unpack, an
+    allocator's own overhead), and when it is the load does not fail — it
+    crawls in direct reclaim until the kernel kills it. So a MEASURED
+    verdict outranks this arithmetic: a process the load dial has caught
+    re-reading its own set instead of staging it admits nothing further,
+    structurally, whatever the numbers below would have said."""
     if nbytes <= 0:
         return
     ram = probe_host_ram()
     total = int(ram.total_gb * _GIB)
     avail = int(ram.available_gb * _GIB)
+    thrash = load_progress.thrash_verdict()
+    if thrash:
+        raise HostRamCapacityError(
+            f"modular component {component!r} after a measured re-read "
+            f"crawl ({thrash})",
+            incoming_bytes=int(nbytes), floor_bytes=0,
+            required_bytes=int(nbytes), available_before_bytes=avail,
+            available_after_bytes=avail, total_bytes=total,
+        )
     if total <= 0:
         return
     floor = _staging_floor_bytes(total)
@@ -1436,6 +1713,230 @@ def _admit_component_staging(component: str, nbytes: int) -> None:
         )
 
 
+def modular_staging_units(
+    base: Path,
+    component_trees: Optional[Mapping[str, str]] = None,
+) -> Dict[str, int]:
+    """Bytes per INDEPENDENTLY STAGED unit of a modular snapshot.
+
+    :func:`hydrate_modular_pipeline` loads one component at a time from that
+    component's own source dir, so the unit of host-RAM staging is a
+    component dir — never the tree. This reads the same sources the hydration
+    loop will: each ``modular_model_index.json`` entry's subfolder under
+    ``base`` (falling back to the component name), and each override tree in
+    ``component_trees`` in place of the base dir it replaces.
+
+    Empty when the index is absent or unreadable: callers treat that as "no
+    per-component knowledge" and keep whole-tree accounting."""
+    index = Path(base) / "modular_model_index.json"
+    try:
+        entries = json.loads(index.read_text())
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(entries, dict):
+        return {}
+    trees = dict(component_trees or {})
+    units: Dict[str, int] = {}
+    for name, entry in entries.items():
+        if str(name).startswith("_") or name in trees:
+            continue
+        sub = ""
+        if isinstance(entry, list) and len(entry) >= 3 and isinstance(entry[2], dict):
+            sub = str(entry[2].get("subfolder") or "")
+        src = None
+        for cand in (sub, str(name)):
+            if cand and (Path(base) / cand).is_dir():
+                src = Path(base) / cand
+                break
+        if src is None:
+            continue
+        units[str(name)] = disk_gc.tree_bytes(src)
+    for name, tree in trees.items():
+        root = Path(tree)
+        if not root.is_dir():
+            continue
+        units[f"{name} (override)"] = disk_gc.tree_bytes(
+            _resolve_override_tree(root, str(name)))
+    return units
+
+
+# The card must hold the tree with room to spare before hydration is allowed
+# to place components as they land. THREAT (§4.24): free VRAM is read once,
+# before the first component loads, and another tenant can take some of it
+# before the last one is placed — a `.to(device)` that OOMs mid-hydration
+# leaves a half-placed pipeline. This is the same 2 GB the placement ladder
+# holds back (`memory._DEFAULT_SAFETY_MARGIN_GB`); it is not a fudge factor
+# for estimate error, since these bytes are measured on disk, not estimated.
+_STREAMED_HYDRATION_VRAM_MARGIN_GB = 2.0
+
+
+@dataclass(frozen=True)
+class StreamedHydrationPlan:
+    """Whether a modular slot may hydrate component-by-component ONTO THE
+    DEVICE, so host RAM never holds more than one component at a time."""
+
+    engaged: bool
+    reason: str
+    tree_bytes: int
+    largest_unit_bytes: int
+    unit_count: int
+    host_total_bytes: int
+    device_free_bytes: int
+    #: The rung the pipeline will be placed on (pgw#1063). An offload rung
+    #: keeps the weights in host RAM, so it never takes the discount.
+    placement_mode: str = ""
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "engaged": self.engaged, "reason": self.reason,
+            "tree_bytes": self.tree_bytes,
+            "largest_unit_bytes": self.largest_unit_bytes,
+            "unit_count": self.unit_count,
+            "host_total_bytes": self.host_total_bytes,
+            "device_free_bytes": self.device_free_bytes,
+            "placement_mode": self.placement_mode,
+        }
+
+    def summary(self) -> str:
+        return (
+            f"tree={self.tree_bytes / _GIB:.1f}GiB "
+            f"largest_component={self.largest_unit_bytes / _GIB:.1f}GiB "
+            f"host_total={self.host_total_bytes / _GIB:.1f}GiB "
+            f"device_free={self.device_free_bytes / _GIB:.1f}GiB "
+            + (f"rung={self.placement_mode} " if self.placement_mode else "")
+            + f"({self.reason})"
+        )
+
+
+def plan_streamed_hydration(
+    base: Path,
+    *,
+    component_trees: Optional[Mapping[str, str]] = None,
+    device_free_bytes: Optional[int] = None,
+    placement_mode: str = "",
+) -> StreamedHydrationPlan:
+    """pgw#1026: decide whether this modular slot stages PER COMPONENT ONTO
+    THE DEVICE instead of staging its whole tree in host RAM first.
+
+    THREAT (§4.25): a tree the CARD holds but the HOST does not is refused
+    structurally at boot and no pod size fixes it — measured on ie#615's H3
+    bring-up, 134.1 GiB tree + the 8 GiB staging floor against 116.4 GiB of
+    host RAM on a 1x H100-80 pod, `HostRamCapacityError`. Host RAM binds
+    ~26 GiB tighter than VRAM there purely because staging is all-or-nothing
+    while the load is already component-sequential (pgw#1041).
+
+    THE OBSERVABLES, all measured rather than estimated:
+
+    1. the whole tree does NOT fit host RAM (bytes on disk vs
+       :func:`probe_host_ram`'s cgroup-aware total plus the gw#407 floor) —
+       otherwise nothing is wrong and the whole-tree path stands;
+    2. the LARGEST single component DOES fit host RAM — otherwise the
+       structural refusal is honest and must survive (no amount of
+       sequencing places a component that cannot be staged at all);
+    3. free VRAM holds the whole tree with :data:`
+       _STREAMED_HYDRATION_VRAM_MARGIN_GB` to spare — the components have to
+       go somewhere, and on this path that somewhere is the card.
+
+    Engaged only on all three. Every other answer keeps today's behaviour,
+    including the refusal, so this can only turn a refusal into a boot."""
+    units = modular_staging_units(Path(base), component_trees)
+    if device_free_bytes is None:
+        device_free_bytes = int(get_available_vram_gb() * _GIB)
+    return decide_streamed_hydration(
+        tree_bytes=sum(units.values()),
+        largest_unit_bytes=max(units.values(), default=0),
+        unit_count=len(units),
+        host_total_bytes=int(probe_host_ram().total_gb * _GIB),
+        device_free_bytes=int(device_free_bytes),
+        placement_mode=placement_mode,
+    )
+
+
+def decide_streamed_hydration(
+    *,
+    tree_bytes: int,
+    largest_unit_bytes: int,
+    unit_count: int,
+    host_total_bytes: int,
+    device_free_bytes: int,
+    placement_mode: str = "",
+) -> StreamedHydrationPlan:
+    """:func:`plan_streamed_hydration`'s decision, separated from its
+    measurements so the rule can be read — and tested — at the byte counts
+    that produced the issue rather than at whatever this host happens to
+    have.
+
+    ``placement_mode`` is the rung the pipeline will be PLACED on. A rung
+    that keeps weights in host RAM (any CPU-offload rung, including the
+    sticky floor an OOM degrade learned) cannot take this discount at all —
+    see the refusal below."""
+    tree = int(tree_bytes)
+    largest = int(largest_unit_bytes)
+    host_total = int(host_total_bytes)
+    plan = functools.partial(
+        StreamedHydrationPlan, tree_bytes=tree, largest_unit_bytes=largest,
+        unit_count=int(unit_count), host_total_bytes=host_total,
+        device_free_bytes=int(device_free_bytes),
+        placement_mode=str(placement_mode or ""),
+    )
+    if keeps_weights_in_host_ram(placement_mode):
+        # pgw#1063: the discount is admissible ONLY because each component
+        # leaves the host for the card. An offload rung puts it back — the
+        # weights live on the host by definition — so the honest requirement
+        # is the whole tree, and charging one component here is what admitted
+        # ie#615's 105 GB re-stage into a cgroup that could not hold it (37
+        # minutes of direct-reclaim crawl, 1.578 TB read for a 105 GB set,
+        # then an OOM kill that was arithmetically certain at minute zero).
+        return plan(
+            engaged=False,
+            reason=f"placement rung {placement_mode!r} keeps the weights in "
+                   f"host RAM: an offloaded pipeline is charged its whole "
+                   f"tree, never one component")
+    if unit_count <= 0 or largest <= 0:
+        return plan(engaged=False, reason="no per-component staging units")
+    if host_total <= 0:
+        return plan(engaged=False, reason="host RAM total unreadable")
+    floor = _staging_floor_bytes(host_total)
+    if tree + floor <= host_total:
+        return plan(engaged=False, reason="the whole tree fits host RAM")
+    if largest + floor > host_total:
+        return plan(
+            engaged=False,
+            reason="the largest component alone exceeds host RAM")
+    need = tree + int(_STREAMED_HYDRATION_VRAM_MARGIN_GB * _GIB)
+    if int(device_free_bytes) < need:
+        return plan(
+            engaged=False, reason="the device does not hold the whole tree")
+    return plan(
+        engaged=True,
+        reason="tree exceeds host RAM, largest component fits, device holds "
+               "the tree")
+
+
+def _place_and_release(pipe: Any, name: str, device: str) -> None:
+    """Move one just-hydrated component to ``device`` and drop the host copy.
+
+    This is what makes the per-component staging loop a per-component HIGH
+    WATER MARK rather than just an ordering: without it every hydrated
+    component stays in host RAM until placement, so the tree is resident on
+    the host by the last component either way."""
+    comp = getattr(pipe, name, None)
+    to = getattr(comp, "to", None)
+    if comp is None or not callable(to):
+        return
+    try:
+        to(device)
+    except Exception as exc:
+        raise ModularHydrationError(
+            f"per-component staging could not place component {name!r} on "
+            f"{device!r}: {type(exc).__name__}: {exc}. The tree does not fit "
+            f"host RAM, so there is no whole-tree path to fall back to — the "
+            f"device has to hold it."
+        ) from exc
+    del comp, to
+    flush_memory()
+
+
 def hydrate_modular_pipeline(
     pipe: Any,
     path: str | Path,
@@ -1443,6 +1944,7 @@ def hydrate_modular_pipeline(
     torch_dtype: Any = None,
     component_trees: Optional[Dict[str, str]] = None,
     preloaded: Optional[Dict[str, Any]] = None,
+    place_device: str = "",
 ) -> Dict[str, str]:
     """Hydrate a freshly constructed ``ModularPipeline`` from the LOCAL
     snapshot tree (pgw#1036).
@@ -1469,7 +1971,22 @@ def hydrate_modular_pipeline(
     Returns ``{component: source_path}`` for everything hydrated. The result
     is verified: ``load_components`` swallows load errors into a logger
     warning, so every requested component is re-checked non-``None`` and a
-    miss raises typed with the captured diffusers log text."""
+    miss raises typed with the captured diffusers log text.
+
+    ``torch_dtype`` is what the caller DECLARED — a scalar governing every
+    component, or diffusers' ``{"default": ..., "<part>": ...}`` map. What it
+    does not name loads at that component's OWN checkpoint dtype
+    (:func:`checkpoint_load_dtype`), never at a snapshot-wide majority and
+    never at diffusers' fp32 default (pgw#1071). ``_keep_in_fp32_modules``
+    stays diffusers' business: naming a dtype is what lets it act at all.
+
+    ``place_device`` (pgw#1026) moves each component onto that device as it
+    lands and drops the host copy, so the host-RAM high-water mark is ONE
+    component instead of the tree. Set it from
+    :func:`plan_streamed_hydration`, never by hand: it is admissible only
+    when the card holds the whole tree, and a mid-hydration placement
+    failure is a typed refusal with no whole-tree path left to fall back
+    to."""
     base = Path(path)
     specs = dict(getattr(pipe, "_component_specs", None) or {})
     trees = dict(component_trees or {})
@@ -1546,6 +2063,7 @@ def hydrate_modular_pipeline(
                 f"(base tree {base} holds: {listing})")
 
     names = sorted(sources)
+    dtypes: Dict[str, str] = {}
     if names:
         # load_components swallows per-component load failures into a
         # diffusers logger warning and registers nothing — capture that text
@@ -1571,15 +2089,27 @@ def hydrate_modular_pipeline(
             for n in names:
                 comp_src = Path(sources[n])
                 comp_bytes = disk_gc.tree_bytes(comp_src)
-                load_progress.set_phase(f"hydrate:{n}")
+                load_progress.set_phase(f"hydrate:{n}", comp_bytes)
                 _admit_component_staging(n, comp_bytes)
                 kwargs: Dict[str, Any] = {
                     "pretrained_model_name_or_path": {n: sources[n]},
                     "subfolder": {n: ""},
                 }
-                if torch_dtype is not None:
-                    kwargs["torch_dtype"] = torch_dtype
+                # pgw#1071: this component's OWN checkpoint dtype when the
+                # caller declared none. Sniffed here rather than by the
+                # caller because this is the only place that knows each
+                # component's actual source dir — an override tree is a
+                # different artifact from the base dir it replaces.
+                dt = _hydration_dtype(n, torch_dtype, comp_src)
+                if dt is not None:
+                    kwargs["torch_dtype"] = dt
+                    dtypes[n] = str(dt).removeprefix("torch.")
                 pipe.load_components(names=[n], **kwargs)
+                # pgw#1026: place it now and drop the host copy, so the next
+                # component's admission above sees the host RAM this one
+                # gave back rather than the tree accumulating behind it.
+                if place_device:
+                    _place_and_release(pipe, n, place_device)
                 disk_gc.reclaim_file_cache(comp_src)
         finally:
             dlog.removeHandler(handler)
@@ -1606,12 +2136,22 @@ def hydrate_modular_pipeline(
     except Exception:  # noqa: BLE001
         pass
     detail = " ".join(f"{n}<-{sources[n]}" for n in sorted(sources))
-    logger.info("modular hydration (%s): %s; skipped partitions: %s",
-                type(pipe).__name__, detail, skipped or "none")
+    # pgw#1071: the dtype each component actually loaded at is the evidence
+    # the fp32-upcast wall was invisible for — it belongs in the hub-visible
+    # record, not only in a log line.
+    dtype_detail = " ".join(f"{n}={dtypes[n]}" for n in sorted(dtypes))
+    logger.info("modular hydration (%s): %s; dtypes: %s; skipped partitions: "
+                "%s%s",
+                type(pipe).__name__, detail, dtype_detail or "loader default",
+                skipped or "none",
+                f"; staged per component onto {place_device}" if place_device
+                else "")
     activity_mod.emit_event(
         activity_mod.KIND_MODULAR_HYDRATION,
         f"pipeline={type(pipe).__name__} base={base} {detail}"
-        + (f" skipped={','.join(skipped)}" if skipped else ""),
+        + (f" dtypes=[{dtype_detail}]" if dtype_detail else "")
+        + (f" skipped={','.join(skipped)}" if skipped else "")
+        + (f" place_device={place_device}" if place_device else ""),
         phase="hydrated",
     )
     return sources
@@ -1841,6 +2381,7 @@ def _load_modular_pipeline(
     storage_dtype: str = "",
     components: Optional[Dict[str, Any]] = None,
     component_trees: Optional[Dict[str, str]] = None,
+    placement_mode: str = "",
 ) -> Any:
     """The modular lane of :func:`load_from_pretrained` (pgw#1036):
     ``cls.from_pretrained(path)`` builds a SHELL (every weight-bearing
@@ -1855,21 +2396,36 @@ def _load_modular_pipeline(
         logger.warning(
             "storage_dtype=%s ignored on the modular lane (component "
             "precision is a per-component artifact fact)", storage_dtype)
+    # pgw#1071: DECLARED dtypes only. The snapshot-wide dtype sniff that used
+    # to stand in for a declaration was a majority vote over every safetensors
+    # header in the tree — it truncated a wide component when the vote fell
+    # narrow (an fp32 VAE loading bf16) and, when the vote fell outside the
+    # sniff's own vocabulary, produced NO dtype at all and let diffusers'
+    # fp32 default upcast the whole tree (ie#615: a 66.28 GB bf16 DiT
+    # hydrating at 74.9 GiB, 4 bytes/param, OOM on an 80 GB card and ~130 GB
+    # of host staging anon). Undeclared components now load at their OWN
+    # checkpoint dtype, decided inside the hydration loop from each
+    # component's real source dir.
     scalar_dtype: Any = None
-    wanted = dtype or {
-        "bf16": "bf16", "fp16": "fp16", "fp8": "bf16",
-    }.get(detect_on_disk_dtype(Path(path)), "")
-    if wanted:
+    if dtype:
         try:
-            scalar_dtype = get_torch_dtype(wanted)
+            scalar_dtype = get_torch_dtype(dtype)
         except ImportError:
             pass  # torch-less environment: loaders fail on their own terms
-    torch_dtype: Any = scalar_dtype
-    per_component = _component_dtype_map(cls, path, scalar_dtype)
-    if per_component:
-        # Same {"default": ..., part: ...} shape load_components' dict
-        # routing understands (pgw#667 widened parts included).
-        torch_dtype = per_component
+    torch_dtype: Any = _modular_declared_dtypes(cls, path, scalar_dtype)
+    # pgw#1026: a tree the card holds but the host does not stages ONE
+    # COMPONENT AT A TIME straight onto the device. Decided here, from the
+    # same measurements the executor's admission gate reads, so the two
+    # cannot disagree about which shape the load takes; if free VRAM moved
+    # between them the per-component gate inside hydration still refuses
+    # with the measured numbers rather than thrashing the host.
+    plan = plan_streamed_hydration(
+        Path(path), component_trees=component_trees,
+        placement_mode=placement_mode)
+    if plan.engaged:
+        logger.info(
+            "modular slot stages per component onto the device: %s",
+            plan.summary())
     pipe = cls.from_pretrained(path)
     if not _is_modular_pipeline(pipe):
         raise ModularHydrationError(
@@ -1879,6 +2435,7 @@ def _load_modular_pipeline(
     hydrate_modular_pipeline(
         pipe, Path(path), torch_dtype=torch_dtype,
         component_trees=component_trees, preloaded=components,
+        place_device="cuda" if plan.engaged else "",
     )
     unmaterialized = meta_tensors(pipe)
     if unmaterialized:
@@ -1908,6 +2465,8 @@ def load_from_pretrained(
     components: Optional[Dict[str, Any]] = None,
     component_trees: Optional[Dict[str, str]] = None,
     declared_vram_gb: float = 0.0,
+    ref: str = "",
+    placement_mode: str = "",
 ) -> Any:
     """``cls.from_pretrained(path)`` with the standard trimmings: torch dtype
     from the binding's dtype string, on-disk variant detection, quant-library
@@ -1927,18 +2486,27 @@ def load_from_pretrained(
     component spec at the LOCAL tree, hydrate; ``component_trees`` routes
     th#980/pgw#617 component overrides to their own materialized trees on
     that lane (the ``components=`` kwarg is what ``ModularPipeline.__init__``
-    silently discards)."""
+    silently discards). ``placement_mode`` is the rung the worker will place
+    this pipeline on: an offload rung keeps the weights in host RAM, so the
+    modular lane must not stage them onto the card and must not take the
+    per-component host-RAM discount (pgw#1063)."""
     path = str(path)
     if is_modular_pipeline_class(cls):
         return _load_modular_pipeline(
             cls, path, dtype=dtype, storage_dtype=storage_dtype,
             components=components, component_trees=component_trees,
+            placement_mode=placement_mode,
         )
     if component_trees:
         raise ModularHydrationError(
             f"component_trees is the MODULAR delivery mechanism and "
             f"{getattr(cls, '__name__', cls)} is not a modular pipeline "
             f"class; non-modular overrides ride components= (pgw#617)")
+    # pgw#1048: the composition the index names must be satisfiable from the
+    # tree plus the injection BEFORE any lane touches from_pretrained. A
+    # component that is in neither is a deterministic miss, and every lane
+    # below reports it as the same nameless OSError against the snapshot root.
+    assert_composition_satisfiable(cls, path, components=components, ref=ref)
     # SVDQuant/nunchaku 4-bit flavors (gw#415): self-describing snapshots take
     # the svdq lane — a nunchaku transformer swapped into the standard
     # pipeline. Detection precedes every other rung; failures are typed
@@ -2208,6 +2776,12 @@ __all__ = [
     "load_from_pretrained",
     "is_modular_pipeline_class",
     "hydrate_modular_pipeline",
+    "modular_staging_units",
+    "decide_streamed_hydration",
+    "plan_streamed_hydration",
+    "StreamedHydrationPlan",
     "ModularHydrationError",
+    "ComponentSubstitutionError",
+    "assert_composition_satisfiable",
     "load_gguf_pipeline",
 ]

@@ -1338,6 +1338,27 @@ WHERE
                 "tsql": "ALTER TABLE a ALTER COLUMN b INTEGER",
             },
         )
+        self.validate_identity("ALTER TABLE a ALTER COLUMN b INTEGER NOT NULL")
+        self.validate_identity("ALTER TABLE a ALTER COLUMN b INTEGER NULL")
+        self.validate_identity(
+            "ALTER TABLE a ALTER COLUMN b VARCHAR(10) COLLATE Latin1_General_CI_AS NOT NULL"
+        )
+        self.validate_all(
+            "ALTER TABLE a ALTER COLUMN b INTEGER NOT NULL",
+            write={
+                "": UnsupportedError,
+                "hive": UnsupportedError,
+                "singlestore": UnsupportedError,
+                "mysql": "ALTER TABLE a MODIFY COLUMN b INT NOT NULL",
+                "starrocks": "ALTER TABLE a MODIFY COLUMN b INT NOT NULL",
+            },
+        )
+        self.validate_all(
+            "ALTER TABLE a ALTER COLUMN b INTEGER NULL",
+            write={
+                "mysql": "ALTER TABLE a MODIFY COLUMN b INT NULL",
+            },
+        )
         self.validate_all(
             "CREATE TABLE #mytemp (a INTEGER, b CHAR(2), c TIME(4), d FLOAT(24))",
             write={

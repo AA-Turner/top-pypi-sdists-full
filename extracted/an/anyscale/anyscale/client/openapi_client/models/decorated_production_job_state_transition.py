@@ -40,7 +40,9 @@ class DecoratedProductionJobStateTransition(object):
         'error': 'str',
         'operation_message': 'str',
         'cluster_id': 'str',
-        'cluster': 'MiniCluster'
+        'kuberay_cr_id': 'str',
+        'cluster': 'MiniCluster',
+        'ray_dashboard_url': 'str'
     }
 
     attribute_map = {
@@ -51,10 +53,12 @@ class DecoratedProductionJobStateTransition(object):
         'error': 'error',
         'operation_message': 'operation_message',
         'cluster_id': 'cluster_id',
-        'cluster': 'cluster'
+        'kuberay_cr_id': 'kuberay_cr_id',
+        'cluster': 'cluster',
+        'ray_dashboard_url': 'ray_dashboard_url'
     }
 
-    def __init__(self, id=None, state_transitioned_at=None, current_state=None, goal_state=None, error=None, operation_message=None, cluster_id=None, cluster=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, state_transitioned_at=None, current_state=None, goal_state=None, error=None, operation_message=None, cluster_id=None, kuberay_cr_id=None, cluster=None, ray_dashboard_url=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedProductionJobStateTransition - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -67,7 +71,9 @@ class DecoratedProductionJobStateTransition(object):
         self._error = None
         self._operation_message = None
         self._cluster_id = None
+        self._kuberay_cr_id = None
         self._cluster = None
+        self._ray_dashboard_url = None
         self.discriminator = None
 
         self.id = id
@@ -81,8 +87,12 @@ class DecoratedProductionJobStateTransition(object):
             self.operation_message = operation_message
         if cluster_id is not None:
             self.cluster_id = cluster_id
+        if kuberay_cr_id is not None:
+            self.kuberay_cr_id = kuberay_cr_id
         if cluster is not None:
             self.cluster = cluster
+        if ray_dashboard_url is not None:
+            self.ray_dashboard_url = ray_dashboard_url
 
     @property
     def id(self):
@@ -252,6 +262,29 @@ class DecoratedProductionJobStateTransition(object):
         self._cluster_id = cluster_id
 
     @property
+    def kuberay_cr_id(self):
+        """Gets the kuberay_cr_id of this DecoratedProductionJobStateTransition.  # noqa: E501
+
+        The id of the KubeRay CR backing this job  # noqa: E501
+
+        :return: The kuberay_cr_id of this DecoratedProductionJobStateTransition.  # noqa: E501
+        :rtype: str
+        """
+        return self._kuberay_cr_id
+
+    @kuberay_cr_id.setter
+    def kuberay_cr_id(self, kuberay_cr_id):
+        """Sets the kuberay_cr_id of this DecoratedProductionJobStateTransition.
+
+        The id of the KubeRay CR backing this job  # noqa: E501
+
+        :param kuberay_cr_id: The kuberay_cr_id of this DecoratedProductionJobStateTransition.  # noqa: E501
+        :type: str
+        """
+
+        self._kuberay_cr_id = kuberay_cr_id
+
+    @property
     def cluster(self):
         """Gets the cluster of this DecoratedProductionJobStateTransition.  # noqa: E501
 
@@ -271,6 +304,29 @@ class DecoratedProductionJobStateTransition(object):
         """
 
         self._cluster = cluster
+
+    @property
+    def ray_dashboard_url(self):
+        """Gets the ray_dashboard_url of this DecoratedProductionJobStateTransition.  # noqa: E501
+
+        URL of the Ray dashboard for a KubeRay workload's head node  # noqa: E501
+
+        :return: The ray_dashboard_url of this DecoratedProductionJobStateTransition.  # noqa: E501
+        :rtype: str
+        """
+        return self._ray_dashboard_url
+
+    @ray_dashboard_url.setter
+    def ray_dashboard_url(self, ray_dashboard_url):
+        """Sets the ray_dashboard_url of this DecoratedProductionJobStateTransition.
+
+        URL of the Ray dashboard for a KubeRay workload's head node  # noqa: E501
+
+        :param ray_dashboard_url: The ray_dashboard_url of this DecoratedProductionJobStateTransition.  # noqa: E501
+        :type: str
+        """
+
+        self._ray_dashboard_url = ray_dashboard_url
 
     def to_dict(self):
         """Returns the model properties as a dict"""

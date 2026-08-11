@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-django
-Version: 4.13.0
+Version: 4.14.0
 Summary: A Django plugin for pytest.
 Author-email: Andreas Pelme <andreas@pelme.se>
 Maintainer-email: Andreas Pelme <andreas@pelme.se>
@@ -83,6 +83,8 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS
 Requires-Dist: pytest>=7.0.0
+Provides-Extra: django
+Requires-Dist: django>=5.2; extra == "django"
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx-rtd-theme; extra == "docs"

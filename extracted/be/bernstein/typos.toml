@@ -30,6 +30,8 @@ doub = "doub"        # doub = SQLite "double" type-affinity prefix (datasources/
 Aktive = "Aktive"    # correct German word for "Active" (i18n.py)
 abd = "abd"          # deterministic 3-byte hash fixture b"abd" (test_computer_use_lineage.py)
 continu = "continu"  # intentional substring match for "continue"/"continuity" in error text (test_capability_tokens.py)
+reprot = "reprot"    # intentionally malformed artifact-kind fixture (test_artifact_spec_declaration.py)
+critera = "critera"  # intentionally malformed artifact_spec key fixture (test_artifact_spec_declaration.py)
 
 # Technical terms used consistently in the codebase
 unparseable = "unparseable"
@@ -65,6 +67,18 @@ extend-exclude = [
     # Translated READMEs - typos has only an English dictionary, every
     # non-English word would be a false positive.
     "docs/i18n/**",
+    # README demo evidence (issue #3426) - machine-generated recording bytes
+    # and cryptographic content (base64url JWK x / signature, hex hashes);
+    # the scanner reads base64 slices like "izRV" as words. The
+    # human-authored docs around the evidence stay in scope.
+    "docs/assets/demo-run/**",
+    # Operator-surface renders (issue #3427) - both are machine-generated from
+    # a captured run: the SVG carries Rich's own class namespace and the
+    # fixture carries task ids and hex session identifiers, which the scanner
+    # reads as words. Regenerating them is a command, not an edit, so a
+    # spelling fix here would be reverted by the next --update.
+    "docs/assets/tui-live.svg",
+    "tests/fixtures/tui_live_frame.json",
     # Lineage demo fixtures are 100% deterministic hex content (sha256 hashes,
     # JWS base64url, Ed25519 PEM). The scanner reads three-char hex slices like
     # "abd"/"caf"/"dbe" as misspellings of and/calf/be. Path-exclude the entire

@@ -15,7 +15,15 @@ from typing import Any, cast
 
 from .. import _debug
 from ..exceptions import UserError
-from ..items import HandoffOutputItem, ItemHelpers, RunItem, ToolCallOutputItem, TResponseInputItem
+from ..items import (
+    HandoffOutputItem,
+    InputItem,
+    ItemHelpers,
+    ModelResponse,
+    RunItem,
+    ToolCallOutputItem,
+    TResponseInputItem,
+)
 from ..logger import (
     log_model_and_tool_action_debug,
     log_model_and_tool_action_warning,
@@ -29,11 +37,15 @@ from ..memory import (
     is_openai_responses_compaction_aware_session,
 )
 from ..memory.openai_conversations_session import OpenAIConversationsSession
+from ..memory.session import _call_session_method, _get_session_wrapper
+from ..models.fake_id import FAKE_RESPONSES_ID
+from ..run_context import RunContextWrapper
 from ..run_state import RunState
 from .items import (
     NestedHistoryOwnedItem,
     NestedHistoryOwnedItemRef,
     ReasoningItemIdPolicy,
+    apply_reasoning_item_id_policy,
     copy_input_items,
     deduplicate_input_items_preferring_latest,
     digest_input_item,
@@ -48,9 +60,11 @@ from .items import (
     strip_internal_input_item_metadata,
 )
 from .oai_conversation import OpenAIServerConversationTracker
-from .run_steps import SingleStepResult
+from .run_steps import NextStepInterruption, ProcessedResponse, SingleStepResult
 
 __all__ = [
+    "admit_pending_input",
+    "commit_server_pending_input",
     "prepare_input_with_session",
     "persist_session_items_for_guardrail_trip",
     "reconcile_nested_history_owned_session_item_refs",
@@ -63,6 +77,152 @@ __all__ = [
     "rewind_session_items",
     "wait_for_session_cleanup",
 ]
+
+
+_SESSION_LIMIT_UNSET = object()
+
+
+async def admit_pending_input(
+    *,
+    run_state: RunState[Any],
+    agent: Any,
+    session: Session | None,
+    server_conversation_tracker: OpenAIServerConversationTracker | None,
+    store: bool | None,
+    wrapper: RunContextWrapper[Any],
+) -> list[RunItem]:
+    """Admit staged RunState input into the active conversation ownership boundary.
+
+    The caller must run pending-input guardrails first. Client-managed sessions accept the input
+    before the model call, while server-managed conversations keep it pending until a model
+    response confirms that the server accepted the request.
+    """
+    pending_input = run_state.pending_input
+    if not pending_input:
+        return []
+
+    admission_items: list[RunItem] = [
+        InputItem(agent=agent, raw_item=item) for item in pending_input
+    ]
+
+    if session is not None and server_conversation_tracker is None:
+        await save_result_to_session(
+            session,
+            [],
+            admission_items,
+            None,
+            store=store,
+            wrapper=wrapper,
+        )
+    if server_conversation_tracker is None:
+        run_state.clear_pending_input()
+
+    return admission_items
+
+
+def commit_server_pending_input(
+    *,
+    run_state: RunState[Any],
+    tracker: OpenAIServerConversationTracker,
+    admission_items: list[InputItem],
+    generated_items: list[RunItem],
+    session_items: list[RunItem],
+    model_response: ModelResponse,
+    processed_response: ProcessedResponse | None,
+    current_turn: int,
+) -> bool:
+    """Commit only pending-input occurrences accepted by a server-managed request."""
+    if not admission_items:
+        return False
+
+    admission_ids = {item.input_id for item in admission_items}
+    accepted_ids = admission_ids & tracker.accepted_input_item_ids
+
+    def retain_accepted_admissions(items: list[RunItem]) -> None:
+        items[:] = [
+            item
+            for item in items
+            if not (
+                isinstance(item, InputItem)
+                and item.input_id in admission_ids
+                and item.input_id not in accepted_ids
+            )
+        ]
+
+    retain_accepted_admissions(generated_items)
+    retain_accepted_admissions(session_items)
+    run_state._pending_input = copy.deepcopy(
+        [item.raw_item for item in admission_items if item.input_id not in accepted_ids]
+    )
+
+    # A model input filter may omit every staged occurrence. In that case the response does not
+    # acknowledge pending input, so normal turn processing owns the response and the input remains
+    # available for a later request.
+    if not accepted_ids:
+        return False
+
+    state_generated_items = list(generated_items)
+    state_session_items = list(session_items)
+
+    run_state._generated_items = state_generated_items
+    run_state._session_items = state_session_items
+    if not run_state._model_responses or run_state._model_responses[-1] is not model_response:
+        run_state._model_responses.append(model_response)
+    run_state._last_processed_response = processed_response
+    run_state._current_step = NextStepInterruption(
+        interruptions=(
+            list(processed_response.interruptions) if processed_response is not None else []
+        ),
+        response_accepted=True,
+        llm_end_hooks_started=False,
+    )
+    run_state._current_turn = current_turn
+    run_state._conversation_id = tracker.conversation_id
+    run_state._previous_response_id = tracker.previous_response_id
+    run_state._auto_previous_response_id = tracker.auto_previous_response_id
+    # The accepted model response is durable, but its processed items have not yet been merged
+    # because local hooks and tool work can still fail. Preserve that distinction across retries.
+    run_state._clear_generated_items_last_processed_marker()
+    return True
+
+
+async def _session_get_items(
+    session: Session,
+    limit: int | None | object = _SESSION_LIMIT_UNSET,
+    *,
+    wrapper: RunContextWrapper[Any] | None = None,
+) -> list[TResponseInputItem]:
+    """Read session items while preserving the legacy method call shape."""
+    wrapper = _get_session_wrapper(session, wrapper)
+    if limit is _SESSION_LIMIT_UNSET:
+        result = await _call_session_method(session.get_items, wrapper=wrapper)
+    else:
+        result = await _call_session_method(session.get_items, limit=limit, wrapper=wrapper)
+    return cast(list[TResponseInputItem], result)
+
+
+async def _session_add_items(
+    session: Session,
+    items: list[TResponseInputItem],
+    *,
+    wrapper: RunContextWrapper[Any] | None = None,
+) -> None:
+    """Append session items while preserving the legacy method call shape."""
+    wrapper = _get_session_wrapper(session, wrapper)
+    await _call_session_method(session.add_items, items, wrapper=wrapper)
+
+
+async def _session_pop_item(
+    session: Session,
+    *,
+    wrapper: RunContextWrapper[Any] | None = None,
+) -> TResponseInputItem | None:
+    """Pop a session item while preserving the legacy method call shape."""
+    wrapper = _get_session_wrapper(session, wrapper)
+    return cast(
+        TResponseInputItem | None,
+        await _call_session_method(session.pop_item, wrapper=wrapper),
+    )
 
 
 def resolve_nested_history_owned_session_item_refs(
@@ -162,6 +322,8 @@ async def prepare_input_with_session(
     *,
     include_history_in_prepared_input: bool = True,
     preserve_dropped_new_items: bool = False,
+    reasoning_item_id_policy: ReasoningItemIdPolicy | None = None,
+    wrapper: RunContextWrapper[Any] | None = None,
 ) -> tuple[str | list[TResponseInputItem], list[TResponseInputItem]]:
     """Prepare model input from session history plus the new turn input.
 
@@ -186,19 +348,31 @@ async def prepare_input_with_session(
         resolved_settings = resolved_settings.resolve(session_settings)
 
     if resolved_settings.limit is not None:
-        history = await session.get_items(limit=resolved_settings.limit)
+        history = await _session_get_items(
+            session,
+            limit=resolved_settings.limit,
+            wrapper=wrapper,
+        )
     else:
-        history = await session.get_items()
+        history = await _session_get_items(session, wrapper=wrapper)
     is_openai_conversation_session = isinstance(session, OpenAIConversationsSession)
     converted_history = [
         strip_internal_input_item_metadata(ensure_input_item_format(item)) for item in history
     ]
+    if not is_openai_conversation_session:
+        # History written before the caller opted into "omit" still carries server-assigned
+        # reasoning IDs. Apply the policy on read too, the same way `save_result_to_session`
+        # applies it on write, so replaying that history cannot 404 on a stale `rs_...` ID.
+        converted_history = apply_reasoning_item_id_policy(
+            converted_history, reasoning_item_id_policy
+        )
 
     new_input_list = [
         ensure_input_item_format(item) for item in ItemHelpers.input_to_new_input_list(input)
     ]
 
     prune_history_indexes: set[int] = set()
+    output_pruning_indexes: set[int] | None = None
 
     if session_input_callback is None or not include_history_in_prepared_input:
         prepared_items_raw: list[TResponseInputItem] = (
@@ -209,6 +383,8 @@ async def prepare_input_with_session(
         appended_items = list(new_input_list)
         if include_history_in_prepared_input:
             prune_history_indexes = set(range(len(converted_history)))
+            if session_input_callback is None and resolved_settings.limit is not None:
+                output_pruning_indexes = set(prune_history_indexes)
     else:
         if not callable(session_input_callback):
             raise UserError(
@@ -292,6 +468,7 @@ async def prepare_input_with_session(
     filtered = drop_orphan_function_calls(
         prepared_as_inputs,
         pruning_indexes=prune_history_indexes,
+        output_pruning_indexes=output_pruning_indexes,
     )
     normalized = normalize_input_items_for_api(filtered)
     deduplicated = deduplicate_input_items_preferring_latest(normalized)
@@ -307,6 +484,7 @@ async def persist_session_items_for_guardrail_trip(
     original_user_input: str | list[TResponseInputItem] | None,
     run_state: RunState | None,
     store: bool | None = None,
+    wrapper: RunContextWrapper[Any] | None = None,
 ) -> list[TResponseInputItem] | None:
     """
     Persist input items when a guardrail tripwire is triggered.
@@ -321,7 +499,14 @@ async def persist_session_items_for_guardrail_trip(
     input_items_for_save: list[TResponseInputItem] = (
         updated_session_input_items if updated_session_input_items is not None else []
     )
-    await save_result_to_session(session, input_items_for_save, [], run_state, store=store)
+    await save_result_to_session(
+        session,
+        input_items_for_save,
+        [],
+        run_state,
+        store=store,
+        wrapper=wrapper,
+    )
     return updated_session_input_items
 
 
@@ -366,6 +551,7 @@ async def save_result_to_session(
     response_id: str | None = None,
     reasoning_item_id_policy: ReasoningItemIdPolicy | None = None,
     store: bool | None = None,
+    wrapper: RunContextWrapper[Any] | None = None,
 ) -> int:
     """
     Persist a turn to the session store, keeping track of what was already saved so retries
@@ -374,17 +560,19 @@ async def save_result_to_session(
     Returns:
         The number of new run items persisted for this call.
     """
-    already_persisted = run_state._current_turn_persisted_item_count if run_state else 0
+    already_persisted = run_state._current_turn_persisted_item_count if run_state is not None else 0
 
     if session is None:
         return 0
+
+    wrapper = _get_session_wrapper(session, wrapper)
 
     new_run_items: list[RunItem]
     if already_persisted >= len(new_items):
         new_run_items = []
     else:
         new_run_items = new_items[already_persisted:]
-    if run_state and new_items and new_run_items:
+    if run_state is not None and new_items and new_run_items:
         missing_outputs = [
             item
             for item in new_items
@@ -455,13 +643,13 @@ async def save_result_to_session(
         ]
 
     if len(items_to_save) == 0:
-        if run_state:
+        if run_state is not None:
             run_state._current_turn_persisted_item_count = already_persisted + saved_run_items_count
         return saved_run_items_count
 
-    await session.add_items(items_to_save)
+    await _session_add_items(session, items_to_save, wrapper=wrapper)
 
-    if run_state:
+    if run_state is not None:
         run_state._current_turn_persisted_item_count = already_persisted + saved_run_items_count
 
     if response_id and is_openai_responses_compaction_aware_session(session):
@@ -471,9 +659,12 @@ async def save_result_to_session(
         if has_local_tool_outputs:
             defer_compaction = getattr(session, "_defer_compaction", None)
             if callable(defer_compaction):
-                result = defer_compaction(response_id, store=store)
-                if inspect.isawaitable(result):
-                    await result
+                await _call_session_method(
+                    defer_compaction,
+                    response_id,
+                    store=store,
+                    wrapper=wrapper,
+                )
             logger.debug(
                 "skip: deferring compaction for response %s due to local tool outputs",
                 response_id,
@@ -497,7 +688,11 @@ async def save_result_to_session(
         }
         if store is not None:
             compaction_args["store"] = store
-        await session.run_compaction(compaction_args)
+        await _call_session_method(
+            session.run_compaction,
+            compaction_args,
+            wrapper=wrapper,
+        )
 
     return saved_run_items_count
 
@@ -510,6 +705,7 @@ async def save_resumed_turn_items(
     response_id: str | None,
     reasoning_item_id_policy: ReasoningItemIdPolicy | None = None,
     store: bool | None = None,
+    wrapper: RunContextWrapper[Any] | None = None,
 ) -> int:
     """Persist resumed turn items and return the updated persisted count."""
     if session is None or not items:
@@ -522,6 +718,7 @@ async def save_resumed_turn_items(
         response_id=response_id,
         reasoning_item_id_policy=reasoning_item_id_policy,
         store=store,
+        wrapper=wrapper,
     )
     return persisted_count + saved_count
 
@@ -530,6 +727,8 @@ async def rewind_session_items(
     session: Session | None,
     items: Sequence[TResponseInputItem],
     server_tracker: OpenAIServerConversationTracker | None = None,
+    *,
+    wrapper: RunContextWrapper[Any] | None = None,
 ) -> None:
     """
     Best-effort helper to roll back items recently persisted to a session when a conversation
@@ -538,8 +737,7 @@ async def rewind_session_items(
     if session is None or not items:
         return
 
-    pop_item = getattr(session, "pop_item", None)
-    if not callable(pop_item):
+    if not callable(getattr(session, "pop_item", None)):
         return
 
     ignore_ids_for_matching = _ignore_ids_for_matching(session)
@@ -564,13 +762,13 @@ async def rewind_session_items(
     snapshot_serializations = target_serializations.copy()
     rewound = await _rewind_session_tail_suffix(
         session=session,
-        pop_item=pop_item,
         expected_serializations=target_serializations,
         ignore_ids_for_matching=ignore_ids_for_matching,
         mismatch_warning=(
             "Skipping session rewind because the current tail does not match the retry-owned suffix"
         ),
         pop_failure_warning="Failed to rewind session item",
+        wrapper=wrapper,
     )
     if not rewound:
         return
@@ -579,13 +777,14 @@ async def rewind_session_items(
         session,
         snapshot_serializations,
         ignore_ids_for_matching=ignore_ids_for_matching,
+        wrapper=wrapper,
     )
 
     if session is None or server_tracker is None:
         return
 
     try:
-        latest_items = await session.get_items(limit=1)
+        latest_items = await _session_get_items(session, limit=1, wrapper=wrapper)
     except Exception as exc:
         log_model_and_tool_action_debug(logger, "Failed to peek session items while rewinding", exc)
         return
@@ -598,7 +797,7 @@ async def rewind_session_items(
         return
 
     try:
-        session_items = await session.get_items()
+        session_items = await _session_get_items(session, wrapper=wrapper)
     except Exception as exc:
         log_model_and_tool_action_debug(
             logger, "Failed to inspect session tail while stripping stray items", exc
@@ -620,7 +819,6 @@ async def rewind_session_items(
     )
     await _rewind_session_tail_suffix(
         session=session,
-        pop_item=pop_item,
         expected_serializations=stray_serializations,
         ignore_ids_for_matching=ignore_ids_for_matching,
         mismatch_warning=(
@@ -628,6 +826,7 @@ async def rewind_session_items(
             "retry-owned conversation items"
         ),
         pop_failure_warning="Failed to strip stray session item",
+        wrapper=wrapper,
     )
 
 
@@ -637,6 +836,7 @@ async def wait_for_session_cleanup(
     *,
     max_attempts: int = 5,
     ignore_ids_for_matching: bool = False,
+    wrapper: RunContextWrapper[Any] | None = None,
 ) -> None:
     """
     Confirm that rewound items are no longer present in the session tail so the store stays
@@ -649,7 +849,7 @@ async def wait_for_session_cleanup(
 
     for attempt in range(max_attempts):
         try:
-            tail_items = await session.get_items(limit=window)
+            tail_items = await _session_get_items(session, limit=window, wrapper=wrapper)
         except Exception as exc:
             log_model_and_tool_action_debug(
                 logger, f"Failed to verify session cleanup (attempt {attempt + 1})", exc
@@ -700,6 +900,8 @@ _OPENAI_CONVERSATION_ITEM_TYPES_WITH_REQUIRED_ID: frozenset[str] = frozenset(
         "mcp_approval_request",
         "mcp_call",
         "item_reference",
+        "program",
+        "program_output",
     }
 )
 
@@ -711,11 +913,15 @@ def _sanitize_openai_conversation_item(item: TResponseInputItem) -> TResponseInp
     persisted through the Conversations API. Reasoning items also need their server
     identity or encrypted content to remain persistable. Other item IDs remain stripped
     so replayed messages, function calls, and tool outputs do not carry stale provider IDs.
+
+    ``FAKE_RESPONSES_ID`` is the SDK's own placeholder for providers that assign no item ID,
+    so it is never a server identity and is stripped from every item type.
     """
     if isinstance(item, dict):
         clean_item = cast(dict[str, Any], strip_internal_input_item_metadata(item))
-        if clean_item.get("type") != "reasoning" and not _openai_conversation_item_requires_id(
-            clean_item
+        if clean_item.get("id") == FAKE_RESPONSES_ID or (
+            clean_item.get("type") != "reasoning"
+            and not _openai_conversation_item_requires_id(clean_item)
         ):
             clean_item.pop("id", None)
         clean_item.pop("provider_data", None)
@@ -771,18 +977,22 @@ def _fingerprint_or_repr(item: TResponseInputItem, *, ignore_ids_for_matching: b
 async def _rewind_session_tail_suffix(
     *,
     session: Session,
-    pop_item: Any,
     expected_serializations: Sequence[str],
     ignore_ids_for_matching: bool,
     mismatch_warning: str,
     pop_failure_warning: str,
+    wrapper: RunContextWrapper[Any] | None = None,
 ) -> bool:
     """Remove an exact serialized suffix from the session tail, aborting when the tail diverges."""
     if not expected_serializations:
         return True
 
     try:
-        tail_items = await session.get_items(limit=len(expected_serializations))
+        tail_items = await _session_get_items(
+            session,
+            limit=len(expected_serializations),
+            wrapper=wrapper,
+        )
     except Exception as exc:
         log_model_and_tool_action_warning(logger, pop_failure_warning, exc)
         return False
@@ -806,16 +1016,14 @@ async def _rewind_session_tail_suffix(
     popped_items: list[TResponseInputItem] = []
     for expected in reversed(expected_serializations):
         try:
-            result = pop_item()
-            if inspect.isawaitable(result):
-                result = await result
+            result = await _session_pop_item(session, wrapper=wrapper)
         except Exception as exc:
-            await _restore_popped_session_items(session, popped_items)
+            await _restore_popped_session_items(session, popped_items, wrapper=wrapper)
             log_model_and_tool_action_warning(logger, pop_failure_warning, exc)
             return False
 
         if result is None:
-            await _restore_popped_session_items(session, popped_items)
+            await _restore_popped_session_items(session, popped_items, wrapper=wrapper)
             logger.warning(mismatch_warning)
             return False
 
@@ -824,7 +1032,7 @@ async def _rewind_session_tail_suffix(
             result, ignore_ids_for_matching=ignore_ids_for_matching
         )
         if popped_serialized != expected:
-            await _restore_popped_session_items(session, popped_items)
+            await _restore_popped_session_items(session, popped_items, wrapper=wrapper)
             logger.warning(mismatch_warning)
             return False
 
@@ -832,20 +1040,24 @@ async def _rewind_session_tail_suffix(
 
 
 async def _restore_popped_session_items(
-    session: Session, popped_items: Sequence[TResponseInputItem]
+    session: Session,
+    popped_items: Sequence[TResponseInputItem],
+    *,
+    wrapper: RunContextWrapper[Any] | None = None,
 ) -> None:
     """Best-effort restoration for items popped during a failed rewind attempt."""
     if not popped_items:
         return
 
-    add_items = getattr(session, "add_items", None)
-    if not callable(add_items):
+    if not callable(getattr(session, "add_items", None)):
         return
 
     try:
-        result = add_items(list(reversed(popped_items)))
-        if inspect.isawaitable(result):
-            await result
+        await _session_add_items(
+            session,
+            list(reversed(popped_items)),
+            wrapper=wrapper,
+        )
     except Exception as exc:
         log_model_and_tool_action_warning(
             logger, "Failed to restore session items after a rewind mismatch", exc

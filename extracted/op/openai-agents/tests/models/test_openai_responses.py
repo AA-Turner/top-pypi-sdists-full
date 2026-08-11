@@ -10,6 +10,7 @@ import pytest
 from openai import NOT_GIVEN, APIConnectionError, AsyncOpenAI, RateLimitError, omit
 from openai.types.responses import ResponseCompletedEvent, ResponseErrorEvent
 from openai.types.responses.response_create_params import ContextManagement, PromptCacheOptions
+from openai.types.responses.response_usage import ResponseUsage
 from openai.types.shared.reasoning import Reasoning
 
 from agents import (
@@ -252,7 +253,7 @@ async def test_get_response_exposes_request_id():
     response = await model.get_response(
         system_instructions=None,
         input="hi",
-        model_settings=ModelSettings(),
+        model_settings=ModelSettings(preserve_raw_usage=True),
         tools=[],
         output_schema=None,
         handoffs=[],
@@ -261,18 +262,27 @@ async def test_get_response_exposes_request_id():
 
     assert response.response_id == "resp-request-id"
     assert response.request_id == "req_nonstream_123"
+    assert response.raw_usage is not None
+    assert response.raw_usage["input_tokens_details"]["cached_tokens"] == 0
 
 
 @pytest.mark.allow_call_model_methods
 @pytest.mark.asyncio
 async def test_get_response_span_exports_usage():
+    class FalsyResponseUsage(ResponseUsage):
+        def __bool__(self) -> bool:
+            return False
+
     class DummyResponses:
         async def create(self, **kwargs):
-            return get_response_obj(
+            response = get_response_obj(
                 [],
                 response_id="resp-usage",
                 usage=Usage(requests=1, input_tokens=10, output_tokens=4, total_tokens=14),
             )
+            assert response.usage is not None
+            response.usage = FalsyResponseUsage.model_validate(response.usage.model_dump())
+            return response
 
     class DummyResponsesClient:
         def __init__(self):
@@ -4279,3 +4289,45 @@ async def test_stream_response_lets_in_flight_close_finish_after_cancellation() 
     finally:
         release.set()
         task.cancel()
+
+
+@pytest.mark.allow_call_model_methods
+def test_websocket_get_retry_advice_reports_response_started() -> None:
+    model = OpenAIResponsesWSModel(model="gpt-4", openai_client=cast(Any, DummyWSClient()))
+    error = _connection_closed_error("no close frame received or sent")
+    setattr(error, "_openai_agents_ws_replay_safety", "unsafe")  # noqa: B010
+    setattr(error, "_openai_agents_ws_response_started", True)  # noqa: B010
+
+    advice = model.get_retry_advice(
+        ModelRetryAdviceRequest(
+            error=error,
+            attempt=1,
+            stream=False,
+        )
+    )
+
+    assert advice is not None
+    assert advice.replay_safety == "unsafe"
+    # A retry policy needs this to tell a response-started disconnect apart from
+    # other replay-unsafe failures before approving a replay.
+    assert advice.response_started is True
+
+
+@pytest.mark.allow_call_model_methods
+def test_websocket_get_retry_advice_reports_no_response_started_for_stateful_request() -> None:
+    model = OpenAIResponsesWSModel(model="gpt-4", openai_client=cast(Any, DummyWSClient()))
+    error = _connection_closed_error("no close frame received or sent")
+    setattr(error, "_openai_agents_ws_replay_safety", "unsafe")  # noqa: B010
+
+    advice = model.get_retry_advice(
+        ModelRetryAdviceRequest(
+            error=error,
+            attempt=1,
+            stream=False,
+            previous_response_id="resp_1",
+        )
+    )
+
+    assert advice is not None
+    assert advice.replay_safety == "unsafe"
+    assert advice.response_started is False

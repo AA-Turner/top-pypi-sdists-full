@@ -2,7 +2,7 @@
 name = "pystac-ext-projection"
 description = "Projection extension for PySTAC"
 readme = "README.md"
-version = "2.0.0"
+version = "2.0.1"
 authors = []
 maintainers = []
 keywords = ["pystac", "imagery", "raster", "catalog", "STAC", "projection"]
@@ -20,6 +20,9 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = ["pystac-core"]
+
+[project.entry-points."pystac.extensions"]
+projection = "pystac.extensions.projection:PROJECTION_EXTENSION_HOOKS"
 
 [project.urls]
 Documentation = "https://pystac.readthedocs.io"

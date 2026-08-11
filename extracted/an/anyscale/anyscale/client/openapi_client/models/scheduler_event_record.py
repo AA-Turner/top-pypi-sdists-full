@@ -39,6 +39,7 @@ class SchedulerEventRecord(object):
         'cluster_id': 'str',
         'scheduler_request_id': 'str',
         'user_id': 'str',
+        'user_email': 'str',
         'queue_name': 'str',
         'flavor_name': 'str',
         'project_id': 'str',
@@ -60,6 +61,7 @@ class SchedulerEventRecord(object):
         'cluster_id': 'cluster_id',
         'scheduler_request_id': 'scheduler_request_id',
         'user_id': 'user_id',
+        'user_email': 'user_email',
         'queue_name': 'queue_name',
         'flavor_name': 'flavor_name',
         'project_id': 'project_id',
@@ -74,7 +76,7 @@ class SchedulerEventRecord(object):
         'metadata_json': 'metadata_json'
     }
 
-    def __init__(self, id=None, organization_id=None, cloud_id=None, cluster_id=None, scheduler_request_id=None, user_id=None, queue_name=None, flavor_name=None, project_id=None, cloud_resource_id=None, workload_type=None, instance_type=None, created_at=None, event_timestamp=None, level=None, event_type=None, message=None, metadata_json=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, organization_id=None, cloud_id=None, cluster_id=None, scheduler_request_id=None, user_id=None, user_email=None, queue_name=None, flavor_name=None, project_id=None, cloud_resource_id=None, workload_type=None, instance_type=None, created_at=None, event_timestamp=None, level=None, event_type=None, message=None, metadata_json=None, local_vars_configuration=None):  # noqa: E501
         """SchedulerEventRecord - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -86,6 +88,7 @@ class SchedulerEventRecord(object):
         self._cluster_id = None
         self._scheduler_request_id = None
         self._user_id = None
+        self._user_email = None
         self._queue_name = None
         self._flavor_name = None
         self._project_id = None
@@ -110,6 +113,8 @@ class SchedulerEventRecord(object):
             self.scheduler_request_id = scheduler_request_id
         if user_id is not None:
             self.user_id = user_id
+        if user_email is not None:
+            self.user_email = user_email
         if queue_name is not None:
             self.queue_name = queue_name
         if flavor_name is not None:
@@ -273,6 +278,29 @@ class SchedulerEventRecord(object):
         """
 
         self._user_id = user_id
+
+    @property
+    def user_email(self):
+        """Gets the user_email of this SchedulerEventRecord.  # noqa: E501
+
+        Email of the user in user_id, resolved on read. Null when the event has no actor or the id no longer resolves.  # noqa: E501
+
+        :return: The user_email of this SchedulerEventRecord.  # noqa: E501
+        :rtype: str
+        """
+        return self._user_email
+
+    @user_email.setter
+    def user_email(self, user_email):
+        """Sets the user_email of this SchedulerEventRecord.
+
+        Email of the user in user_id, resolved on read. Null when the event has no actor or the id no longer resolves.  # noqa: E501
+
+        :param user_email: The user_email of this SchedulerEventRecord.  # noqa: E501
+        :type: str
+        """
+
+        self._user_email = user_email
 
     @property
     def queue_name(self):

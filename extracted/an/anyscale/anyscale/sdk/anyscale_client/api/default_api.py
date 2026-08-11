@@ -4506,6 +4506,178 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def list_scheduler_events(self, **kwargs):  # noqa: E501
+        """List Scheduler Events  # noqa: E501
+
+        List scheduler events for your organization in a stable, curated schema suitable for programmatic consumption.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_scheduler_events(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str workload_id: Filter to one workload. Accepts a cluster, cloud-resource, job, service, or workspace id; the type is inferred from its prefix.
+        :param str scheduler_request_id: Filter to the events of a single admission request
+        :param list[str] queues: Return events matching any of the specified queues
+        :param str project_id: Filter by project
+        :param str cloud_id: Filter by cloud
+        :param list[SchedulerEventType] event_types: Return events matching any of the specified types
+        :param list[EventLevel] levels: Return events matching any of the specified levels
+        :param datetime start_time: Inclusive lower bound on event time; beginning of time if unset
+        :param datetime end_time: Inclusive upper bound on event time; now if unset
+        :param bool order_desc: If True, newest first. Default True.
+        :param str paging_token:
+        :param int count:
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: SchedulereventexportListResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.list_scheduler_events_with_http_info(**kwargs)  # noqa: E501
+
+    def list_scheduler_events_with_http_info(self, **kwargs):  # noqa: E501
+        """List Scheduler Events  # noqa: E501
+
+        List scheduler events for your organization in a stable, curated schema suitable for programmatic consumption.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_scheduler_events_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str workload_id: Filter to one workload. Accepts a cluster, cloud-resource, job, service, or workspace id; the type is inferred from its prefix.
+        :param str scheduler_request_id: Filter to the events of a single admission request
+        :param list[str] queues: Return events matching any of the specified queues
+        :param str project_id: Filter by project
+        :param str cloud_id: Filter by cloud
+        :param list[SchedulerEventType] event_types: Return events matching any of the specified types
+        :param list[EventLevel] levels: Return events matching any of the specified levels
+        :param datetime start_time: Inclusive lower bound on event time; beginning of time if unset
+        :param datetime end_time: Inclusive upper bound on event time; now if unset
+        :param bool order_desc: If True, newest first. Default True.
+        :param str paging_token:
+        :param int count:
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(SchedulereventexportListResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'workload_id',
+            'scheduler_request_id',
+            'queues',
+            'project_id',
+            'cloud_id',
+            'event_types',
+            'levels',
+            'start_time',
+            'end_time',
+            'order_desc',
+            'paging_token',
+            'count'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method list_scheduler_events" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] > 100:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `list_scheduler_events`, must be a value less than or equal to `100`")  # noqa: E501
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] < 0:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `list_scheduler_events`, must be a value greater than or equal to `0`")  # noqa: E501
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'workload_id' in local_var_params and local_var_params['workload_id'] is not None:  # noqa: E501
+            query_params.append(('workload_id', local_var_params['workload_id']))  # noqa: E501
+        if 'scheduler_request_id' in local_var_params and local_var_params['scheduler_request_id'] is not None:  # noqa: E501
+            query_params.append(('scheduler_request_id', local_var_params['scheduler_request_id']))  # noqa: E501
+        if 'queues' in local_var_params and local_var_params['queues'] is not None:  # noqa: E501
+            query_params.append(('queues', local_var_params['queues']))  # noqa: E501
+            collection_formats['queues'] = 'multi'  # noqa: E501
+        if 'project_id' in local_var_params and local_var_params['project_id'] is not None:  # noqa: E501
+            query_params.append(('project_id', local_var_params['project_id']))  # noqa: E501
+        if 'cloud_id' in local_var_params and local_var_params['cloud_id'] is not None:  # noqa: E501
+            query_params.append(('cloud_id', local_var_params['cloud_id']))  # noqa: E501
+        if 'event_types' in local_var_params and local_var_params['event_types'] is not None:  # noqa: E501
+            query_params.append(('event_types', local_var_params['event_types']))  # noqa: E501
+            collection_formats['event_types'] = 'multi'  # noqa: E501
+        if 'levels' in local_var_params and local_var_params['levels'] is not None:  # noqa: E501
+            query_params.append(('levels', local_var_params['levels']))  # noqa: E501
+            collection_formats['levels'] = 'multi'  # noqa: E501
+        if 'start_time' in local_var_params and local_var_params['start_time'] is not None:  # noqa: E501
+            query_params.append(('start_time', local_var_params['start_time']))  # noqa: E501
+        if 'end_time' in local_var_params and local_var_params['end_time'] is not None:  # noqa: E501
+            query_params.append(('end_time', local_var_params['end_time']))  # noqa: E501
+        if 'order_desc' in local_var_params and local_var_params['order_desc'] is not None:  # noqa: E501
+            query_params.append(('order_desc', local_var_params['order_desc']))  # noqa: E501
+        if 'paging_token' in local_var_params and local_var_params['paging_token'] is not None:  # noqa: E501
+            query_params.append(('paging_token', local_var_params['paging_token']))  # noqa: E501
+        if 'count' in local_var_params and local_var_params['count'] is not None:  # noqa: E501
+            query_params.append(('count', local_var_params['count']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/scheduler/events', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='SchedulereventexportListResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def list_schedules(self, **kwargs):  # noqa: E501
         """List Schedules  # noqa: E501
 

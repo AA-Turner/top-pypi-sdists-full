@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 from typing import Any
@@ -10,6 +9,7 @@ from anyscale.commands.aggregated_instance_usage_commands import (
     aggregated_instance_usage_cli,
 )
 from anyscale.commands.anyscale_api.api_commands import anyscale_api
+from anyscale.commands.apply_commands import apply as apply_command
 from anyscale.commands.auth_commands import auth_cli
 from anyscale.commands.cloud_commands import cloud_cli
 from anyscale.commands.cluster_commands import cluster_cli
@@ -33,7 +33,14 @@ from anyscale.commands.migrate_commands import migrate_cli
 from anyscale.commands.organization_invitation_commands import (
     organization_invitation_cli,
 )
-from anyscale.commands.output_format import OutputFormat
+from anyscale.commands.output_format import (
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    OutputFormat,
+    print_output,
+    resolve_output_format,
+    warn_deprecated_flag,
+)
 from anyscale.commands.policy_commands import policy_cli
 from anyscale.commands.project_commands import project_cli
 from anyscale.commands.resource_quota_commands import resource_quota_cli
@@ -63,12 +70,24 @@ if anyscale.conf.AWS_PROFILE is not None:
     os.environ["AWS_PROFILE"] = anyscale.conf.AWS_PROFILE
 
 
+# Identity lookups users and coding agents guess at the top level. the
+# command lives at `anyscale auth show`, so redirect instead of dead-ending
+# with a bare "No such command".
+WHOAMI_SYNONYMS = {"whoami", "me", "who-am-i", "identity"}
+
+
 class AliasedGroup(click.Group):
     # This is from https://stackoverflow.com/questions/46641928/python-click-multiple-command-names
     def get_command(self, ctx: Any, cmd_name: str) -> Any:
         if cmd_name in ALIASES:
             cmd_name = ALIASES[cmd_name].name
-        return super().get_command(ctx, cmd_name)
+        cmd = super().get_command(ctx, cmd_name)
+        if cmd is None and cmd_name in WHOAMI_SYNONYMS:
+            raise click.UsageError(
+                f"No such command '{cmd_name}'. To show the current "
+                "authenticated user and organization, run: anyscale auth show"
+            )
+        return cmd
 
 
 @click.group(
@@ -93,22 +112,37 @@ class AliasedGroup(click.Group):
     "show_json",
     is_flag=True,
     default=False,
-    help="Return output as json, for use with --version.",
+    help="Return output as json, for use with --version. Deprecated: use `anyscale version -o json`.",
 )
 @click.pass_context
 def cli(ctx: Any, version_flag: bool, show_json: bool) -> None:
     if version_flag:
-        ctx.invoke(version_cli, show_json=show_json)
+        if show_json:
+            # The top-level group has no -o flag, so steer users to the
+            # canonical `anyscale version -o json` form and render JSON without
+            # re-triggering version_cli's own --json warning.
+            warn_deprecated_flag("--json", "anyscale version -o json")
+            ctx.invoke(version_cli, output_format=OutputFormat.JSON.value)
+        else:
+            ctx.invoke(version_cli)
     log_warning_if_version_needs_upgrade()
 
 
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
-            description="Display the anyscale CLI version.", command="anyscale version",
+            description="Display the anyscale CLI version.",
+            command="anyscale version",
+            output_instance={"version": "0.26.100"},
         ),
     ],
 )
@@ -119,11 +153,23 @@ def cli(ctx: Any, version_flag: bool, show_json: bool) -> None:
     cls=AnyscaleCommand,
 )
 @click.option(
+    OUTPUT_FLAG,
+    OUTPUT_FLAG_LONG,
+    "output_format",
+    type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value]),
+    default=OutputFormat.TEXT.value,
+    show_default=True,
+    help="Output format for the result.",
+)
+@click.option(
     "--json", "show_json", is_flag=True, default=False, help="Return output as json."
 )
-def version_cli(show_json: bool) -> None:
+def version_cli(show_json: bool, output_format: str = OutputFormat.TEXT.value) -> None:
     if show_json:
-        print(json.dumps({"version": anyscale.__version__}))
+        warn_deprecated_flag("--json", "-o json")
+    resolved = resolve_output_format(output_format, show_json)
+    if resolved != OutputFormat.TEXT.value:
+        print_output({"version": anyscale.__version__}, resolved)
     else:
         print(anyscale.__version__)
 
@@ -143,6 +189,7 @@ cli.add_command(migrate_cli)
 cli.add_command(project_cli)
 cli.add_command(version_cli)
 cli.add_command(job_cli)
+cli.add_command(apply_command)
 cli.add_command(job_queue_cli)
 cli.add_command(schedule_cli)
 cli.add_command(scheduler_cli)

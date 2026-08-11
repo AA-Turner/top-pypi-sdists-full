@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import typing as t
+
 from sqlglot import exp
 from sqlglot.dialects.dialect import (
     approx_count_distinct_sql,
@@ -22,6 +24,7 @@ def _lag_lead_sql(self, expression: exp.Lag | exp.Lead) -> str:
 
 class DorisGenerator(MySQLGenerator):
     LAST_DAY_SUPPORTS_DATE_PART = False
+    SUPPORTS_ALTER_COLUMN_NULLABILITY = False
     VARCHAR_REQUIRES_SIZE = False
     WITH_PROPERTIES_PREFIX = "PROPERTIES"
     RENAME_TABLE_WITH_DB = False
@@ -41,8 +44,8 @@ class DorisGenerator(MySQLGenerator):
         exp.BuildProperty: exp.Properties.Location.POST_SCHEMA,
     }
 
-    CAST_MAPPING = {}
-    TIMESTAMP_FUNC_TYPES = set()
+    CAST_MAPPING: t.ClassVar[dict[exp.DType, str]] = {}
+    TIMESTAMP_FUNC_TYPES: t.ClassVar[set[exp.DType]] = set()
 
     TRANSFORMS = {
         **MySQLGenerator.TRANSFORMS,

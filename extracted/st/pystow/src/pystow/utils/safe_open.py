@@ -15,9 +15,7 @@ import urllib.request
 import zipfile
 from collections.abc import Generator, Mapping
 from pathlib import Path
-from typing import Any, BinaryIO, Literal, TextIO, TypeGuard, cast, overload
-
-from typing_extensions import Never
+from typing import Any, BinaryIO, Literal, Never, TextIO, TypeGuard, cast, overload
 
 from .io_typing import (
     _MODE_TO_SIMPLE,
@@ -358,9 +356,7 @@ def safe_open_dict_reader(
 
 def is_url(s: str | Path | TextIO | Any) -> TypeGuard[str]:
     """Check if the object is a URL."""
-    if isinstance(s, str) and (s.startswith("http://") or s.startswith("https://")):
-        return True
-    return False
+    return isinstance(s, str) and s.startswith(("http://", "https://"))
 
 
 # docstr-coverage:excused `overload`

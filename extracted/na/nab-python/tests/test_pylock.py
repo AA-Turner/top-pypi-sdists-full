@@ -22,6 +22,7 @@ else:
     import tomli as tomllib  # type: ignore[no-redef]
 
 from nab_python._lockfile import pylock
+from nab_python._lockfile.coverage import CoverageError
 from nab_python._lockfile.disjointness import validate_marker_disjointness
 from nab_python._lockfile.pylock import (
     UnsoundSimplificationError,
@@ -31,9 +32,14 @@ from nab_python._lockfile.pylock import (
     build_pylock,
     render_lock,
 )
+from nab_python._vendor.packaging import _markersets as engine
 from nab_python._vendor.packaging import markersets
 from nab_python._vendor.packaging.markers import Marker
-from nab_python._vendor.packaging.markersets import IntractableMarkerSet, MarkerSet
+from nab_python._vendor.packaging.markersets import (
+    DecisionStore,
+    IntractableMarkerSet,
+    MarkerSet,
+)
 from nab_python._vendor.packaging.pylock import Package, PackageWheel
 from nab_python._vendor.packaging.utils import canonicalize_name
 from nab_python._vendor.packaging.version import Version
@@ -49,7 +55,9 @@ from nab_python.tags import PlatformSpec
 from nab_python.target import ResolveTarget, environment_declaration
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Callable, Mapping, Sequence
+
+    from nab_python._vendor.packaging._markersets import Atom, Cell
 
 _spec = importlib.util.spec_from_file_location(
     "simplify_corpus_fixtures",
@@ -243,7 +251,9 @@ class TestFailClosed:
     def test_injected_bug_raises_and_emits_nothing(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        def diverge(self: MarkerSet, *, within: MarkerSet) -> MarkerSet:
+        def diverge(
+            self: MarkerSet, *, within: MarkerSet, store: DecisionStore | None = None
+        ) -> MarkerSet:
             return MarkerSet.from_marker('sys_platform == "win32"')
 
         monkeypatch.setattr(MarkerSet, "simplify", diverge)
@@ -253,7 +263,9 @@ class TestFailClosed:
     def test_collapse_to_full_off_universe_raises(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        def collapse(self: MarkerSet, *, within: MarkerSet) -> MarkerSet:
+        def collapse(
+            self: MarkerSet, *, within: MarkerSet, store: DecisionStore | None = None
+        ) -> MarkerSet:
             return MarkerSet.full()
 
         monkeypatch.setattr(MarkerSet, "simplify", collapse)
@@ -273,7 +285,9 @@ class TestFinalizeMarker:
     def test_intractable_emits_raw_byte_identical(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        def intractable(self: MarkerSet, *, within: MarkerSet) -> MarkerSet:
+        def intractable(
+            self: MarkerSet, *, within: MarkerSet, store: DecisionStore | None = None
+        ) -> MarkerSet:
             raise IntractableMarkerSet("over budget")
 
         monkeypatch.setattr(MarkerSet, "simplify", intractable)
@@ -281,6 +295,18 @@ class TestFinalizeMarker:
         result = _finalize_marker(raw, _union(_ENVS), "torch")
         assert result is not None
         assert str(result) == str(raw)
+
+
+@pytest.fixture
+def ungated(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stand the coverage gate down for a hand-built declaration.
+
+    ``build_pylock`` refuses a lock whose ``environments`` leave a resolved
+    target uncovered, so a non-covering shape never reaches the simplification
+    layer through the public entry point.  The tests that ask what that layer
+    does with one drive it with the gate stood down.
+    """
+    monkeypatch.setattr(pylock, "validate_marker_coverage", lambda *_, **__: None)
 
 
 def _non_covering_lock() -> LockInput:
@@ -306,13 +332,19 @@ class TestNonCoveringEnvironments:
     is nothing shorter to emit.
     """
 
+    @pytest.mark.usefixtures("ungated")
     def test_uncovered_package_ships_raw_marker(self) -> None:
         emitted = _emitted(_non_covering_lock())["pywin32"]["marker"]
         expected = " or ".join(f"({t.environment_marker_string})" for t in _WIN)
         assert emitted == str(Marker(expected))
 
+    @pytest.mark.usefixtures("ungated")
     def test_covered_packages_still_finalise(self) -> None:
         assert "marker" not in _emitted(_non_covering_lock())["bar"]
+
+    def test_the_coverage_gate_refuses_the_shape(self) -> None:
+        with pytest.raises(CoverageError, match="win32"):
+            render_lock(_non_covering_lock())
 
     def test_direct_empty_within_universe_ships_raw(self) -> None:
         raw = Marker('sys_platform == "aix"')
@@ -357,10 +389,16 @@ class TestEmissionUniverse:
         universe = _emission_universe(self._with_environments(rows))
         assert universe.equivalent(MarkerSet.from_marker('sys_platform == "linux"'))
 
+    @pytest.mark.usefixtures("ungated")
     def test_uninhabited_lock_still_emits(self) -> None:
         rows = [Marker('sys_platform == "linux" and sys_platform == "win32"')]
         data = tomllib.loads(render_lock(self._with_environments(rows)))
         assert [p["name"] for p in data["packages"]] == ["foo"]
+
+    def test_uninhabited_rows_do_not_get_past_the_coverage_gate(self) -> None:
+        rows = [Marker('sys_platform == "linux" and sys_platform == "win32"')]
+        with pytest.raises(CoverageError):
+            render_lock(self._with_environments(rows))
 
     def test_undecidable_row_counts_as_inhabited(self) -> None:
         wide = Marker(" and ".join(f'"e{i}" in extras' for i in range(20)))
@@ -471,7 +509,9 @@ class TestWideMatrixFailClosed:
     def test_injected_bug_on_wide_matrix_raises_without_text(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        def diverge(self: MarkerSet, *, within: MarkerSet) -> MarkerSet:
+        def diverge(
+            self: MarkerSet, *, within: MarkerSet, store: DecisionStore | None = None
+        ) -> MarkerSet:
             return MarkerSet.from_marker('sys_platform == "win32"')
 
         monkeypatch.setattr(MarkerSet, "simplify", diverge)
@@ -557,10 +597,13 @@ class TestFinalizeMemo:
         real = pylock._finalize_marker
 
         def counting(
-            raw: Marker | None, within: MarkerSet, name: str = ""
+            raw: Marker | None,
+            within: MarkerSet,
+            name: str = "",
+            store: DecisionStore | None = None,
         ) -> Marker | None:
             calls.append(name)
-            return real(raw, within, name)
+            return real(raw, within, name, store)
 
         monkeypatch.setattr(pylock, "_finalize_marker", counting)
         targets: dict[str, TargetLock] = {}
@@ -579,7 +622,10 @@ class TestFinalizeMemo:
 
     def test_memo_passes_none_through(self) -> None:
         memo: dict[str, Marker | None] = {}
-        assert _finalize_cached(None, MarkerSet.full(), "foo", memo) is None
+        assert (
+            _finalize_cached(None, MarkerSet.full(), "foo", memo, DecisionStore())
+            is None
+        )
         assert memo == {}
 
 
@@ -730,3 +776,94 @@ class TestRegenLocksIdempotent:
                     continue
                 again = _finalize_marker(Marker(marker), within, pkg["name"])
                 assert str(again) == marker
+
+
+def _partition_counter(monkeypatch: pytest.MonkeyPatch) -> Callable[[], int]:
+    """Start counting axis partitions, and return a reader for the count."""
+    calls = 0
+    real = engine._partition_axis
+
+    def counting(
+        axis: tuple, atoms: Sequence[Atom], max_cells: int, memo: engine.Memo
+    ) -> list[Cell]:
+        nonlocal calls
+        calls += 1
+        return real(axis, atoms, max_cells, memo)
+
+    monkeypatch.setattr(engine, "_partition_axis", counting)
+    return lambda: calls
+
+
+class TestEmissionStore:
+    """One emission's decisions share one store, and answer as if they did not."""
+
+    def test_one_store_across_a_lock_cuts_the_partition_work(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Finalising a lock's markers against one store partitions fewer axes.
+
+        The universe is one per lock and its rows are what each decision
+        complements against, so the axes carry over between packages that share
+        no marker text. A ``store`` the engine ignored would leave the two counts
+        equal.
+        """
+        lock = _LOCK_MARKERS["locks"]["tests"]
+        within = _fixture_universe(lock["environments"])
+        raws = [Marker(pkg["raw"]) for pkg in lock["packages"]]
+
+        partitions = _partition_counter(monkeypatch)
+        alone = [_finalize_marker(raw, within, "pkg") for raw in raws]
+        cold = partitions()
+        store = DecisionStore()
+        shared = [_finalize_marker(raw, within, "pkg", store) for raw in raws]
+        warm = partitions() - cold
+
+        assert [str(m) for m in shared] == [str(m) for m in alone]
+        assert warm < cold
+
+    def test_finalisation_and_coverage_share_one_store(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Every decision of one build_pylock is handed the same store.
+
+        Dropping it at any hop leaves that decision cold, which no emitted byte
+        would show.
+        """
+        seen: list[DecisionStore | None] = []
+        real_simplify = MarkerSet.simplify
+        real_equivalent = MarkerSet.equivalent_within
+        real_coverage = pylock.validate_marker_coverage
+
+        def recording_simplify(
+            self: MarkerSet, *, within: MarkerSet, store: DecisionStore | None = None
+        ) -> MarkerSet:
+            seen.append(store)
+            return real_simplify(self, within=within, store=store)
+
+        def recording_equivalent(
+            self: MarkerSet,
+            other: MarkerSet,
+            within: MarkerSet,
+            *,
+            store: DecisionStore | None = None,
+        ) -> bool:
+            seen.append(store)
+            return real_equivalent(self, other, within, store=store)
+
+        def recording_coverage(
+            targets: Sequence[ResolveTarget],
+            *,
+            environments: Sequence[Marker],
+            store: DecisionStore | None = None,
+        ) -> None:
+            seen.append(store)
+            real_coverage(targets, environments=environments, store=store)
+
+        monkeypatch.setattr(MarkerSet, "simplify", recording_simplify)
+        monkeypatch.setattr(MarkerSet, "equivalent_within", recording_equivalent)
+        monkeypatch.setattr(pylock, "validate_marker_coverage", recording_coverage)
+        build_pylock(_span_lock())
+
+        assert len(seen) >= 3
+        assert {id(store) for store in seen} == {id(seen[0])}
+        assert isinstance(seen[0], DecisionStore)

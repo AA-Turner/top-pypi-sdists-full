@@ -390,6 +390,81 @@ class TestNormalizeTableColumn(unittest.TestCase):
 
         self.assertEqual(column["type"], "Float64")
 
+    def test_aggregate_function_over_json_type(self):
+        # Regression test for PLTF-842: normalizeColumnInfo() calls
+        # columnInfoFromColumnDeclaration() (functions/NormalizeColumnsFromDict.cpp),
+        # which used to segfault resolving an AggregateFunction over a JSON value
+        # type via DataTypeFactory without a global ClickHouse Context.
+        column = chquery.normalize_table_column(
+            column={
+                "name": "payload",
+                "normalized_name": "payload",
+                "type": "AggregateFunction(argMax, JSON, DateTime)",
+                "nullable": False,
+            },
+        )
+
+        self.assertEqual(column["type"], "AggregateFunction(argMax, JSON, DateTime)")
+        self.assertFalse(column["nullable"])
+
+    # Nested/composed type -> expected (normalized_type, nullable). Covers PLTF-842
+    # (JSON nested inside Array/Map/Tuple/Nested/AggregateFunction combinators)
+    # plus general composed-type coverage for normalizeColumnInfo()
+    # (functions/NormalizeColumnsFromDict.cpp).
+    NESTED_AND_COMPOSED_TYPES = [
+        ('Array(JSON)', ('Array(JSON)', False)),
+        ('Map(String, JSON)', ('Map(String, JSON)', False)),
+        ('Tuple(JSON, String)', ('Tuple(JSON, String)', False)),
+        ('Tuple(a JSON, b String)', ('Tuple(a JSON, b String)', False)),
+        ('Nullable(JSON)', ('Nullable(JSON)', True)),
+        ('Nested(a JSON, b String)', ('Nested(a JSON, b String)', False)),
+        ('AggregateFunction(argMax, Array(JSON), DateTime)', ('AggregateFunction(argMax, Array(JSON), DateTime)', False)),
+        ('AggregateFunction(argMax, Map(String, JSON), DateTime)', ('AggregateFunction(argMax, Map(String, JSON), DateTime)', False)),
+        ('AggregateFunction(argMax, Tuple(JSON, String), DateTime)', ('AggregateFunction(argMax, Tuple(JSON, String), DateTime)', False)),
+        ('SimpleAggregateFunction(any, JSON)', ('SimpleAggregateFunction(any, JSON)', False)),
+        ('SimpleAggregateFunction(any, Array(JSON))', ('SimpleAggregateFunction(any, Array(JSON))', False)),
+        ('Array(AggregateFunction(argMax, JSON, DateTime))', ('Array(AggregateFunction(argMax, JSON, DateTime))', False)),
+        ('Array(LowCardinality(String))', ('Array(LowCardinality(String))', False)),
+        ('Map(String, LowCardinality(String))', ('Map(String, LowCardinality(String))', False)),
+        ('Array(Nullable(Int64))', ('Array(Nullable(Int64))', False)),
+        ('Map(String, Nullable(Int64))', ('Map(String, Nullable(Int64))', False)),
+        ('Map(String, AggregateFunction(sum, Int64))', ('Map(String, AggregateFunction(sum, Int64))', False)),
+        ('Nested(a UInt64, b String)', ('Nested(a UInt64, b String)', False)),
+        ('Tuple(x Float64, y Float64)', ('Tuple(x Float64, y Float64)', False)),
+        ('Array(Tuple(UInt8, String))', ('Array(Tuple(UInt8, String))', False)),
+        ('Array(Array(String))', ('Array(Array(String))', False)),
+        ('Map(String, Array(String))', ('Map(String, Array(String))', False)),
+        ('Map(String, Map(String, Int64))', ('Map(String, Map(String, Int64))', False)),
+        ('Variant(String, Int64)', ('Variant(String, Int64)', False)),
+        ('Dynamic', ('Dynamic', False)),
+        ('LowCardinality(Nullable(String))', ('LowCardinality(Nullable(String))', True)),
+    ]
+
+    def test_nested_and_composed_types(self):
+        for type_str, (expected_type, expected_nullable) in self.NESTED_AND_COMPOSED_TYPES:
+            with self.subTest(type_str):
+                column = chquery.normalize_table_column(
+                    column={
+                        "name": "col",
+                        "normalized_name": "col",
+                        "type": type_str,
+                        "nullable": False,
+                    },
+                )
+                self.assertEqual(column["type"], expected_type)
+                self.assertEqual(column["nullable"], expected_nullable)
+
+    def test_low_cardinality_of_json_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'DataTypeLowCardinality is supported only for'):
+            chquery.normalize_table_column(
+                column={
+                    "name": "col",
+                    "normalized_name": "col",
+                    "type": "LowCardinality(JSON)",
+                    "nullable": False,
+                },
+            )
+
     def test_default_now_for_created_at(self):
         column = chquery.normalize_table_column(
             column={

@@ -1,18 +1,24 @@
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import json
 import logging
 import re
 
+from collections.abc import Coroutine
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Generator, Optional, Protocol, TypeVar
 
+from packaging import version
 from pydantic import StrictStr
 
+from snowflake.core import _thread_pool
 from snowflake.core.exceptions import InvalidResultError
 
 
 if TYPE_CHECKING:
+    from snowflake.connector import SnowflakeConnection
     from snowflake.core import Root
     from snowflake.core.function import Function
     from snowflake.core.procedure import Procedure
@@ -39,17 +45,11 @@ def replace_function_name_in_name_with_args(name_with_args: str, new_name: str) 
 
 
 def check_version_gte(version_to_check: str, reference_version: str) -> bool:
-    cur_version = tuple(map(int, version_to_check.split(".")))
-    req_version = tuple(map(int, reference_version.split(".")))
-
-    return cur_version >= req_version
+    return version.parse(version_to_check) >= version.parse(reference_version)
 
 
 def check_version_lte(version_to_check: str, reference_version: str) -> bool:
-    cur_version = tuple(map(int, version_to_check.split(".")))
-    req_version = tuple(map(int, reference_version.split(".")))
-
-    return cur_version <= req_version
+    return version.parse(version_to_check) <= version.parse(reference_version)
 
 
 def fix_hostname(hostname: str) -> str:
@@ -176,3 +176,41 @@ def tag_assignment_to_tag_tuple(ta: TagAssignmentLike, root: Root) -> tuple[TagR
     tag_resource = root.databases[db].schemas[schema].tags[ta.tag_name]
     tag_value = TagValue(ta.tag_value, ta.level)
     return tag_resource, tag_value
+
+
+@contextlib.contextmanager
+def temporary_paramstyle(paramstyle: str, conn: SnowflakeConnection) -> Generator[None, None, None]:
+    original_paramstyle = conn._paramstyle
+    conn._paramstyle = paramstyle
+    try:
+        yield
+    finally:
+        conn._paramstyle = original_paramstyle
+
+
+_TCoroResult = TypeVar("_TCoroResult")
+
+
+def run_coroutine_blocking(coro: Coroutine[Any, Any, _TCoroResult]) -> _TCoroResult:
+    """Run *coro* to completion from a synchronous caller, even when an event loop is active.
+
+    :func:`asyncio.run` cannot be invoked from a thread that already has a running event loop, so
+    when one is detected the coroutine is dispatched to a worker thread (which has its own
+    thread-local loop state) and the calling thread blocks on the result. Otherwise the coroutine
+    runs inline via :func:`asyncio.run`.
+
+    Parameters
+    ----------
+    coro : Coroutine
+        The coroutine object to execute. Must not have been awaited.
+
+    Returns
+    -------
+    Any
+        Whatever *coro* returns. Exceptions raised by *coro* propagate to the caller.
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+    return _thread_pool.get_thread_pool().submit(asyncio.run, coro).result()

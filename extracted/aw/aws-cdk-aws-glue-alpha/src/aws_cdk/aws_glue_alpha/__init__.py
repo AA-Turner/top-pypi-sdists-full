@@ -505,6 +505,163 @@ glue.SecurityConfiguration(self, "MySecurityConfiguration",
 
 See [documentation](https://docs.aws.amazon.com/glue/latest/dg/encryption-security-configuration.html) for more info for Glue encrypting data written by Crawlers, Jobs, and Development Endpoints.
 
+## Catalog
+
+The Glue Data Catalog is a persistent metadata store for your data assets. Every
+account has an implicit, account-wide catalog that always exists, and you can also
+create additional catalogs as `AWS::Glue::Catalog` resources (for example, to
+federate to another metastore).
+
+A catalog's encryption is fixed when the catalog is created: a catalog either
+carries encryption settings or it does not. This keeps its configuration easy to
+reason about — there are no mutation methods that change encryption after the fact.
+
+### The account-wide catalog
+
+Use `Catalog.forAccount(scope)` to obtain the implicit account catalog. It is not
+a CloudFormation resource — it always exists. Repeated calls within the same stack
+return the same instance:
+
+```python
+catalog = glue.Catalog.for_account(self)
+```
+
+To configure Data Catalog encryption for the account, use
+`Catalog.encryptAccount(scope, options)`:
+
+```python
+# key: kms.Key
+
+glue.Catalog.encrypt_account(self,
+    encryption_at_rest=glue.DataCatalogEncryptionAtRest.kms(key)
+)
+```
+
+Because encryption is fixed at construction, `encryptAccount` must be called
+*before* the account catalog is first used in the stack — before any
+`Catalog.forAccount(this)` call, and before any `Database` that uses the account
+catalog. Calling it after the account catalog has been materialized throws.
+
+The account catalog's encryption is an account- and region-wide setting, managed
+through the singleton `PutDataCatalogEncryptionSettings` API. Configure it in
+exactly one stack. Configuring it from multiple stacks in the same account and
+region makes those stacks overwrite one another at deploy time, and the result is
+order-dependent. Unlike duplicate settings within a single stack (which
+CloudFormation rejects), this cross-stack conflict is not caught at synthesis
+time, because each stack synthesizes to its own template.
+
+### Creating a catalog
+
+To create a new catalog resource, use the `Catalog` constructor. Encryption is
+configured through the `encryptionAtRest` and `connectionPasswordEncryption` props:
+
+```python
+glue.Catalog(self, "MyCatalog",
+    catalog_name="my-catalog",
+    description="my catalog description"
+)
+```
+
+### Encryption at rest
+
+Configure Data Catalog encryption at rest through the `encryptionAtRest` option
+(on `Catalog.encryptAccount`, the `Catalog` constructor, or the import factories).
+It accepts a `DataCatalogEncryptionAtRest` describing the mode:
+
+```python
+# key: kms.Key
+
+
+# SSE-KMS with a customer-managed key
+glue.Catalog.encrypt_account(self,
+    encryption_at_rest=glue.DataCatalogEncryptionAtRest.kms(key)
+)
+
+# SSE-KMS with an AWS-managed key (omit the key)
+glue.Catalog(self, "ManagedKeyCatalog",
+    catalog_name="managed-key-catalog",
+    encryption_at_rest=glue.DataCatalogEncryptionAtRest.kms()
+)
+
+# Disable encryption at rest
+glue.Catalog(self, "PlaintextCatalog",
+    catalog_name="plaintext-catalog",
+    encryption_at_rest=glue.DataCatalogEncryptionAtRest.disabled()
+)
+```
+
+When you use `SSE-KMS-WITH-SERVICE-ROLE`, AWS Glue accesses the KMS key through a
+service role you provide. If you pass a customer-managed key, the role is
+automatically granted the permissions it needs to encrypt and decrypt catalog data:
+
+```python
+import aws_cdk.aws_iam as iam
+# key: kms.Key
+# role: iam.IRole
+
+glue.Catalog.encrypt_account(self,
+    encryption_at_rest=glue.DataCatalogEncryptionAtRest.kms_with_service_role(role, key)
+)
+```
+
+The customer-managed key, when configured, is exposed on the catalog as
+`encryptionKey` (and the connection-password key as `connectionPasswordKey`), so
+you can reference it to grant additional access. It is undefined when encryption is
+disabled or an AWS-managed key is used.
+
+### Connection password encryption
+
+Independently from encryption at rest, the Data Catalog can encrypt the passwords
+stored in connection properties. Configure it through the
+`connectionPasswordEncryption` option:
+
+```python
+# key: kms.Key
+
+glue.Catalog.encrypt_account(self,
+    connection_password_encryption=glue.ConnectionPasswordEncryption(
+        kms_key=key,
+        # Whether GetConnection/GetConnections return the password encrypted (default: true)
+        return_connection_password_encrypted=True
+    )
+)
+```
+
+The two encryption blocks are independent: enabling one does not require the other,
+and each may use a different KMS key. The customer-managed key for connection
+passwords is exposed as `connectionPasswordKey`.
+
+### Importing a catalog
+
+You can import an existing catalog by ARN or by id. An imported catalog is a pure
+identity handle — it emits no resources and does not manage the catalog's
+encryption:
+
+```python
+by_id = glue.Catalog.from_catalog_id(self, "ById", "my-catalog-id")
+by_arn = glue.Catalog.from_catalog_arn(self, "ByArn", "arn:aws:glue:us-east-1:123456789012:catalog/my-catalog-id")
+```
+
+To manage the Data Catalog encryption of a catalog you did not create in this
+stack, add a `CfnDataCatalogEncryptionSettings` resource targeting its id
+directly. Do this from exactly one stack: like the account catalog, a catalog has
+a single encryption configuration, so two settings resources targeting the same id
+race to overwrite one another at deploy time. Within a single stack this is caught
+by CloudFormation template validation (E3019, duplicate primary identifiers);
+across stacks it is not, since each stack synthesizes to its own template.
+
+```python
+from aws_cdk.aws_glue import CfnDataCatalogEncryptionSettings
+
+
+CfnDataCatalogEncryptionSettings(self, "Encryption",
+    catalog_id="my-catalog-id",
+    data_catalog_encryption_settings=CfnDataCatalogEncryptionSettings.DataCatalogEncryptionSettingsProperty(
+        encryption_at_rest=CfnDataCatalogEncryptionSettings.EncryptionAtRestProperty(catalog_encryption_mode="SSE-KMS")
+    )
+)
+```
+
 ## Database
 
 A `Database` is a logical grouping of `Tables` in the Glue Catalog.
@@ -900,6 +1057,8 @@ glue.ExternalTable(self, "MyTable",
 
 ## [Encryption](https://docs.aws.amazon.com/athena/latest/ug/encryption.html)
 
+When the table creates its own S3 bucket (i.e. you do not pass an explicit `bucket`), that bucket enforces SSL: a bucket policy denies any request made over plain HTTP. If you provide your own bucket, enabling `enforceSSL` on it is your responsibility.
+
 You can enable encryption on a Table's data:
 
 * [S3Managed](https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingServerSideEncryption.html) - (default) Server side encryption (`SSE-S3`) with an Amazon S3-managed key.
@@ -1114,6 +1273,7 @@ if typing.TYPE_CHECKING:
     import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
     import aws_cdk.aws_s3 as _aws_cdk_aws_s3_ceddda9d
     import aws_cdk.aws_s3_assets as _aws_cdk_aws_s3_assets_ceddda9d
+    import aws_cdk.interfaces.aws_glue as _aws_cdk_interfaces_aws_glue_ceddda9d
     import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
     import constructs as _constructs_77d1e7e8
 else:
@@ -1128,6 +1288,7 @@ else:
     _aws_cdk_aws_s3_assets_ceddda9d = _LazyImport("aws_cdk.aws_s3_assets")
     _aws_cdk_aws_s3_ceddda9d = _LazyImport("aws_cdk.aws_s3")
     _aws_cdk_ceddda9d = _LazyImport("aws_cdk")
+    _aws_cdk_interfaces_aws_glue_ceddda9d = _LazyImport("aws_cdk.interfaces.aws_glue")
     _aws_cdk_interfaces_aws_kms_ceddda9d = _LazyImport("aws_cdk.interfaces.aws_kms")
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
@@ -1270,6 +1431,227 @@ class Action:
 
     def __repr__(self) -> str:
         return "Action(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.CatalogEncryptionMode")
+class CatalogEncryptionMode(enum.Enum):
+    '''(experimental) The encryption-at-rest mode for a Glue Data Catalog.
+
+    :see: https://docs.aws.amazon.com/glue/latest/webapi/API_EncryptionAtRest.html#Glue-Type-EncryptionAtRest-CatalogEncryptionMode
+    :stability: experimental
+    '''
+
+    DISABLED = "DISABLED"
+    '''(experimental) Encryption at rest is disabled.
+
+    :stability: experimental
+    '''
+    SSE_KMS = "SSE_KMS"
+    '''(experimental) Server-side encryption (SSE) with an AWS KMS key.
+
+    :stability: experimental
+    '''
+    SSE_KMS_WITH_SERVICE_ROLE = "SSE_KMS_WITH_SERVICE_ROLE"
+    '''(experimental) Server-side encryption (SSE) with an AWS KMS key, using a service role that AWS Glue assumes to access the key on your behalf.
+
+    :stability: experimental
+    '''
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-glue-alpha.CatalogEncryptionOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "connection_password_encryption": "connectionPasswordEncryption",
+        "encryption_at_rest": "encryptionAtRest",
+    },
+)
+class CatalogEncryptionOptions:
+    def __init__(
+        self,
+        *,
+        connection_password_encryption: typing.Optional[typing.Union["ConnectionPasswordEncryption", typing.Dict[builtins.str, typing.Any]]] = None,
+        encryption_at_rest: typing.Optional["DataCatalogEncryptionAtRest"] = None,
+    ) -> None:
+        '''(experimental) Encryption configuration for a Glue Data Catalog.
+
+        Encryption is fixed at construction: a catalog either carries encryption
+        settings or it does not, which keeps its configuration easy to reason about
+        and avoids order-dependent mutation after the catalog is created.
+
+        :param connection_password_encryption: (experimental) Connection-password encryption configuration for the catalog. Default: - connection-password encryption is not managed by CDK
+        :param encryption_at_rest: (experimental) Encryption-at-rest configuration for the catalog. Default: - encryption at rest is not managed by CDK (the catalog default applies)
+
+        :stability: experimental
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_iam as iam
+            # key: kms.Key
+            # role: iam.IRole
+            
+            glue.Catalog.encrypt_account(self,
+                encryption_at_rest=glue.DataCatalogEncryptionAtRest.kms_with_service_role(role, key)
+            )
+        '''
+        if isinstance(connection_password_encryption, dict):
+            connection_password_encryption = ConnectionPasswordEncryption(**connection_password_encryption)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__57f9cf3d5a9fa4dba5b3d40912307d78e239db83a9a75448839bd58a8794107b)
+            check_type(argname="argument connection_password_encryption", value=connection_password_encryption, expected_type=type_hints["connection_password_encryption"])
+            check_type(argname="argument encryption_at_rest", value=encryption_at_rest, expected_type=type_hints["encryption_at_rest"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if connection_password_encryption is not None:
+            self._values["connection_password_encryption"] = connection_password_encryption
+        if encryption_at_rest is not None:
+            self._values["encryption_at_rest"] = encryption_at_rest
+
+    @builtins.property
+    def connection_password_encryption(
+        self,
+    ) -> typing.Optional["ConnectionPasswordEncryption"]:
+        '''(experimental) Connection-password encryption configuration for the catalog.
+
+        :default: - connection-password encryption is not managed by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("connection_password_encryption")
+        return typing.cast(typing.Optional["ConnectionPasswordEncryption"], result)
+
+    @builtins.property
+    def encryption_at_rest(self) -> typing.Optional["DataCatalogEncryptionAtRest"]:
+        '''(experimental) Encryption-at-rest configuration for the catalog.
+
+        :default: - encryption at rest is not managed by CDK (the catalog default applies)
+
+        :stability: experimental
+        '''
+        result = self._values.get("encryption_at_rest")
+        return typing.cast(typing.Optional["DataCatalogEncryptionAtRest"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CatalogEncryptionOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-glue-alpha.CatalogProps",
+    jsii_struct_bases=[CatalogEncryptionOptions],
+    name_mapping={
+        "connection_password_encryption": "connectionPasswordEncryption",
+        "encryption_at_rest": "encryptionAtRest",
+        "catalog_name": "catalogName",
+        "description": "description",
+    },
+)
+class CatalogProps(CatalogEncryptionOptions):
+    def __init__(
+        self,
+        *,
+        connection_password_encryption: typing.Optional[typing.Union["ConnectionPasswordEncryption", typing.Dict[builtins.str, typing.Any]]] = None,
+        encryption_at_rest: typing.Optional["DataCatalogEncryptionAtRest"] = None,
+        catalog_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Construction properties for a ``Catalog``.
+
+        :param connection_password_encryption: (experimental) Connection-password encryption configuration for the catalog. Default: - connection-password encryption is not managed by CDK
+        :param encryption_at_rest: (experimental) Encryption-at-rest configuration for the catalog. Default: - encryption at rest is not managed by CDK (the catalog default applies)
+        :param catalog_name: (experimental) The name of the catalog.
+        :param description: (experimental) A description of the catalog. Default: - no description
+
+        :stability: experimental
+        :exampleMetadata: infused
+
+        Example::
+
+            glue.Catalog(self, "MyCatalog",
+                catalog_name="my-catalog",
+                description="my catalog description"
+            )
+        '''
+        if isinstance(connection_password_encryption, dict):
+            connection_password_encryption = ConnectionPasswordEncryption(**connection_password_encryption)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0029affd895c59edb680ff0f246d0d28f777041ac949387e6ed3c633bfc63f9e)
+            check_type(argname="argument connection_password_encryption", value=connection_password_encryption, expected_type=type_hints["connection_password_encryption"])
+            check_type(argname="argument encryption_at_rest", value=encryption_at_rest, expected_type=type_hints["encryption_at_rest"])
+            check_type(argname="argument catalog_name", value=catalog_name, expected_type=type_hints["catalog_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "catalog_name": catalog_name,
+        }
+        if connection_password_encryption is not None:
+            self._values["connection_password_encryption"] = connection_password_encryption
+        if encryption_at_rest is not None:
+            self._values["encryption_at_rest"] = encryption_at_rest
+        if description is not None:
+            self._values["description"] = description
+
+    @builtins.property
+    def connection_password_encryption(
+        self,
+    ) -> typing.Optional["ConnectionPasswordEncryption"]:
+        '''(experimental) Connection-password encryption configuration for the catalog.
+
+        :default: - connection-password encryption is not managed by CDK
+
+        :stability: experimental
+        '''
+        result = self._values.get("connection_password_encryption")
+        return typing.cast(typing.Optional["ConnectionPasswordEncryption"], result)
+
+    @builtins.property
+    def encryption_at_rest(self) -> typing.Optional["DataCatalogEncryptionAtRest"]:
+        '''(experimental) Encryption-at-rest configuration for the catalog.
+
+        :default: - encryption at rest is not managed by CDK (the catalog default applies)
+
+        :stability: experimental
+        '''
+        result = self._values.get("encryption_at_rest")
+        return typing.cast(typing.Optional["DataCatalogEncryptionAtRest"], result)
+
+    @builtins.property
+    def catalog_name(self) -> builtins.str:
+        '''(experimental) The name of the catalog.
+
+        :stability: experimental
+        '''
+        result = self._values.get("catalog_name")
+        assert result is not None, "Required property 'catalog_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) A description of the catalog.
+
+        :default: - no description
+
+        :stability: experimental
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CatalogProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -2182,6 +2564,95 @@ class ConnectionOptions:
 
 
 @jsii.data_type(
+    jsii_type="@aws-cdk/aws-glue-alpha.ConnectionPasswordEncryption",
+    jsii_struct_bases=[],
+    name_mapping={
+        "kms_key": "kmsKey",
+        "return_connection_password_encrypted": "returnConnectionPasswordEncrypted",
+    },
+)
+class ConnectionPasswordEncryption:
+    def __init__(
+        self,
+        *,
+        kms_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
+        return_connection_password_encrypted: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Connection-password encryption configuration for a Glue Data Catalog.
+
+        When enabled, the Data Catalog encrypts the password as part of
+        ``CreateConnection`` or ``UpdateConnection`` and stores it in the
+        ``ENCRYPTED_PASSWORD`` field of the connection properties. This is independent
+        from catalog encryption at rest, and may use a different KMS key.
+
+        :param kms_key: (experimental) The KMS key used to encrypt connection passwords. Default: - an AWS-managed key is used and the key is not exposed as a grantable resource.
+        :param return_connection_password_encrypted: (experimental) Whether passwords remain encrypted in the responses of ``GetConnection`` and ``GetConnections``. This takes effect independently from catalog encryption. Default: true
+
+        :see: https://docs.aws.amazon.com/glue/latest/webapi/API_ConnectionPasswordEncryption.html
+        :stability: experimental
+        :exampleMetadata: infused
+
+        Example::
+
+            # key: kms.Key
+            
+            glue.Catalog.encrypt_account(self,
+                connection_password_encryption=glue.ConnectionPasswordEncryption(
+                    kms_key=key,
+                    # Whether GetConnection/GetConnections return the password encrypted (default: true)
+                    return_connection_password_encrypted=True
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__88081e4af396b2ec8c28e2af396be3dcb3dd4f6084f5ad0e4b01883efdcaec7f)
+            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
+            check_type(argname="argument return_connection_password_encrypted", value=return_connection_password_encrypted, expected_type=type_hints["return_connection_password_encrypted"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if kms_key is not None:
+            self._values["kms_key"] = kms_key
+        if return_connection_password_encrypted is not None:
+            self._values["return_connection_password_encrypted"] = return_connection_password_encrypted
+
+    @builtins.property
+    def kms_key(
+        self,
+    ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
+        '''(experimental) The KMS key used to encrypt connection passwords.
+
+        :default: - an AWS-managed key is used and the key is not exposed as a grantable resource.
+
+        :stability: experimental
+        '''
+        result = self._values.get("kms_key")
+        return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], result)
+
+    @builtins.property
+    def return_connection_password_encrypted(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether passwords remain encrypted in the responses of ``GetConnection`` and ``GetConnections``.
+
+        This takes effect independently from catalog encryption.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("return_connection_password_encrypted")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConnectionPasswordEncryption(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="@aws-cdk/aws-glue-alpha.ConnectionProps",
     jsii_struct_bases=[ConnectionOptions],
     name_mapping={
@@ -2956,6 +3427,110 @@ class CrawlerState(enum.Enum):
     '''
 
 
+class DataCatalogEncryptionAtRest(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-glue-alpha.DataCatalogEncryptionAtRest",
+):
+    '''(experimental) Encryption-at-rest configuration for a Glue Data Catalog.
+
+    The Data Catalog encryption at rest and the connection password encryption
+    are independent: enabling one does not require the other, and each may use a
+    different KMS key.
+
+    :see: https://docs.aws.amazon.com/glue/latest/webapi/API_EncryptionAtRest.html
+    :stability: experimental
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_iam as iam
+        # key: kms.Key
+        # role: iam.IRole
+        
+        glue.Catalog.encrypt_account(self,
+            encryption_at_rest=glue.DataCatalogEncryptionAtRest.kms_with_service_role(role, key)
+        )
+    '''
+
+    @jsii.member(jsii_name="disabled")
+    @builtins.classmethod
+    def disabled(cls) -> "DataCatalogEncryptionAtRest":
+        '''(experimental) Disable encryption at rest for the Data Catalog.
+
+        :stability: experimental
+        '''
+        return typing.cast("DataCatalogEncryptionAtRest", jsii.sinvoke(cls, "disabled", []))
+
+    @jsii.member(jsii_name="kms")
+    @builtins.classmethod
+    def kms(
+        cls,
+        key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+    ) -> "DataCatalogEncryptionAtRest":
+        '''(experimental) Encrypt the Data Catalog at rest with an AWS KMS key.
+
+        :param key: the KMS key to use. If omitted, an AWS-managed key is used and the key is not exposed as a grantable resource.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2e67d66150729d3a1d21e6b214b3b9937871de81ab46af00f3e83ecf24fe8b22)
+            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+        return typing.cast("DataCatalogEncryptionAtRest", jsii.sinvoke(cls, "kms", [key]))
+
+    @jsii.member(jsii_name="kmsWithServiceRole")
+    @builtins.classmethod
+    def kms_with_service_role(
+        cls,
+        role: "_aws_cdk_aws_iam_ceddda9d.IRole",
+        key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+    ) -> "DataCatalogEncryptionAtRest":
+        '''(experimental) Encrypt the Data Catalog at rest with an AWS KMS key, accessed through a service role that AWS Glue assumes on your behalf.
+
+        When a customer-managed ``key`` is provided, the ``role`` is automatically
+        granted ``kms:Encrypt``/``kms:Decrypt``/``kms:GenerateDataKey*`` on it.
+
+        :param role: the service role that AWS Glue assumes to access the key.
+        :param key: the KMS key to use. If omitted, an AWS-managed key is used and the key is not exposed as a grantable resource.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6b86817eec411efa47f1e2dcfb5982cbdc079fb5c41382c6463a998e3e755194)
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+        return typing.cast("DataCatalogEncryptionAtRest", jsii.sinvoke(cls, "kmsWithServiceRole", [role, key]))
+
+    @builtins.property
+    @jsii.member(jsii_name="mode")
+    def mode(self) -> "CatalogEncryptionMode":
+        '''(experimental) The encryption mode.
+
+        :stability: experimental
+        '''
+        return typing.cast("CatalogEncryptionMode", jsii.get(self, "mode"))
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    def kms_key(
+        self,
+    ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
+        '''(experimental) The customer-managed KMS key used for encryption at rest, if any.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], jsii.get(self, "kmsKey"))
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceRole")
+    def service_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
+        '''(experimental) The service role that AWS Glue assumes to access the KMS key, if any.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], jsii.get(self, "serviceRole"))
+
+
 class DataFormat(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.DataFormat",
@@ -3471,6 +4046,7 @@ class DataQualityTargetTable(
     jsii_type="@aws-cdk/aws-glue-alpha.DatabaseProps",
     jsii_struct_bases=[],
     name_mapping={
+        "catalog": "catalog",
         "database_name": "databaseName",
         "description": "description",
         "location_uri": "locationUri",
@@ -3480,11 +4056,13 @@ class DatabaseProps:
     def __init__(
         self,
         *,
+        catalog: typing.Optional["ICatalog"] = None,
         database_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         location_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
+        :param catalog: (experimental) The catalog in which the database will be placed. Default: The default, account-wide catalog.
         :param database_name: (experimental) The name of the database. Default: - generated by CDK.
         :param description: (experimental) A description of the database. Default: - no database description
         :param location_uri: (experimental) The location of the database (for example, an HDFS path). Default: undefined. This field is optional in AWS::Glue::Database DatabaseInput
@@ -3501,16 +4079,30 @@ class DatabaseProps:
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d07df31a9d41958f45422a1d7914c5016d66ed0e46a7e97ab37e2dd3d42ecf38)
+            check_type(argname="argument catalog", value=catalog, expected_type=type_hints["catalog"])
             check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument location_uri", value=location_uri, expected_type=type_hints["location_uri"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if catalog is not None:
+            self._values["catalog"] = catalog
         if database_name is not None:
             self._values["database_name"] = database_name
         if description is not None:
             self._values["description"] = description
         if location_uri is not None:
             self._values["location_uri"] = location_uri
+
+    @builtins.property
+    def catalog(self) -> typing.Optional["ICatalog"]:
+        '''(experimental) The catalog in which the database will be placed.
+
+        :default: The default, account-wide catalog.
+
+        :stability: experimental
+        '''
+        result = self._values.get("catalog")
+        return typing.cast(typing.Optional["ICatalog"], result)
 
     @builtins.property
     def database_name(self) -> typing.Optional[builtins.str]:
@@ -4036,6 +4628,133 @@ class GlueVersion(enum.Enum):
     '''
 
 
+@jsii.interface(jsii_type="@aws-cdk/aws-glue-alpha.ICatalog")
+class ICatalog(
+    _aws_cdk_ceddda9d.IResource,
+    _aws_cdk_interfaces_aws_glue_ceddda9d.ICatalogRef,
+    typing_extensions.Protocol,
+):
+    '''(experimental) A Glue Data Catalog, either the implicit account-wide catalog or one created as an ``AWS::Glue::Catalog`` resource.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="catalogArn")
+    def catalog_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the catalog.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="catalogId")
+    def catalog_id(self) -> builtins.str:
+        '''(experimental) The id of the catalog (for the account-wide catalog, the AWS account id).
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionPasswordKey")
+    def connection_password_key(
+        self,
+    ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
+        '''(experimental) The customer-managed KMS key used to encrypt connection passwords, if one was configured.
+
+        Undefined when password encryption uses an AWS-managed key or is not
+        configured. Grant access to it via ``KeyGrants``, e.g.
+        ``if (catalog.connectionPasswordKey) { KeyGrants.fromKey(catalog.connectionPasswordKey).encrypt(grantee); }``.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionKey")
+    def encryption_key(
+        self,
+    ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
+        '''(experimental) The customer-managed KMS key used for the catalog's encryption at rest, if one was configured.
+
+        Undefined when encryption is disabled or an AWS-managed key is used. Grant
+        access to it via ``KeyGrants``, e.g.
+        ``if (catalog.encryptionKey) { KeyGrants.fromKey(catalog.encryptionKey).encrypt(grantee); }``.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICatalogProxy(
+    jsii.proxy_for(_aws_cdk_ceddda9d.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_interfaces_aws_glue_ceddda9d.ICatalogRef), # type: ignore[misc]
+):
+    '''(experimental) A Glue Data Catalog, either the implicit account-wide catalog or one created as an ``AWS::Glue::Catalog`` resource.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-glue-alpha.ICatalog"
+
+    @builtins.property
+    @jsii.member(jsii_name="catalogArn")
+    def catalog_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the catalog.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "catalogArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="catalogId")
+    def catalog_id(self) -> builtins.str:
+        '''(experimental) The id of the catalog (for the account-wide catalog, the AWS account id).
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "catalogId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionPasswordKey")
+    def connection_password_key(
+        self,
+    ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
+        '''(experimental) The customer-managed KMS key used to encrypt connection passwords, if one was configured.
+
+        Undefined when password encryption uses an AWS-managed key or is not
+        configured. Grant access to it via ``KeyGrants``, e.g.
+        ``if (catalog.connectionPasswordKey) { KeyGrants.fromKey(catalog.connectionPasswordKey).encrypt(grantee); }``.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], jsii.get(self, "connectionPasswordKey"))
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionKey")
+    def encryption_key(
+        self,
+    ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
+        '''(experimental) The customer-managed KMS key used for the catalog's encryption at rest, if one was configured.
+
+        Undefined when encryption is disabled or an AWS-managed key is used. Grant
+        access to it via ``KeyGrants``, e.g.
+        ``if (catalog.encryptionKey) { KeyGrants.fromKey(catalog.encryptionKey).encrypt(grantee); }``.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], jsii.get(self, "encryptionKey"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICatalog).__jsii_proxy_class__ = lambda : _ICatalogProxy
+
+
 @jsii.interface(jsii_type="@aws-cdk/aws-glue-alpha.IConnection")
 class IConnection(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
     '''(experimental) Interface representing a created or an imported ``Connection``.
@@ -4165,18 +4884,9 @@ class IDatabase(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
     '''
 
     @builtins.property
-    @jsii.member(jsii_name="catalogArn")
-    def catalog_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the catalog.
-
-        :stability: experimental
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="catalogId")
-    def catalog_id(self) -> builtins.str:
-        '''(experimental) The catalog id of the database (usually, the AWS account id).
+    @jsii.member(jsii_name="catalog")
+    def catalog(self) -> "ICatalog":
+        '''(experimental) The catalog this database belongs to.
 
         :stability: experimental
         '''
@@ -4213,22 +4923,13 @@ class _IDatabaseProxy(
     __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-glue-alpha.IDatabase"
 
     @builtins.property
-    @jsii.member(jsii_name="catalogArn")
-    def catalog_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the catalog.
+    @jsii.member(jsii_name="catalog")
+    def catalog(self) -> "ICatalog":
+        '''(experimental) The catalog this database belongs to.
 
         :stability: experimental
         '''
-        return typing.cast(builtins.str, jsii.get(self, "catalogArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="catalogId")
-    def catalog_id(self) -> builtins.str:
-        '''(experimental) The catalog id of the database (usually, the AWS account id).
-
-        :stability: experimental
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "catalogId"))
+        return typing.cast("ICatalog", jsii.get(self, "catalog"))
 
     @builtins.property
     @jsii.member(jsii_name="databaseArn")
@@ -12333,6 +13034,164 @@ class AssetCode(
         return typing.cast("CodeConfig", jsii.invoke(self, "bind", [scope, grantable]))
 
 
+@jsii.implements(ICatalog)
+class CatalogBase(
+    _aws_cdk_ceddda9d.Resource,
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="@aws-cdk/aws-glue-alpha.CatalogBase",
+):
+    '''(experimental) Base class for all ``ICatalog`` implementations.
+
+    Materializes the single
+    ``CfnDataCatalogEncryptionSettings`` resource (targeting its own ``catalogId``)
+    from the encryption options supplied at construction. Encryption is fixed at
+    construction, so a catalog either carries settings or it does not.
+
+    :stability: experimental
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        environment_from_arn: typing.Optional[builtins.str] = None,
+        physical_name: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param account: The AWS account ID this resource belongs to. Default: - the resource is in the same account as the stack it belongs to
+        :param environment_from_arn: ARN to deduce region and account from. The ARN is parsed and the account and region are taken from the ARN. This should be used for imported resources. Cannot be supplied together with either ``account`` or ``region``. Default: - take environment from ``account``, ``region`` parameters, or use Stack environment.
+        :param physical_name: The value passed in by users to the physical name prop of the resource. - ``undefined`` implies that a physical name will be allocated by CloudFormation during deployment. - a concrete value implies a specific physical name - ``PhysicalName.GENERATE_IF_NEEDED`` is a marker that indicates that a physical will only be generated by the CDK if it is needed for cross-environment references. Otherwise, it will be allocated by CloudFormation. Default: - The physical name will be allocated by CloudFormation at deployment time
+        :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2531f6397623de5e31caaf088ac73d59867e3a77a10f6e2c8e9b270150d1144f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = _aws_cdk_ceddda9d.ResourceProps(
+            account=account,
+            environment_from_arn=environment_from_arn,
+            physical_name=physical_name,
+            region=region,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="configureEncryption")
+    def _configure_encryption(
+        self,
+        *,
+        connection_password_encryption: typing.Optional[typing.Union["ConnectionPasswordEncryption", typing.Dict[builtins.str, typing.Any]]] = None,
+        encryption_at_rest: typing.Optional["DataCatalogEncryptionAtRest"] = None,
+    ) -> None:
+        '''(experimental) Emit the catalog's encryption settings from the options fixed at construction.
+
+        Subclasses call this once, after ``catalogId``/``catalogArn`` are
+        assigned. When neither block is configured, no resource is emitted, avoiding
+        an empty settings resource that would reset the catalog on deploy.
+
+        :param connection_password_encryption: (experimental) Connection-password encryption configuration for the catalog. Default: - connection-password encryption is not managed by CDK
+        :param encryption_at_rest: (experimental) Encryption-at-rest configuration for the catalog. Default: - encryption at rest is not managed by CDK (the catalog default applies)
+
+        :stability: experimental
+        '''
+        options = CatalogEncryptionOptions(
+            connection_password_encryption=connection_password_encryption,
+            encryption_at_rest=encryption_at_rest,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "configureEncryption", [options]))
+
+    @builtins.property
+    @jsii.member(jsii_name="catalogArn")
+    @abc.abstractmethod
+    def catalog_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the catalog.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="catalogId")
+    @abc.abstractmethod
+    def catalog_id(self) -> builtins.str:
+        '''(experimental) The id of the catalog (for the account-wide catalog, the AWS account id).
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="catalogRef")
+    def catalog_ref(self) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.CatalogReference":
+        '''(experimental) A reference to a Catalog resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_interfaces_aws_glue_ceddda9d.CatalogReference", jsii.get(self, "catalogRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="connectionPasswordKey")
+    def connection_password_key(
+        self,
+    ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
+        '''(experimental) The customer-managed KMS key used to encrypt connection passwords, if one was configured.
+
+        Undefined when password encryption uses an AWS-managed key or is not
+        configured. Grant access to it via ``KeyGrants``, e.g.
+        ``if (catalog.connectionPasswordKey) { KeyGrants.fromKey(catalog.connectionPasswordKey).encrypt(grantee); }``.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], jsii.get(self, "connectionPasswordKey"))
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionKey")
+    def encryption_key(
+        self,
+    ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
+        '''(experimental) The customer-managed KMS key used for the catalog's encryption at rest, if one was configured.
+
+        Undefined when encryption is disabled or an AWS-managed key is used. Grant
+        access to it via ``KeyGrants``, e.g.
+        ``if (catalog.encryptionKey) { KeyGrants.fromKey(catalog.encryptionKey).encrypt(grantee); }``.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], jsii.get(self, "encryptionKey"))
+
+
+class _CatalogBaseProxy(
+    CatalogBase,
+    jsii.proxy_for(_aws_cdk_ceddda9d.Resource), # type: ignore[misc]
+):
+    @builtins.property
+    @jsii.member(jsii_name="catalogArn")
+    def catalog_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the catalog.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "catalogArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="catalogId")
+    def catalog_id(self) -> builtins.str:
+        '''(experimental) The id of the catalog (for the account-wide catalog, the AWS account id).
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "catalogId"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, CatalogBase).__jsii_proxy_class__ = lambda : _CatalogBaseProxy
+
+
 @jsii.implements(IConnection)
 class Connection(
     _aws_cdk_ceddda9d.Resource,
@@ -12868,6 +13727,7 @@ class Database(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
+        catalog: typing.Optional["ICatalog"] = None,
         database_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         location_uri: typing.Optional[builtins.str] = None,
@@ -12875,6 +13735,7 @@ class Database(
         '''
         :param scope: -
         :param id: -
+        :param catalog: (experimental) The catalog in which the database will be placed. Default: The default, account-wide catalog.
         :param database_name: (experimental) The name of the database. Default: - generated by CDK.
         :param description: (experimental) A description of the database. Default: - no database description
         :param location_uri: (experimental) The location of the database (for example, an HDFS path). Default: undefined. This field is optional in AWS::Glue::Database DatabaseInput
@@ -12886,6 +13747,7 @@ class Database(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DatabaseProps(
+            catalog=catalog,
             database_name=database_name,
             description=description,
             location_uri=location_uri,
@@ -12925,22 +13787,16 @@ class Database(
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @builtins.property
-    @jsii.member(jsii_name="catalogArn")
-    def catalog_arn(self) -> builtins.str:
-        '''(experimental) ARN of the Glue catalog in which this database is stored.
+    @jsii.member(jsii_name="catalog")
+    def catalog(self) -> "ICatalog":
+        '''(experimental) The catalog this database belongs to.
+
+        Defaults to the implicit, account-wide catalog, materialized on first
+        access.
 
         :stability: experimental
         '''
-        return typing.cast(builtins.str, jsii.get(self, "catalogArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="catalogId")
-    def catalog_id(self) -> builtins.str:
-        '''(experimental) The catalog id of the database (usually, the AWS account id).
-
-        :stability: experimental
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "catalogId"))
+        return typing.cast("ICatalog", jsii.get(self, "catalog"))
 
     @builtins.property
     @jsii.member(jsii_name="databaseArn")
@@ -19159,6 +20015,214 @@ class Workflow(
         return typing.cast(builtins.str, jsii.get(self, "workflowName"))
 
 
+class Catalog(
+    CatalogBase,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-glue-alpha.Catalog",
+):
+    '''(experimental) A Glue Data Catalog.
+
+    Use ``Catalog.forAccount(scope)`` to obtain the implicit account-wide catalog,
+    ``Catalog.encryptAccount(scope, options)`` to configure its Data Catalog
+    encryption, or ``new Catalog(...)`` to create an ``AWS::Glue::Catalog`` resource.
+
+    :stability: experimental
+    :exampleMetadata: infused
+
+    Example::
+
+        # key: kms.Key
+        
+        glue.Catalog.encrypt_account(self,
+            encryption_at_rest=glue.DataCatalogEncryptionAtRest.kms(key)
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        catalog_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        connection_password_encryption: typing.Optional[typing.Union["ConnectionPasswordEncryption", typing.Dict[builtins.str, typing.Any]]] = None,
+        encryption_at_rest: typing.Optional["DataCatalogEncryptionAtRest"] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param catalog_name: (experimental) The name of the catalog.
+        :param description: (experimental) A description of the catalog. Default: - no description
+        :param connection_password_encryption: (experimental) Connection-password encryption configuration for the catalog. Default: - connection-password encryption is not managed by CDK
+        :param encryption_at_rest: (experimental) Encryption-at-rest configuration for the catalog. Default: - encryption at rest is not managed by CDK (the catalog default applies)
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c2226379aa557de537fa2fe23c511263972348d5899e010d8896897f2d84a98e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CatalogProps(
+            catalog_name=catalog_name,
+            description=description,
+            connection_password_encryption=connection_password_encryption,
+            encryption_at_rest=encryption_at_rest,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="encryptAccount")
+    @builtins.classmethod
+    def encrypt_account(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        *,
+        connection_password_encryption: typing.Optional[typing.Union["ConnectionPasswordEncryption", typing.Dict[builtins.str, typing.Any]]] = None,
+        encryption_at_rest: typing.Optional["DataCatalogEncryptionAtRest"] = None,
+    ) -> "ICatalog":
+        '''(experimental) Configure Data Catalog encryption for the implicit, account-wide catalog and return it.
+
+        The account catalog's encryption is an account/region-wide setting, managed
+        through the singleton ``PutDataCatalogEncryptionSettings`` API. Because
+        encryption is fixed at construction, it must be configured before the
+        account catalog is first used in the stack: calling this after the account
+        catalog has already been materialized (for example by ``Catalog.forAccount``,
+        or by a ``Database`` that uses the account catalog) throws.
+
+        Configure it in exactly one stack. Configuring it from multiple stacks in the
+        same account and region makes those stacks overwrite one another at deploy
+        time, and the result is order-dependent. Unlike duplicate settings within a
+        single stack (which CloudFormation rejects), this cross-stack conflict is not
+        caught at synthesis time, because each stack synthesizes to its own template.
+
+        :param scope: -
+        :param connection_password_encryption: (experimental) Connection-password encryption configuration for the catalog. Default: - connection-password encryption is not managed by CDK
+        :param encryption_at_rest: (experimental) Encryption-at-rest configuration for the catalog. Default: - encryption at rest is not managed by CDK (the catalog default applies)
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6929c02a8180e9d7b79e45cc8afb2c36ac572b4545a3b0cad81c92b226615190)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        options = CatalogEncryptionOptions(
+            connection_password_encryption=connection_password_encryption,
+            encryption_at_rest=encryption_at_rest,
+        )
+
+        return typing.cast("ICatalog", jsii.sinvoke(cls, "encryptAccount", [scope, options]))
+
+    @jsii.member(jsii_name="forAccount")
+    @builtins.classmethod
+    def for_account(cls, scope: "_constructs_77d1e7e8.Construct") -> "ICatalog":
+        '''(experimental) Obtain the implicit, account-wide Data Catalog.
+
+        The account catalog is not a CloudFormation resource; it always exists. This
+        returns a stack-scoped singleton, so repeated calls within the same stack
+        return the same instance.
+
+        This returns the account catalog without managing its encryption. To
+        configure Data Catalog encryption for the account, use
+        ``Catalog.encryptAccount(scope, options)`` instead - it must be called before
+        the account catalog is first used in the stack.
+
+        :param scope: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5bac0eefc27dedfdece3ee33a0da2056aa618abb1b56753418b366fa7d5c6e3d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        return typing.cast("ICatalog", jsii.sinvoke(cls, "forAccount", [scope]))
+
+    @jsii.member(jsii_name="fromCatalogArn")
+    @builtins.classmethod
+    def from_catalog_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        catalog_arn: builtins.str,
+    ) -> "ICatalog":
+        '''(experimental) Import an existing catalog by its ARN.
+
+        The ARN must be a Glue catalog ARN, either the account-wide catalog
+        (``arn:aws:glue:<region>:<account>:catalog``, whose id is the account) or a
+        named catalog (``arn:aws:glue:<region>:<account>:catalog/<name>``, whose id is
+        the name).
+
+        The imported catalog is a pure identity handle and does not manage the
+        catalog's encryption. To manage an existing catalog's Data Catalog
+        encryption, add a ``CfnDataCatalogEncryptionSettings`` resource targeting its
+        id.
+
+        :param scope: -
+        :param id: -
+        :param catalog_arn: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9a7d491de2a1d68627143d599223e96dceba7346df784c8a46837bde2592b6d1)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument catalog_arn", value=catalog_arn, expected_type=type_hints["catalog_arn"])
+        return typing.cast("ICatalog", jsii.sinvoke(cls, "fromCatalogArn", [scope, id, catalog_arn]))
+
+    @jsii.member(jsii_name="fromCatalogId")
+    @builtins.classmethod
+    def from_catalog_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        catalog_id: builtins.str,
+    ) -> "ICatalog":
+        '''(experimental) Import an existing catalog by its id.
+
+        The imported catalog is a pure identity handle and does not manage the
+        catalog's encryption. To manage an existing catalog's Data Catalog
+        encryption, add a ``CfnDataCatalogEncryptionSettings`` resource targeting its
+        id.
+
+        :param scope: -
+        :param id: -
+        :param catalog_id: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4aca1bce64ca7efd22a9b190c3488fa96b7f83b2e8b73d367dec9d39795a6d4d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
+        return typing.cast("ICatalog", jsii.sinvoke(cls, "fromCatalogId", [scope, id, catalog_id]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''(experimental) Uniquely identifies this class.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="catalogArn")
+    def catalog_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the catalog.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "catalogArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="catalogId")
+    def catalog_id(self) -> builtins.str:
+        '''(experimental) The id of the catalog (for the account-wide catalog, the AWS account id).
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "catalogId"))
+
+
 @jsii.data_type(
     jsii_type="@aws-cdk/aws-glue-alpha.ConditionalTriggerOptions",
     jsii_struct_bases=[DailyScheduleTriggerOptions],
@@ -20550,6 +21614,11 @@ class ScalaSparkStreamingJob(
 __all__ = [
     "Action",
     "AssetCode",
+    "Catalog",
+    "CatalogBase",
+    "CatalogEncryptionMode",
+    "CatalogEncryptionOptions",
+    "CatalogProps",
     "ClassificationString",
     "CloudWatchEncryption",
     "CloudWatchEncryptionMode",
@@ -20563,12 +21632,14 @@ __all__ = [
     "ConditionalTriggerOptions",
     "Connection",
     "ConnectionOptions",
+    "ConnectionPasswordEncryption",
     "ConnectionProps",
     "ConnectionType",
     "ContinuousLoggingProps",
     "CrawlerState",
     "CustomScheduledTriggerOptions",
     "DailyScheduleTriggerOptions",
+    "DataCatalogEncryptionAtRest",
     "DataFormat",
     "DataFormatProps",
     "DataQualityRuleset",
@@ -20584,6 +21655,7 @@ __all__ = [
     "ExternalTable",
     "ExternalTableProps",
     "GlueVersion",
+    "ICatalog",
     "IConnection",
     "IDataQualityRuleset",
     "IDatabase",
@@ -20682,6 +21754,24 @@ def _typecheckingstub__e2f4a93f6fef99092c85fff7b69cf437be0c5a98d9e06afa00fb1ae10
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__57f9cf3d5a9fa4dba5b3d40912307d78e239db83a9a75448839bd58a8794107b(
+    *,
+    connection_password_encryption: typing.Optional[typing.Union[ConnectionPasswordEncryption, typing.Dict[builtins.str, typing.Any]]] = None,
+    encryption_at_rest: typing.Optional[DataCatalogEncryptionAtRest] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0029affd895c59edb680ff0f246d0d28f777041ac949387e6ed3c633bfc63f9e(
+    *,
+    connection_password_encryption: typing.Optional[typing.Union[ConnectionPasswordEncryption, typing.Dict[builtins.str, typing.Any]]] = None,
+    encryption_at_rest: typing.Optional[DataCatalogEncryptionAtRest] = None,
+    catalog_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2bfce587a58c2deea97e71eeab8754a97692804f6d43271eda89c6257eaebdfc(
     value: builtins.str,
 ) -> None:
@@ -20766,6 +21856,14 @@ def _typecheckingstub__a1670baf78db937cd3601a16badd87755f3fc525b8fd6a352d45c2bc3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__88081e4af396b2ec8c28e2af396be3dcb3dd4f6084f5ad0e4b01883efdcaec7f(
+    *,
+    kms_key: typing.Optional[_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef] = None,
+    return_connection_password_encrypted: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d3fa037db6ada98c73a1d8889753f75c2f3c7513c8a41daf149dc5769cdb83e8(
     *,
     connection_name: typing.Optional[builtins.str] = None,
@@ -20792,6 +21890,19 @@ def _typecheckingstub__6be4bb41017f52f2aa453e36400fa3a47b2e6bf3a87cf64d46e0345d6
     log_group: typing.Optional[_aws_cdk_aws_logs_ceddda9d.ILogGroup] = None,
     log_stream_prefix: typing.Optional[builtins.str] = None,
     quiet: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e67d66150729d3a1d21e6b214b3b9937871de81ab46af00f3e83ecf24fe8b22(
+    key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b86817eec411efa47f1e2dcfb5982cbdc079fb5c41382c6463a998e3e755194(
+    role: _aws_cdk_aws_iam_ceddda9d.IRole,
+    key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20827,6 +21938,7 @@ def _typecheckingstub__18073ec885df4d5126a63d11958df64b1c8b43f719ce0fd6c6c594b45
 
 def _typecheckingstub__d07df31a9d41958f45422a1d7914c5016d66ed0e46a7e97ab37e2dd3d42ecf38(
     *,
+    catalog: typing.Optional[ICatalog] = None,
     database_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     location_uri: typing.Optional[builtins.str] = None,
@@ -21703,6 +22815,18 @@ def _typecheckingstub__02569161383966e61e7748be2a2760721daf0107762bdf02e3d7b5145
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2531f6397623de5e31caaf088ac73d59867e3a77a10f6e2c8e9b270150d1144f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    account: typing.Optional[builtins.str] = None,
+    environment_from_arn: typing.Optional[builtins.str] = None,
+    physical_name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9e49faf739a72a3e5056a9506838a646b867a4b6b78cad2fc0eb56a8a3a4d314(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -21785,6 +22909,7 @@ def _typecheckingstub__2f4b410df1b0bf1116ce03c0e8a707776efd2f03da87fd718bf64b6a4
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
+    catalog: typing.Optional[ICatalog] = None,
     database_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     location_uri: typing.Optional[builtins.str] = None,
@@ -22371,6 +23496,49 @@ def _typecheckingstub__7a1877b3d7d7ab2c5ddb7cf8f2c83c8d6a4692eae109a3bd5523d35c2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c2226379aa557de537fa2fe23c511263972348d5899e010d8896897f2d84a98e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    catalog_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    connection_password_encryption: typing.Optional[typing.Union[ConnectionPasswordEncryption, typing.Dict[builtins.str, typing.Any]]] = None,
+    encryption_at_rest: typing.Optional[DataCatalogEncryptionAtRest] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6929c02a8180e9d7b79e45cc8afb2c36ac572b4545a3b0cad81c92b226615190(
+    scope: _constructs_77d1e7e8.Construct,
+    *,
+    connection_password_encryption: typing.Optional[typing.Union[ConnectionPasswordEncryption, typing.Dict[builtins.str, typing.Any]]] = None,
+    encryption_at_rest: typing.Optional[DataCatalogEncryptionAtRest] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5bac0eefc27dedfdece3ee33a0da2056aa618abb1b56753418b366fa7d5c6e3d(
+    scope: _constructs_77d1e7e8.Construct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9a7d491de2a1d68627143d599223e96dceba7346df784c8a46837bde2592b6d1(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    catalog_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4aca1bce64ca7efd22a9b190c3488fa96b7f83b2e8b73d367dec9d39795a6d4d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    catalog_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ab9d66fdc68f25e74903c66aafd5ff47580ab1d23718aa6b5cde4731b0412c1b(
     *,
     actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
@@ -22587,5 +23755,5 @@ def _typecheckingstub__1ea5c033f6ebef3ce7a903821d4289a54ea02a63c6adc3dc1b36a567c
     """Type checking stubs"""
     pass
 
-for cls in [IConnection, IDataQualityRuleset, IDatabase, IJob, ISecurityConfiguration, ITable, IWorkflow]:
+for cls in [ICatalog, IConnection, IDataQualityRuleset, IDatabase, IJob, ISecurityConfiguration, ITable, IWorkflow]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

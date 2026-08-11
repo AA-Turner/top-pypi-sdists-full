@@ -309,11 +309,23 @@ class _SideHistogram(PlotWidget):
         margins = self.getDataMargins()
         if self._direction == qt.Qt.Horizontal:
             _, _, vMin, vMax = _utils.addMarginsToLimits(
-                margins, False, False, 0, 0, vMin, vMax
+                margins,
+                self.getXAxis().getScale(),
+                self.getYAxis().getScale(),
+                0,
+                0,
+                vMin,
+                vMax,
             )
         elif self._direction == qt.Qt.Vertical:
             vMin, vMax, _, _ = _utils.addMarginsToLimits(
-                margins, False, False, vMin, vMax, 0, 0
+                margins,
+                self.getXAxis().getScale(),
+                self.getYAxis().getScale(),
+                vMin,
+                vMax,
+                0,
+                0,
             )
         else:
             assert False
@@ -579,6 +591,9 @@ class ImageView(PlotWindow):
             self._cache = result
             self._histoHPlot.setProfileSum(result)
             self._histoVPlot.setProfileSum(result)
+        else:
+            self._histoHPlot.clear()
+            self._histoVPlot.clear()
 
     # Plots event listeners
 

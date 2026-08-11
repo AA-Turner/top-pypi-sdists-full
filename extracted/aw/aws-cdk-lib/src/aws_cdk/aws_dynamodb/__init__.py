@@ -1786,6 +1786,498 @@ class CapacityMode(enum.Enum):
     '''Autoscaled.'''
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_dynamodb_948f46d7.IExportRef)
+class CfnExport(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_dynamodb.CfnExport",
+):
+    '''Represents a completed or in-progress DynamoDB table export to S3.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-export.html
+    :cloudformationResource: AWS::DynamoDB::Export
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_dynamodb as dynamodb
+        
+        cfn_export = dynamodb.CfnExport(self, "MyCfnExport",
+            s3_bucket="s3Bucket",
+            table_arn="tableArn",
+        
+            # the properties below are optional
+            export_format="exportFormat",
+            export_type="exportType",
+            s3_bucket_owner="s3BucketOwner",
+            s3_prefix="s3Prefix",
+            s3_sse_algorithm="s3SseAlgorithm"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        s3_bucket: builtins.str,
+        table_arn: builtins.str,
+        export_format: typing.Optional[builtins.str] = None,
+        export_type: typing.Optional[builtins.str] = None,
+        s3_bucket_owner: typing.Optional[builtins.str] = None,
+        s3_prefix: typing.Optional[builtins.str] = None,
+        s3_sse_algorithm: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::DynamoDB::Export``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param s3_bucket: The name of the Amazon S3 bucket containing the export.
+        :param table_arn: The Amazon Resource Name (ARN) of the table that was exported.
+        :param export_format: The format of the exported data.
+        :param export_type: The type of export that was performed.
+        :param s3_bucket_owner: The ID of the Amazon Web Services account that owns the bucket containing the export.
+        :param s3_prefix: The Amazon S3 bucket prefix used as the file name and path of the exported snapshot.
+        :param s3_sse_algorithm: Type of encryption used on the bucket where export data is stored.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e655098cead4744684d09f3ffc17706150f82bd75c3599498bd69c6b8175e0a4)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnExportProps(
+            s3_bucket=s3_bucket,
+            table_arn=table_arn,
+            export_format=export_format,
+            export_type=export_type,
+            s3_bucket_owner=s3_bucket_owner,
+            s3_prefix=s3_prefix,
+            s3_sse_algorithm=s3_sse_algorithm,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForExport")
+    @builtins.classmethod
+    def arn_for_export(
+        cls,
+        resource: "_aws_dynamodb_948f46d7.IExportRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b030e222f9e3c6689b527e4213b738be098c18d2c50d28b46eddf671b61cc3d6)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForExport", [resource]))
+
+    @jsii.member(jsii_name="isCfnExport")
+    @builtins.classmethod
+    def is_cfn_export(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnExport.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__441a04f4df6cfe37d52d7e98be19ef4fbd36732669c89aa71681a4e4ba1a4480)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnExport", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a1b7b63361eb3fda92b30de3d2d2ec43703116c58e89d8af4e307ca6b9e3dcb6)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__57f9516a22bfc26ff9d7db9d5c93df41f1889314ee2f95f67e93f577f66a5518)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrBilledSizeBytes")
+    def attr_billed_size_bytes(self) -> jsii.Number:
+        '''The billable size of the table export.
+
+        :cloudformationAttribute: BilledSizeBytes
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrBilledSizeBytes"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEndTime")
+    def attr_end_time(self) -> builtins.str:
+        '''The time at which the export task completed, in ISO 8601 format.
+
+        :cloudformationAttribute: EndTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEndTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrExportArn")
+    def attr_export_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the export.
+
+        :cloudformationAttribute: ExportArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrExportArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrExportId")
+    def attr_export_id(self) -> builtins.str:
+        '''The unique identifier of the export.
+
+        :cloudformationAttribute: ExportId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrExportId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrExportManifest")
+    def attr_export_manifest(self) -> builtins.str:
+        '''The name of the manifest file for the export task.
+
+        :cloudformationAttribute: ExportManifest
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrExportManifest"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrExportStatus")
+    def attr_export_status(self) -> builtins.str:
+        '''Export can be in one of the following states: IN_PROGRESS, COMPLETED, or FAILED.
+
+        :cloudformationAttribute: ExportStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrExportStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrExportTime")
+    def attr_export_time(self) -> builtins.str:
+        '''Point in time from which table data was exported, in ISO 8601 format.
+
+        :cloudformationAttribute: ExportTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrExportTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrItemCount")
+    def attr_item_count(self) -> jsii.Number:
+        '''The number of items exported.
+
+        :cloudformationAttribute: ItemCount
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrItemCount"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStartTime")
+    def attr_start_time(self) -> builtins.str:
+        '''The time at which the export task began, in ISO 8601 format.
+
+        :cloudformationAttribute: StartTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStartTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTableId")
+    def attr_table_id(self) -> builtins.str:
+        '''Unique ID of the table that was exported.
+
+        :cloudformationAttribute: TableId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrTableId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTableName")
+    def attr_table_name(self) -> builtins.str:
+        '''The name of the table that was exported.
+
+        :cloudformationAttribute: TableName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrTableName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="exportRef")
+    def export_ref(self) -> "_aws_dynamodb_948f46d7.ExportReference":
+        '''A reference to a Export resource.'''
+        return typing.cast("_aws_dynamodb_948f46d7.ExportReference", jsii.get(self, "exportRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="s3Bucket")
+    def s3_bucket(self) -> builtins.str:
+        '''The name of the Amazon S3 bucket containing the export.'''
+        return typing.cast(builtins.str, jsii.get(self, "s3Bucket"))
+
+    @s3_bucket.setter
+    def s3_bucket(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__711e8f1932d1af472d3f3e5cfa43843b2377a682839324268bf4401e27cf1089)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "s3Bucket", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tableArn")
+    def table_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the table that was exported.'''
+        return typing.cast(builtins.str, jsii.get(self, "tableArn"))
+
+    @table_arn.setter
+    def table_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__94732d495f2c0ebc13fb57c4609c477190a19a569d86aa6e0c7f8668c529334a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tableArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="exportFormat")
+    def export_format(self) -> typing.Optional[builtins.str]:
+        '''The format of the exported data.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "exportFormat"))
+
+    @export_format.setter
+    def export_format(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__14a6f417525d6f43de653ac6e5105b564a601969e8e9e749a43a2ef8f07ca401)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "exportFormat", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="exportType")
+    def export_type(self) -> typing.Optional[builtins.str]:
+        '''The type of export that was performed.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "exportType"))
+
+    @export_type.setter
+    def export_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4666facb93f8d8185a3af0ae8bce30aec39bc9a395a6bbb8c9a4f1d0ac53a818)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "exportType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="s3BucketOwner")
+    def s3_bucket_owner(self) -> typing.Optional[builtins.str]:
+        '''The ID of the Amazon Web Services account that owns the bucket containing the export.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "s3BucketOwner"))
+
+    @s3_bucket_owner.setter
+    def s3_bucket_owner(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b1edc3505bd0781e3b3c0798e7782db892e9a7bfef126b6911f102f1fee0d1a0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "s3BucketOwner", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="s3Prefix")
+    def s3_prefix(self) -> typing.Optional[builtins.str]:
+        '''The Amazon S3 bucket prefix used as the file name and path of the exported snapshot.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "s3Prefix"))
+
+    @s3_prefix.setter
+    def s3_prefix(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a68fdffb1b5a7f622003397c17c4f5c12eb5040f26f7d24e6d449002ac8b0b3d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "s3Prefix", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="s3SseAlgorithm")
+    def s3_sse_algorithm(self) -> typing.Optional[builtins.str]:
+        '''Type of encryption used on the bucket where export data is stored.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "s3SseAlgorithm"))
+
+    @s3_sse_algorithm.setter
+    def s3_sse_algorithm(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d4b3bc876ff10791ad4050408dfc4bad3bf5c08f10a7fe6f7745de5967134aec)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "s3SseAlgorithm", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dynamodb.CfnExportProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "s3_bucket": "s3Bucket",
+        "table_arn": "tableArn",
+        "export_format": "exportFormat",
+        "export_type": "exportType",
+        "s3_bucket_owner": "s3BucketOwner",
+        "s3_prefix": "s3Prefix",
+        "s3_sse_algorithm": "s3SseAlgorithm",
+    },
+)
+class CfnExportProps:
+    def __init__(
+        self,
+        *,
+        s3_bucket: builtins.str,
+        table_arn: builtins.str,
+        export_format: typing.Optional[builtins.str] = None,
+        export_type: typing.Optional[builtins.str] = None,
+        s3_bucket_owner: typing.Optional[builtins.str] = None,
+        s3_prefix: typing.Optional[builtins.str] = None,
+        s3_sse_algorithm: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnExport``.
+
+        :param s3_bucket: The name of the Amazon S3 bucket containing the export.
+        :param table_arn: The Amazon Resource Name (ARN) of the table that was exported.
+        :param export_format: The format of the exported data.
+        :param export_type: The type of export that was performed.
+        :param s3_bucket_owner: The ID of the Amazon Web Services account that owns the bucket containing the export.
+        :param s3_prefix: The Amazon S3 bucket prefix used as the file name and path of the exported snapshot.
+        :param s3_sse_algorithm: Type of encryption used on the bucket where export data is stored.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-export.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_dynamodb as dynamodb
+            
+            cfn_export_props = dynamodb.CfnExportProps(
+                s3_bucket="s3Bucket",
+                table_arn="tableArn",
+            
+                # the properties below are optional
+                export_format="exportFormat",
+                export_type="exportType",
+                s3_bucket_owner="s3BucketOwner",
+                s3_prefix="s3Prefix",
+                s3_sse_algorithm="s3SseAlgorithm"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e16dd1347b013646fabb02c49ecb4f710a6a222a89ac2f655ce7bbb714914cd1)
+            check_type(argname="argument s3_bucket", value=s3_bucket, expected_type=type_hints["s3_bucket"])
+            check_type(argname="argument table_arn", value=table_arn, expected_type=type_hints["table_arn"])
+            check_type(argname="argument export_format", value=export_format, expected_type=type_hints["export_format"])
+            check_type(argname="argument export_type", value=export_type, expected_type=type_hints["export_type"])
+            check_type(argname="argument s3_bucket_owner", value=s3_bucket_owner, expected_type=type_hints["s3_bucket_owner"])
+            check_type(argname="argument s3_prefix", value=s3_prefix, expected_type=type_hints["s3_prefix"])
+            check_type(argname="argument s3_sse_algorithm", value=s3_sse_algorithm, expected_type=type_hints["s3_sse_algorithm"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "s3_bucket": s3_bucket,
+            "table_arn": table_arn,
+        }
+        if export_format is not None:
+            self._values["export_format"] = export_format
+        if export_type is not None:
+            self._values["export_type"] = export_type
+        if s3_bucket_owner is not None:
+            self._values["s3_bucket_owner"] = s3_bucket_owner
+        if s3_prefix is not None:
+            self._values["s3_prefix"] = s3_prefix
+        if s3_sse_algorithm is not None:
+            self._values["s3_sse_algorithm"] = s3_sse_algorithm
+
+    @builtins.property
+    def s3_bucket(self) -> builtins.str:
+        '''The name of the Amazon S3 bucket containing the export.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-export.html#cfn-dynamodb-export-s3bucket
+        '''
+        result = self._values.get("s3_bucket")
+        assert result is not None, "Required property 's3_bucket' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def table_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the table that was exported.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-export.html#cfn-dynamodb-export-tablearn
+        '''
+        result = self._values.get("table_arn")
+        assert result is not None, "Required property 'table_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def export_format(self) -> typing.Optional[builtins.str]:
+        '''The format of the exported data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-export.html#cfn-dynamodb-export-exportformat
+        '''
+        result = self._values.get("export_format")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def export_type(self) -> typing.Optional[builtins.str]:
+        '''The type of export that was performed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-export.html#cfn-dynamodb-export-exporttype
+        '''
+        result = self._values.get("export_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def s3_bucket_owner(self) -> typing.Optional[builtins.str]:
+        '''The ID of the Amazon Web Services account that owns the bucket containing the export.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-export.html#cfn-dynamodb-export-s3bucketowner
+        '''
+        result = self._values.get("s3_bucket_owner")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def s3_prefix(self) -> typing.Optional[builtins.str]:
+        '''The Amazon S3 bucket prefix used as the file name and path of the exported snapshot.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-export.html#cfn-dynamodb-export-s3prefix
+        '''
+        result = self._values.get("s3_prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def s3_sse_algorithm(self) -> typing.Optional[builtins.str]:
+        '''Type of encryption used on the bucket where export data is stored.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-export.html#cfn-dynamodb-export-s3ssealgorithm
+        '''
+        result = self._values.get("s3_sse_algorithm")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnExportProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_dynamodb_948f46d7.IGlobalTableRef)
 class CfnGlobalTable(
     _aws_cdk_0cae9daa.CfnResource,
@@ -4353,7 +4845,7 @@ class CfnGlobalTable(
         def __init__(
             self,
             *,
-            resource_policy: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.ResourcePolicyProperty", typing.Dict[builtins.str, typing.Any]]],
+            resource_policy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnGlobalTable.ResourcePolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Represents the DynamoDB Streams configuration for a global table replica.
 
@@ -4379,14 +4871,14 @@ class CfnGlobalTable(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__00848a241dcb74d0918fbddda5f7ccf1c445a7b63583f8697e2d95d334aa1bed)
                 check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "resource_policy": resource_policy,
-            }
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if resource_policy is not None:
+                self._values["resource_policy"] = resource_policy
 
         @builtins.property
         def resource_policy(
             self,
-        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalTable.ResourcePolicyProperty"]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalTable.ResourcePolicyProperty"]]:
             '''A resource-based policy document that contains the permissions for the specified stream of a DynamoDB global table replica.
 
             Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource.
@@ -4398,8 +4890,7 @@ class CfnGlobalTable(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicastreamspecification.html#cfn-dynamodb-globaltable-replicastreamspecification-resourcepolicy
             '''
             result = self._values.get("resource_policy")
-            assert result is not None, "Required property 'resource_policy' is missing"
-            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalTable.ResourcePolicyProperty"], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnGlobalTable.ResourcePolicyProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5619,337 +6110,6 @@ class CfnGlobalTableProps:
 
     def __repr__(self) -> str:
         return "CfnGlobalTableProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_dynamodb_948f46d7.IStreamRef)
-class CfnStream(
-    _aws_cdk_0cae9daa.CfnResource,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_dynamodb.CfnStream",
-):
-    '''Resource Type definition for AWS::DynamoDB::Stream.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-stream.html
-    :cloudformationResource: AWS::DynamoDB::Stream
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_dynamodb as dynamodb
-        
-        cfn_stream = dynamodb.CfnStream(self, "MyCfnStream",
-            stream_view_type="streamViewType",
-            table_name="tableName"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        *,
-        stream_view_type: typing.Optional[builtins.str] = None,
-        table_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Create a new ``AWS::DynamoDB::Stream``.
-
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param stream_view_type: 
-        :param table_name: 
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__fec2f06ab6db659c506a1fbea31889703b0f388f00a988ca642d9bc90f79155d)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnStreamProps(
-            stream_view_type=stream_view_type, table_name=table_name
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="arnForStream")
-    @builtins.classmethod
-    def arn_for_stream(
-        cls,
-        resource: "_aws_dynamodb_948f46d7.IStreamRef",
-    ) -> builtins.str:
-        '''
-        :param resource: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__294bae59e01fa5a4c63dbfc2c3f1a84aa756c10af3c768bd39b77e4a3fc6e351)
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForStream", [resource]))
-
-    @jsii.member(jsii_name="isCfnStream")
-    @builtins.classmethod
-    def is_cfn_stream(cls, x: typing.Any) -> builtins.bool:
-        '''Checks whether the given object is a CfnStream.
-
-        :param x: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__9a8b5e6ac45e543fabcb500327acffab6502f5a1633e04d0d1233ba7d9a6c53b)
-            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
-        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnStream", [x]))
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__429594d081e81c46f1cc4c1ddcfbf5393f03755752d13ff0c7097d2af92df976)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__69bc99ea5091bda97cb1a96ee7d2b4d25c91cb8cba3cbd36391091aea8e6878b)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrCreationRequestDateTime")
-    def attr_creation_request_date_time(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: CreationRequestDateTime
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrCreationRequestDateTime"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrKeySchema")
-    def attr_key_schema(self) -> "_aws_cdk_0cae9daa.IResolvable":
-        '''
-        :cloudformationAttribute: KeySchema
-        '''
-        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrKeySchema"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStreamArn")
-    def attr_stream_arn(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: StreamArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStreamArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStreamLabel")
-    def attr_stream_label(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: StreamLabel
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStreamLabel"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStreamStatus")
-    def attr_stream_status(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: StreamStatus
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStreamStatus"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnPropertyNames")
-    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
-        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
-
-    @builtins.property
-    @jsii.member(jsii_name="streamRef")
-    def stream_ref(self) -> "_aws_dynamodb_948f46d7.StreamReference":
-        '''A reference to a Stream resource.'''
-        return typing.cast("_aws_dynamodb_948f46d7.StreamReference", jsii.get(self, "streamRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="streamViewType")
-    def stream_view_type(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "streamViewType"))
-
-    @stream_view_type.setter
-    def stream_view_type(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__9c8ab898453b2a12c842f3e622423c9ba136b64031fd3a2c0160547106b1db17)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "streamViewType", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tableName")
-    def table_name(self) -> typing.Optional[builtins.str]:
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tableName"))
-
-    @table_name.setter
-    def table_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__e3644ed994a9f0cda9bd879fdebeb9550c661dd9400ca06ff1ec18f08fc5bbf6)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tableName", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_dynamodb.CfnStream.KeySchemaItemsProperty",
-        jsii_struct_bases=[],
-        name_mapping={"attribute_name": "attributeName", "key_type": "keyType"},
-    )
-    class KeySchemaItemsProperty:
-        def __init__(
-            self,
-            *,
-            attribute_name: builtins.str,
-            key_type: builtins.str,
-        ) -> None:
-            '''
-            :param attribute_name: 
-            :param key_type: 
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-stream-keyschemaitems.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_dynamodb as dynamodb
-                
-                key_schema_items_property = dynamodb.CfnStream.KeySchemaItemsProperty(
-                    attribute_name="attributeName",
-                    key_type="keyType"
-                )
-            '''
-            if __debug__:
-                type_hints = cached_type_hints(_typecheckingstub__a199c343ac9fb42f470add7875c3b928827c189b88cf96e83e2cd0125ca599af)
-                check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
-                check_type(argname="argument key_type", value=key_type, expected_type=type_hints["key_type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "attribute_name": attribute_name,
-                "key_type": key_type,
-            }
-
-        @builtins.property
-        def attribute_name(self) -> builtins.str:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-stream-keyschemaitems.html#cfn-dynamodb-stream-keyschemaitems-attributename
-            '''
-            result = self._values.get("attribute_name")
-            assert result is not None, "Required property 'attribute_name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def key_type(self) -> builtins.str:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-stream-keyschemaitems.html#cfn-dynamodb-stream-keyschemaitems-keytype
-            '''
-            result = self._values.get("key_type")
-            assert result is not None, "Required property 'key_type' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "KeySchemaItemsProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dynamodb.CfnStreamProps",
-    jsii_struct_bases=[],
-    name_mapping={"stream_view_type": "streamViewType", "table_name": "tableName"},
-)
-class CfnStreamProps:
-    def __init__(
-        self,
-        *,
-        stream_view_type: typing.Optional[builtins.str] = None,
-        table_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnStream``.
-
-        :param stream_view_type: 
-        :param table_name: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-stream.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dynamodb as dynamodb
-            
-            cfn_stream_props = dynamodb.CfnStreamProps(
-                stream_view_type="streamViewType",
-                table_name="tableName"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__9aad372182c3b45da59410ffc07151f522629530e9ec3f4e8df4199ad64e6f0a)
-            check_type(argname="argument stream_view_type", value=stream_view_type, expected_type=type_hints["stream_view_type"])
-            check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if stream_view_type is not None:
-            self._values["stream_view_type"] = stream_view_type
-        if table_name is not None:
-            self._values["table_name"] = table_name
-
-    @builtins.property
-    def stream_view_type(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-stream.html#cfn-dynamodb-stream-streamviewtype
-        '''
-        result = self._values.get("stream_view_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def table_name(self) -> typing.Optional[builtins.str]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-stream.html#cfn-dynamodb-stream-tablename
-        '''
-        result = self._values.get("table_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnStreamProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -19930,10 +20090,10 @@ __all__ = [
     "BillingMode",
     "Capacity",
     "CapacityMode",
+    "CfnExport",
+    "CfnExportProps",
     "CfnGlobalTable",
     "CfnGlobalTableProps",
-    "CfnStream",
-    "CfnStreamProps",
     "CfnTable",
     "CfnTableProps",
     "ContributorInsightsMode",
@@ -20009,6 +20169,100 @@ def _typecheckingstub__8184df58a5f51e9525db89c0fed31f12beb54c46c7be7ea4051e6eb78
 
 def _typecheckingstub__ac96235cd17326a35c953f2d45a5b2b8c2323302d2f4fad1870f10eb1ec6d5e2(
     iops: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e655098cead4744684d09f3ffc17706150f82bd75c3599498bd69c6b8175e0a4(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    s3_bucket: builtins.str,
+    table_arn: builtins.str,
+    export_format: typing.Optional[builtins.str] = None,
+    export_type: typing.Optional[builtins.str] = None,
+    s3_bucket_owner: typing.Optional[builtins.str] = None,
+    s3_prefix: typing.Optional[builtins.str] = None,
+    s3_sse_algorithm: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b030e222f9e3c6689b527e4213b738be098c18d2c50d28b46eddf671b61cc3d6(
+    resource: _aws_dynamodb_948f46d7.IExportRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__441a04f4df6cfe37d52d7e98be19ef4fbd36732669c89aa71681a4e4ba1a4480(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1b7b63361eb3fda92b30de3d2d2ec43703116c58e89d8af4e307ca6b9e3dcb6(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__57f9516a22bfc26ff9d7db9d5c93df41f1889314ee2f95f67e93f577f66a5518(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__711e8f1932d1af472d3f3e5cfa43843b2377a682839324268bf4401e27cf1089(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94732d495f2c0ebc13fb57c4609c477190a19a569d86aa6e0c7f8668c529334a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__14a6f417525d6f43de653ac6e5105b564a601969e8e9e749a43a2ef8f07ca401(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4666facb93f8d8185a3af0ae8bce30aec39bc9a395a6bbb8c9a4f1d0ac53a818(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b1edc3505bd0781e3b3c0798e7782db892e9a7bfef126b6911f102f1fee0d1a0(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a68fdffb1b5a7f622003397c17c4f5c12eb5040f26f7d24e6d449002ac8b0b3d(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d4b3bc876ff10791ad4050408dfc4bad3bf5c08f10a7fe6f7745de5967134aec(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e16dd1347b013646fabb02c49ecb4f710a6a222a89ac2f655ce7bbb714914cd1(
+    *,
+    s3_bucket: builtins.str,
+    table_arn: builtins.str,
+    export_format: typing.Optional[builtins.str] = None,
+    export_type: typing.Optional[builtins.str] = None,
+    s3_bucket_owner: typing.Optional[builtins.str] = None,
+    s3_prefix: typing.Optional[builtins.str] = None,
+    s3_sse_algorithm: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20320,7 +20574,7 @@ def _typecheckingstub__912e2bc047b1f65121a39316718e5632909682a5243ef8e21ead42e3e
 
 def _typecheckingstub__00848a241dcb74d0918fbddda5f7ccf1c445a7b63583f8697e2d95d334aa1bed(
     *,
-    resource_policy: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.ResourcePolicyProperty, typing.Dict[builtins.str, typing.Any]]],
+    resource_policy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.ResourcePolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20407,68 +20661,6 @@ def _typecheckingstub__ca0383ad91536c26961e85e52a3e6a3d2d74db3c4d430cbbe3d9f42e2
     warm_throughput: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.WarmThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     write_on_demand_throughput_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.WriteOnDemandThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     write_provisioned_throughput_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGlobalTable.WriteProvisionedThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__fec2f06ab6db659c506a1fbea31889703b0f388f00a988ca642d9bc90f79155d(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    stream_view_type: typing.Optional[builtins.str] = None,
-    table_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__294bae59e01fa5a4c63dbfc2c3f1a84aa756c10af3c768bd39b77e4a3fc6e351(
-    resource: _aws_dynamodb_948f46d7.IStreamRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9a8b5e6ac45e543fabcb500327acffab6502f5a1633e04d0d1233ba7d9a6c53b(
-    x: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__429594d081e81c46f1cc4c1ddcfbf5393f03755752d13ff0c7097d2af92df976(
-    inspector: _aws_cdk_0cae9daa.TreeInspector,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__69bc99ea5091bda97cb1a96ee7d2b4d25c91cb8cba3cbd36391091aea8e6878b(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9c8ab898453b2a12c842f3e622423c9ba136b64031fd3a2c0160547106b1db17(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e3644ed994a9f0cda9bd879fdebeb9550c661dd9400ca06ff1ec18f08fc5bbf6(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a199c343ac9fb42f470add7875c3b928827c189b88cf96e83e2cd0125ca599af(
-    *,
-    attribute_name: builtins.str,
-    key_type: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9aad372182c3b45da59410ffc07151f522629530e9ec3f4e8df4199ad64e6f0a(
-    *,
-    stream_view_type: typing.Optional[builtins.str] = None,
-    table_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

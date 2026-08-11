@@ -42,6 +42,7 @@ class JSONContent(BaseModel):
 
     @field_validator("type")
     def type_validate_enum(cls, v):
+
         if v not in ("json"):
             raise ValueError("must validate the enum values ('json')")
         return v

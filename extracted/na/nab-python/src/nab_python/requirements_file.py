@@ -2,23 +2,23 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING
 
 import tomli
 
 from nab_resolver.errors import ResolutionError
 
-from ._conflict_kind import dependency_marker_holds
+from ._conflict_kind import dependency_marker_holds, marker_set
 from ._vendor.packaging.dependency_groups import resolve_dependency_groups
 from ._vendor.packaging.errors import ExceptionGroup
 from ._vendor.packaging.markers import Marker
-from ._vendor.packaging.markersets import MarkerSet
-from ._vendor.packaging.requirements import InvalidRequirement, Requirement
-from ._vendor.packaging.utils import InvalidName, canonicalize_name
+from ._vendor.packaging.requirements import Requirement
+from ._vendor.packaging.utils import canonicalize_name
+from .metadata import validate_specifier_versions
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Iterator
     from pathlib import Path
 
     from ._vendor.packaging.ranges import VersionRange
@@ -29,11 +29,15 @@ __all__ = [
     "expand_extra_requirements",
     "expand_group_includes",
     "expand_self_extras",
+    "parse_project_requirement",
+    "parse_requirements",
     "raise_for_unsatisfiable",
+    "read_pyproject_build_requires",
     "read_pyproject_dependencies",
     "read_pyproject_groups",
     "read_pyproject_name",
     "read_pyproject_optional_dependencies",
+    "require_string_list",
     "resolve_groups_to_requirements",
     "self_extra_markers",
 ]
@@ -51,15 +55,6 @@ class InvalidProjectTableError(TypeError):
     specifically so an unrelated internal ``TypeError`` is not mislabelled
     as a user-file error.
     """
-
-
-def _parse_requirements(strings: Sequence[str], source: str) -> list[Requirement]:
-    """Parse PEP 508 strings, naming ``source`` if one is malformed."""
-    try:
-        return [Requirement(s) for s in strings]
-    except InvalidRequirement as exc:
-        msg = f"invalid requirement in {source}: {exc}"
-        raise InvalidProjectRequirementError(msg) from exc
 
 
 def _add_extra_marker(dep_str: str, extra_name: str) -> str:
@@ -86,25 +81,33 @@ def _add_extra_marker(dep_str: str, extra_name: str) -> str:
     return f"{req} ; {marker}"
 
 
-def _parse_project_requirement(
+def parse_project_requirement(
     dep_str: str, source: str, *, extra: str | None = None
 ) -> Requirement:
     """Parse one PEP 508 dependency string, raising if it is malformed.
 
     An ``extra`` name is folded in as an ``extra == "name"`` marker. A string
-    that is not valid PEP 508 raises :class:`InvalidProjectRequirementError`,
-    so a candidate declaring one malformed dependency is rejected whole rather
+    that is not valid PEP 508, or one whose specifier carries a version that
+    will not convert, raises :class:`InvalidProjectRequirementError`, so a
+    candidate declaring one malformed dependency is rejected whole rather
     than resolved with the dependency silently dropped.
     """
     try:
         text = _add_extra_marker(dep_str, extra) if extra is not None else dep_str
-        return Requirement(text)
-    except (InvalidRequirement, InvalidName) as exc:
+        req = Requirement(text)
+        validate_specifier_versions(req.specifier)
+    except ValueError as exc:
         msg = f"invalid requirement in {source}: {exc}"
         raise InvalidProjectRequirementError(msg) from exc
+    return req
 
 
-def _require_string_list(value: object, source: str) -> list[str]:
+def parse_requirements(strings: Sequence[str], source: str) -> list[Requirement]:
+    """Parse PEP 508 strings, naming ``source`` if one is malformed."""
+    return [parse_project_requirement(s, source) for s in strings]
+
+
+def require_string_list(value: object, source: str) -> list[str]:
     """Validate that a PEP 621 dependency value is an array of strings.
 
     A bare string passes the type checker as ``Sequence[str]`` but
@@ -164,8 +167,46 @@ def read_pyproject_dependencies(path: Path) -> list[Requirement]:
                 " path does not support"
             )
             raise InvalidProjectRequirementError(msg)
-    dep_strings = _require_string_list(project.get("dependencies", []), source)
-    return _parse_requirements(dep_strings, source)
+    dep_strings = require_string_list(project.get("dependencies", []), source)
+    return parse_requirements(dep_strings, source)
+
+
+def read_pyproject_build_requires(path: Path) -> list[Requirement]:
+    """Read [build-system].requires from a pyproject.toml file (PEP 518).
+
+    A project that declares no ``[build-system]`` gets no fallback to the
+    PEP 517 default backend: pinning an implied ``setuptools`` would put a
+    build requirement in the lock that the project never asked for.
+    Absent ``[build-system]`` and a table without the mandatory
+    ``requires`` key both raise
+    :class:`InvalidProjectRequirementError`; a ``[build-system]`` that is
+    not a table raises :class:`InvalidProjectTableError`.
+
+    Only the static list is read.  What a backend adds from
+    ``get_requires_for_build_wheel`` is known only once that backend runs,
+    and nothing runs this project's own backend to find out.
+    """
+    with path.open("rb") as f:
+        data = tomli.load(f)
+
+    if "build-system" not in data:
+        msg = (
+            f"{path} declares no [build-system], so it has no build"
+            " requirements to lock"
+        )
+        raise InvalidProjectRequirementError(msg)
+
+    table = data["build-system"]
+    if not isinstance(table, dict):
+        msg = f"[build-system] must be a table, got {type(table).__name__}"
+        raise InvalidProjectTableError(msg)
+
+    source = "[build-system].requires"
+    if "requires" not in table:
+        msg = f"{source} is required by PEP 518 and {path} does not declare it"
+        raise InvalidProjectRequirementError(msg)
+
+    return parse_requirements(require_string_list(table["requires"], source), source)
 
 
 def read_pyproject_name(path: Path) -> str | None:
@@ -205,7 +246,7 @@ def _canonicalize_optional_deps(
     for name, reqs in optional_deps.items():
         source = f"[project.optional-dependencies] extra {name!r}"
         canonical.setdefault(canonicalize_name(name), []).extend(
-            _require_string_list(reqs, source)
+            require_string_list(reqs, source)
         )
     return canonical
 
@@ -338,7 +379,7 @@ def _environment_residual(marker: Marker, extra: str) -> str | bool:
     extra``) is kept as a residual atom over the target's own value rather
     than decided against the machine running nab.
     """
-    residual = MarkerSet.from_marker(marker).restrict(
+    residual = marker_set(marker).restrict(
         {"extra": frozenset({extra})}, on_unknown_variable="residual"
     )
 
@@ -390,7 +431,7 @@ def expand_extra_requirements(
                 f" [project.optional-dependencies]; defined: {sorted(canonical_deps)!r}"
             )
             raise LookupError(msg)
-        for req in _parse_requirements(
+        for req in parse_requirements(
             canonical_deps[extra],
             f"[project.optional-dependencies] extra {extra!r}",
         ):
@@ -439,10 +480,15 @@ def expand_group_includes(
 
     Unknown or cyclic includes are tolerated here;
     :func:`resolve_groups_to_requirements` raises on them when the
-    requirements themselves are loaded.
+    requirements themselves are loaded.  A group whose value is not a
+    list is skipped, and the loader reports it when that group is
+    selected.
     """
     canonical_groups: dict[str, list[str | Mapping[str, str]]] = {}
     for name, entries in groups.items():
+        # str is a Sequence, so a bare string would expand into characters.
+        if isinstance(entries, str) or not isinstance(entries, Sequence):
+            continue
         canonical_groups.setdefault(canonicalize_name(name), []).extend(entries)
 
     out: list[str] = []
@@ -506,7 +552,7 @@ def resolve_groups_to_requirements(
             raise LookupError(detail) from group
         msg = f"invalid [dependency-groups]: {detail}"
         raise InvalidProjectRequirementError(msg) from group
-    return [Requirement(s) for s in resolved]
+    return parse_requirements(resolved, "[dependency-groups]")
 
 
 def raise_for_unsatisfiable(

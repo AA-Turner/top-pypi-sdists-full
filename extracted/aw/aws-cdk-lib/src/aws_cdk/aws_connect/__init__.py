@@ -2545,6 +2545,273 @@ class CfnContactFlowVersionProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_connect_b79b68b2.IDataLakeAssociationRef)
+class CfnDataLakeAssociation(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_connect.CfnDataLakeAssociation",
+):
+    '''Resource schema for AWS::Connect::DataLakeAssociation.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datalakeassociation.html
+    :cloudformationResource: AWS::Connect::DataLakeAssociation
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_connect as connect
+        
+        cfn_data_lake_association = connect.CfnDataLakeAssociation(self, "MyCfnDataLakeAssociation",
+            data_set_id="dataSetId",
+            instance_id="instanceId",
+        
+            # the properties below are optional
+            target_account_id="targetAccountId"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        data_set_id: builtins.str,
+        instance_id: builtins.str,
+        target_account_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::Connect::DataLakeAssociation``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param data_set_id: The identifier of the analytics data set.
+        :param instance_id: The identifier of the Amazon Connect instance.
+        :param target_account_id: The identifier of the target account.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2c2c5c52784d83d64ceaf4b1456d5b9d3972d6f595b2d9503ed2a604b0e5a58e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDataLakeAssociationProps(
+            data_set_id=data_set_id,
+            instance_id=instance_id,
+            target_account_id=target_account_id,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnDataLakeAssociation")
+    @builtins.classmethod
+    def is_cfn_data_lake_association(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDataLakeAssociation.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__025355eebbca9acf1cb69af1934b94af58c05721de270d4429911e4043c90455)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDataLakeAssociation", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9db9d9ce8ee04a6b0c3d10b3333342dcc22ea316e727492f28717ce5371228b4)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d0bfde17ae42344279c0cf25aa3216fea76145437d04e94d8adfced8d249d1b0)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResourceShareArn")
+    def attr_resource_share_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the AWS Resource Access Manager share.
+
+        :cloudformationAttribute: ResourceShareArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResourceShareArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResourceShareId")
+    def attr_resource_share_id(self) -> builtins.str:
+        '''The AWS Resource Access Manager share ID.
+
+        :cloudformationAttribute: ResourceShareId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResourceShareId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dataLakeAssociationRef")
+    def data_lake_association_ref(
+        self,
+    ) -> "_aws_connect_b79b68b2.DataLakeAssociationReference":
+        '''A reference to a DataLakeAssociation resource.'''
+        return typing.cast("_aws_connect_b79b68b2.DataLakeAssociationReference", jsii.get(self, "dataLakeAssociationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dataSetId")
+    def data_set_id(self) -> builtins.str:
+        '''The identifier of the analytics data set.'''
+        return typing.cast(builtins.str, jsii.get(self, "dataSetId"))
+
+    @data_set_id.setter
+    def data_set_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3a7f1315db6e6cf06064519dcc3e844e2a23760e363316083e6c7798cce4b42f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dataSetId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceId")
+    def instance_id(self) -> builtins.str:
+        '''The identifier of the Amazon Connect instance.'''
+        return typing.cast(builtins.str, jsii.get(self, "instanceId"))
+
+    @instance_id.setter
+    def instance_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f74cbdb6fe71703c2a02701e77c5f17b3a5a0a24ad44d3703839d53f2fd0405a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instanceId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="targetAccountId")
+    def target_account_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the target account.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "targetAccountId"))
+
+    @target_account_id.setter
+    def target_account_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7220f580d648bb76f64834fe80dbaea120d4f95dd7e036b73ef4865c81214357)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetAccountId", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnDataLakeAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "data_set_id": "dataSetId",
+        "instance_id": "instanceId",
+        "target_account_id": "targetAccountId",
+    },
+)
+class CfnDataLakeAssociationProps:
+    def __init__(
+        self,
+        *,
+        data_set_id: builtins.str,
+        instance_id: builtins.str,
+        target_account_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDataLakeAssociation``.
+
+        :param data_set_id: The identifier of the analytics data set.
+        :param instance_id: The identifier of the Amazon Connect instance.
+        :param target_account_id: The identifier of the target account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datalakeassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_data_lake_association_props = connect.CfnDataLakeAssociationProps(
+                data_set_id="dataSetId",
+                instance_id="instanceId",
+            
+                # the properties below are optional
+                target_account_id="targetAccountId"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b4dc9053bcdaf310c913584e8fb253a814de8e7893480bda0123a9caf63a139a)
+            check_type(argname="argument data_set_id", value=data_set_id, expected_type=type_hints["data_set_id"])
+            check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
+            check_type(argname="argument target_account_id", value=target_account_id, expected_type=type_hints["target_account_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_set_id": data_set_id,
+            "instance_id": instance_id,
+        }
+        if target_account_id is not None:
+            self._values["target_account_id"] = target_account_id
+
+    @builtins.property
+    def data_set_id(self) -> builtins.str:
+        '''The identifier of the analytics data set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datalakeassociation.html#cfn-connect-datalakeassociation-datasetid
+        '''
+        result = self._values.get("data_set_id")
+        assert result is not None, "Required property 'data_set_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instance_id(self) -> builtins.str:
+        '''The identifier of the Amazon Connect instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datalakeassociation.html#cfn-connect-datalakeassociation-instanceid
+        '''
+        result = self._values.get("instance_id")
+        assert result is not None, "Required property 'instance_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def target_account_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the target account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datalakeassociation.html#cfn-connect-datalakeassociation-targetaccountid
+        '''
+        result = self._values.get("target_account_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDataLakeAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_connect_b79b68b2.IDataTableRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnDataTable(
     _aws_cdk_0cae9daa.CfnResource,
@@ -2567,16 +2834,18 @@ class CfnDataTable(
         from aws_cdk import aws_connect as connect
         
         cfn_data_table = connect.CfnDataTable(self, "MyCfnDataTable",
-            description="description",
             instance_arn="instanceArn",
             name="name",
             status="status",
+            time_zone="timeZone",
+            value_lock_level="valueLockLevel",
+        
+            # the properties below are optional
+            description="description",
             tags=[CfnTag(
                 key="key",
                 value="value"
-            )],
-            time_zone="timeZone",
-            value_lock_level="valueLockLevel"
+            )]
         )
     '''
 
@@ -2585,38 +2854,38 @@ class CfnDataTable(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
+        instance_arn: builtins.str,
+        name: builtins.str,
+        status: builtins.str,
+        time_zone: builtins.str,
+        value_lock_level: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        instance_arn: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        status: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
-        time_zone: typing.Optional[builtins.str] = None,
-        value_lock_level: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::Connect::DataTable``.
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param description: An optional description of the data table's purpose and contents.
         :param instance_arn: The Amazon Resource Name (ARN) of the instance.
         :param name: The human-readable name of the data table. Must be unique within the instance and conform to Connect naming standards.
         :param status: The current status of the data table. One of PUBLISHED or SAVED.
-        :param tags: Key-value pairs for attribute based access control (TBAC or ABAC) and organization.
         :param time_zone: The IANA timezone identifier used when resolving time based dynamic values. Required even if no time slices are specified.
         :param value_lock_level: The data level that concurrent value edits are locked on. One of DATA_TABLE, PRIMARY_VALUE, ATTRIBUTE, VALUE, and NONE. Determines how concurrent edits are handled when multiple users attempt to modify values simultaneously.
+        :param description: An optional description of the data table's purpose and contents.
+        :param tags: Key-value pairs for attribute based access control (TBAC or ABAC) and organization.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a6aed0c5623ad6089847176411ac261d6c09c806ff725cea37325c3d5b4ae88a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDataTableProps(
-            description=description,
             instance_arn=instance_arn,
             name=name,
             status=status,
-            tags=tags,
             time_zone=time_zone,
             value_lock_level=value_lock_level,
+            description=description,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -2747,6 +3016,71 @@ class CfnDataTable(
         return typing.cast("_aws_connect_b79b68b2.DataTableReference", jsii.get(self, "dataTableRef"))
 
     @builtins.property
+    @jsii.member(jsii_name="instanceArn")
+    def instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the instance.'''
+        return typing.cast(builtins.str, jsii.get(self, "instanceArn"))
+
+    @instance_arn.setter
+    def instance_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f8fa88c52677eeea0abd461e81ce2a421105f996b6162aa0e921d94e35088f04)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instanceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The human-readable name of the data table.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5af73d5d03c6d3343b8b1d96e6ab0ed24244ad767e2e42128489400bdaafd5a0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> builtins.str:
+        '''The current status of the data table.'''
+        return typing.cast(builtins.str, jsii.get(self, "status"))
+
+    @status.setter
+    def status(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9c35fb88afa0bd7600181e002e9cda875ac83bc4d92f46e8378ed5870f06e7aa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="timeZone")
+    def time_zone(self) -> builtins.str:
+        '''The IANA timezone identifier used when resolving time based dynamic values.'''
+        return typing.cast(builtins.str, jsii.get(self, "timeZone"))
+
+    @time_zone.setter
+    def time_zone(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__656c6386fa49cc5f2a042463bceeb771e608c3cf551d766b591bd6a76823f81e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "timeZone", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="valueLockLevel")
+    def value_lock_level(self) -> builtins.str:
+        '''The data level that concurrent value edits are locked on.'''
+        return typing.cast(builtins.str, jsii.get(self, "valueLockLevel"))
+
+    @value_lock_level.setter
+    def value_lock_level(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b5e9200f2009bd077c3158f86dd6195363524301cfc2480c582f9a32a246f7e5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "valueLockLevel", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of the data table's purpose and contents.'''
@@ -2758,45 +3092,6 @@ class CfnDataTable(
             type_hints = cached_type_hints(_typecheckingstub__669cdccf2e542f89ed9ef14ea96f94af1625466bd88481d3f925633706557ac1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="instanceArn")
-    def instance_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the instance.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "instanceArn"))
-
-    @instance_arn.setter
-    def instance_arn(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__f8fa88c52677eeea0abd461e81ce2a421105f996b6162aa0e921d94e35088f04)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "instanceArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The human-readable name of the data table.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__5af73d5d03c6d3343b8b1d96e6ab0ed24244ad767e2e42128489400bdaafd5a0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="status")
-    def status(self) -> typing.Optional[builtins.str]:
-        '''The current status of the data table.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "status"))
-
-    @status.setter
-    def status(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__9c35fb88afa0bd7600181e002e9cda875ac83bc4d92f46e8378ed5870f06e7aa)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2813,32 +3108,6 @@ class CfnDataTable(
             type_hints = cached_type_hints(_typecheckingstub__20c1c533d2eb3b60f29b418ffbf58db9654a55514953b21622afa59f18f67b2e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="timeZone")
-    def time_zone(self) -> typing.Optional[builtins.str]:
-        '''The IANA timezone identifier used when resolving time based dynamic values.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "timeZone"))
-
-    @time_zone.setter
-    def time_zone(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__656c6386fa49cc5f2a042463bceeb771e608c3cf551d766b591bd6a76823f81e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "timeZone", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="valueLockLevel")
-    def value_lock_level(self) -> typing.Optional[builtins.str]:
-        '''The data level that concurrent value edits are locked on.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "valueLockLevel"))
-
-    @value_lock_level.setter
-    def value_lock_level(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__b5e9200f2009bd077c3158f86dd6195363524301cfc2480c582f9a32a246f7e5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "valueLockLevel", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_connect.CfnDataTable.LockVersionProperty",
@@ -2914,9 +3183,12 @@ class CfnDataTableAttribute(
         
         cfn_data_table_attribute = connect.CfnDataTableAttribute(self, "MyCfnDataTableAttribute",
             data_table_arn="dataTableArn",
-            description="description",
             instance_arn="instanceArn",
             name="name",
+            value_type="valueType",
+        
+            # the properties below are optional
+            description="description",
             primary=False,
             validation=connect.CfnDataTableAttribute.ValidationProperty(
                 enum=connect.CfnDataTableAttribute.EnumProperty(
@@ -2932,8 +3204,7 @@ class CfnDataTableAttribute(
                 min_length=123,
                 min_values=123,
                 multiple_of=123
-            ),
-            value_type="valueType"
+            )
         )
     '''
 
@@ -2942,25 +3213,25 @@ class CfnDataTableAttribute(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        data_table_arn: typing.Optional[builtins.str] = None,
+        data_table_arn: builtins.str,
+        instance_arn: builtins.str,
+        name: builtins.str,
+        value_type: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        instance_arn: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
         primary: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         validation: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataTableAttribute.ValidationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        value_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::Connect::DataTableAttribute``.
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param data_table_arn: The Amazon Resource Name (ARN) of the data table that contains this attribute.
-        :param description: An optional description explaining the purpose and usage of this attribute.
         :param instance_arn: The Amazon Resource Name (ARN) of the instance.
         :param name: The human-readable name of the attribute. Must be unique within the data table and conform to Connect naming standards.
+        :param value_type: The type of value allowed for this attribute. Must be one of TEXT, TEXT_LIST, NUMBER, NUMBER_LIST, or BOOLEAN. Determines how values are validated and processed.
+        :param description: An optional description explaining the purpose and usage of this attribute.
         :param primary: Boolean indicating whether this attribute is used as a primary key for record identification. Primary attributes must have unique value combinations and cannot contain expressions.
         :param validation: The validation rules applied to values of this attribute. Based on JSON Schema Draft 2020-12 with additional Connect-specific validations for data integrity.
-        :param value_type: The type of value allowed for this attribute. Must be one of TEXT, TEXT_LIST, NUMBER, NUMBER_LIST, or BOOLEAN. Determines how values are validated and processed.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e00afa8d26c5d683765600c8259f6e63df5b0691ee3b9644c7045eb3aed4988c)
@@ -2968,12 +3239,12 @@ class CfnDataTableAttribute(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDataTableAttributeProps(
             data_table_arn=data_table_arn,
-            description=description,
             instance_arn=instance_arn,
             name=name,
+            value_type=value_type,
+            description=description,
             primary=primary,
             validation=validation,
-            value_type=value_type,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -3075,16 +3346,55 @@ class CfnDataTableAttribute(
 
     @builtins.property
     @jsii.member(jsii_name="dataTableArn")
-    def data_table_arn(self) -> typing.Optional[builtins.str]:
+    def data_table_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the data table that contains this attribute.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "dataTableArn"))
+        return typing.cast(builtins.str, jsii.get(self, "dataTableArn"))
 
     @data_table_arn.setter
-    def data_table_arn(self, value: typing.Optional[builtins.str]) -> None:
+    def data_table_arn(self, value: builtins.str) -> None:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3e10d7fa9d5b215160345fa92f48a94548786112484789f538a37ebfd7b7fd38)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataTableArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceArn")
+    def instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the instance.'''
+        return typing.cast(builtins.str, jsii.get(self, "instanceArn"))
+
+    @instance_arn.setter
+    def instance_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__11ef132fbbfb775fb53dacd5fc7602299290862933617f88a8d68427d8dd1ac1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instanceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The human-readable name of the attribute.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ad6b91eddab6819cf54d8266657cae3dc9bd1881b13e9f318a00d0882bf36879)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="valueType")
+    def value_type(self) -> builtins.str:
+        '''The type of value allowed for this attribute.'''
+        return typing.cast(builtins.str, jsii.get(self, "valueType"))
+
+    @value_type.setter
+    def value_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8bf4b1aa10e6ec3484a047c9237e508d3b3e2866ec0b1234d582aeeac995858c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "valueType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -3098,32 +3408,6 @@ class CfnDataTableAttribute(
             type_hints = cached_type_hints(_typecheckingstub__d890f31b8589ff534e04adcc2c1d4497a7deff59d5f8d7c258583438e59cfcdc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="instanceArn")
-    def instance_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the instance.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "instanceArn"))
-
-    @instance_arn.setter
-    def instance_arn(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__11ef132fbbfb775fb53dacd5fc7602299290862933617f88a8d68427d8dd1ac1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "instanceArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The human-readable name of the attribute.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__ad6b91eddab6819cf54d8266657cae3dc9bd1881b13e9f318a00d0882bf36879)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="primary")
@@ -3160,19 +3444,6 @@ class CfnDataTableAttribute(
             type_hints = cached_type_hints(_typecheckingstub__6700063066947b478e87c1774f45101388139bdb9bf306cfc80d0f487e857f98)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "validation", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="valueType")
-    def value_type(self) -> typing.Optional[builtins.str]:
-        '''The type of value allowed for this attribute.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "valueType"))
-
-    @value_type.setter
-    def value_type(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__8bf4b1aa10e6ec3484a047c9237e508d3b3e2866ec0b1234d582aeeac995858c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "valueType", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_connect.CfnDataTableAttribute.EnumProperty",
@@ -3544,35 +3815,35 @@ class CfnDataTableAttribute(
     jsii_struct_bases=[],
     name_mapping={
         "data_table_arn": "dataTableArn",
-        "description": "description",
         "instance_arn": "instanceArn",
         "name": "name",
+        "value_type": "valueType",
+        "description": "description",
         "primary": "primary",
         "validation": "validation",
-        "value_type": "valueType",
     },
 )
 class CfnDataTableAttributeProps:
     def __init__(
         self,
         *,
-        data_table_arn: typing.Optional[builtins.str] = None,
+        data_table_arn: builtins.str,
+        instance_arn: builtins.str,
+        name: builtins.str,
+        value_type: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        instance_arn: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
         primary: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         validation: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataTableAttribute.ValidationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        value_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnDataTableAttribute``.
 
         :param data_table_arn: The Amazon Resource Name (ARN) of the data table that contains this attribute.
-        :param description: An optional description explaining the purpose and usage of this attribute.
         :param instance_arn: The Amazon Resource Name (ARN) of the instance.
         :param name: The human-readable name of the attribute. Must be unique within the data table and conform to Connect naming standards.
+        :param value_type: The type of value allowed for this attribute. Must be one of TEXT, TEXT_LIST, NUMBER, NUMBER_LIST, or BOOLEAN. Determines how values are validated and processed.
+        :param description: An optional description explaining the purpose and usage of this attribute.
         :param primary: Boolean indicating whether this attribute is used as a primary key for record identification. Primary attributes must have unique value combinations and cannot contain expressions.
         :param validation: The validation rules applied to values of this attribute. Based on JSON Schema Draft 2020-12 with additional Connect-specific validations for data integrity.
-        :param value_type: The type of value allowed for this attribute. Must be one of TEXT, TEXT_LIST, NUMBER, NUMBER_LIST, or BOOLEAN. Determines how values are validated and processed.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatableattribute.html
         :exampleMetadata: fixture=_generated
@@ -3585,9 +3856,12 @@ class CfnDataTableAttributeProps:
             
             cfn_data_table_attribute_props = connect.CfnDataTableAttributeProps(
                 data_table_arn="dataTableArn",
-                description="description",
                 instance_arn="instanceArn",
                 name="name",
+                value_type="valueType",
+            
+                # the properties below are optional
+                description="description",
                 primary=False,
                 validation=connect.CfnDataTableAttribute.ValidationProperty(
                     enum=connect.CfnDataTableAttribute.EnumProperty(
@@ -3603,43 +3877,74 @@ class CfnDataTableAttributeProps:
                     min_length=123,
                     min_values=123,
                     multiple_of=123
-                ),
-                value_type="valueType"
+                )
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0fc66d80c3f8d62ef01f542618850d98980d0baf2706a11e2949621dd1709a56)
             check_type(argname="argument data_table_arn", value=data_table_arn, expected_type=type_hints["data_table_arn"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument value_type", value=value_type, expected_type=type_hints["value_type"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument primary", value=primary, expected_type=type_hints["primary"])
             check_type(argname="argument validation", value=validation, expected_type=type_hints["validation"])
-            check_type(argname="argument value_type", value=value_type, expected_type=type_hints["value_type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if data_table_arn is not None:
-            self._values["data_table_arn"] = data_table_arn
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_table_arn": data_table_arn,
+            "instance_arn": instance_arn,
+            "name": name,
+            "value_type": value_type,
+        }
         if description is not None:
             self._values["description"] = description
-        if instance_arn is not None:
-            self._values["instance_arn"] = instance_arn
-        if name is not None:
-            self._values["name"] = name
         if primary is not None:
             self._values["primary"] = primary
         if validation is not None:
             self._values["validation"] = validation
-        if value_type is not None:
-            self._values["value_type"] = value_type
 
     @builtins.property
-    def data_table_arn(self) -> typing.Optional[builtins.str]:
+    def data_table_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the data table that contains this attribute.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatableattribute.html#cfn-connect-datatableattribute-datatablearn
         '''
         result = self._values.get("data_table_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
+        assert result is not None, "Required property 'data_table_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatableattribute.html#cfn-connect-datatableattribute-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The human-readable name of the attribute.
+
+        Must be unique within the data table and conform to Connect naming standards.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatableattribute.html#cfn-connect-datatableattribute-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def value_type(self) -> builtins.str:
+        '''The type of value allowed for this attribute.
+
+        Must be one of TEXT, TEXT_LIST, NUMBER, NUMBER_LIST, or BOOLEAN. Determines how values are validated and processed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatableattribute.html#cfn-connect-datatableattribute-valuetype
+        '''
+        result = self._values.get("value_type")
+        assert result is not None, "Required property 'value_type' is missing"
+        return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -3648,26 +3953,6 @@ class CfnDataTableAttributeProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatableattribute.html#cfn-connect-datatableattribute-description
         '''
         result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def instance_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatableattribute.html#cfn-connect-datatableattribute-instancearn
-        '''
-        result = self._values.get("instance_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The human-readable name of the attribute.
-
-        Must be unique within the data table and conform to Connect naming standards.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatableattribute.html#cfn-connect-datatableattribute-name
-        '''
-        result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -3696,17 +3981,6 @@ class CfnDataTableAttributeProps:
         result = self._values.get("validation")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataTableAttribute.ValidationProperty"]], result)
 
-    @builtins.property
-    def value_type(self) -> typing.Optional[builtins.str]:
-        '''The type of value allowed for this attribute.
-
-        Must be one of TEXT, TEXT_LIST, NUMBER, NUMBER_LIST, or BOOLEAN. Determines how values are validated and processed.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatableattribute.html#cfn-connect-datatableattribute-valuetype
-        '''
-        result = self._values.get("value_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -3723,36 +3997,36 @@ class CfnDataTableAttributeProps:
     jsii_type="aws-cdk-lib.aws_connect.CfnDataTableProps",
     jsii_struct_bases=[],
     name_mapping={
-        "description": "description",
         "instance_arn": "instanceArn",
         "name": "name",
         "status": "status",
-        "tags": "tags",
         "time_zone": "timeZone",
         "value_lock_level": "valueLockLevel",
+        "description": "description",
+        "tags": "tags",
     },
 )
 class CfnDataTableProps:
     def __init__(
         self,
         *,
+        instance_arn: builtins.str,
+        name: builtins.str,
+        status: builtins.str,
+        time_zone: builtins.str,
+        value_lock_level: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        instance_arn: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        status: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
-        time_zone: typing.Optional[builtins.str] = None,
-        value_lock_level: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnDataTable``.
 
-        :param description: An optional description of the data table's purpose and contents.
         :param instance_arn: The Amazon Resource Name (ARN) of the instance.
         :param name: The human-readable name of the data table. Must be unique within the instance and conform to Connect naming standards.
         :param status: The current status of the data table. One of PUBLISHED or SAVED.
-        :param tags: Key-value pairs for attribute based access control (TBAC or ABAC) and organization.
         :param time_zone: The IANA timezone identifier used when resolving time based dynamic values. Required even if no time slices are specified.
         :param value_lock_level: The data level that concurrent value edits are locked on. One of DATA_TABLE, PRIMARY_VALUE, ATTRIBUTE, VALUE, and NONE. Determines how concurrent edits are handled when multiple users attempt to modify values simultaneously.
+        :param description: An optional description of the data table's purpose and contents.
+        :param tags: Key-value pairs for attribute based access control (TBAC or ABAC) and organization.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatable.html
         :exampleMetadata: fixture=_generated
@@ -3765,42 +4039,98 @@ class CfnDataTableProps:
             from aws_cdk import aws_connect as connect
             
             cfn_data_table_props = connect.CfnDataTableProps(
-                description="description",
                 instance_arn="instanceArn",
                 name="name",
                 status="status",
+                time_zone="timeZone",
+                value_lock_level="valueLockLevel",
+            
+                # the properties below are optional
+                description="description",
                 tags=[CfnTag(
                     key="key",
                     value="value"
-                )],
-                time_zone="timeZone",
-                value_lock_level="valueLockLevel"
+                )]
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0345e13cdcd7cb47389e51736864614815f4dfa87c5bc412ac18e8a11447a619)
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument time_zone", value=time_zone, expected_type=type_hints["time_zone"])
             check_type(argname="argument value_lock_level", value=value_lock_level, expected_type=type_hints["value_lock_level"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+            "name": name,
+            "status": status,
+            "time_zone": time_zone,
+            "value_lock_level": value_lock_level,
+        }
         if description is not None:
             self._values["description"] = description
-        if instance_arn is not None:
-            self._values["instance_arn"] = instance_arn
-        if name is not None:
-            self._values["name"] = name
-        if status is not None:
-            self._values["status"] = status
         if tags is not None:
             self._values["tags"] = tags
-        if time_zone is not None:
-            self._values["time_zone"] = time_zone
-        if value_lock_level is not None:
-            self._values["value_lock_level"] = value_lock_level
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatable.html#cfn-connect-datatable-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The human-readable name of the data table.
+
+        Must be unique within the instance and conform to Connect naming standards.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatable.html#cfn-connect-datatable-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def status(self) -> builtins.str:
+        '''The current status of the data table.
+
+        One of PUBLISHED or SAVED.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatable.html#cfn-connect-datatable-status
+        '''
+        result = self._values.get("status")
+        assert result is not None, "Required property 'status' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def time_zone(self) -> builtins.str:
+        '''The IANA timezone identifier used when resolving time based dynamic values.
+
+        Required even if no time slices are specified.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatable.html#cfn-connect-datatable-timezone
+        '''
+        result = self._values.get("time_zone")
+        assert result is not None, "Required property 'time_zone' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def value_lock_level(self) -> builtins.str:
+        '''The data level that concurrent value edits are locked on.
+
+        One of DATA_TABLE, PRIMARY_VALUE, ATTRIBUTE, VALUE, and NONE. Determines how concurrent edits are handled when multiple users attempt to modify values simultaneously.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatable.html#cfn-connect-datatable-valuelocklevel
+        '''
+        result = self._values.get("value_lock_level")
+        assert result is not None, "Required property 'value_lock_level' is missing"
+        return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -3812,37 +4142,6 @@ class CfnDataTableProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def instance_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatable.html#cfn-connect-datatable-instancearn
-        '''
-        result = self._values.get("instance_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The human-readable name of the data table.
-
-        Must be unique within the instance and conform to Connect naming standards.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatable.html#cfn-connect-datatable-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def status(self) -> typing.Optional[builtins.str]:
-        '''The current status of the data table.
-
-        One of PUBLISHED or SAVED.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatable.html#cfn-connect-datatable-status
-        '''
-        result = self._values.get("status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
         '''Key-value pairs for attribute based access control (TBAC or ABAC) and organization.
 
@@ -3850,28 +4149,6 @@ class CfnDataTableProps:
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
-
-    @builtins.property
-    def time_zone(self) -> typing.Optional[builtins.str]:
-        '''The IANA timezone identifier used when resolving time based dynamic values.
-
-        Required even if no time slices are specified.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatable.html#cfn-connect-datatable-timezone
-        '''
-        result = self._values.get("time_zone")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def value_lock_level(self) -> typing.Optional[builtins.str]:
-        '''The data level that concurrent value edits are locked on.
-
-        One of DATA_TABLE, PRIMARY_VALUE, ATTRIBUTE, VALUE, and NONE. Determines how concurrent edits are handled when multiple users attempt to modify values simultaneously.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatable.html#cfn-connect-datatable-valuelocklevel
-        '''
-        result = self._values.get("value_lock_level")
-        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3926,9 +4203,9 @@ class CfnDataTableRecord(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        data_table_arn: typing.Optional[builtins.str] = None,
-        data_table_record: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataTableRecord.DataTableRecordProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        instance_arn: typing.Optional[builtins.str] = None,
+        data_table_arn: builtins.str,
+        data_table_record: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataTableRecord.DataTableRecordProperty", typing.Dict[builtins.str, typing.Any]]],
+        instance_arn: builtins.str,
     ) -> None:
         '''Create a new ``AWS::Connect::DataTableRecord``.
 
@@ -4018,12 +4295,12 @@ class CfnDataTableRecord(
 
     @builtins.property
     @jsii.member(jsii_name="dataTableArn")
-    def data_table_arn(self) -> typing.Optional[builtins.str]:
+    def data_table_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) for the data table.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "dataTableArn"))
+        return typing.cast(builtins.str, jsii.get(self, "dataTableArn"))
 
     @data_table_arn.setter
-    def data_table_arn(self, value: typing.Optional[builtins.str]) -> None:
+    def data_table_arn(self, value: builtins.str) -> None:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ea72fe62aaff8fedf2ca3c34665e236834f940183698bf541195b171773ca5d7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -4033,13 +4310,13 @@ class CfnDataTableRecord(
     @jsii.member(jsii_name="dataTableRecord")
     def data_table_record(
         self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataTableRecord.DataTableRecordProperty"]]:
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataTableRecord.DataTableRecordProperty"]], jsii.get(self, "dataTableRecord"))
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataTableRecord.DataTableRecordProperty"]:
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataTableRecord.DataTableRecordProperty"], jsii.get(self, "dataTableRecord"))
 
     @data_table_record.setter
     def data_table_record(
         self,
-        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataTableRecord.DataTableRecordProperty"]],
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataTableRecord.DataTableRecordProperty"],
     ) -> None:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7001dbb0d744ccf5d083e4096781cbf77cab7befe77e3d9c86476257a297303d)
@@ -4048,12 +4325,12 @@ class CfnDataTableRecord(
 
     @builtins.property
     @jsii.member(jsii_name="instanceArn")
-    def instance_arn(self) -> typing.Optional[builtins.str]:
+    def instance_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the instance.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "instanceArn"))
+        return typing.cast(builtins.str, jsii.get(self, "instanceArn"))
 
     @instance_arn.setter
-    def instance_arn(self, value: typing.Optional[builtins.str]) -> None:
+    def instance_arn(self, value: builtins.str) -> None:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f81419336cc04adbf79d22d7042a6cbf769b4f39f3db2c050ae78480fa6d0e83)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -4223,9 +4500,9 @@ class CfnDataTableRecordProps:
     def __init__(
         self,
         *,
-        data_table_arn: typing.Optional[builtins.str] = None,
-        data_table_record: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataTableRecord.DataTableRecordProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        instance_arn: typing.Optional[builtins.str] = None,
+        data_table_arn: builtins.str,
+        data_table_record: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDataTableRecord.DataTableRecordProperty", typing.Dict[builtins.str, typing.Any]]],
+        instance_arn: builtins.str,
     ) -> None:
         '''Properties for defining a ``CfnDataTableRecord``.
 
@@ -4264,16 +4541,14 @@ class CfnDataTableRecordProps:
             check_type(argname="argument data_table_arn", value=data_table_arn, expected_type=type_hints["data_table_arn"])
             check_type(argname="argument data_table_record", value=data_table_record, expected_type=type_hints["data_table_record"])
             check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if data_table_arn is not None:
-            self._values["data_table_arn"] = data_table_arn
-        if data_table_record is not None:
-            self._values["data_table_record"] = data_table_record
-        if instance_arn is not None:
-            self._values["instance_arn"] = instance_arn
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_table_arn": data_table_arn,
+            "data_table_record": data_table_record,
+            "instance_arn": instance_arn,
+        }
 
     @builtins.property
-    def data_table_arn(self) -> typing.Optional[builtins.str]:
+    def data_table_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) for the data table.
 
         Does not include version aliases.
@@ -4281,26 +4556,29 @@ class CfnDataTableRecordProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatablerecord.html#cfn-connect-datatablerecord-datatablearn
         '''
         result = self._values.get("data_table_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
+        assert result is not None, "Required property 'data_table_arn' is missing"
+        return typing.cast(builtins.str, result)
 
     @builtins.property
     def data_table_record(
         self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataTableRecord.DataTableRecordProperty"]]:
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataTableRecord.DataTableRecordProperty"]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatablerecord.html#cfn-connect-datatablerecord-datatablerecord
         '''
         result = self._values.get("data_table_record")
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataTableRecord.DataTableRecordProperty"]], result)
+        assert result is not None, "Required property 'data_table_record' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDataTableRecord.DataTableRecordProperty"], result)
 
     @builtins.property
-    def instance_arn(self) -> typing.Optional[builtins.str]:
+    def instance_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the instance.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-datatablerecord.html#cfn-connect-datatablerecord-instancearn
         '''
         result = self._values.get("instance_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6700,9 +6978,9 @@ class CfnEvaluationForm(
 
             :param ref_id: Reference identifier for this option.
             :param text: Display text for this option.
-            :param automatic_fail: 
+            :param automatic_fail: The flag to mark the option as automatic fail. If an automatic fail answer is provided, the overall evaluation gets a score of 0.
             :param automatic_fail_configuration: Information about automatic fail configuration for an evaluation form.
-            :param points_configuration: 
+            :param points_configuration: Information about the points configuration for an answer option.
             :param score: The score of an answer option.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformmultiselectquestionoption.html
@@ -6777,7 +7055,10 @@ class CfnEvaluationForm(
         def automatic_fail(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
-            '''
+            '''The flag to mark the option as automatic fail.
+
+            If an automatic fail answer is provided, the overall evaluation gets a score of 0.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformmultiselectquestionoption.html#cfn-connect-evaluationform-evaluationformmultiselectquestionoption-automaticfail
             '''
             result = self._values.get("automatic_fail")
@@ -6798,7 +7079,8 @@ class CfnEvaluationForm(
         def points_configuration(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEvaluationForm.QuestionOptionPointsConfigurationProperty"]]:
-            '''
+            '''Information about the points configuration for an answer option.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformmultiselectquestionoption.html#cfn-connect-evaluationform-evaluationformmultiselectquestionoption-pointsconfiguration
             '''
             result = self._values.get("points_configuration")
@@ -7058,7 +7340,7 @@ class CfnEvaluationForm(
             :param min_value: The minimum answer value of the range option.
             :param automatic_fail: The flag to mark the option as automatic fail. If an automatic fail answer is provided, the overall evaluation gets a score of 0.
             :param automatic_fail_configuration: A configuration for automatic fail.
-            :param points_configuration: 
+            :param points_configuration: Information about the points configuration for an answer option.
             :param score: The score assigned to answer values within the range option. *Minimum* : 0 *Maximum* : 10
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformnumericquestionoption.html
@@ -7157,7 +7439,8 @@ class CfnEvaluationForm(
         def points_configuration(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEvaluationForm.QuestionOptionPointsConfigurationProperty"]]:
-            '''
+            '''Information about the points configuration for an answer option.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformnumericquestionoption.html#cfn-connect-evaluationform-evaluationformnumericquestionoption-pointsconfiguration
             '''
             result = self._values.get("points_configuration")
@@ -7412,7 +7695,7 @@ class CfnEvaluationForm(
             :param instructions: The instructions of the section. *Length Constraints* : Minimum length of 0. Maximum length of 1024.
             :param not_applicable_enabled: The flag to enable not applicable answers to the question.
             :param question_type_properties: The properties of the type of question. Text questions do not have to define question type properties.
-            :param scoring_configuration: 
+            :param scoring_configuration: Scoring configuration for a question in an evaluation form.
             :param weight: The scoring weight of the section. *Minimum* : 0 *Maximum* : 100
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformquestion.html
@@ -7701,7 +7984,8 @@ class CfnEvaluationForm(
         def scoring_configuration(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEvaluationForm.EvaluationFormQuestionScoringConfigurationProperty"]]:
-            '''
+            '''Scoring configuration for a question in an evaluation form.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformquestion.html#cfn-connect-evaluationform-evaluationformquestion-scoringconfiguration
             '''
             result = self._values.get("scoring_configuration")
@@ -7748,10 +8032,11 @@ class CfnEvaluationForm(
             points_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEvaluationForm.QuestionPointsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             score_thresholds: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnEvaluationForm.EvaluationFormScoreThresholdProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
-            '''
-            :param is_excluded_from_scoring: Whether the question is excluded from scoring.
-            :param points_configuration: 
-            :param score_thresholds: The score thresholds for the question.
+            '''Scoring configuration for a question in an evaluation form.
+
+            :param is_excluded_from_scoring: The flag to exclude the question from scoring.
+            :param points_configuration: Information about the points configuration for a question.
+            :param score_thresholds: The score thresholds for performance categories.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformquestionscoringconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -7795,7 +8080,7 @@ class CfnEvaluationForm(
         def is_excluded_from_scoring(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
-            '''Whether the question is excluded from scoring.
+            '''The flag to exclude the question from scoring.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformquestionscoringconfiguration.html#cfn-connect-evaluationform-evaluationformquestionscoringconfiguration-isexcludedfromscoring
             '''
@@ -7806,7 +8091,8 @@ class CfnEvaluationForm(
         def points_configuration(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEvaluationForm.QuestionPointsConfigurationProperty"]]:
-            '''
+            '''Information about the points configuration for a question.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformquestionscoringconfiguration.html#cfn-connect-evaluationform-evaluationformquestionscoringconfiguration-pointsconfiguration
             '''
             result = self._values.get("points_configuration")
@@ -7816,7 +8102,7 @@ class CfnEvaluationForm(
         def score_thresholds(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEvaluationForm.EvaluationFormScoreThresholdProperty"]]]]:
-            '''The score thresholds for the question.
+            '''The score thresholds for performance categories.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformquestionscoringconfiguration.html#cfn-connect-evaluationform-evaluationformquestionscoringconfiguration-scorethresholds
             '''
@@ -8070,10 +8356,11 @@ class CfnEvaluationForm(
             max_score_percentage: typing.Optional[jsii.Number] = None,
             min_score_percentage: typing.Optional[jsii.Number] = None,
         ) -> None:
-            '''
+            '''Information about a score threshold for a performance category.
+
             :param performance_category: The performance category name.
-            :param max_score_percentage: The maximum score percentage for this threshold.
-            :param min_score_percentage: The minimum score percentage for this threshold.
+            :param max_score_percentage: The maximum score percentage for the performance category.
+            :param min_score_percentage: The minimum score percentage for the performance category.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformscorethreshold.html
             :exampleMetadata: fixture=_generated
@@ -8117,7 +8404,7 @@ class CfnEvaluationForm(
 
         @builtins.property
         def max_score_percentage(self) -> typing.Optional[jsii.Number]:
-            '''The maximum score percentage for this threshold.
+            '''The maximum score percentage for the performance category.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformscorethreshold.html#cfn-connect-evaluationform-evaluationformscorethreshold-maxscorepercentage
             '''
@@ -8126,7 +8413,7 @@ class CfnEvaluationForm(
 
         @builtins.property
         def min_score_percentage(self) -> typing.Optional[jsii.Number]:
-            '''The minimum score percentage for this threshold.
+            '''The minimum score percentage for the performance category.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformscorethreshold.html#cfn-connect-evaluationform-evaluationformscorethreshold-minscorepercentage
             '''
@@ -8176,9 +8463,9 @@ class CfnEvaluationForm(
             :param ref_id: The identifier of the section. An identifier must be unique within the evaluation form. *Length Constraints* : Minimum length of 1. Maximum length of 40.
             :param title: The title of the section. *Length Constraints* : Minimum length of 1. Maximum length of 128.
             :param instructions: The instructions of the section.
-            :param is_excluded_from_scoring: 
+            :param is_excluded_from_scoring: The flag to exclude the section from scoring.
             :param items: The items of the section. *Minimum* : 1
-            :param score_thresholds: 
+            :param score_thresholds: The score thresholds for performance categories.
             :param weight: The scoring weight of the section. *Minimum* : 0 *Maximum* : 100
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformsection.html
@@ -8434,7 +8721,8 @@ class CfnEvaluationForm(
         def is_excluded_from_scoring(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
-            '''
+            '''The flag to exclude the section from scoring.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformsection.html#cfn-connect-evaluationform-evaluationformsection-isexcludedfromscoring
             '''
             result = self._values.get("is_excluded_from_scoring")
@@ -8457,7 +8745,8 @@ class CfnEvaluationForm(
         def score_thresholds(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEvaluationForm.EvaluationFormScoreThresholdProperty"]]]]:
-            '''
+            '''The score thresholds for performance categories.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformsection.html#cfn-connect-evaluationform-evaluationformsection-scorethresholds
             '''
             result = self._values.get("score_thresholds")
@@ -8687,7 +8976,7 @@ class CfnEvaluationForm(
             :param text: The title of the answer option. *Length Constraints* : Minimum length of 1. Maximum length of 128.
             :param automatic_fail: The flag to mark the option as automatic fail. If an automatic fail answer is provided, the overall evaluation gets a score of 0.
             :param automatic_fail_configuration: Whether automatic fail is configured on a single select question.
-            :param points_configuration: 
+            :param points_configuration: Information about the points configuration for an answer option.
             :param score: The score assigned to the answer option. *Minimum* : 0 *Maximum* : 10
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformsingleselectquestionoption.html
@@ -8790,7 +9079,8 @@ class CfnEvaluationForm(
         def points_configuration(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnEvaluationForm.QuestionOptionPointsConfigurationProperty"]]:
-            '''
+            '''Information about the points configuration for an answer option.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformsingleselectquestionoption.html#cfn-connect-evaluationform-evaluationformsingleselectquestionoption-pointsconfiguration
             '''
             result = self._values.get("points_configuration")
@@ -9485,9 +9775,10 @@ class CfnEvaluationForm(
             point_value: jsii.Number,
             is_bonus: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         ) -> None:
-            '''
+            '''Information about the points configuration for an answer option.
+
             :param point_value: The point value for scoring.
-            :param is_bonus: Whether this option is a bonus. Note: Bonus options are not supported for multi-select questions. This property should only be set to true for single-select and numeric question options.
+            :param is_bonus: The flag to mark the option as a bonus option.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-questionoptionpointsconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -9529,9 +9820,7 @@ class CfnEvaluationForm(
         def is_bonus(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
-            '''Whether this option is a bonus.
-
-            Note: Bonus options are not supported for multi-select questions. This property should only be set to true for single-select and numeric question options.
+            '''The flag to mark the option as a bonus option.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-questionoptionpointsconfiguration.html#cfn-connect-evaluationform-questionoptionpointsconfiguration-isbonus
             '''
@@ -9566,8 +9855,9 @@ class CfnEvaluationForm(
             max_point_value: typing.Optional[jsii.Number] = None,
             min_point_value: typing.Optional[jsii.Number] = None,
         ) -> None:
-            '''
-            :param is_bonus: Whether the question is a bonus question.
+            '''Information about the points configuration for a question.
+
+            :param is_bonus: The flag to mark the question as a bonus question.
             :param max_point_value: The point value for scoring.
             :param min_point_value: The point value for scoring.
 
@@ -9603,7 +9893,7 @@ class CfnEvaluationForm(
         def is_bonus(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
-            '''Whether the question is a bonus question.
+            '''The flag to mark the question as a bonus question.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-questionpointsconfiguration.html#cfn-connect-evaluationform-questionpointsconfiguration-isbonus
             '''
@@ -18722,8 +19012,8 @@ class CfnRule(
             sla_assignment_type: builtins.str,
         ) -> None:
             '''
-            :param case_sla_configuration: The SLA configuration for cases.
-            :param sla_assignment_type: The type of SLA assignment.
+            :param case_sla_configuration: 
+            :param sla_assignment_type: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-rule-assignslaaction.html
             :exampleMetadata: fixture=_generated
@@ -18762,8 +19052,7 @@ class CfnRule(
         def case_sla_configuration(
             self,
         ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRule.CaseSlaConfigurationProperty"]:
-            '''The SLA configuration for cases.
-
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-rule-assignslaaction.html#cfn-connect-rule-assignslaaction-caseslaconfiguration
             '''
             result = self._values.get("case_sla_configuration")
@@ -18772,8 +19061,7 @@ class CfnRule(
 
         @builtins.property
         def sla_assignment_type(self) -> builtins.str:
-            '''The type of SLA assignment.
-
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-rule-assignslaaction.html#cfn-connect-rule-assignslaaction-slaassignmenttype
             '''
             result = self._values.get("sla_assignment_type")
@@ -18812,8 +19100,7 @@ class CfnRule(
             field_id: typing.Optional[builtins.str] = None,
             target_field_values: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRule.SlaTargetFieldValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
-            '''The SLA configuration for cases.
-
+            '''
             :param name: The name of the SLA.
             :param target_sla_minutes: The target SLA time in minutes.
             :param type: The type of SLA.
@@ -20444,8 +20731,6 @@ class CfnSecurityProfile(
             applications=[connect.CfnSecurityProfile.ApplicationProperty(
                 application_permissions=["applicationPermissions"],
                 namespace="namespace",
-        
-                # the properties below are optional
                 type="type"
             )],
             description="description",
@@ -20836,8 +21121,8 @@ class CfnSecurityProfile(
         def __init__(
             self,
             *,
-            application_permissions: typing.Sequence[builtins.str],
-            namespace: builtins.str,
+            application_permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
+            namespace: typing.Optional[builtins.str] = None,
             type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''This API is in preview release for Amazon Connect and is subject to change.
@@ -20860,8 +21145,6 @@ class CfnSecurityProfile(
                 application_property = connect.CfnSecurityProfile.ApplicationProperty(
                     application_permissions=["applicationPermissions"],
                     namespace="namespace",
-                
-                    # the properties below are optional
                     type="type"
                 )
             '''
@@ -20870,15 +21153,16 @@ class CfnSecurityProfile(
                 check_type(argname="argument application_permissions", value=application_permissions, expected_type=type_hints["application_permissions"])
                 check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "application_permissions": application_permissions,
-                "namespace": namespace,
-            }
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if application_permissions is not None:
+                self._values["application_permissions"] = application_permissions
+            if namespace is not None:
+                self._values["namespace"] = namespace
             if type is not None:
                 self._values["type"] = type
 
         @builtins.property
-        def application_permissions(self) -> typing.List[builtins.str]:
+        def application_permissions(self) -> typing.Optional[typing.List[builtins.str]]:
             '''The permissions that the agent is granted on the application.
 
             For third-party applications, only the ``ACCESS`` permission is supported. For MCP Servers, the permissions are tool Identifiers accepted by MCP Server.
@@ -20886,18 +21170,16 @@ class CfnSecurityProfile(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-securityprofile-application.html#cfn-connect-securityprofile-application-applicationpermissions
             '''
             result = self._values.get("application_permissions")
-            assert result is not None, "Required property 'application_permissions' is missing"
-            return typing.cast(typing.List[builtins.str], result)
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
-        def namespace(self) -> builtins.str:
+        def namespace(self) -> typing.Optional[builtins.str]:
             '''Namespace of the application that you want to give access to.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-securityprofile-application.html#cfn-connect-securityprofile-application-namespace
             '''
             result = self._values.get("namespace")
-            assert result is not None, "Required property 'namespace' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def type(self) -> typing.Optional[builtins.str]:
@@ -20990,7 +21272,12 @@ class CfnSecurityProfile(
         name_mapping={"flow_module_id": "flowModuleId", "type": "type"},
     )
     class FlowModuleProperty:
-        def __init__(self, *, flow_module_id: builtins.str, type: builtins.str) -> None:
+        def __init__(
+            self,
+            *,
+            flow_module_id: typing.Optional[builtins.str] = None,
+            type: typing.Optional[builtins.str] = None,
+        ) -> None:
             '''A first-party application's metadata.
 
             :param flow_module_id: The identifier of the application that you want to give access to.
@@ -21014,30 +21301,29 @@ class CfnSecurityProfile(
                 type_hints = cached_type_hints(_typecheckingstub__064f7fecfcc25645f64c186c564f32dd6ca483ececd1d61b385ed47e66d21158)
                 check_type(argname="argument flow_module_id", value=flow_module_id, expected_type=type_hints["flow_module_id"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "flow_module_id": flow_module_id,
-                "type": type,
-            }
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if flow_module_id is not None:
+                self._values["flow_module_id"] = flow_module_id
+            if type is not None:
+                self._values["type"] = type
 
         @builtins.property
-        def flow_module_id(self) -> builtins.str:
+        def flow_module_id(self) -> typing.Optional[builtins.str]:
             '''The identifier of the application that you want to give access to.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-securityprofile-flowmodule.html#cfn-connect-securityprofile-flowmodule-flowmoduleid
             '''
             result = self._values.get("flow_module_id")
-            assert result is not None, "Required property 'flow_module_id' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
-        def type(self) -> builtins.str:
+        def type(self) -> typing.Optional[builtins.str]:
             '''The type of the first-party application.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-securityprofile-flowmodule.html#cfn-connect-securityprofile-flowmodule-type
             '''
             result = self._values.get("type")
-            assert result is not None, "Required property 'type' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -21126,7 +21412,7 @@ class CfnSecurityProfile(
         def __init__(
             self,
             *,
-            primary_attribute_values: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSecurityProfile.PrimaryAttributeValueProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            primary_attribute_values: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSecurityProfile.PrimaryAttributeValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A primary attribute access control configuration item.
 
@@ -21152,21 +21438,20 @@ class CfnSecurityProfile(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__0097766e674258b947b0b9a8faa00ba3fed50110dbb6cb8340bc0ec1c5e66e82)
                 check_type(argname="argument primary_attribute_values", value=primary_attribute_values, expected_type=type_hints["primary_attribute_values"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "primary_attribute_values": primary_attribute_values,
-            }
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if primary_attribute_values is not None:
+                self._values["primary_attribute_values"] = primary_attribute_values
 
         @builtins.property
         def primary_attribute_values(
             self,
-        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSecurityProfile.PrimaryAttributeValueProperty"]]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSecurityProfile.PrimaryAttributeValueProperty"]]]]:
             '''The item's primary attribute values.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-securityprofile-primaryattributeaccesscontrolconfigurationitem.html#cfn-connect-securityprofile-primaryattributeaccesscontrolconfigurationitem-primaryattributevalues
             '''
             result = self._values.get("primary_attribute_values")
-            assert result is not None, "Required property 'primary_attribute_values' is missing"
-            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSecurityProfile.PrimaryAttributeValueProperty"]]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSecurityProfile.PrimaryAttributeValueProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -21192,9 +21477,9 @@ class CfnSecurityProfile(
         def __init__(
             self,
             *,
-            access_type: builtins.str,
-            attribute_name: builtins.str,
-            values: typing.Sequence[builtins.str],
+            access_type: typing.Optional[builtins.str] = None,
+            attribute_name: typing.Optional[builtins.str] = None,
+            values: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''A primary attribute value.
 
@@ -21222,41 +21507,40 @@ class CfnSecurityProfile(
                 check_type(argname="argument access_type", value=access_type, expected_type=type_hints["access_type"])
                 check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
                 check_type(argname="argument values", value=values, expected_type=type_hints["values"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "access_type": access_type,
-                "attribute_name": attribute_name,
-                "values": values,
-            }
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if access_type is not None:
+                self._values["access_type"] = access_type
+            if attribute_name is not None:
+                self._values["attribute_name"] = attribute_name
+            if values is not None:
+                self._values["values"] = values
 
         @builtins.property
-        def access_type(self) -> builtins.str:
+        def access_type(self) -> typing.Optional[builtins.str]:
             '''The value's access type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-securityprofile-primaryattributevalue.html#cfn-connect-securityprofile-primaryattributevalue-accesstype
             '''
             result = self._values.get("access_type")
-            assert result is not None, "Required property 'access_type' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
-        def attribute_name(self) -> builtins.str:
+        def attribute_name(self) -> typing.Optional[builtins.str]:
             '''The value's attribute name.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-securityprofile-primaryattributevalue.html#cfn-connect-securityprofile-primaryattributevalue-attributename
             '''
             result = self._values.get("attribute_name")
-            assert result is not None, "Required property 'attribute_name' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
-        def values(self) -> typing.List[builtins.str]:
+        def values(self) -> typing.Optional[typing.List[builtins.str]]:
             '''The value's values.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-securityprofile-primaryattributevalue.html#cfn-connect-securityprofile-primaryattributevalue-values
             '''
             result = self._values.get("values")
-            assert result is not None, "Required property 'values' is missing"
-            return typing.cast(typing.List[builtins.str], result)
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -21347,8 +21631,6 @@ class CfnSecurityProfileProps:
                 applications=[connect.CfnSecurityProfile.ApplicationProperty(
                     application_permissions=["applicationPermissions"],
                     namespace="namespace",
-            
-                    # the properties below are optional
                     type="type"
                 )],
                 description="description",
@@ -29302,6 +29584,8 @@ __all__ = [
     "CfnContactFlowProps",
     "CfnContactFlowVersion",
     "CfnContactFlowVersionProps",
+    "CfnDataLakeAssociation",
+    "CfnDataLakeAssociationProps",
     "CfnDataTable",
     "CfnDataTableAttribute",
     "CfnDataTableAttributeProps",
@@ -29893,17 +30177,73 @@ def _typecheckingstub__1bd431a320275e8a984a962d58a7aaded6a06452a72a1bb623aefe401
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2c2c5c52784d83d64ceaf4b1456d5b9d3972d6f595b2d9503ed2a604b0e5a58e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    data_set_id: builtins.str,
+    instance_id: builtins.str,
+    target_account_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__025355eebbca9acf1cb69af1934b94af58c05721de270d4429911e4043c90455(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9db9d9ce8ee04a6b0c3d10b3333342dcc22ea316e727492f28717ce5371228b4(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d0bfde17ae42344279c0cf25aa3216fea76145437d04e94d8adfced8d249d1b0(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a7f1315db6e6cf06064519dcc3e844e2a23760e363316083e6c7798cce4b42f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f74cbdb6fe71703c2a02701e77c5f17b3a5a0a24ad44d3703839d53f2fd0405a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7220f580d648bb76f64834fe80dbaea120d4f95dd7e036b73ef4865c81214357(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b4dc9053bcdaf310c913584e8fb253a814de8e7893480bda0123a9caf63a139a(
+    *,
+    data_set_id: builtins.str,
+    instance_id: builtins.str,
+    target_account_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a6aed0c5623ad6089847176411ac261d6c09c806ff725cea37325c3d5b4ae88a(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
+    instance_arn: builtins.str,
+    name: builtins.str,
+    status: builtins.str,
+    time_zone: builtins.str,
+    value_lock_level: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    instance_arn: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    status: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
-    time_zone: typing.Optional[builtins.str] = None,
-    value_lock_level: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29932,25 +30272,37 @@ def _typecheckingstub__a81ce0dee066c8a6dd586690297a597b2efe8422bc0e4157353cfac96
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__669cdccf2e542f89ed9ef14ea96f94af1625466bd88481d3f925633706557ac1(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__f8fa88c52677eeea0abd461e81ce2a421105f996b6162aa0e921d94e35088f04(
-    value: typing.Optional[builtins.str],
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__5af73d5d03c6d3343b8b1d96e6ab0ed24244ad767e2e42128489400bdaafd5a0(
-    value: typing.Optional[builtins.str],
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__9c35fb88afa0bd7600181e002e9cda875ac83bc4d92f46e8378ed5870f06e7aa(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__656c6386fa49cc5f2a042463bceeb771e608c3cf551d766b591bd6a76823f81e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b5e9200f2009bd077c3158f86dd6195363524301cfc2480c582f9a32a246f7e5(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__669cdccf2e542f89ed9ef14ea96f94af1625466bd88481d3f925633706557ac1(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -29958,18 +30310,6 @@ def _typecheckingstub__9c35fb88afa0bd7600181e002e9cda875ac83bc4d92f46e8378ed5870
 
 def _typecheckingstub__20c1c533d2eb3b60f29b418ffbf58db9654a55514953b21622afa59f18f67b2e(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__656c6386fa49cc5f2a042463bceeb771e608c3cf551d766b591bd6a76823f81e(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b5e9200f2009bd077c3158f86dd6195363524301cfc2480c582f9a32a246f7e5(
-    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29985,13 +30325,13 @@ def _typecheckingstub__e00afa8d26c5d683765600c8259f6e63df5b0691ee3b9644c7045eb3a
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    data_table_arn: typing.Optional[builtins.str] = None,
+    data_table_arn: builtins.str,
+    instance_arn: builtins.str,
+    name: builtins.str,
+    value_type: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    instance_arn: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
     primary: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     validation: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataTableAttribute.ValidationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    value_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30015,24 +30355,30 @@ def _typecheckingstub__3b606377fce2ffb7eb64c14f4187b1a7ad5d562b0657c0c8974c5a3f3
     pass
 
 def _typecheckingstub__3e10d7fa9d5b215160345fa92f48a94548786112484789f538a37ebfd7b7fd38(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d890f31b8589ff534e04adcc2c1d4497a7deff59d5f8d7c258583438e59cfcdc(
-    value: typing.Optional[builtins.str],
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__11ef132fbbfb775fb53dacd5fc7602299290862933617f88a8d68427d8dd1ac1(
-    value: typing.Optional[builtins.str],
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__ad6b91eddab6819cf54d8266657cae3dc9bd1881b13e9f318a00d0882bf36879(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8bf4b1aa10e6ec3484a047c9237e508d3b3e2866ec0b1234d582aeeac995858c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d890f31b8589ff534e04adcc2c1d4497a7deff59d5f8d7c258583438e59cfcdc(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -30046,12 +30392,6 @@ def _typecheckingstub__89eee13065c133b35848c3dcae007d61509810c878813955ac59c410d
 
 def _typecheckingstub__6700063066947b478e87c1774f45101388139bdb9bf306cfc80d0f487e857f98(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDataTableAttribute.ValidationProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8bf4b1aa10e6ec3484a047c9237e508d3b3e2866ec0b1234d582aeeac995858c(
-    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30090,26 +30430,26 @@ def _typecheckingstub__c25f047c9684adfb5b26e0752cd28dbba087652961811c7b98cad304f
 
 def _typecheckingstub__0fc66d80c3f8d62ef01f542618850d98980d0baf2706a11e2949621dd1709a56(
     *,
-    data_table_arn: typing.Optional[builtins.str] = None,
+    data_table_arn: builtins.str,
+    instance_arn: builtins.str,
+    name: builtins.str,
+    value_type: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    instance_arn: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
     primary: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     validation: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataTableAttribute.ValidationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    value_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__0345e13cdcd7cb47389e51736864614815f4dfa87c5bc412ac18e8a11447a619(
     *,
+    instance_arn: builtins.str,
+    name: builtins.str,
+    status: builtins.str,
+    time_zone: builtins.str,
+    value_lock_level: builtins.str,
     description: typing.Optional[builtins.str] = None,
-    instance_arn: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    status: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
-    time_zone: typing.Optional[builtins.str] = None,
-    value_lock_level: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30118,9 +30458,9 @@ def _typecheckingstub__04b78495182dac38d19e71b43cc0d7c47af5e89d359b02be66951231c
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    data_table_arn: typing.Optional[builtins.str] = None,
-    data_table_record: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataTableRecord.DataTableRecordProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    instance_arn: typing.Optional[builtins.str] = None,
+    data_table_arn: builtins.str,
+    data_table_record: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataTableRecord.DataTableRecordProperty, typing.Dict[builtins.str, typing.Any]]],
+    instance_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30144,19 +30484,19 @@ def _typecheckingstub__b7356eb7c59fc4d8dd12107ee2e17b42810643bcdf3efb1d9aa31f6f2
     pass
 
 def _typecheckingstub__ea72fe62aaff8fedf2ca3c34665e236834f940183698bf541195b171773ca5d7(
-    value: typing.Optional[builtins.str],
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__7001dbb0d744ccf5d083e4096781cbf77cab7befe77e3d9c86476257a297303d(
-    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDataTableRecord.DataTableRecordProperty]],
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDataTableRecord.DataTableRecordProperty],
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__f81419336cc04adbf79d22d7042a6cbf769b4f39f3db2c050ae78480fa6d0e83(
-    value: typing.Optional[builtins.str],
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30179,9 +30519,9 @@ def _typecheckingstub__1eb009bce3950a006a5f1d56569089c8d106cda7ecf8fb0295ecd8186
 
 def _typecheckingstub__f4730e44710fc805a8b1532d6061aa9766bff1666b9be155f1ab7f4fd582eb01(
     *,
-    data_table_arn: typing.Optional[builtins.str] = None,
-    data_table_record: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataTableRecord.DataTableRecordProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    instance_arn: typing.Optional[builtins.str] = None,
+    data_table_arn: builtins.str,
+    data_table_record: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataTableRecord.DataTableRecordProperty, typing.Dict[builtins.str, typing.Any]]],
+    instance_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -32399,8 +32739,8 @@ def _typecheckingstub__78637aba17fc3177a3492b596a6faf951a63fa4d3e768396f5b976aea
 
 def _typecheckingstub__b880e1a466e4d120081a7c103809b59a07385a4cee88474da2f4f00bae13c71a(
     *,
-    application_permissions: typing.Sequence[builtins.str],
-    namespace: builtins.str,
+    application_permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    namespace: typing.Optional[builtins.str] = None,
     type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -32415,8 +32755,8 @@ def _typecheckingstub__2227766620710765cf5b471172dcaf731cfbe45c532ee3e1bf553d32e
 
 def _typecheckingstub__064f7fecfcc25645f64c186c564f32dd6ca483ececd1d61b385ed47e66d21158(
     *,
-    flow_module_id: builtins.str,
-    type: builtins.str,
+    flow_module_id: typing.Optional[builtins.str] = None,
+    type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -32430,16 +32770,16 @@ def _typecheckingstub__5f53d05ef660c52b899738dc05814d3be26ac6f43b88b34f8c16ac8f5
 
 def _typecheckingstub__0097766e674258b947b0b9a8faa00ba3fed50110dbb6cb8340bc0ec1c5e66e82(
     *,
-    primary_attribute_values: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSecurityProfile.PrimaryAttributeValueProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    primary_attribute_values: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSecurityProfile.PrimaryAttributeValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__28182eb4900e860efe6341c99d0dcf288e987e00f5d29ed0a88996f9ff6e0650(
     *,
-    access_type: builtins.str,
-    attribute_name: builtins.str,
-    values: typing.Sequence[builtins.str],
+    access_type: typing.Optional[builtins.str] = None,
+    attribute_name: typing.Optional[builtins.str] = None,
+    values: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

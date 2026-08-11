@@ -670,6 +670,107 @@ class TestGetColumnsFromCreateQuery(unittest.TestCase):
             'is_primary_key': False,
         })
 
+    def test_aggregate_function_over_json_type(self):
+        """Regression test for PLTF-842: resolving an AggregateFunction over a
+        JSON value type used to segfault inside columnInfoFromColumnDeclaration
+        (functions/NormalizeColumnsFromDict.cpp), which calls DataTypeFactory
+        without a global ClickHouse Context. JSON's default serialization reads
+        that context unconditionally to check the allow_simdjson setting."""
+        sql = """
+        CREATE TABLE test (
+            id UInt64,
+            payload AggregateFunction(argMax, JSON, DateTime)
+        ) ENGINE = AggregatingMergeTree() ORDER BY id
+        """
+        cols = chquery.get_columns_from_create_query(sql)
+        self.assertEqual(len(cols), 2)
+
+        self.assertColumnEquals(cols[1], {
+            'name': 'payload',
+            'type': 'AggregateFunction(argMax, JSON, DateTime)',
+            'nullable': False,
+            'default_specifier': '',
+            'default_expression': None,
+            'codec': None,
+            'comment': None,
+            'ttl': None,
+            'is_primary_key': False,
+        })
+
+    # Nested/composed type -> expected (normalized_type, nullable). Covers PLTF-842
+    # (JSON nested inside Array/Map/Tuple/Nested/AggregateFunction combinators, which
+    # all previously segfaulted resolving JSON's default serialization without a
+    # global ClickHouse Context) plus general composed-type coverage so any similar
+    # gap for other types would show up here too.
+    NESTED_AND_COMPOSED_TYPES = [
+        ('Array(JSON)', ('Array(JSON)', False)),
+        ('Map(String, JSON)', ('Map(String, JSON)', False)),
+        ('Tuple(JSON, String)', ('Tuple(JSON, String)', False)),
+        ('Tuple(a JSON, b String)', ('Tuple(a JSON, b String)', False)),
+        ('Nullable(JSON)', ('Nullable(JSON)', True)),
+        ('Nested(a JSON, b String)', ('Nested(a JSON, b String)', False)),
+        ('AggregateFunction(argMax, JSON, DateTime)', ('AggregateFunction(argMax, JSON, DateTime)', False)),
+        ('AggregateFunction(argMax, Array(JSON), DateTime)', ('AggregateFunction(argMax, Array(JSON), DateTime)', False)),
+        ('AggregateFunction(argMax, Map(String, JSON), DateTime)', ('AggregateFunction(argMax, Map(String, JSON), DateTime)', False)),
+        ('AggregateFunction(argMax, Tuple(JSON, String), DateTime)', ('AggregateFunction(argMax, Tuple(JSON, String), DateTime)', False)),
+        ('SimpleAggregateFunction(any, JSON)', ('SimpleAggregateFunction(any, JSON)', False)),
+        ('SimpleAggregateFunction(any, Array(JSON))', ('SimpleAggregateFunction(any, Array(JSON))', False)),
+        ('Array(AggregateFunction(argMax, JSON, DateTime))', ('Array(AggregateFunction(argMax, JSON, DateTime))', False)),
+        ('Array(LowCardinality(String))', ('Array(LowCardinality(String))', False)),
+        ('Map(String, LowCardinality(String))', ('Map(String, LowCardinality(String))', False)),
+        ('Array(Nullable(Int64))', ('Array(Nullable(Int64))', False)),
+        ('Map(String, Nullable(Int64))', ('Map(String, Nullable(Int64))', False)),
+        ('Map(String, AggregateFunction(sum, Int64))', ('Map(String, AggregateFunction(sum, Int64))', False)),
+        ('Nested(a UInt64, b String)', ('Nested(a UInt64, b String)', False)),
+        ('Tuple(x Float64, y Float64)', ('Tuple(x Float64, y Float64)', False)),
+        ('Array(Tuple(UInt8, String))', ('Array(Tuple(UInt8, String))', False)),
+        ('Array(Array(String))', ('Array(Array(String))', False)),
+        ('Map(String, Array(String))', ('Map(String, Array(String))', False)),
+        ('Map(String, Map(String, Int64))', ('Map(String, Map(String, Int64))', False)),
+        ('Variant(String, Int64)', ('Variant(String, Int64)', False)),
+        ('Dynamic', ('Dynamic', False)),
+        ('LowCardinality(Nullable(String))', ('LowCardinality(Nullable(String))', True)),
+    ]
+
+    def test_nested_and_composed_types(self):
+        """Regression test for PLTF-842 plus general coverage: resolving nested
+        and composed types (Array/Map/Tuple/Nested/AggregateFunction combinators,
+        including JSON nested inside them) must not crash columnInfoFromColumnDeclaration
+        (functions/NormalizeColumnsFromDict.cpp)."""
+        for type_str, (expected_type, expected_nullable) in self.NESTED_AND_COMPOSED_TYPES:
+            with self.subTest(type_str):
+                sql = f"""
+                CREATE TABLE test (
+                    id UInt64,
+                    col {type_str}
+                ) ENGINE = AggregatingMergeTree() ORDER BY id
+                """
+                cols = chquery.get_columns_from_create_query(sql)
+                self.assertEqual(len(cols), 2)
+                self.assertColumnEquals(cols[1], {
+                    'name': 'col',
+                    'type': expected_type,
+                    'nullable': expected_nullable,
+                    'default_specifier': '',
+                    'default_expression': None,
+                    'codec': None,
+                    'comment': None,
+                    'ttl': None,
+                    'is_primary_key': False,
+                })
+
+    def test_low_cardinality_of_json_is_rejected(self):
+        """LowCardinality only supports numbers, strings, Date or DateTime; JSON
+        must be rejected with a clear error rather than crashing."""
+        sql = """
+        CREATE TABLE test (
+            id UInt64,
+            col LowCardinality(JSON)
+        ) ENGINE = AggregatingMergeTree() ORDER BY id
+        """
+        with self.assertRaisesRegex(ValueError, 'DataTypeLowCardinality is supported only for'):
+            chquery.get_columns_from_create_query(sql)
+
     def test_invalid_query(self):
         """Test that invalid queries raise appropriate errors"""
         with self.assertRaises(ValueError):

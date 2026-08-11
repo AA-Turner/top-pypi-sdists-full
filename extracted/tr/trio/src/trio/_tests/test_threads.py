@@ -28,7 +28,7 @@ from .. import (
     sleep_forever,
 )
 from .._core._tests.test_ki import ki_self
-from .._core._tests.tutil import slow
+from .._core._tests.tutil import gc_collect_harder, slow
 from .._threads import (
     active_thread_count,
     current_default_thread_limiter,
@@ -685,6 +685,29 @@ async def test_trio_to_thread_run_sync_contextvars() -> None:
         " thread"
     )
     assert sniffio.current_async_library() == "trio"
+
+
+async def test_worker_thread_context_not_leaked() -> None:
+    # Regression test for: https://github.com/python-trio/trio/issues/3472
+
+    class Foo:
+        pass
+
+    def sync_fn() -> None:
+        pass
+
+    cvar: contextvars.ContextVar[Foo] = contextvars.ContextVar("cvar")
+    contextval = Foo()
+    ref = weakref.ref(contextval)
+    cvar.set(contextval)
+    await to_thread_run_sync(sync_fn)
+    cvar.set(Foo())
+
+    del contextval
+    if sys.implementation.name == "pypy":
+        gc_collect_harder()
+
+    assert ref() is None
 
 
 async def test_trio_from_thread_run_sync() -> None:

@@ -46,15 +46,15 @@ class JSONArrayInsert(Expression, Func):
     _sql_names = ["JSON_ARRAY_INSERT"]
 
 
-class JSONBContains(Expression, Binary, Func):
+class JSONBContains(Expression, Binary, Predicate, Func):
     _sql_names = ["JSONB_CONTAINS"]
 
 
-class JSONBContainsAllTopKeys(Expression, Binary, Func):
+class JSONBContainsAllTopKeys(Expression, Binary, Predicate, Func):
     pass
 
 
-class JSONBContainsAnyTopKeys(Expression, Binary, Func):
+class JSONBContainsAnyTopKeys(Expression, Binary, Predicate, Func):
     pass
 
 
@@ -133,6 +133,7 @@ class JSONExtractScalar(Expression, Binary, Func):
         "expressions": False,
         "json_type": False,
         "scalar_only": False,
+        "json_subtype": False,
     }
     _sql_names = ["JSON_EXTRACT_SCALAR"]
     is_var_len_args = True

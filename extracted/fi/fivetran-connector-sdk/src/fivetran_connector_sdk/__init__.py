@@ -30,7 +30,7 @@ from fivetran_connector_sdk.constants import (
     DEFAULT_PYTHON_VERSION, TABLES, PYPROJECT_TOML
 )
 from fivetran_connector_sdk.helpers import (
-    print_library_log, reset_local_file_directory, find_connector_object,
+    print_library_log, reset_local_file_directory, find_connector_object, PromptMode, resolve_confirmation
 )
 from fivetran_connector_sdk.cli_parser import create_argument_parser, intercept_unknown_command
 from fivetran_connector_sdk.connector_helper import (
@@ -43,37 +43,37 @@ from fivetran_connector_sdk.connector_helper import (
     get_available_port, tester_root_dir_helper,
     check_dict, check_newer_version, cleanup_uploaded_project,
     get_destination_group, get_connection_name, get_api_key, get_state, get_naming,
-    get_python_version, get_hd_agent_id, get_configuration,
-    handle_connection_response, apply_memory_limit
+    get_python_version, get_hd_agent_id, get_proxy_id, get_proxy_host_config_key, get_configuration,
+    validate_proxy_configuration,
+    handle_connection_response, apply_memory_limit, validate_required_deploy_params, validate_configuration
 )
 
 # Version format: <major_version>.<minor_version>.<patch_version>
 # (where Major Version = 2, Minor Version is incremental MM from Aug 25 onwards, Patch Version is incremental within a month)
-__version__ = "2.10.4"
+__version__ = "2.11.0"
 MAX_MESSAGE_LENGTH = 128 * 1024 * 1024 # 128MB
 
 __all__ = [cls.__name__ for cls in [ByteStream, FileUpload, Logging, Operations, ConfigurationForm, Test]] + ["form_field"]
 
 def package(
         project_path: str,
-        non_interactive: bool = False,
+        prompt_mode: PromptMode = PromptMode.INTERACTIVE,
         configuration_form_method: Optional[Callable] = None):
     """Packages the connector project into a distributable zip file.
 
     Args:
         project_path (str): The path to the connector project directory.
-        non_interactive (bool): If True, skip dependency validation. Defaults to False.
+        prompt_mode (PromptMode): Controls how prompts are answered. Defaults to INTERACTIVE.
         configuration_form_method: Optional callable returning a ConfigurationForm instance.
     """
-    if not non_interactive:
+    if not prompt_mode.is_non_interactive_mode:
         pyproject_path = os.path.join(project_path, PYPROJECT_TOML)
         if os.path.exists(pyproject_path):
             validate_pyproject_file(project_path, True)
         else:
             validate_requirements_file(project_path, True, __version__)
     else:
-        print_library_log(
-            "skipping dependency validation; --non-interactive is set")
+        print_library_log(f"skipping dependency validation; {prompt_mode.value} is set")
 
     package_path = create_package(project_path, configuration_form_method)
     print_library_log(f"package created at: {package_path}", log_icon=Logging.LogIcon.SUCCESS)
@@ -102,7 +102,8 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
     # Call this method to deploy the connector to Fivetran platform
     def deploy(self, project_path: str, deploy_key: str, group: str, connection: str, hd_agent_id: str,
                configuration: dict = None, config_path = None, python_version: str = None,
-               non_interactive: bool = False, naming: str = None):
+               prompt_mode: PromptMode = PromptMode.INTERACTIVE, naming: str = None,
+               proxy_id: str = None, proxy_host_config_key: str = None):
         """Deploys the connector to the Fivetran platform.
 
         Args:
@@ -114,9 +115,12 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
             configuration (dict): The configuration dictionary.
             config_path (str): The path to the configuration file.
             python_version (str): The Python version to use.
-            non_interactive (bool): Whether to run non-interactive deployment behavior.
+            prompt_mode (PromptMode): Controls how prompts are answered. Defaults to INTERACTIVE.
             naming (str): The formatted naming strategy (e.g., "FIVETRAN_NAMING" or "SOURCE_NAMING").
+            proxy_id (str): Proxy Agent ID used for proxy routing.
+            proxy_host_config_key (str): Configuration key that contains the proxied host details.
         """
+        constants.EXECUTED_VIA_CLI = True
         print_library_log("executing deploy:")
         deploy_cmd = f"fivetran deploy --destination {group} --connection {connection} --api-key {deploy_key[0:8]}******** "
         if config_path:
@@ -125,15 +129,21 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
             deploy_cmd += f"--python-version {python_version} "
         if hd_agent_id:
             deploy_cmd += f"--hd-agent-id {hd_agent_id} "
+        if proxy_id:
+            deploy_cmd += f"--proxy-id {proxy_id} "
+        if proxy_host_config_key:
+            deploy_cmd += f"--proxy-host-config-key {proxy_host_config_key} "
         if naming:
             deploy_cmd += f"--naming {naming} "
-        if non_interactive:
-            deploy_cmd += "--non-interactive"
+        if prompt_mode.value:
+            deploy_cmd += prompt_mode.value
         print_library_log(deploy_cmd)
 
-        constants.EXECUTED_VIA_CLI = True
         check_newer_version(__version__)
-        check_dict(configuration, True)
+
+        resolved_proxy_host_config_key = validate_proxy_configuration(
+            configuration or {}, proxy_id, proxy_host_config_key, hd_agent_id)
+        check_dict(configuration, True, {resolved_proxy_host_config_key} if resolved_proxy_host_config_key else None)
 
         secrets_list = []
         if configuration:
@@ -147,8 +157,10 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
 
         if python_version:
             connection_config["python_version"] = python_version
+        if resolved_proxy_host_config_key:
+            connection_config["proxy_host_config_key"] = resolved_proxy_host_config_key
 
-        if not non_interactive:
+        if not prompt_mode.is_non_interactive_mode:
             pyproject_path = os.path.join(project_path, PYPROJECT_TOML)
             if os.path.exists(pyproject_path):
                 validate_pyproject_file(project_path, True)
@@ -156,7 +168,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
                 validate_requirements_file(project_path, True, __version__)
         else:
             print_library_log(
-                "skipping dependency validation; --non-interactive is set")
+                f"skipping dependency validation; {prompt_mode.value} is set")
 
         group_id, group_name = get_group_info(group, deploy_key)
         connection_id, service = get_connection_details(connection, group, group_id, deploy_key) or (None, None)
@@ -169,39 +181,36 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
                     f"cannot update connection '{connection}'; not a Connector SDK connection", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
                 sys.exit(1)
             else:
-                if non_interactive:
-                    confirm = "y"
-                    if configuration:
-                        confirm_config = "y"
-                else:
-                    confirm = input(
-                        f"connection '{connection}' already exists in destination '{group}'\n"
+                should_update = resolve_confirmation(f"connection '{connection}' already exists in destination '{group}'\n"
                         f"updating it will overwrite the existing code\n"
                         f"tip: consider downloading the existing connector code from the Fivetran dashboard\n"
+                        f"continue with update? (y/N): ", False, prompt_mode)
+
+                should_update_config = False
+                if should_update and configuration:
+                    should_update_config = resolve_confirmation(
+                        f"this deploy will replace any existing configuration with keys and values from '{config_path}'\n"
+                        f"omitted keys will be removed; new keys will be added; provided values will overwrite existing values\n"
                         f"continue with update? (y/N): "
-                    )
-                    if confirm.lower() == "y" and configuration:
-                        confirm_config = input(
-                            f"this deploy will replace any existing configuration with keys and values from '{config_path}'\n"
-                            f"omitted keys will be removed; new keys will be added; provided values will overwrite existing values\n"
-                            f"continue with update? (y/N): "
-                        )
-                if confirm.lower() == "y" and (not connection_config["secrets_list"] or (confirm_config.lower() == "y")):
+                        , False, prompt_mode)
+
+                if should_update and (not connection_config["secrets_list"] or should_update_config):
                     print_library_log(f"updating connection {connection} in group {group_name}", log_icon=Logging.LogIcon.STEP)
                     package_id = package_project(project_path, deploy_key, self.configuration_form_method)
-                    response = update_connection(connection_id, connection, group_name, connection_config, package_id, deploy_key, hd_agent_id)
+                    response = update_connection(connection_id, connection, group_name, connection_config, package_id, deploy_key, hd_agent_id, proxy_id)
                     handle_connection_response(response, package_id, deploy_key, HTTPStatus.OK.value, is_new_connection=False, connection_id=connection_id)
                 else:
                     print_library_log("update cancelled", log_icon=Logging.LogIcon.FAILURE)
                     sys.exit(1)
         else:
+            validate_configuration(configuration)
             if not python_version:
                 print_library_log(
                     f"python version not specified; connection will use the default python version ({DEFAULT_PYTHON_VERSION})")
                 print_library_log(
                     "set --python-version <version> in the deploy command or update it in your Fivetran dashboard")
             package_id = package_project(project_path, deploy_key, self.configuration_form_method)
-            response = create_connection(deploy_key, group_id, connection_config, hd_agent_id, package_id, naming)
+            response = create_connection(deploy_key, group_id, connection_config, hd_agent_id, package_id, naming, proxy_id)
             handle_connection_response(response, package_id, deploy_key, HTTPStatus.CREATED.value, is_new_connection=True)
 
     # Call this method to run the connector in production
@@ -268,6 +277,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
             naming (str): The formatted naming strategy (e.g., "FIVETRAN_NAMING" or "SOURCE_NAMING").
         """
         constants.DEBUGGING = True
+        validate_configuration(configuration)
 
         check_newer_version(__version__)
 
@@ -562,9 +572,13 @@ def main():
     intercept_unknown_command()
     parser = create_argument_parser()
     args = parser.parse_args()
+    try:
+        prompt_mode = PromptMode.from_args(args.non_interactive, args.force, args.yes)
+    except ValueError as e:
+        print_library_log(str(e), Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
+        sys.exit(1)
     if args.force:
         print_library_log(DEPRECATED_FORCE_FLAG_WARNING, Logging.Level.WARNING)
-    args.non_interactive = args.force or args.non_interactive
 
     if args.version:
         print_version()
@@ -576,11 +590,11 @@ def main():
     if args.command.lower() == "version":
         print_version()
     elif args.command.lower() == "reset":
-        reset_local_file_directory(args)
+        reset_local_file_directory(args, prompt_mode)
         sys.exit(0)
     elif args.command.lower() == "init":
         check_newer_version(__version__)
-        init(args.project_path, args.template, args.non_interactive)
+        init(args.project_path, args.template, prompt_mode)
     elif args.command.lower() == "help":
         parser.print_help()
         sys.exit(0)
@@ -591,20 +605,24 @@ def main():
         sys.exit(1)
 
     if args.command.lower() == "package":
-        package(args.project_path, args.non_interactive, connector_object.configuration_form_method)
+        package(args.project_path, prompt_mode, connector_object.configuration_form_method)
 
     if args.command.lower() == "deploy":
         ft_group = get_destination_group(args)
         ft_connection = get_connection_name(args)
         ft_deploy_key = get_api_key(args)
-        python_version = get_python_version(args)
-        hd_agent_id = get_hd_agent_id(args)
+        validate_required_deploy_params(ft_group=ft_group, ft_connection=ft_connection, ft_deploy_key=ft_deploy_key)
+        python_version = get_python_version(args, prompt_mode)
+        hd_agent_id = get_hd_agent_id(args, prompt_mode)
+        proxy_id = get_proxy_id(args)
+        proxy_host_config_key = get_proxy_host_config_key(args)
         configuration, config_path = get_configuration(args)
         get_state(args)
         naming = get_naming(args)
 
         connector_object.deploy(args.project_path, ft_deploy_key, ft_group, ft_connection, hd_agent_id,
-                                configuration, config_path, python_version, args.non_interactive, naming)
+                                configuration, config_path, python_version, prompt_mode, naming,
+                                proxy_id, proxy_host_config_key)
 
     elif args.command.lower() == "debug":
         configuration, config_path = get_configuration(args)

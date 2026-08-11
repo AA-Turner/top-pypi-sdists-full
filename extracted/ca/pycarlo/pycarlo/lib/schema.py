@@ -39730,6 +39730,8 @@ class GoldenTestResult(sgqlc.types.Type):
         "scores",
         "verdict",
         "error",
+        "tool_use_count",
+        "token_usage",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Public identifier of the result."""
@@ -39760,6 +39762,16 @@ class GoldenTestResult(sgqlc.types.Type):
     data, since it can echo the live dev-agent response.
     """
 
+    tool_use_count = sgqlc.types.Field(Int, graphql_name="toolUseCount")
+    """Number of tool calls the agent made on this case. Null if not
+    captured.
+    """
+
+    token_usage = sgqlc.types.Field("GoldenTokenUsage", graphql_name="tokenUsage")
+    """Token consumption for this case's agent run, summed across all
+    models used. Null when the run captured no usage data.
+    """
+
 
 class GoldenTestRun(sgqlc.types.Type):
     """One run of a golden set's eval rules against a live/dev agent, vs
@@ -39778,6 +39790,7 @@ class GoldenTestRun(sgqlc.types.Type):
         "results",
         "created_time",
         "updated_time",
+        "agent_config_snapshot",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Public identifier of the run."""
@@ -39823,6 +39836,30 @@ class GoldenTestRun(sgqlc.types.Type):
 
     updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
     """When the run was last written."""
+
+    agent_config_snapshot = sgqlc.types.Field(GenericScalar, graphql_name="agentConfigSnapshot")
+    """The Cortex agent's raw configuration captured at run time, for
+    comparing setup across runs. Withheld (null) from callers without
+    access to the underlying raw customer data; null when it could not
+    be captured.
+    """
+
+
+class GoldenTokenUsage(sgqlc.types.Type):
+    """Token counts for one case's agent run, summed across every model
+    it used.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("total", "input", "output")
+    total = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="total")
+    """Input + output tokens across all models."""
+
+    input = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="input")
+    """Total input (prompt) tokens across all models."""
+
+    output = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="output")
+    """Total output (completion) tokens across all models."""
 
 
 class GoldenVerdictSummary(sgqlc.types.Type):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-google
-Version: 22.2.2
+Version: 22.3.0
 Summary: Provider package apache-airflow-providers-google for Apache Airflow
 Keywords: airflow-provider,google,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -39,7 +39,15 @@ Requires-Dist: google-api-core>=2.30.3
 Requires-Dist: google-api-python-client>=2.0.2
 Requires-Dist: google-auth>=2.29.0
 Requires-Dist: google-auth-httplib2>=0.0.1
-Requires-Dist: google-cloud-aiplatform[evaluation]>=1.155.0
+Requires-Dist: google-genai>=2.8.0
+Requires-Dist: google-cloud-aiplatform>=1.155.0
+Requires-Dist: tqdm>=4.23.0
+Requires-Dist: scikit-learn>=1.6.0
+Requires-Dist: jsonschema>=4.19.1
+Requires-Dist: ruamel.yaml>=0.19.0
+Requires-Dist: pyyaml>=6.0.3
+Requires-Dist: litellm<1.86.0,>=1.83.7;python_version<'3.14'
+Requires-Dist: litellm>=1.93.0;python_version>='3.14'
 Requires-Dist: ray[default]>=2.42.0;python_version<'3.13'
 Requires-Dist: ray[default]>=2.49.0;python_version>='3.13' and python_version <'3.14'
 Requires-Dist: ray[default]>=2.55.0;python_version>='3.14' and python_version <'3.15'
@@ -122,8 +130,8 @@ Requires-Dist: apache-airflow-providers-ssh ; extra == "ssh"
 Requires-Dist: apache-airflow-providers-standard ; extra == "standard"
 Requires-Dist: apache-airflow-providers-trino ; extra == "trino"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-google/22.2.2/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-google/22.2.2
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-google/22.3.0/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-google/22.3.0
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -175,7 +183,7 @@ Provides-Extra: trino
 
 Package ``apache-airflow-providers-google``
 
-Release: ``22.2.2``
+Release: ``22.3.0``
 
 
 Google services including:
@@ -195,7 +203,7 @@ This is a provider package for ``google`` provider. All classes for this provide
 are in ``airflow.providers.google`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-google/22.2.2/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-google/22.3.0/>`_.
 
 Installation
 ------------
@@ -228,7 +236,15 @@ PIP package                                 Version required
 ``google-api-python-client``                ``>=2.0.2``
 ``google-auth``                             ``>=2.29.0``
 ``google-auth-httplib2``                    ``>=0.0.1``
-``google-cloud-aiplatform[evaluation]``     ``>=1.155.0``
+``google-genai``                            ``>=2.8.0``
+``google-cloud-aiplatform``                 ``>=1.155.0``
+``tqdm``                                    ``>=4.23.0``
+``scikit-learn``                            ``>=1.6.0``
+``jsonschema``                              ``>=4.19.1``
+``ruamel.yaml``                             ``>=0.19.0``
+``pyyaml``                                  ``>=6.0.3``
+``litellm``                                 ``>=1.83.7,<1.86.0; python_version < "3.14"``
+``litellm``                                 ``>=1.93.0; python_version >= "3.14"``
 ``ray[default]``                            ``>=2.42.0; python_version < "3.13"``
 ``ray[default]``                            ``>=2.49.0; python_version >= "3.13" and python_version < "3.14"``
 ``ray[default]``                            ``>=2.55.0; python_version >= "3.14" and python_version < "3.15"``
@@ -358,5 +374,5 @@ Extra                 Dependencies
 ====================  ====================================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-google/22.2.2/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-google/22.3.0/changelog.html>`_.
 

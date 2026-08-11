@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-cachalot
-Version: 2.9.0
+Version: 2.9.1
 Summary: Caches your Django ORM queries and automatically invalidates them.
 Home-page: https://github.com/noripyt/django-cachalot
 Author: Bertrand Bordage, Andrew Chen Wang
@@ -14,6 +14,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
@@ -24,7 +25,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 License-File: LICENSE
-Requires-Dist: Django<6.1,>=4.2
+Requires-Dist: Django<6.2,>=4.2
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -76,7 +77,7 @@ Table of Contents:
 Quickstart
 ----------
 
-Cachalot officially supports Python 3.8-3.14 and Django 4.2, 5.2, 6.0 with the databases PostgreSQL, SQLite, and MySQL.
+Cachalot officially supports Python 3.8-3.14 and Django 4.2, 5.2, 6.0, 6.1 with the databases PostgreSQL, SQLite, and MySQL.
 
 Note: an upper limit on Django version is set for your safety. Please do not ignore it.
 

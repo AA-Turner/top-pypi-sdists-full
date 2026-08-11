@@ -1,19 +1,18 @@
 from __future__ import annotations
 
-import importlib
 import json
 import os
 import sys
 import zipfile
 from argparse import Namespace
 from datetime import datetime, timezone
-from os.path import isabs
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
 
 import pytest
 
+import auditwheel.wheel_abi
 from auditwheel import lddtree, main_repair
 from auditwheel.architecture import Architecture
 from auditwheel.libc import Libc
@@ -24,60 +23,83 @@ HERE = Path(__file__).parent.resolve()
 
 
 @pytest.mark.parametrize(
-    ("file", "external_libs", "exclude"),
+    ("file", "external_libs", "exclude", "env"),
     [
         (
             "cffi-1.5.0-cp27-none-linux_x86_64.whl",
             {"libffi.so.5", "libpython2.7.so.1.0"},
             frozenset(),
+            None,
         ),
         (
             "cffi-1.5.0-cp27-none-linux_x86_64.whl",
             set(),
             frozenset(["libffi.so.5", "libpython2.7.so.1.0"]),
+            None,
         ),
         (
             "cffi-1.5.0-cp27-none-linux_x86_64.whl",
             {"libffi.so.5", "libpython2.7.so.1.0"},
             frozenset(["libffi.so.noexist", "libnoexist.so.*"]),
+            None,
         ),
         (
             "cffi-1.5.0-cp27-none-linux_x86_64.whl",
             {"libpython2.7.so.1.0"},
             frozenset(["libffi.so.[4,5]"]),
+            None,
         ),
         (
             "cffi-1.5.0-cp27-none-linux_x86_64.whl",
             {"libffi.so.5", "libpython2.7.so.1.0"},
             frozenset(["libffi.so.[6,7]"]),
+            None,
         ),
         (
             "cffi-1.5.0-cp27-none-linux_x86_64.whl",
             {"libpython2.7.so.1.0"},
             frozenset([f"{HERE}/*"]),
+            "LD_LIBRARY_PATH",
+        ),
+        (
+            "cffi-1.5.0-cp27-none-linux_x86_64.whl",
+            {"libpython2.7.so.1.0"},
+            frozenset([f"{HERE}/*"]),
+            "AUDITWHEEL_LD_LIBRARY_PATH",
+        ),
+        (
+            "cffi-1.5.0-cp27-none-linux_x86_64.whl",
+            {"libffi.so.5", "libpython2.7.so.1.0"},
+            frozenset([f"{HERE}/*"]),
+            None,
         ),
         (
             "cffi-1.5.0-cp27-none-linux_x86_64.whl",
             {"libpython2.7.so.1.0"},
             frozenset(["libffi.so.*"]),
+            None,
         ),
-        ("cffi-1.5.0-cp27-none-linux_x86_64.whl", set(), frozenset(["*"])),
+        ("cffi-1.5.0-cp27-none-linux_x86_64.whl", set(), frozenset(["*"]), None),
         (
             "python_snappy-0.5.2-pp260-pypy_41-linux_x86_64.whl",
             {"libsnappy.so.1"},
             frozenset(),
+            None,
         ),
     ],
 )
-def test_analyze_wheel_abi(file, external_libs, exclude):
-    # If exclude libs contain path, LD_LIBRARY_PATH need to be modified to find the libs
-    # `lddtree.load_ld_paths` needs to be reloaded for it's `lru_cache`-ed.
-    modify_ld_library_path = any(isabs(e) for e in exclude)
+def test_analyze_wheel_abi(file, external_libs, exclude, env):
+    # If exclude libs contain path, the parametrized environment variable "env" needs to be
+    # modified to find the libs
+
+    lddtree.load_ld_paths.cache_clear()
+    auditwheel.wheel_abi.get_wheel_elfdata.cache_clear()
 
     with pytest.MonkeyPatch.context() as cp:
-        if modify_ld_library_path:
-            cp.setenv("LD_LIBRARY_PATH", f"{HERE}")
-            importlib.reload(lddtree)
+        cp.delenv("AUDITWHEEL_LD_LIBRARY_PATH", raising=False)
+        cp.delenv("LD_LIBRARY_PATH", raising=False)
+        if env:
+            cp.setenv(env, f"{HERE}")
 
         winfo = analyze_wheel_abi(
             Libc.GLIBC,
@@ -91,8 +113,8 @@ def test_analyze_wheel_abi(file, external_libs, exclude):
             f"{HERE}, {exclude}, {os.environ}"
         )
 
-    if modify_ld_library_path:
-        importlib.reload(lddtree)
+    lddtree.load_ld_paths.cache_clear()
+    auditwheel.wheel_abi.get_wheel_elfdata.cache_clear()
 
 
 def test_analyze_wheel_abi_pyfpe():
@@ -179,6 +201,7 @@ def test_wheel_source_date_epoch(timestamp, tmp_path, monkeypatch):
         LDPATHS=None,
         DISABLE_ISA_EXT_CHECK=False,
         ZIP_COMPRESSION_LEVEL=6,
+        PATCHER="none",
         cmd="repair",
         func=Mock(),
         prog="auditwheel",
@@ -208,6 +231,7 @@ def test_libpython(tmp_path, caplog):
         LDPATHS=None,
         DISABLE_ISA_EXT_CHECK=False,
         ZIP_COMPRESSION_LEVEL=6,
+        PATCHER="patchelf",
         cmd="repair",
         func=Mock(),
         prog="auditwheel",
@@ -277,3 +301,44 @@ def test_weak_symbols_not_blacklisted() -> None:
     assert result.policies.libc == Libc.GLIBC
     assert result.policies.architecture == Architecture.x86_64
     assert result.overall_policy.name == "manylinux_2_17_x86_64"
+
+
+def test_symbol_blacklist(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # wheel built using main@dda40c214e3db607b6ab31cd4cf9e3e5e1347937
+    # AUDITWHEEL_ARCH=x86_64 nox -s tests-3.10 -- \
+    #   'tests/integration/test_manylinux.py::TestManylinux::test_zlib_blacklist[manylinux_2_12]'
+    wheel = HERE / "testzlib-0.0.1-cp310-cp310-linux_x86_64.whl"
+    result = analyze_wheel_abi(
+        None,
+        None,
+        wheel,
+        frozenset(),
+        disable_isa_ext_check=False,
+        allow_graft=False,
+    )
+    assert result.policies.libc == Libc.GLIBC
+    assert result.policies.architecture == Architecture.x86_64
+    assert result.overall_policy.name == "linux_x86_64"
+    assert result.blacklist_policy.name == "linux_x86_64"
+    assert result.sym_policy.name == "manylinux_2_12_x86_64"
+    assert result.graft_policy.name == "manylinux_2_5_x86_64"
+    assert result.machine_policy.name == "manylinux_2_5_x86_64"
+    assert result.pyfpe_policy.name == "manylinux_2_5_x86_64"
+    assert result.ref_policy.name == "manylinux_2_5_x86_64"
+    assert result.ucs_policy.name == "manylinux_2_5_x86_64"
+
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(Architecture, "detect", lambda: Architecture.x86_64)
+    monkeypatch.setattr(sys, "argv", ["auditwheel", "repair", str(wheel)])
+    with pytest.raises(SystemExit):
+        main()
+    captured = capsys.readouterr()
+    assert " because it depends on black-listed symbols" in captured.err.replace("\n", " ")
+
+    monkeypatch.setattr(sys, "argv", ["auditwheel", "-v", "show", str(wheel)])
+    assert main() == 0
+    captured = capsys.readouterr()
+    assert "black-listed symbol dependencies" in captured.out.replace("\n", " ")

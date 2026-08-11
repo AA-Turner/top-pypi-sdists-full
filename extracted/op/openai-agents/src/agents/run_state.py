@@ -11,7 +11,7 @@ from collections import deque
 from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, Literal, cast
+from typing import TYPE_CHECKING, Annotated, Any, Generic, Literal, cast
 from uuid import uuid4
 
 from openai.types.responses import (
@@ -36,8 +36,8 @@ from openai.types.responses.response_output_item import (
     Program,
     ProgramOutput,
 )
-from pydantic import TypeAdapter, ValidationError
-from typing_extensions import TypeVar
+from pydantic import StringConstraints, TypeAdapter, ValidationError
+from typing_extensions import TypedDict, TypeVar
 
 from ._tool_identity import (
     FunctionToolLookupKey,
@@ -50,8 +50,20 @@ from ._tool_identity import (
     get_function_tool_qualified_name,
     serialize_function_tool_lookup_key,
 )
+from ._tool_invocation import (
+    tool_invocation_call_id,
+    tool_invocation_identity,
+    tool_invocation_identity_and_scope,
+    tool_output_identity,
+)
 from .agent import Agent
-from .exceptions import UserError
+from .exceptions import (
+    ModelBehaviorError,
+    UserError,
+    _mark_error_data_redacted,
+    _prepare_data_redacted_error,
+    _raise_data_redacted_error,
+)
 from .guardrail import (
     GuardrailFunctionOutput,
     InputGuardrail,
@@ -64,6 +76,8 @@ from .items import (
     CompactionItem,
     HandoffCallItem,
     HandoffOutputItem,
+    InputItem,
+    ItemHelpers,
     MCPApprovalRequestItem,
     MCPApprovalResponseItem,
     MCPListToolsItem,
@@ -131,6 +145,7 @@ if TYPE_CHECKING:
     from .items import ModelResponse, RunItem
     from .run_internal.run_steps import (
         NextStepInterruption,
+        NextStepRunAgain,
         ProcessedResponse,
         ToolRunFunction,
     )
@@ -141,6 +156,18 @@ TAction = TypeVar("TAction")
 ContextOverride = Mapping[str, Any] | RunContextWrapper[Any]
 ContextSerializer = Callable[[Any], Mapping[str, Any]]
 ContextDeserializer = Callable[[Mapping[str, Any]], Any]
+RunStateValidationError = UserError | ValueError
+RunStateValidationErrorType = type[UserError] | type[ValueError]
+RunStateValidationErrorFactory = Callable[
+    [str, RunStateValidationErrorType], RunStateValidationError
+]
+
+
+def _default_run_state_validation_error(
+    message: str,
+    error_type: RunStateValidationErrorType,
+) -> RunStateValidationError:
+    return error_type(message)
 
 
 # RunState schema policy.
@@ -150,7 +177,9 @@ ContextDeserializer = Callable[[Mapping[str, Any]], Any]
 # 3. to_json() always emits CURRENT_SCHEMA_VERSION.
 # 4. Forward compatibility is intentionally fail-fast (older SDKs reject newer or unsupported
 #    versions).
-CURRENT_SCHEMA_VERSION = "1.13"
+CURRENT_SCHEMA_VERSION = "1.15"
+_PROGRAMMATIC_TOOL_CALLING_MIN_SCHEMA_VERSION = "1.13"
+_HOSTED_MCP_APPROVALS_MIN_SCHEMA_VERSION = "1.14"
 # Keep this mapping in chronological order. Every schema bump must add a one-line summary here.
 SCHEMA_VERSION_SUMMARIES: dict[str, str] = {
     "1.0": "Initial RunState snapshot format for HITL pause/resume flows.",
@@ -173,6 +202,11 @@ SCHEMA_VERSION_SUMMARIES: dict[str, str] = {
         "Persists programmatic tool calling and nested handoff history ownership across resume "
         "flows."
     ),
+    "1.14": "Scopes hosted MCP approvals and restored requests by server label.",
+    "1.15": (
+        "Persists canonical tool invocation identity plus sanitized mount authority and trusted "
+        "rebind metadata, durable pending input, and resumable next-model-call state."
+    ),
 }
 SUPPORTED_SCHEMA_VERSIONS = frozenset(SCHEMA_VERSION_SUMMARIES)
 
@@ -190,9 +224,20 @@ if _missing_schema_version_summaries:
         f"Missing summaries: {', '.join(_missing_schema_version_summaries)}"
     )
 
+
+class _LocalShellCallOutputPayload(TypedDict):
+    """SDK-produced local-shell output shape stored in released RunState snapshots."""
+
+    type: Literal["local_shell_call_output"]
+    call_id: Annotated[str, StringConstraints(strict=True, min_length=1)]
+    output: Annotated[str, StringConstraints(strict=True)]
+
+
 _FUNCTION_OUTPUT_ADAPTER: TypeAdapter[FunctionCallOutput] = TypeAdapter(FunctionCallOutput)
 _COMPUTER_OUTPUT_ADAPTER: TypeAdapter[ComputerCallOutput] = TypeAdapter(ComputerCallOutput)
-_LOCAL_SHELL_OUTPUT_ADAPTER: TypeAdapter[LocalShellCallOutput] = TypeAdapter(LocalShellCallOutput)
+_LOCAL_SHELL_OUTPUT_ADAPTER: TypeAdapter[_LocalShellCallOutputPayload] = TypeAdapter(
+    _LocalShellCallOutputPayload
+)
 _TOOL_CALL_OUTPUT_UNION_ADAPTER: TypeAdapter[
     FunctionCallOutput | ComputerCallOutput | LocalShellCallOutput
 ] = TypeAdapter(FunctionCallOutput | ComputerCallOutput | LocalShellCallOutput)
@@ -248,6 +293,9 @@ class RunState(Generic[TContext, TAgent]):
     _session_items: list[RunItem] = field(default_factory=list)
     """Full, unfiltered run items for session history."""
 
+    _pending_input: list[TResponseInputItem] = field(default_factory=list)
+    """Input staged for admission immediately before the next resumed model call."""
+
     _nested_history_owned_session_item_refs: list[NestedHistoryOwnedItemRef] = field(
         default_factory=list
     )
@@ -283,8 +331,8 @@ class RunState(Generic[TContext, TAgent]):
     _tool_output_guardrail_results: list[ToolOutputGuardrailResult] = field(default_factory=list)
     """Results from tool output guardrails applied during the run."""
 
-    _current_step: NextStepInterruption | None = None
-    """Current step if the run is interrupted (e.g., for tool approval)."""
+    _current_step: NextStepInterruption | NextStepRunAgain | None = None
+    """Current resumable step, or ``None`` when the state is terminal."""
 
     _last_processed_response: ProcessedResponse | None = None
     """The last processed model response. This is needed for resuming from interruptions."""
@@ -335,6 +383,7 @@ class RunState(Generic[TContext, TAgent]):
         self._model_responses = []
         self._generated_items = []
         self._session_items = []
+        self._pending_input = []
         self._nested_history_owned_session_item_refs = []
         self._input_guardrail_results = []
         self._output_guardrail_results = []
@@ -353,6 +402,55 @@ class RunState(Generic[TContext, TAgent]):
 
         self._agent_tool_state_scope_id = get_agent_tool_state_scope(context)
 
+    @property
+    def pending_input(self) -> list[TResponseInputItem]:
+        """Return a copy of input currently staged for the next resumed model call."""
+        return copy.deepcopy(self._pending_input)
+
+    def add_input(self, input: str | list[TResponseInputItem]) -> None:
+        """Stage input for admission immediately before the next resumed model call.
+
+        String input is normalized to a user message. Multiple calls preserve insertion order.
+        The input remains pending until its guardrails and conversation ownership boundary accept
+        it. Terminal states reject new input before mutating the state.
+        """
+        from .run_internal.run_steps import NextStepInterruption, NextStepRunAgain
+
+        if not isinstance(self._current_step, NextStepInterruption | NextStepRunAgain):
+            raise UserError("Cannot add input to a terminal RunState")
+        if self._max_turns is not None and self._current_turn >= self._max_turns:
+            raise UserError("Cannot add input to a RunState with no remaining model turns")
+        if isinstance(self._current_step, NextStepInterruption):
+            if self._current_step.response_accepted:
+                raise UserError(
+                    "Cannot add input while an accepted model response is awaiting local processing"
+                )
+            if self._current_agent is None:
+                raise UserError("Cannot add input to a RunState without a current agent")
+            tool_use_behavior = self._current_agent.tool_use_behavior
+            interrupted_tool_names = {
+                item.tool_name
+                for item in self._current_step.interruptions
+                if item.tool_name is not None
+            }
+            stops_before_next_model = tool_use_behavior == "stop_on_first_tool" or (
+                isinstance(tool_use_behavior, dict)
+                and bool(
+                    interrupted_tool_names & set(tool_use_behavior.get("stop_at_tool_names", []))
+                )
+            )
+            if stops_before_next_model or callable(tool_use_behavior):
+                raise UserError(
+                    "Cannot add input to an interrupted RunState whose tool result may end the run"
+                )
+
+        normalized = ItemHelpers.input_to_new_input_list(input)
+        self._pending_input.extend(copy.deepcopy(normalized))
+
+    def clear_pending_input(self) -> None:
+        """Remove all input staged for the next resumed model call."""
+        self._pending_input = []
+
     def get_interruptions(self) -> list[ToolApprovalItem]:
         """Return pending interruptions if the current step is an interruption."""
         # Import at runtime to avoid circular import
@@ -362,10 +460,175 @@ class RunState(Generic[TContext, TAgent]):
             return []
         return self._current_step.interruptions
 
+    @staticmethod
+    def _approval_items_match(
+        candidate: ToolApprovalItem,
+        approval_item: ToolApprovalItem,
+    ) -> bool:
+        """Return whether two approval items identify the same nested invocation."""
+        if candidate is approval_item:
+            return True
+        candidate_agent = candidate.agent
+        approval_agent = approval_item.agent
+        if (
+            candidate_agent is not None
+            and approval_agent is not None
+            and candidate_agent is not approval_agent
+        ):
+            return False
+        candidate_identity = tool_invocation_identity(
+            candidate.raw_item,
+            tool_lookup_key=candidate.tool_lookup_key,
+            tool_name=candidate.tool_name,
+        )
+        approval_identity = tool_invocation_identity(
+            approval_item.raw_item,
+            tool_lookup_key=approval_item.tool_lookup_key,
+            tool_name=approval_item.tool_name,
+        )
+        return candidate_identity is not None and candidate_identity == approval_identity
+
+    def _find_nested_approval_state(
+        self,
+        approval_item: ToolApprovalItem,
+    ) -> tuple[RunState[Any, Agent[Any]], ToolApprovalItem] | None:
+        """Find the nested agent-tool state that owns an approval interruption."""
+        if self._last_processed_response is None:
+            return None
+
+        from .agent_tool_state import peek_agent_tool_run_result
+
+        approval_identity = tool_invocation_identity_and_scope(
+            approval_item.raw_item,
+            tool_lookup_key=approval_item.tool_lookup_key,
+            tool_name=approval_item.tool_name,
+        )
+        current_state_owns_approval = False
+        if approval_identity is not None and self._context is not None:
+            invocation_type, call_id, approval_scope, fingerprint = approval_identity
+            current_record = self._context._tool_invocations.get(call_id)
+            current_state_owns_approval = current_record is not None and (
+                not current_record.completed
+                and current_record.invocation_type == invocation_type
+                and current_record.approval_scope == approval_scope
+                and current_record.fingerprint == fingerprint
+            )
+            current_response_identities = [
+                *(
+                    tool_invocation_identity_and_scope(
+                        run.tool_call,
+                        tool_lookup_key=get_function_tool_lookup_key_for_tool(run.function_tool),
+                    )
+                    for run in self._last_processed_response.functions
+                ),
+                *(
+                    tool_invocation_identity_and_scope(
+                        run.tool_call,
+                        invocation_role="handoff",
+                    )
+                    for run in self._last_processed_response.handoffs
+                ),
+                *(
+                    tool_invocation_identity_and_scope(
+                        run.tool_call,
+                        tool_name=run.computer_tool.name,
+                    )
+                    for run in self._last_processed_response.computer_actions
+                ),
+                *(
+                    tool_invocation_identity_and_scope(
+                        run.tool_call,
+                        tool_name=run.custom_tool.name,
+                    )
+                    for run in self._last_processed_response.custom_tool_calls
+                ),
+                *(
+                    tool_invocation_identity_and_scope(
+                        run.tool_call,
+                        tool_name=run.local_shell_tool.name,
+                    )
+                    for run in self._last_processed_response.local_shell_calls
+                ),
+                *(
+                    tool_invocation_identity_and_scope(
+                        run.tool_call,
+                        tool_name=run.shell_tool.name,
+                    )
+                    for run in self._last_processed_response.shell_calls
+                ),
+                *(
+                    tool_invocation_identity_and_scope(
+                        run.tool_call,
+                        tool_name=run.apply_patch_tool.name,
+                    )
+                    for run in self._last_processed_response.apply_patch_calls
+                ),
+                *(
+                    tool_invocation_identity_and_scope(
+                        run.tool_call,
+                        tool_name=run.tool_name,
+                    )
+                    for run in self._last_processed_response.function_tools_not_found
+                ),
+                *(
+                    tool_invocation_identity_and_scope(run.request_item)
+                    for run in self._last_processed_response.mcp_approval_requests
+                ),
+            ]
+            current_state_owns_approval = (
+                current_state_owns_approval and approval_identity in current_response_identities
+            )
+
+        exact_match: tuple[RunState[Any, Agent[Any]], ToolApprovalItem] | None = None
+        canonical_matches: list[tuple[RunState[Any, Agent[Any]], ToolApprovalItem]] = []
+        for function_run in self._last_processed_response.functions:
+            pending_result = peek_agent_tool_run_result(
+                function_run.tool_call,
+                scope_id=self._agent_tool_state_scope_id,
+            )
+            interruptions = getattr(pending_result, "interruptions", None)
+            to_state = getattr(pending_result, "to_state", None)
+            if not isinstance(interruptions, list) or not callable(to_state):
+                continue
+            nested_state = to_state()
+            if not isinstance(nested_state, RunState) or nested_state is self:
+                continue
+            for candidate in interruptions:
+                if not isinstance(candidate, ToolApprovalItem):
+                    continue
+                if candidate is approval_item:
+                    exact_match = (nested_state, candidate)
+                    break
+                if self._approval_items_match(candidate, approval_item):
+                    canonical_matches.append((nested_state, candidate))
+            if exact_match is not None:
+                break
+
+        if current_state_owns_approval and (exact_match is not None or canonical_matches):
+            raise UserError(
+                "Cannot apply approval because the same tool invocation identity belongs to both "
+                "the current run and a nested agent-tool run. Use distinct call IDs."
+            )
+        if exact_match is not None:
+            return exact_match
+        if len(canonical_matches) == 1:
+            return canonical_matches[0]
+        if len(canonical_matches) > 1:
+            raise UserError(
+                "Cannot apply approval because multiple nested agent-tool runs contain the same "
+                "tool invocation identity. Use unique call IDs within nested runs."
+            )
+        return None
+
     def approve(self, approval_item: ToolApprovalItem, always_approve: bool = False) -> None:
         """Approve a tool call and rerun with this state to continue."""
         if self._context is None:
             raise UserError("Cannot approve tool: RunState has no context")
+        nested_approval = self._find_nested_approval_state(approval_item)
+        if nested_approval is not None:
+            nested_state, nested_item = nested_approval
+            nested_state.approve(nested_item, always_approve=always_approve)
+            return
         self._context.approve_tool(approval_item, always_approve=always_approve)
 
     def reject(
@@ -383,6 +646,15 @@ class RunState(Generic[TContext, TAgent]):
         """
         if self._context is None:
             raise UserError("Cannot reject tool: RunState has no context")
+        nested_approval = self._find_nested_approval_state(approval_item)
+        if nested_approval is not None:
+            nested_state, nested_item = nested_approval
+            nested_state.reject(
+                nested_item,
+                always_reject=always_reject,
+                rejection_message=rejection_message,
+            )
+            return
         self._context.reject_tool(
             approval_item,
             always_reject=always_reject,
@@ -395,6 +667,8 @@ class RunState(Generic[TContext, TAgent]):
             return {}
         approvals_dict: dict[str, dict[str, Any]] = {}
         for tool_name, record in self._context._approvals.items():
+            if not isinstance(tool_name, str):
+                continue
             approvals_dict[tool_name] = {
                 "approved": record.approved
                 if isinstance(record.approved, bool)
@@ -409,7 +683,69 @@ class RunState(Generic[TContext, TAgent]):
                 approvals_dict[tool_name]["sticky_rejection_message"] = (
                     record.sticky_rejection_message
                 )
+            if record.sticky_scope is not None:
+                approvals_dict[tool_name]["sticky_scope"] = record.sticky_scope
         return approvals_dict
+
+    def _serialize_tool_invocations(self) -> dict[str, dict[str, Any]]:
+        """Serialize the run-owned canonical tool invocation ledger."""
+        if self._context is None:
+            return {}
+        return {
+            call_id: {
+                "type": invocation.invocation_type,
+                "approval_scope": invocation.approval_scope,
+                "fingerprint": invocation.fingerprint,
+                "executed": invocation.executed,
+                "completed": invocation.completed,
+            }
+            for call_id, invocation in self._context._tool_invocations.items()
+        }
+
+    def _serialize_hosted_mcp_approvals(self) -> list[dict[str, Any]]:
+        """Serialize hosted MCP approvals with explicit typed identities."""
+        if self._context is None:
+            return []
+        serialized: list[dict[str, Any]] = []
+        hosted_records = (
+            (identity, record)
+            for identity, record in self._context._approvals.items()
+            if isinstance(identity, tuple)
+        )
+        for identity, record in sorted(hosted_records):
+            if identity[0] == "hosted_mcp":
+                identity_data = {
+                    "type": "server_tool",
+                    "server_label": identity[1],
+                    "tool_name": identity[2],
+                }
+            elif identity[0] == "hosted_mcp_call":
+                identity_data = {
+                    "type": "request",
+                    "request_id": identity[1],
+                }
+            else:
+                identity_data = {
+                    "type": "query",
+                    "tool_name": identity[1],
+                    "request_id": identity[2],
+                }
+            decision: dict[str, Any] = {
+                "approved": record.approved
+                if isinstance(record.approved, bool)
+                else list(record.approved),
+                "rejected": record.rejected
+                if isinstance(record.rejected, bool)
+                else list(record.rejected),
+            }
+            if record.rejection_messages:
+                decision["rejection_messages"] = dict(record.rejection_messages)
+            if record.sticky_rejection_message is not None:
+                decision["sticky_rejection_message"] = record.sticky_rejection_message
+            if record.sticky_scope is not None:
+                decision["sticky_scope"] = record.sticky_scope
+            serialized.append({"identity": identity_data, "decision": decision})
+        return serialized
 
     def _serialize_model_responses(self) -> list[dict[str, Any]]:
         """Serialize model responses."""
@@ -423,13 +759,13 @@ class RunState(Generic[TContext, TAgent]):
             for resp in self._model_responses
         ]
 
-    def _serialize_original_input(self) -> str | list[Any]:
-        """Normalize original input into the shape expected by Responses API."""
-        if not isinstance(self._original_input, list):
-            return self._original_input
+    def _serialize_input(self, input: str | list[Any]) -> str | list[Any]:
+        """Normalize input into the shape expected by Responses API."""
+        if not isinstance(input, list):
+            return input
 
         normalized_items = []
-        for item in self._original_input:
+        for item in input:
             normalized_item = _serialize_raw_item_value(item)
             if isinstance(normalized_item, dict):
                 normalized_item = dict(normalized_item)
@@ -442,6 +778,10 @@ class RunState(Generic[TContext, TAgent]):
                         normalized_item["status"] = "completed"
             normalized_items.append(normalized_item)
         return normalized_items
+
+    def _serialize_original_input(self) -> str | list[Any]:
+        """Normalize original input into the shape expected by Responses API."""
+        return self._serialize_input(self._original_input)
 
     def _generated_session_item_indexes(
         self,
@@ -625,7 +965,7 @@ class RunState(Generic[TContext, TAgent]):
 
     def _current_generated_items_merge_marker(self) -> str | None:
         """Return a marker for the processed response already reflected in _generated_items."""
-        if not (self._last_processed_response and self._last_processed_response.new_items):
+        if self._last_processed_response is None or not self._last_processed_response.new_items:
             return None
 
         latest_response_id = (
@@ -661,7 +1001,7 @@ class RunState(Generic[TContext, TAgent]):
     def _merge_generated_items_with_processed(self) -> list[RunItem]:
         """Merge persisted and newly processed items without duplication."""
         generated_items = list(self._generated_items)
-        if not (self._last_processed_response and self._last_processed_response.new_items):
+        if self._last_processed_response is None or not self._last_processed_response.new_items:
             return generated_items
 
         current_merge_marker = self._current_generated_items_merge_marker()
@@ -754,6 +1094,8 @@ class RunState(Generic[TContext, TAgent]):
             raise UserError("Cannot serialize RunState: No context")
 
         approvals_dict = self._serialize_approvals()
+        tool_invocations = self._serialize_tool_invocations()
+        hosted_mcp_approvals = self._serialize_hosted_mcp_approvals()
         model_responses = self._serialize_model_responses()
         original_input_serialized = self._serialize_original_input()
         context_payload, context_meta = self._serialize_context_payload(
@@ -764,6 +1106,7 @@ class RunState(Generic[TContext, TAgent]):
         context_entry: dict[str, Any] = {
             "usage": serialize_usage(self._context.usage),
             "approvals": approvals_dict,
+            "tool_invocations": tool_invocations,
             "context": context_payload,
             # Preserve metadata so deserialization can warn when context types were erased.
             "context_meta": context_meta,
@@ -771,6 +1114,8 @@ class RunState(Generic[TContext, TAgent]):
         tool_input = self._serialize_tool_input(self._context.tool_input)
         if tool_input is not None:
             context_entry["tool_input"] = tool_input
+        if hosted_mcp_approvals:
+            context_entry["hosted_mcp_approvals"] = hosted_mcp_approvals
 
         agent_identity_keys_by_id = (
             _build_agent_identity_keys_by_id(cast(Agent[Any], self._starting_agent))
@@ -788,6 +1133,7 @@ class RunState(Generic[TContext, TAgent]):
             "current_turn": self._current_turn,
             "current_agent": current_agent_entry,
             "original_input": original_input_serialized,
+            "pending_input": self._serialize_input(self._pending_input),
             "model_responses": model_responses,
             "context": context_entry,
             "tool_use_tracker": copy.deepcopy(self._tool_use_tracker_snapshot),
@@ -841,7 +1187,7 @@ class RunState(Generic[TContext, TAgent]):
                 strict_context=strict_context,
                 include_tracing_api_key=include_tracing_api_key,
             )
-            if self._last_processed_response
+            if self._last_processed_response is not None
             else None
         )
         result["current_turn_persisted_item_count"] = self._current_turn_persisted_item_count
@@ -849,7 +1195,17 @@ class RunState(Generic[TContext, TAgent]):
             include_tracing_api_key=include_tracing_api_key
         )
         if self._sandbox is not None:
-            result["sandbox"] = copy.deepcopy(self._sandbox)
+            from .sandbox._mount_security import (
+                _raise_invalid_run_state_sandbox_envelope,
+                sanitize_run_state_sandbox_mount_authority,
+            )
+
+            if not isinstance(self._sandbox, Mapping):
+                self._sandbox = None
+                _raise_invalid_run_state_sandbox_envelope()
+
+            sanitized_sandbox, _redacted = sanitize_run_state_sandbox_mount_authority(self._sandbox)
+            result["sandbox"] = sanitized_sandbox
 
         return result
 
@@ -903,15 +1259,18 @@ class RunState(Generic[TContext, TAgent]):
         }
 
     def _serialize_current_step(self) -> dict[str, Any] | None:
-        """Serialize the current step if it's an interruption."""
+        """Serialize the current resumable step."""
         # Import at runtime to avoid circular import
-        from .run_internal.run_steps import NextStepInterruption
+        from .run_internal.run_steps import NextStepInterruption, NextStepRunAgain
 
         agent_identity_keys_by_id = (
             _build_agent_identity_keys_by_id(cast(Agent[Any], self._starting_agent))
             if self._starting_agent is not None
             else None
         )
+
+        if isinstance(self._current_step, NextStepRunAgain):
+            return {"type": "next_step_run_again"}
 
         if self._current_step is None or not isinstance(self._current_step, NextStepInterruption):
             return None
@@ -930,6 +1289,8 @@ class RunState(Generic[TContext, TAgent]):
             "type": "next_step_interruption",
             "data": {
                 "interruptions": interruptions_data,
+                "response_accepted": self._current_step.response_accepted,
+                "llm_end_hooks_started": self._current_step.llm_end_hooks_started,
             },
         }
 
@@ -951,15 +1312,13 @@ class RunState(Generic[TContext, TAgent]):
             ),
         }
 
+        if isinstance(item, InputItem):
+            result["input_id"] = item.input_id
+
         # Add additional fields based on item type
         if hasattr(item, "output"):
-            serialized_output = item.output
             try:
-                if hasattr(serialized_output, "model_dump"):
-                    serialized_output = serialized_output.model_dump(exclude_unset=True)
-                elif dataclasses.is_dataclass(serialized_output):
-                    serialized_output = dataclasses.asdict(serialized_output)  # type: ignore[arg-type]
-                serialized_output = _ensure_json_compatible(serialized_output)
+                serialized_output = _ensure_json_compatible(_serialize_output_value(item.output))
             except Exception:
                 serialized_output = str(item.output)
             result["output"] = serialized_output
@@ -1073,7 +1432,7 @@ class RunState(Generic[TContext, TAgent]):
         self._trace_state = TraceState.from_trace(trace)
 
     def _serialize_trace_data(self, *, include_tracing_api_key: bool) -> dict[str, Any] | None:
-        if not self._trace_state:
+        if self._trace_state is None:
             return None
         return self._trace_state.to_json(include_tracing_api_key=include_tracing_api_key)
 
@@ -1129,18 +1488,51 @@ class RunState(Generic[TContext, TAgent]):
         Raises:
             UserError: If the string is invalid JSON or has incompatible schema version.
         """
+        parse_error: BaseException | None = None
         try:
             state_json = json.loads(state_string)
-        except json.JSONDecodeError as e:
-            raise UserError(f"Failed to parse run state JSON: {e}") from e
+        except json.JSONDecodeError as error:
+            state_string = "<redacted>"
+            _prepare_data_redacted_error(error)
+            parse_error = UserError("Failed to parse run state JSON")
+        except BaseException as error:
+            state_string = "<redacted>"
+            prepared_error = _prepare_data_redacted_error(error)
+            if type(prepared_error) in {asyncio.CancelledError, KeyboardInterrupt, SystemExit}:
+                parse_error = prepared_error
+            else:
+                parse_error = UserError("Failed to parse run state JSON")
 
-        return await RunState.from_json(
-            initial_agent=initial_agent,
-            state_json=state_json,
-            context_override=context_override,
-            context_deserializer=context_deserializer,
-            strict_context=strict_context,
-        )
+        state_string = "<redacted>"
+        if parse_error is not None:
+            _mark_error_data_redacted(parse_error)
+            initial_agent = cast(Any, None)
+            context_override = None
+            context_deserializer = None
+            _raise_data_redacted_error(parse_error)
+
+        safe_error: BaseException | None = None
+        try:
+            return await RunState.from_json(
+                initial_agent=initial_agent,
+                state_json=state_json,
+                context_override=context_override,
+                context_deserializer=context_deserializer,
+                strict_context=strict_context,
+            )
+        except BaseException as error:
+            trusted_error_message = _known_run_state_error_message(error)
+            safe_error = _prepare_data_redacted_error(
+                error,
+                trusted_error_message=trusted_error_message,
+            )
+
+        state_json = cast(Any, None)
+        initial_agent = cast(Any, None)
+        context_override = None
+        context_deserializer = None
+        assert safe_error is not None
+        _raise_data_redacted_error(safe_error)
 
     @staticmethod
     async def from_json(
@@ -1170,18 +1562,94 @@ class RunState(Generic[TContext, TAgent]):
         Raises:
             UserError: If the dict has incompatible schema version.
         """
-        return await _build_run_state_from_json(
-            initial_agent=initial_agent,
-            state_json=state_json,
-            context_override=context_override,
-            context_deserializer=context_deserializer,
-            strict_context=strict_context,
-        )
+        restore_error: BaseException | None = None
+        trusted_validation_errors: list[tuple[BaseException, str]] = []
+
+        def validation_error_factory(
+            message: str,
+            error_type: RunStateValidationErrorType,
+        ) -> RunStateValidationError:
+            error = error_type(message)
+            trusted_validation_errors.append((error, message))
+            return error
+
+        try:
+            if not isinstance(state_json, dict):
+                state_json = cast(Any, None)
+                raise validation_error_factory("Run state JSON must be an object", UserError)
+
+            _validate_run_state_json_value(state_json)
+
+            _validate_run_state_schema_version(
+                state_json,
+                validation_error_factory=validation_error_factory,
+            )
+
+            from .sandbox._mount_security import sanitize_run_state_sandbox_mount_authority
+
+            if "sandbox" in state_json:
+                if not isinstance(state_json["sandbox"], Mapping):
+                    state_json["sandbox"] = {}
+                    raise validation_error_factory(
+                        "RunState sandbox resume state has an invalid envelope",
+                        ValueError,
+                    )
+                sanitized_sandbox, _redacted = sanitize_run_state_sandbox_mount_authority(
+                    state_json["sandbox"],
+                    validation_error_factory=lambda message: cast(
+                        ValueError,
+                        validation_error_factory(message, ValueError),
+                    ),
+                )
+                state_json["sandbox"] = sanitized_sandbox
+
+            return await _build_run_state_from_json(
+                initial_agent=initial_agent,
+                state_json=state_json,
+                context_override=context_override,
+                context_deserializer=context_deserializer,
+                strict_context=strict_context,
+                validation_error_factory=validation_error_factory,
+            )
+        except BaseException as error:
+            trusted_error_message = _trusted_run_state_validation_message(
+                error,
+                trusted_validation_errors,
+            )
+            restore_error = _prepare_data_redacted_error(
+                error,
+                trusted_error_message=trusted_error_message,
+            )
+            trusted_validation_errors.clear()
+
+        state_json = cast(Any, None)
+        initial_agent = cast(Any, None)
+        context_override = None
+        context_deserializer = None
+        assert restore_error is not None
+        _raise_data_redacted_error(restore_error)
 
 
 # --------------------------
 # Private helpers
 # --------------------------
+
+
+def _validate_run_state_json_value(value: object) -> None:
+    """Validate the exact built-in JSON tree without invoking caller-defined protocols."""
+    if type(value) is dict:
+        for key, item in dict.items(cast(dict[object, object], value)):
+            if type(key) is not str:
+                raise TypeError("Run state JSON contains an unsupported value")
+            _validate_run_state_json_value(item)
+        return
+    if type(value) is list:
+        for item in list.__iter__(cast(list[object], value)):
+            _validate_run_state_json_value(item)
+        return
+    if type(value) in {str, int, float, bool, type(None)}:
+        return
+    raise TypeError("Run state JSON contains an unsupported value")
 
 
 def _get_attr(obj: Any, attr: str, default: Any = None) -> Any:
@@ -1252,17 +1720,14 @@ def _context_meta_warning_message(context_meta: Mapping[str, Any] | None) -> str
             "RunState context was serialized from a custom type; provide context_deserializer "
             "or context_override to restore it."
         )
-    original_type = context_meta.get("original_type") or "custom"
-    class_path = context_meta.get("class_path")
-    type_label = f"{original_type} ({class_path})" if class_path else str(original_type)
     if context_meta.get("omitted"):
         return (
-            "RunState context was omitted during serialization for "
-            f"{type_label}; provide context_override to supply it."
+            "RunState context was omitted during serialization; provide context_override "
+            "to supply it."
         )
     return (
-        "RunState context was serialized from "
-        f"{type_label}; provide context_deserializer or context_override to restore it."
+        "RunState context requires explicit restoration; provide context_deserializer or "
+        "context_override to restore it."
     )
 
 
@@ -1316,6 +1781,33 @@ def _ensure_json_compatible(value: Any) -> Any:
         return json.loads(json.dumps(value, default=str))
     except Exception:
         return str(value)
+
+
+def _serialize_output_value(value: Any) -> Any:
+    """Convert a tool output value, including containers of models, to plain data.
+
+    ``_ensure_json_compatible`` stringifies anything ``json.dumps`` cannot handle, so
+    Pydantic models and dataclasses nested in containers would otherwise degrade to
+    their reprs instead of structured data. Sets and models nested inside dataclass
+    instances intentionally keep the previous behavior and degrade through
+    ``_ensure_json_compatible``'s string fallback.
+    """
+    if hasattr(value, "model_dump"):
+        # ``output`` is the tool's actual return value, not a wire item, so keep fields
+        # left at their defaults. ``exclude_unset`` would drop them and make the restored
+        # ``.output`` disagree with the full model-facing ``raw_item``. Stay in Python
+        # mode and let ``_ensure_json_compatible`` handle JSON conversion afterwards:
+        # ``mode="json"`` raises on values like non-UTF-8 bytes, which would trip the
+        # fallback and replace the whole structured output with an opaque string
+        # instead of a dict.
+        return value.model_dump()
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return dataclasses.asdict(value)
+    if isinstance(value, dict):
+        return {key: _serialize_output_value(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [_serialize_output_value(item) for item in value]
+    return value
 
 
 def _serialize_tool_call_data(tool_call: Any) -> Any:
@@ -1721,6 +2213,18 @@ def _build_named_tool_map(
     return tool_map
 
 
+def _build_hosted_mcp_tool_map(tools: Sequence[Any]) -> dict[str, HostedMCPTool]:
+    """Build a server-label-indexed map for hosted MCP tools."""
+    tool_map: dict[str, HostedMCPTool] = {}
+    for tool in tools:
+        if not isinstance(tool, HostedMCPTool):
+            continue
+        server_label = tool.tool_config.get("server_label")
+        if isinstance(server_label, str) and server_label:
+            tool_map[server_label] = tool
+    return tool_map
+
+
 def _build_handoffs_map(current_agent: Agent[Any]) -> dict[str, Handoff[Any, Agent[Any]]]:
     """Map handoff tool names to their definitions for quick lookup."""
     handoffs_map: dict[str, Handoff[Any, Agent[Any]]] = {}
@@ -1747,6 +2251,7 @@ async def _restore_pending_nested_agent_tool_runs(
     scope_id: str | None = None,
     context_deserializer: ContextDeserializer | None = None,
     strict_context: bool = False,
+    validation_error_factory: RunStateValidationErrorFactory = _default_run_state_validation_error,
 ) -> None:
     """Rehydrate nested agent-as-tool run state into the ephemeral tool-call cache."""
     if not function_actions:
@@ -1769,6 +2274,7 @@ async def _restore_pending_nested_agent_tool_runs(
                 state_json=dict(nested_state_data),
                 context_deserializer=context_deserializer,
                 strict_context=strict_context,
+                validation_error_factory=validation_error_factory,
             )
         except Exception:
             if strict_context:
@@ -1801,6 +2307,7 @@ async def _deserialize_processed_response(
     strict_context: bool = False,
     program_call_ids: Collection[str] = (),
     completed_program_call_ids: Collection[str] = (),
+    validation_error_factory: RunStateValidationErrorFactory = _default_run_state_validation_error,
 ) -> ProcessedResponse:
     """Deserialize a ProcessedResponse from JSON data.
 
@@ -1817,6 +2324,7 @@ async def _deserialize_processed_response(
         processed_response_data.get("new_items", []),
         agent_map,
         agent_identity_map=agent_identity_map,
+        validation_error_factory=validation_error_factory,
     )
 
     if hasattr(current_agent, "get_all_tools"):
@@ -1830,7 +2338,7 @@ async def _deserialize_processed_response(
     local_shell_tools_map = _build_named_tool_map(all_tools, LocalShellTool)
     shell_tools_map = _build_named_tool_map(all_tools, ShellTool)
     apply_patch_tools_map = _build_named_tool_map(all_tools, ApplyPatchTool)
-    mcp_tools_map = _build_named_tool_map(all_tools, HostedMCPTool)
+    mcp_tools_map = _build_hosted_mcp_tool_map(all_tools)
     handoffs_map = _build_handoffs_map(current_agent)
     programmatic_tool_present = any(
         isinstance(tool, ProgrammaticToolCallingTool) for tool in all_tools
@@ -1881,7 +2389,7 @@ async def _deserialize_processed_response(
         deserialized: list[TAction] = []
         for entry in entries or []:
             tool_container = entry.get(tool_key, {}) if isinstance(entry, Mapping) else {}
-            if name_resolver:
+            if name_resolver is not None:
                 tool_name = name_resolver(entry)
             else:
                 if isinstance(tool_container, Mapping):
@@ -1900,7 +2408,7 @@ async def _deserialize_processed_response(
                     bare_lookup_key = get_function_tool_lookup_key(bare_name)
                     if bare_lookup_key is not None:
                         tool = tool_map.get(bare_lookup_key)
-            if not tool:
+            if tool is None:
                 continue
 
             tool_call_data_raw = entry.get("tool_call", {}) if isinstance(entry, Mapping) else {}
@@ -2118,6 +2626,7 @@ async def _deserialize_processed_response(
         scope_id=scope_id,
         context_deserializer=context_deserializer,
         strict_context=strict_context,
+        validation_error_factory=validation_error_factory,
     )
 
     mcp_approval_requests: list[ToolRunMCPApprovalRequest] = []
@@ -2133,10 +2642,9 @@ async def _deserialize_processed_response(
         if not mcp_tool_data:
             continue
 
-        mcp_tool_name = mcp_tool_data.get("name")
-        mcp_tool = mcp_tools_map.get(mcp_tool_name) if mcp_tool_name else None
+        mcp_tool = mcp_tools_map.get(request_item.server_label)
 
-        if mcp_tool:
+        if mcp_tool is not None:
             _ensure_restored_tool_call_allowed(
                 tool_call=request_item,
                 allowed_callers=mcp_tool.tool_config.get("allowed_callers"),
@@ -2156,6 +2664,7 @@ async def _deserialize_processed_response(
             agent_map=agent_map,
             agent_identity_map=agent_identity_map,
             fallback_agent=current_agent,
+            validation_error_factory=validation_error_factory,
         )
         if approval_item is not None:
             interruptions.append(approval_item)
@@ -2269,6 +2778,7 @@ def _resolve_agent_from_data(
     agent_map: Mapping[str, Agent[Any]],
     agent_identity_map: Mapping[str, Agent[Any]] | None = None,
     fallback_agent: Agent[Any] | None = None,
+    validation_error_factory: RunStateValidationErrorFactory = _default_run_state_validation_error,
 ) -> Agent[Any] | None:
     """Resolve an agent from serialized data with an optional fallback."""
     agent_name = None
@@ -2283,9 +2793,9 @@ def _resolve_agent_from_data(
         resolved = agent_identity_map.get(agent_identity)
         if resolved is not None:
             return resolved
-        raise UserError(
-            "Run state references an agent identity that is not present in the restored graph: "
-            f"{agent_identity}"
+        raise validation_error_factory(
+            "Run state references an agent identity that is not present in the restored graph",
+            UserError,
         )
 
     if agent_name:
@@ -2293,7 +2803,8 @@ def _resolve_agent_from_data(
             resolved = agent_identity_map.get(agent_name)
             if resolved is not None:
                 return resolved
-        return agent_map.get(agent_name) or fallback_agent
+        resolved = agent_map.get(agent_name)
+        return resolved if resolved is not None else fallback_agent
     return fallback_agent
 
 
@@ -2312,6 +2823,7 @@ def _deserialize_tool_approval_item(
     agent_identity_map: Mapping[str, Agent[Any]] | None = None,
     fallback_agent: Agent[Any] | None = None,
     pre_normalized_raw_item: Any | None = None,
+    validation_error_factory: RunStateValidationErrorFactory = _default_run_state_validation_error,
 ) -> ToolApprovalItem | None:
     """Deserialize a ToolApprovalItem from serialized data."""
     agent = _resolve_agent_from_data(
@@ -2319,6 +2831,7 @@ def _deserialize_tool_approval_item(
         agent_map,
         agent_identity_map,
         fallback_agent,
+        validation_error_factory=validation_error_factory,
     )
     if agent is None:
         return None
@@ -2369,15 +2882,27 @@ def _deserialize_tool_call_output_raw_item(
     if output_type == "function_call_output":
         return _FUNCTION_OUTPUT_ADAPTER.validate_python(normalized_raw_item)
     if output_type == "computer_call_output":
-        return _COMPUTER_OUTPUT_ADAPTER.validate_python(normalized_raw_item)
-    if output_type == "local_shell_call_output":
-        return _LOCAL_SHELL_OUTPUT_ADAPTER.validate_python(normalized_raw_item)
+        # ComputerCallOutput declares acknowledged_safety_checks as an Iterable, so pydantic
+        # validation wraps it in a lazy one-shot iterator. Convert it back to plain data so
+        # the restored state stays JSON-serializable and the acknowledged safety-check
+        # record survives repeated reads.
+        return cast(
+            ComputerCallOutput,
+            _to_dump_compatible(_COMPUTER_OUTPUT_ADAPTER.validate_python(normalized_raw_item)),
+        )
     if output_type == "program_output":
         try:
             return ProgramOutput(**normalized_raw_item)
         except Exception:
             return normalized_raw_item
-    if output_type in {"shell_call_output", "apply_patch_call_output", "custom_tool_call_output"}:
+    if output_type == "local_shell_call_output":
+        _LOCAL_SHELL_OUTPUT_ADAPTER.validate_python(normalized_raw_item)
+        return normalized_raw_item
+    if output_type in {
+        "shell_call_output",
+        "apply_patch_call_output",
+        "custom_tool_call_output",
+    }:
         return normalized_raw_item
 
     try:
@@ -2429,6 +2954,10 @@ def _run_state_raw_items(state_json: Mapping[str, Any]) -> list[Any]:
     original_input = state_json.get("original_input")
     if isinstance(original_input, list):
         raw_items.extend(original_input)
+
+    pending_input = state_json.get("pending_input")
+    if isinstance(pending_input, list):
+        raw_items.extend(pending_input)
 
     for response_key in ("model_responses", "last_model_response"):
         responses = state_json.get(response_key)
@@ -2582,6 +3111,7 @@ def _deserialize_output_guardrail_results(
     agent_map: dict[str, Agent[Any]],
     agent_identity_map: Mapping[str, Agent[Any]] | None = None,
     fallback_agent: Agent[Any],
+    validation_error_factory: RunStateValidationErrorFactory = _default_run_state_validation_error,
 ) -> list[OutputGuardrailResult]:
     """Rehydrate output guardrail results from serialized data."""
     deserialized: list[OutputGuardrailResult] = []
@@ -2597,6 +3127,7 @@ def _deserialize_output_guardrail_results(
             agent_map,
             agent_identity_map,
             fallback_agent,
+            validation_error_factory=validation_error_factory,
         )
         if resolved_agent is None:
             resolved_agent = fallback_agent
@@ -2672,12 +3203,34 @@ def _deserialize_tool_output_guardrail_results(
     return deserialized
 
 
+def _validate_run_state_schema_version(
+    state_json: Mapping[str, Any],
+    *,
+    validation_error_factory: RunStateValidationErrorFactory = _default_run_state_validation_error,
+) -> str:
+    schema_version = state_json.get("$schemaVersion")
+    if not schema_version:
+        raise validation_error_factory("Run state is missing schema version", UserError)
+    if not isinstance(schema_version, str):
+        raise validation_error_factory("Run state schema version has an invalid type", UserError)
+    if schema_version not in SUPPORTED_SCHEMA_VERSIONS:
+        supported_versions = ", ".join(sorted(SUPPORTED_SCHEMA_VERSIONS))
+        raise validation_error_factory(
+            "Run state schema version is not supported. "
+            f"Supported versions are: {supported_versions}. "
+            f"New snapshots are written as version {CURRENT_SCHEMA_VERSION}.",
+            UserError,
+        )
+    return schema_version
+
+
 async def _build_run_state_from_json(
     initial_agent: Agent[Any],
     state_json: dict[str, Any],
     context_override: ContextOverride | None = None,
     context_deserializer: ContextDeserializer | None = None,
     strict_context: bool = False,
+    validation_error_factory: RunStateValidationErrorFactory = _default_run_state_validation_error,
 ) -> RunState[Any, Agent[Any]]:
     """Shared helper to rebuild RunState from JSON payload.
 
@@ -2691,37 +3244,37 @@ async def _build_run_state_from_json(
     safely, this function warns or raises (in ``strict_context`` mode) rather than silently
     claiming that the rebuilt mapping is equivalent to the original object.
     """
-    schema_version = state_json.get("$schemaVersion")
-    if not schema_version:
-        raise UserError("Run state is missing schema version")
-    if schema_version not in SUPPORTED_SCHEMA_VERSIONS:
-        supported_versions = ", ".join(sorted(SUPPORTED_SCHEMA_VERSIONS))
-        raise UserError(
-            f"Run state schema version {schema_version} is not supported. "
-            f"Supported versions are: {supported_versions}. "
-            f"New snapshots are written as version {CURRENT_SCHEMA_VERSION}."
-        )
-    if schema_version != CURRENT_SCHEMA_VERSION and _run_state_uses_programmatic_tool_calling(
-        state_json
-    ):
-        raise UserError(
+    schema_version = _validate_run_state_schema_version(
+        state_json,
+        validation_error_factory=validation_error_factory,
+    )
+    schema_major, schema_minor = (int(part) for part in schema_version.split(".", maxsplit=1))
+    programmatic_major, programmatic_minor = (
+        int(part) for part in _PROGRAMMATIC_TOOL_CALLING_MIN_SCHEMA_VERSION.split(".", maxsplit=1)
+    )
+    if (schema_major, schema_minor) < (
+        programmatic_major,
+        programmatic_minor,
+    ) and _run_state_uses_programmatic_tool_calling(state_json):
+        raise validation_error_factory(
             "Run state contains Programmatic Tool Calling data but uses schema version "
             f"{schema_version}. Programmatic Tool Calling requires schema version "
-            f"{CURRENT_SCHEMA_VERSION}."
+            f"{_PROGRAMMATIC_TOOL_CALLING_MIN_SCHEMA_VERSION} or later.",
+            UserError,
         )
 
     agent_identity_map = _build_agent_identity_map(initial_agent)
     agent_map = _build_agent_map(initial_agent)
 
     current_agent_data = state_json["current_agent"]
-    current_agent_name = current_agent_data["name"]
     current_agent = _resolve_agent_from_data(
         current_agent_data,
         agent_map,
         agent_identity_map=agent_identity_map,
+        validation_error_factory=validation_error_factory,
     )
-    if not current_agent:
-        raise UserError(f"Agent {current_agent_name} not found in agent map")
+    if current_agent is None:
+        raise validation_error_factory("Run state agent not found in agent map", UserError)
 
     context_data = state_json["context"]
     usage = deserialize_usage(context_data.get("usage", {}))
@@ -2741,10 +3294,16 @@ async def _build_run_state_from_json(
     ):
         warning_message = _context_meta_warning_message(context_meta)
         if strict_context:
-            raise UserError(warning_message)
+            raise validation_error_factory(warning_message, UserError)
         logger.warning(warning_message)
 
     if isinstance(context_override, RunContextWrapper):
+        if type(context_override) is not RunContextWrapper:
+            raise validation_error_factory(
+                "RunState restoration does not support RunContextWrapper subclasses; "
+                "provide the custom context value directly or wrap it in RunContextWrapper.",
+                UserError,
+            )
         context = context_override
     elif context_override is not None:
         context = RunContextWrapper(context=context_override)
@@ -2752,30 +3311,60 @@ async def _build_run_state_from_json(
         context = RunContextWrapper(context=None)
     elif context_deserializer is not None:
         if not isinstance(serialized_context, Mapping):
-            raise UserError(
-                "Serialized run state context must be a mapping to use context_deserializer."
+            raise validation_error_factory(
+                "Serialized run state context must be a mapping to use context_deserializer.",
+                UserError,
             )
         try:
             rebuilt_context = context_deserializer(dict(serialized_context))
         except Exception as exc:
-            raise UserError(
-                "Context deserializer failed while rebuilding RunState context."
+            raise validation_error_factory(
+                "Context deserializer failed while rebuilding RunState context.",
+                UserError,
             ) from exc
         if isinstance(rebuilt_context, RunContextWrapper):
+            if type(rebuilt_context) is not RunContextWrapper:
+                raise validation_error_factory(
+                    "RunState restoration does not support RunContextWrapper subclasses; "
+                    "provide the custom context value directly or wrap it in RunContextWrapper.",
+                    UserError,
+                )
             context = rebuilt_context
         else:
             context = RunContextWrapper(context=rebuilt_context)
     elif isinstance(serialized_context, Mapping):
         context = RunContextWrapper(context=serialized_context)
     else:
-        raise UserError("Serialized run state context must be a mapping. Please provide one.")
+        raise validation_error_factory(
+            "Serialized run state context must be a mapping. Please provide one.",
+            UserError,
+        )
     context.usage = usage
+    context._restored_unbound_approval_call_ids = set()
+    context._allow_legacy_approval_binding_reconstruction = (schema_major, schema_minor) < (1, 15)
     context._rebuild_approvals(context_data.get("approvals", {}))
+    if (schema_major, schema_minor) >= (1, 15):
+        context._rebuild_tool_invocations(
+            context_data.get("tool_invocations", {}),
+            validation_error_factory=lambda message: cast(
+                UserError,
+                validation_error_factory(message, UserError),
+            ),
+        )
+    else:
+        context._tool_invocations = {}
+    hosted_mcp_major, hosted_mcp_minor = (
+        int(part) for part in _HOSTED_MCP_APPROVALS_MIN_SCHEMA_VERSION.split(".", maxsplit=1)
+    )
+    if (schema_major, schema_minor) >= (hosted_mcp_major, hosted_mcp_minor):
+        context._rebuild_hosted_mcp_approvals(context_data.get("hosted_mcp_approvals", []))
+    if (schema_major, schema_minor) >= (1, 15):
+        context._mark_restored_unbound_approval_call_ids()
     serialized_tool_input = context_data.get("tool_input")
     if (
         context_override is None
         and serialized_tool_input is not None
-        and getattr(context, "tool_input", None) is None
+        and context.tool_input is None
     ):
         context.tool_input = serialized_tool_input
 
@@ -2808,12 +3397,20 @@ async def _build_run_state_from_json(
     set_agent_tool_state_scope(context, state._agent_tool_state_scope_id)
 
     state._current_turn = state_json["current_turn"]
+    pending_input_raw = state_json.get("pending_input", [])
+    if not isinstance(pending_input_raw, list):
+        raise validation_error_factory("Run state pending_input must be a list", UserError)
+    state._pending_input = cast(
+        list[TResponseInputItem],
+        [dict(item) if isinstance(item, Mapping) else item for item in pending_input_raw],
+    )
     state._model_responses = _deserialize_model_responses(state_json.get("model_responses", []))
     serialized_generated_items = state_json.get("generated_items", [])
     state._generated_items, generated_source_indexes = _deserialize_items_with_source_indexes(
         serialized_generated_items,
         agent_map,
         agent_identity_map=agent_identity_map,
+        validation_error_factory=validation_error_factory,
     )
 
     last_processed_response_data = state_json.get("last_processed_response")
@@ -2830,6 +3427,7 @@ async def _build_run_state_from_json(
             strict_context=strict_context,
             program_call_ids=program_call_ids,
             completed_program_call_ids=completed_program_call_ids,
+            validation_error_factory=validation_error_factory,
         )
     else:
         state._last_processed_response = None
@@ -2840,6 +3438,7 @@ async def _build_run_state_from_json(
             serialized_session_items,
             agent_map,
             agent_identity_map=agent_identity_map,
+            validation_error_factory=validation_error_factory,
         )
     else:
         serialized_session_items = []
@@ -2899,8 +3498,9 @@ async def _build_run_state_from_json(
 
     nested_history_refs_json = state_json.get("nested_history_owned_session_item_refs", [])
     if not isinstance(nested_history_refs_json, list):
-        raise UserError(
-            "Run state nested_history_owned_session_item_refs must be a list of objects"
+        raise validation_error_factory(
+            "Run state nested_history_owned_session_item_refs must be a list of objects",
+            UserError,
         )
     nested_history_refs: list[NestedHistoryOwnedItemRef] = []
     for item_ref in nested_history_refs_json:
@@ -2913,15 +3513,19 @@ async def _build_run_state_from_json(
             or type(item_ref.get("input_index")) is not int
             or cast(int, item_ref["input_index"]) < 0
         ):
-            raise UserError(
+            raise validation_error_factory(
                 "Run state nested_history_owned_session_item_refs entries must contain a "
-                "non-negative integer index and input_index, and 64-character digest"
+                "non-negative integer index and input_index, and 64-character digest",
+                UserError,
             )
         session_source_index = cast(int, item_ref["index"])
         input_index = cast(int, item_ref["input_index"])
         digest = cast(str, item_ref["digest"])
         if "session_items" in state_json and session_source_index >= len(serialized_session_items):
-            raise UserError("Run state nested history ownership references a missing session item")
+            raise validation_error_factory(
+                "Run state nested history ownership references a missing session item",
+                UserError,
+            )
         session_index = restored_session_indexes.get(session_source_index)
         if session_index is None:
             logger.warning(
@@ -2930,16 +3534,25 @@ async def _build_run_state_from_json(
             )
             continue
         if not isinstance(state._original_input, list) or input_index >= len(state._original_input):
-            raise UserError("Run state nested history ownership references a missing input item")
+            raise validation_error_factory(
+                "Run state nested history ownership references a missing input item",
+                UserError,
+            )
 
         run_item = state._session_items[session_index]
         run_input_item = run_item_to_input_item(run_item)
         if run_input_item is None or digest_input_item(run_input_item) != digest:
-            raise UserError("Run state nested history ownership session digest does not match")
+            raise validation_error_factory(
+                "Run state nested history ownership session digest does not match",
+                UserError,
+            )
         ensure_nested_history_run_item_occurrence_key(run_item)
         input_item = cast(TResponseInputItem, state._original_input[input_index])
         if digest_input_item(input_item) != digest:
-            raise UserError("Run state nested history ownership input digest does not match")
+            raise validation_error_factory(
+                "Run state nested history ownership input digest does not match",
+                UserError,
+            )
         nested_history_refs.append(
             NestedHistoryOwnedItemRef(
                 session_index=session_index,
@@ -2961,6 +3574,7 @@ async def _build_run_state_from_json(
         agent_map=agent_map,
         agent_identity_map=agent_identity_map,
         fallback_agent=current_agent,
+        validation_error_factory=validation_error_factory,
     )
     state._tool_input_guardrail_results = _deserialize_tool_input_guardrail_results(
         state_json.get("tool_input_guardrail_results", [])
@@ -2970,7 +3584,11 @@ async def _build_run_state_from_json(
     )
 
     current_step_data = state_json.get("current_step")
-    if current_step_data and current_step_data.get("type") == "next_step_interruption":
+    if current_step_data and current_step_data.get("type") == "next_step_run_again":
+        from .run_internal.run_steps import NextStepRunAgain
+
+        state._current_step = NextStepRunAgain()
+    elif current_step_data and current_step_data.get("type") == "next_step_interruption":
         interruptions: list[ToolApprovalItem] = []
         interruptions_data = current_step_data.get("data", {}).get(
             "interruptions", current_step_data.get("interruptions", [])
@@ -2980,6 +3598,7 @@ async def _build_run_state_from_json(
                 item_data,
                 agent_map=agent_map,
                 agent_identity_map=agent_identity_map,
+                validation_error_factory=validation_error_factory,
             )
             if approval_item is not None:
                 interruptions.append(approval_item)
@@ -2987,8 +3606,18 @@ async def _build_run_state_from_json(
         from .run_internal.run_steps import NextStepInterruption
 
         state._current_step = NextStepInterruption(
-            interruptions=[item for item in interruptions if isinstance(item, ToolApprovalItem)]
+            interruptions=[item for item in interruptions if isinstance(item, ToolApprovalItem)],
+            response_accepted=bool(
+                current_step_data.get("data", {}).get("response_accepted", False)
+            ),
+            llm_end_hooks_started=bool(
+                current_step_data.get("data", {}).get("llm_end_hooks_started", True)
+            ),
         )
+        if state._current_step.response_accepted:
+            state._clear_generated_items_last_processed_marker()
+        for approval_item in state._current_step.interruptions:
+            context._mark_restored_unbound_pending_approval(approval_item)
 
     state._current_turn_persisted_item_count = state_json.get(
         "current_turn_persisted_item_count", 0
@@ -3011,7 +3640,299 @@ async def _build_run_state_from_json(
     sandbox_data = state_json.get("sandbox")
     state._sandbox = dict(sandbox_data) if isinstance(sandbox_data, Mapping) else None
 
+    _validate_completed_tool_invocations(
+        state,
+        reconstruct_legacy=(schema_major, schema_minor) < (1, 15),
+        validation_error_factory=validation_error_factory,
+    )
+
     return state
+
+
+def _validate_completed_tool_invocations(
+    state: RunState[Any, Agent[Any]],
+    *,
+    reconstruct_legacy: bool = False,
+    validation_error_factory: RunStateValidationErrorFactory = _default_run_state_validation_error,
+) -> None:
+    """Reconcile invocation bindings with restored calls and outputs."""
+    if state._context is None:
+        return
+    from .run_internal.tool_execution import (
+        is_apply_patch_name,
+        normalize_apply_patch_fallback_call,
+    )
+
+    completed_records = {
+        call_id: record
+        for call_id, record in state._context._tool_invocations.items()
+        if record.completed
+    }
+    starting_agent = state._starting_agent
+    assert starting_agent is not None
+    apply_patch_tools = [
+        tool
+        for agent in _iter_agent_graph(starting_agent)
+        for tool in agent.tools
+        if isinstance(tool, ApplyPatchTool)
+    ]
+    legacy_native_tool_names: dict[str, set[str]] = {}
+    if reconstruct_legacy:
+        native_tool_types = (
+            (ComputerTool, "computer_call"),
+            (CustomTool, "custom_tool_call"),
+            (LocalShellTool, "local_shell_call"),
+            (ShellTool, "shell_call"),
+            (ApplyPatchTool, "apply_patch_call"),
+        )
+        for agent in _iter_agent_graph(starting_agent):
+            for tool in agent.tools:
+                for tool_type, invocation_type in native_tool_types:
+                    if isinstance(tool, tool_type):
+                        legacy_native_tool_names.setdefault(invocation_type, set()).add(tool.name)
+                        break
+    resolved_tool_names_by_call_id: dict[str, str] = {}
+
+    def collect_resolved_tool_name(raw_item: Any, tool_name: Any) -> None:
+        call_identity = tool_invocation_call_id(raw_item)
+        if isinstance(tool_name, str) and tool_name and call_identity is not None:
+            _, call_id = call_identity
+            if call_id is not None:
+                resolved_tool_names_by_call_id.setdefault(call_id, tool_name)
+
+    for run_item in state._generated_items:
+        collect_resolved_tool_name(run_item.raw_item, getattr(run_item, "tool_name", None))
+    for run_item in state._session_items:
+        collect_resolved_tool_name(run_item.raw_item, getattr(run_item, "tool_name", None))
+    if state._last_processed_response is not None:
+        for run_item in state._last_processed_response.new_items:
+            collect_resolved_tool_name(run_item.raw_item, getattr(run_item, "tool_name", None))
+        for computer_run in state._last_processed_response.computer_actions:
+            collect_resolved_tool_name(computer_run.tool_call, computer_run.computer_tool.name)
+        for custom_run in state._last_processed_response.custom_tool_calls:
+            collect_resolved_tool_name(custom_run.tool_call, custom_run.custom_tool.name)
+        for local_shell_run in state._last_processed_response.local_shell_calls:
+            collect_resolved_tool_name(
+                local_shell_run.tool_call,
+                local_shell_run.local_shell_tool.name,
+            )
+        for shell_run in state._last_processed_response.shell_calls:
+            collect_resolved_tool_name(shell_run.tool_call, shell_run.shell_tool.name)
+        for apply_patch_run in state._last_processed_response.apply_patch_calls:
+            collect_resolved_tool_name(
+                apply_patch_run.tool_call,
+                apply_patch_run.apply_patch_tool.name,
+            )
+        for missing_run in state._last_processed_response.function_tools_not_found:
+            collect_resolved_tool_name(missing_run.tool_call, missing_run.tool_name)
+
+    restored_call_occurrences: list[
+        dict[
+            tuple[str, str, str],
+            tuple[Any, FunctionToolLookupKey | None, str | None, str | None],
+        ]
+    ] = []
+    restored_outputs: dict[tuple[str, str], Any] = {}
+    uncanonical_call_ids: set[str] = set()
+
+    def record_raw_item(
+        raw_item: Any,
+        *,
+        tool_lookup_key: FunctionToolLookupKey | None = None,
+        tool_name: str | None = None,
+        invocation_role: str | None = None,
+        allow_handoff_alternative: bool = False,
+    ) -> None:
+        output_identity = tool_output_identity(raw_item)
+        if output_identity is not None:
+            restored_outputs.setdefault(output_identity, raw_item)
+
+        occurrence: dict[
+            tuple[str, str, str],
+            tuple[Any, FunctionToolLookupKey | None, str | None, str | None],
+        ] = {}
+
+        call_identity = tool_invocation_call_id(raw_item)
+        if tool_name is None:
+            if call_identity is not None and call_identity[1] is not None:
+                tool_name = resolved_tool_names_by_call_id.get(call_identity[1])
+                if tool_name is None:
+                    candidate_names = legacy_native_tool_names.get(call_identity[0], set())
+                    if len(candidate_names) == 1:
+                        tool_name = next(iter(candidate_names))
+
+        def add_identity(role: str | None) -> None:
+            identity = tool_invocation_identity(
+                raw_item,
+                tool_lookup_key=tool_lookup_key,
+                tool_name=tool_name,
+                invocation_role=role,
+            )
+            if identity is not None:
+                occurrence.setdefault(identity, (raw_item, tool_lookup_key, tool_name, role))
+
+        add_identity(invocation_role)
+        if allow_handoff_alternative and invocation_role is None:
+            add_identity("handoff")
+        raw_name = getattr(raw_item, "name", None)
+        if isinstance(raw_item, Mapping):
+            raw_name = raw_item.get("name")
+        if any(is_apply_patch_name(raw_name, tool) for tool in apply_patch_tools):
+            try:
+                fallback_call = normalize_apply_patch_fallback_call(raw_item)
+            except ModelBehaviorError:
+                fallback_call = None
+            if fallback_call is not None:
+                fallback_identity = tool_invocation_identity(
+                    fallback_call,
+                    tool_name=tool_name,
+                )
+                if fallback_identity is not None:
+                    occurrence.setdefault(
+                        fallback_identity,
+                        (fallback_call, None, tool_name, None),
+                    )
+        if occurrence:
+            restored_call_occurrences.append(occurrence)
+        elif call_identity is not None and call_identity[1] is not None:
+            uncanonical_call_ids.add(call_identity[1])
+
+    def record_run_item(run_item: RunItem) -> None:
+        record_raw_item(
+            run_item.raw_item,
+            tool_lookup_key=getattr(run_item, "tool_lookup_key", None),
+            tool_name=getattr(run_item, "tool_name", None),
+            invocation_role="handoff" if isinstance(run_item, HandoffCallItem) else None,
+        )
+
+    for run_item in state._generated_items:
+        record_run_item(run_item)
+    for run_item in state._session_items:
+        record_run_item(run_item)
+    if state._last_processed_response is not None:
+        for run_item in state._last_processed_response.new_items:
+            record_run_item(run_item)
+    responses_for_invocation_validation = state._model_responses
+    if (
+        state._last_processed_response is None
+        and getattr(state._current_step, "response_accepted", False)
+        and responses_for_invocation_validation
+    ):
+        # A server-accepted response is checkpointed before fallible local processing. Its raw
+        # invocations remain durable for diagnostics, but they are not registered runtime work
+        # unless response processing succeeds.
+        responses_for_invocation_validation = responses_for_invocation_validation[:-1]
+    for response in responses_for_invocation_validation:
+        for raw_item in response.output:
+            record_raw_item(raw_item, allow_handoff_alternative=True)
+    if isinstance(state._original_input, list):
+        for raw_item in state._original_input:
+            record_raw_item(raw_item, allow_handoff_alternative=True)
+
+    occurrences_by_call_id: dict[
+        str,
+        list[
+            dict[
+                tuple[str, str, str],
+                tuple[Any, FunctionToolLookupKey | None, str | None, str | None],
+            ]
+        ],
+    ] = {}
+    for occurrence in restored_call_occurrences:
+        call_ids = {call_id for _, call_id, _ in occurrence}
+        if len(call_ids) == 1:
+            occurrences_by_call_id.setdefault(next(iter(call_ids)), []).append(occurrence)
+
+    if reconstruct_legacy:
+        for call_id, occurrences in occurrences_by_call_id.items():
+            if call_id in state._context._tool_invocations or call_id in uncanonical_call_ids:
+                continue
+            output_types = {
+                invocation_type
+                for invocation_type, output_call_id in restored_outputs
+                if output_call_id == call_id
+            }
+            if not output_types:
+                continue
+            common_identities = set(occurrences[0])
+            for occurrence in occurrences[1:]:
+                common_identities.intersection_update(occurrence)
+            completed_identities = [
+                identity for identity in common_identities if identity[0] in output_types
+            ]
+            if completed_identities:
+                identity = next(
+                    (
+                        candidate
+                        for candidate in completed_identities
+                        if occurrences[0][candidate][3] is None
+                    ),
+                    completed_identities[0],
+                )
+                details = next(
+                    occurrence[identity] for occurrence in occurrences if identity in occurrence
+                )
+            else:
+                identity, details = next(
+                    candidate for occurrence in occurrences for candidate in occurrence.items()
+                )
+            raw_item, tool_lookup_key, tool_name, invocation_role = details
+            invocation_type, _, _ = identity
+            status = state._context._tool_invocation_status(
+                raw_item,
+                tool_lookup_key=tool_lookup_key,
+                tool_name=tool_name,
+                invocation_role=invocation_role,
+            )
+            if status is not None:
+                if completed_identities:
+                    state._context._mark_tool_call_completed(
+                        restored_outputs[(invocation_type, call_id)]
+                    )
+                else:
+                    state._context._mark_tool_invocation_executed(
+                        raw_item,
+                        tool_lookup_key=tool_lookup_key,
+                        tool_name=tool_name,
+                        invocation_role=invocation_role,
+                    )
+
+        interruptions = getattr(state._current_step, "interruptions", ())
+        for approval_item in interruptions:
+            if isinstance(approval_item, ToolApprovalItem):
+                try:
+                    state._context._restore_pending_approval_binding(approval_item)
+                except ModelBehaviorError:
+                    pending_call_id = state._context._resolve_call_id(approval_item)
+                    if pending_call_id is not None:
+                        state._context._restored_unbound_approval_call_ids.add(pending_call_id)
+
+        state._context._mark_restored_unbound_approval_call_ids()
+
+    state._context._restored_unbound_approval_call_ids.update(
+        {
+            call_id
+            for call_id in occurrences_by_call_id
+            if call_id not in state._context._tool_invocations
+        }
+        | uncanonical_call_ids
+    )
+
+    for call_id, record in completed_records.items():
+        expected_call = (record.invocation_type, call_id, record.fingerprint)
+        expected_output = (record.invocation_type, call_id)
+        occurrences = occurrences_by_call_id.get(call_id, [])
+        if (
+            not occurrences
+            or call_id in uncanonical_call_ids
+            or any(expected_call not in occurrence for occurrence in occurrences)
+            or expected_output not in restored_outputs
+        ):
+            raise validation_error_factory(
+                "RunState completed tool invocation does not match a restored tool call "
+                "and output.",
+                UserError,
+            )
 
 
 def _iter_agent_graph(initial_agent: Agent[Any]) -> Iterator[Agent[Any]]:
@@ -3087,7 +4008,7 @@ def _iter_agent_graph(initial_agent: Agent[Any]) -> Iterator[Agent[Any]]:
                     continue
                 tool_agent = getattr(tool, "_agent_instance", None)
                 tool_agent_name = getattr(tool_agent, "name", None)
-                if tool_agent and tool_agent_name:
+                if tool_agent is not None and tool_agent_name:
                     queue.append(tool_agent)
 
 
@@ -3547,6 +4468,7 @@ def _deserialize_items(
     agent_map: dict[str, Agent[Any]],
     *,
     agent_identity_map: Mapping[str, Agent[Any]] | None = None,
+    validation_error_factory: RunStateValidationErrorFactory = _default_run_state_validation_error,
 ) -> list[RunItem]:
     """Deserialize run items from JSON data.
 
@@ -3592,8 +4514,9 @@ def _deserialize_items(
                 raw_agent,
                 agent_map,
                 agent_identity_map,
+                validation_error_factory=validation_error_factory,
             )
-            if agent_candidate:
+            if agent_candidate is not None:
                 return agent_candidate, agent_candidate.name
 
         return None, candidate_name
@@ -3605,7 +4528,7 @@ def _deserialize_items(
             continue
 
         agent, agent_name = _resolve_agent_info(item_data, item_type)
-        if not agent:
+        if agent is None:
             if agent_name:
                 log_model_and_tool_data_warning(
                     logger,
@@ -3628,7 +4551,22 @@ def _deserialize_items(
         )
 
         try:
-            if item_type == "message_output_item":
+            if item_type == "input_item":
+                input_id = item_data.get("input_id")
+                if isinstance(input_id, str):
+                    input_item = InputItem(
+                        agent=agent,
+                        raw_item=cast(TResponseInputItem, normalized_raw_item),
+                        input_id=input_id,
+                    )
+                else:
+                    input_item = InputItem(
+                        agent=agent,
+                        raw_item=cast(TResponseInputItem, normalized_raw_item),
+                    )
+                result.append(input_item)
+
+            elif item_type == "message_output_item":
                 raw_item_msg = _deserialize_message_output_item(normalized_raw_item)
                 result.append(MessageOutputItem(agent=agent, raw_item=raw_item_msg))
 
@@ -3659,6 +4597,11 @@ def _deserialize_items(
                         description=description,
                         title=title,
                         tool_origin=tool_origin,
+                        _resolved_tool_name=(
+                            item_data.get("tool_name")
+                            if isinstance(item_data.get("tool_name"), str)
+                            else None
+                        ),
                     )
                 )
 
@@ -3697,15 +4640,17 @@ def _deserialize_items(
                     item_data.get("source_agent"),
                     agent_map,
                     agent_identity_map,
+                    validation_error_factory=validation_error_factory,
                 )
                 target_agent = _resolve_agent_from_data(
                     item_data.get("target_agent"),
                     agent_map,
                     agent_identity_map,
+                    validation_error_factory=validation_error_factory,
                 )
 
                 # If we cannot resolve both agents, skip this item gracefully
-                if not source_agent or not target_agent:
+                if source_agent is None or target_agent is None:
                     source_name = item_data.get("source_agent")
                     target_name = item_data.get("target_agent")
                     log_model_and_tool_data_warning(
@@ -3774,6 +4719,7 @@ def _deserialize_items(
                     agent_identity_map=agent_identity_map,
                     fallback_agent=agent,
                     pre_normalized_raw_item=normalized_raw_item,
+                    validation_error_factory=validation_error_factory,
                 )
                 if approval_item is not None:
                     result.append(approval_item)
@@ -3797,6 +4743,7 @@ def _deserialize_items_with_source_indexes(
     agent_map: dict[str, Agent[Any]],
     *,
     agent_identity_map: Mapping[str, Agent[Any]] | None = None,
+    validation_error_factory: RunStateValidationErrorFactory = _default_run_state_validation_error,
 ) -> tuple[list[RunItem], list[int]]:
     """Deserialize items while retaining indexes of source entries that survived."""
     items: list[RunItem] = []
@@ -3806,6 +4753,7 @@ def _deserialize_items_with_source_indexes(
             [item_data],
             agent_map,
             agent_identity_map=agent_identity_map,
+            validation_error_factory=validation_error_factory,
         )
         items.extend(deserialized)
         source_indexes.extend([source_index] * len(deserialized))
@@ -3817,3 +4765,96 @@ def _clone_original_input(original_input: str | list[Any]) -> str | list[Any]:
     if isinstance(original_input, str):
         return original_input
     return copy.deepcopy(original_input)
+
+
+_TRUSTED_RUN_STATE_ERROR_MESSAGES = frozenset(
+    {
+        "Run state JSON must be an object",
+        "Run state is missing schema version",
+        "Run state schema version has an invalid type",
+        (
+            "Run state schema version is not supported. "
+            f"Supported versions are: {', '.join(sorted(SUPPORTED_SCHEMA_VERSIONS))}. "
+            f"New snapshots are written as version {CURRENT_SCHEMA_VERSION}."
+        ),
+        "Run state agent not found in agent map",
+        "Run state pending_input must be a list",
+        "Run state references an agent identity that is not present in the restored graph",
+        (
+            "RunState context was serialized from a custom type; provide context_deserializer "
+            "or context_override to restore it."
+        ),
+        (
+            "RunState context was omitted during serialization; provide context_override "
+            "to supply it."
+        ),
+        (
+            "RunState context requires explicit restoration; provide context_deserializer or "
+            "context_override to restore it."
+        ),
+        "Serialized run state context must be a mapping to use context_deserializer.",
+        (
+            "RunState restoration does not support RunContextWrapper subclasses; "
+            "provide the custom context value directly or wrap it in RunContextWrapper."
+        ),
+        "Context deserializer failed while rebuilding RunState context.",
+        "Serialized run state context must be a mapping. Please provide one.",
+        "Run state nested_history_owned_session_item_refs must be a list of objects",
+        (
+            "Run state nested_history_owned_session_item_refs entries must contain a "
+            "non-negative integer index and input_index, and 64-character digest"
+        ),
+        "Run state nested history ownership references a missing session item",
+        "Run state nested history ownership references a missing input item",
+        "Run state nested history ownership session digest does not match",
+        "Run state nested history ownership input digest does not match",
+        "RunState tool_invocations must be a mapping.",
+        "RunState tool_invocations contains an invalid call ID.",
+        "RunState tool invocation must be a mapping.",
+        "RunState tool invocation contains invalid lifecycle data.",
+        "Hosted MCP approval decisions require a non-empty request id.",
+        (
+            "Persistent hosted MCP approval decisions require a non-empty server_label "
+            "and tool name."
+        ),
+        "RunState completed tool invocation does not match a restored tool call and output.",
+        "RunState sandbox resume state contains an invalid manifest",
+        "RunState sandbox resume state has an invalid envelope",
+        *(
+            "Run state contains Programmatic Tool Calling data but uses schema version "
+            f"{schema_version}. Programmatic Tool Calling requires schema version "
+            f"{_PROGRAMMATIC_TOOL_CALLING_MIN_SCHEMA_VERSION} or later."
+            for schema_version in SUPPORTED_SCHEMA_VERSIONS
+        ),
+    }
+)
+
+
+def _known_run_state_error_message(error: BaseException) -> str | None:
+    if type(error) not in {UserError, ValueError}:
+        return None
+    try:
+        args = cast(Any, BaseException.args).__get__(error, type(error))
+    except BaseException:
+        return None
+    if type(args) is not tuple or len(args) != 1 or type(args[0]) is not str:
+        return None
+    message = args[0]
+    return message if message in _TRUSTED_RUN_STATE_ERROR_MESSAGES else None
+
+
+def _trusted_run_state_validation_message(
+    error: BaseException,
+    trusted_validation_errors: Sequence[tuple[BaseException, str]],
+) -> str | None:
+    message = _known_run_state_error_message(error)
+    if message is None:
+        return None
+    return next(
+        (
+            trusted_message
+            for trusted_error, trusted_message in trusted_validation_errors
+            if trusted_error is error and trusted_message == message
+        ),
+        None,
+    )

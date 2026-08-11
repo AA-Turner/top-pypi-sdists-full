@@ -50,8 +50,6 @@ __all__ = [
 # Initial suffix window. pip and poetry read about 10 KiB; the growth loop
 # makes correctness independent of the exact value.
 _DEFAULT_TAIL = 10240
-# Hard ceiling on the window the growth loop will fetch before giving up.
-_MAX_TAIL = 1024 * 1024
 
 _HTTP_OK = 200
 _HTTP_PARTIAL = 206
@@ -206,9 +204,10 @@ class _SparseFile:
         """Return the current read position."""
         return self._pos
 
-    def read(self, size: int = -1) -> bytes:
+    def read(self, size: int | None = -1) -> bytes:
         """Return up to ``size`` bytes from the current position.
 
+        ``None`` or a negative ``size`` reads to the end, as on a file object.
         Reads across contiguous spans and stops at the first gap, so a
         short return is the caller's cue that more bytes are needed.
         """
@@ -250,8 +249,12 @@ class _AcqKind(enum.Enum):
     NONE = "none"
 
 
+# The bytes an acquisition carries, read according to its _AcqKind: a whole
+# body, a tail window plus the offset it starts at, or nothing.
+_AcqPayload = bytes | tuple[_SparseFile, int] | None
+
 # A netloc that cannot serve usable ranges and volunteered no full body.
-_UNSUPPORTED_NONE: tuple[RangeCapability, _AcqKind, object] = (
+_UNSUPPORTED_NONE: tuple[RangeCapability, _AcqKind, _AcqPayload] = (
     RangeCapability.UNSUPPORTED,
     _AcqKind.NONE,
     None,
@@ -283,7 +286,12 @@ def _parse_content_range(value: str | None) -> tuple[int, int, int] | None:
     match = _CONTENT_RANGE_RE.match(value.strip())
     if match is None:
         return None
-    return (int(match[1]), int(match[2]), int(match[3]))
+
+    try:
+        return (int(match[1]), int(match[2]), int(match[3]))
+    except ValueError:
+        # \d+ still matches a run past CPython's int-from-string limit.
+        return None
 
 
 async def _range_get(
@@ -325,23 +333,22 @@ async def _suffix_attempt(
 
 async def _absolute_attempt(
     transport: AsyncHttpTransport, url: str, tail_size: int
-) -> tuple[RangeCapability, _AcqKind, object]:
+) -> tuple[RangeCapability, _AcqKind, _AcqPayload]:
     """Learn the length with ``bytes=0-0``, then read the tail absolutely.
 
     A probe that is refused, or that reports no usable total, steps down to
     the plain GET: neither answer says the file is unserveable, so only the
     plain GET is authoritative for whether the wheel can be served at all.
+    Any other 4xx/5xx raises through, whatever its Content-Encoding.
     """
     probe = await _range_get(transport, url, "bytes=0-0")
     if probe.status_code in _RANGE_REJECT_STATUSES:
         return await _fallback_full_body(
             transport, url, latch=probe.status_code != _HTTP_RANGE_NOT_SATISFIABLE
         )
-    if _non_identity(probe):
-        return _UNSUPPORTED_NONE
-    if probe.status_code == _HTTP_OK:
+    if probe.status_code == _HTTP_OK and not _non_identity(probe):
         return (RangeCapability.FULL_BODY_ONLY, _AcqKind.FULL_BODY, probe.content)
-    if probe.status_code != _HTTP_PARTIAL:
+    if probe.status_code != _HTTP_PARTIAL or _non_identity(probe):
         probe.raise_for_status()
         return _UNSUPPORTED_NONE
     parsed = _parse_content_range(probe.headers.get("content-range"))
@@ -355,11 +362,12 @@ async def _absolute_attempt(
 
 async def _absolute_tail(
     transport: AsyncHttpTransport, url: str, total: int, tail_size: int
-) -> tuple[RangeCapability, _AcqKind, object]:
+) -> tuple[RangeCapability, _AcqKind, _AcqPayload]:
     """Read the tail window with an absolute range once the length is known.
 
     A tail refused after an honoured probe still steps down to the plain GET,
     since a shrunk file or a flaky proxy can 416 a range the probe implied.
+    Any other 4xx/5xx raises through, whatever its Content-Encoding.
     """
     low = max(0, total - tail_size)
     tail = await _range_get(transport, url, f"bytes={low}-{total - 1}")
@@ -367,11 +375,9 @@ async def _absolute_tail(
         return await _fallback_full_body(
             transport, url, latch=tail.status_code != _HTTP_RANGE_NOT_SATISFIABLE
         )
-    if _non_identity(tail):
-        return _UNSUPPORTED_NONE
-    if tail.status_code == _HTTP_OK:
+    if tail.status_code == _HTTP_OK and not _non_identity(tail):
         return (RangeCapability.FULL_BODY_ONLY, _AcqKind.FULL_BODY, tail.content)
-    if tail.status_code != _HTTP_PARTIAL:
+    if tail.status_code != _HTTP_PARTIAL or _non_identity(tail):
         tail.raise_for_status()
         return _UNSUPPORTED_NONE
     sparse = _SparseFile(total)
@@ -398,7 +404,7 @@ async def _full_body_fetch(transport: AsyncHttpTransport, url: str) -> bytes | N
 
 async def _fallback_full_body(
     transport: AsyncHttpTransport, url: str, *, latch: bool
-) -> tuple[RangeCapability, _AcqKind, object]:
+) -> tuple[RangeCapability, _AcqKind, _AcqPayload]:
     """Step an unusable range down to the plain GET, choosing what it teaches.
 
     ``latch`` records the netloc ``FULL_BODY_ONLY``, so later wheels skip the
@@ -420,7 +426,7 @@ async def _acquire(
     url: str,
     capability: RangeCapability,
     tail_size: int,
-) -> tuple[RangeCapability, _AcqKind, object]:
+) -> tuple[RangeCapability, _AcqKind, _AcqPayload]:
     """Fetch bytes per the netloc's known capability, learning it if unknown."""
     if capability is RangeCapability.UNSUPPORTED:
         return _UNSUPPORTED_NONE
@@ -502,9 +508,9 @@ async def _open_zip(
         if opened is not None:
             return opened
         have = total - tail_low
-        if have >= total or have >= _MAX_TAIL:
+        if have >= total:
             return None
-        new_size = min(have * 2, total, _MAX_TAIL)
+        new_size = min(have * 2, total)
         new_low = total - new_size
         response = await _range_get(transport, url, f"bytes={new_low}-{tail_low - 1}")
         low = _absorb_range(response, sparse, new_low, wheel_hash)
@@ -623,11 +629,12 @@ async def read_wheel_metadata_over_range(
 
     ``wheel_hash`` is the wheel's published ``(algorithm, hex_digest)`` from the
     Simple-API listing, or ``None`` when none was published.  Whenever the whole
-    wheel comes back, whether from a host that ignores or refuses ranges or from
-    a 200 volunteered while a partial read is growing its window, the bytes are
-    checked against ``wheel_hash`` before their METADATA is read, so bytes that
-    disagree with the published digest never drive the resolve.  A partial read
-    that holds only a slice of the wheel is left unverified.
+    wheel comes back as one body, whether from a host that ignores or refuses
+    ranges or from a 200 volunteered while a partial read is growing its window,
+    the bytes are checked against ``wheel_hash`` before their METADATA is read,
+    so bytes that disagree with the published digest never drive the resolve.  A
+    ranged read is left unverified, even one whose window grew to cover the
+    whole file.
 
     Raises :class:`~nab_index.client.WheelHashMismatchError` when a full-body
     wheel fails ``wheel_hash``, and

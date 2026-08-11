@@ -34,7 +34,7 @@ const SimpleJNI::AutoRegister<BluetoothGattCallback> BluetoothGattCallback::regi
         callback_opt.value();                                                                              \
     })
 
-BluetoothGattCallback::BluetoothGattCallback() : connected(false), services_discovered(false), mtu(UINT16_MAX) {
+BluetoothGattCallback::BluetoothGattCallback() : connected(false), services_discovered(false), mtu(23) {
     if (!_cls.get()) {
         throw std::runtime_error("BluetoothGattCallback JNI resources not preloaded. Ensure SimpleJNI::Registrar::preload() is called.");
     }
@@ -260,7 +260,7 @@ void BluetoothGattCallback::jni_onServiceChangedCallback(SimpleJNI::Object<Simpl
 
 void BluetoothGattCallback::jni_onCharacteristicChangedCallback(SimpleJNI::Object<SimpleJNI::GlobalRef, jobject> thiz_obj, SimpleJNI::Object<SimpleJNI::GlobalRef, jobject> characteristic_obj,
                                                                 SimpleJNI::ByteArray<SimpleJNI::GlobalRef> value) {
-    auto msg = "onCharacteristicChangedCallback with value: " + value.bytes().toHex(true);
+    auto msg = "onCharacteristicChangedCallback";
     SIMPLEBLE_LOG_INFO(msg);
 
     BluetoothGattCallback* obj = GET_CALLBACK_OBJECT_OR_RETURN(thiz_obj);

@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: python-snap7
-Version: 3.1.0
+Version: 3.1.2
 Summary: Pure Python S7 communication library for Siemens PLCs
 Author-email: Gijs Molenaar <gijsmolenaar@gmail.com>
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/gijzelaerr/python-snap7
 Project-URL: Documentation, https://python-snap7.readthedocs.io/en/latest/
 Keywords: snap7,s7,siemens,plc

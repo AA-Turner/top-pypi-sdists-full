@@ -71,7 +71,10 @@ import inspect
 import pickle
 import sys
 
-from . import cell_key, env_seal, guard_closure, hot_swap
+from . import (
+    cell_key, dist_records, env_seal, guard_closure, hot_swap,
+    settings_authority,
+)
 from .api.errors import RetryableError
 from .models import w8a8_lora
 from .models.loading import pipeline_weight_lane
@@ -405,6 +408,117 @@ def _is_recompile_error(exc: BaseException) -> bool:
         return False
 
 
+#: pgw#1082: the token a graph-broken region reports, on the guard detail, on
+#: the `serve_eager_posture` phase, and on the request row's
+#: `fallback_reason`. One string, so "which releases are serving fragments"
+#: is a GROUP BY and never a log grep.
+GRAPH_BREAK_TOKEN = "graph_break"
+
+#: pgw#1082: the declaration named a dynamic range its own inputs leave.
+DECLARED_RANGE_TOKEN = "declared_range_exceeded"
+
+#: pgw#1093: the CATCH-ALL permanent degrade. A regional/whole-graph target
+#: that raised anything OTHER than a graph break, a declared-range refusal or
+#: a recompile miss used to degrade to eager on a `logger.warning` alone —
+#: and a hub-spawned pod has no reachable stdout, so the degrade was invisible
+#: (pgw#824's own ruling). Worse, `is_compile_armed` then reads False, which
+#: makes an INSTALLED-THEN-DEGRADED target byte-identical on the wire to a
+#: NEVER-INSTALLED one: same `metrics.lane=…+eager`, same
+#: `fallback_reason=uncompiled`, same `boot_ended_uncompiled`, zero other
+#: rows. Two different defects, one indistinguishable reading — which is
+#: exactly how pgw#1093 spent a pod attributing the wrong cause.
+COMPILED_DEGRADE_TOKEN = "compiled_degraded"
+
+
+def _is_graph_break_error(exc: BaseException) -> bool:
+    """True for dynamo's fullgraph refusal — the region did NOT trace whole.
+
+    This is the ONLY honest signal that separates "compiled" from "compiled
+    into eager-glued fragments". Without ``fullgraph=True`` dynamo emits no
+    error at all for this case: it splits the region, reports a successful
+    arm, never guard-misses, and serves at eager speed (pgw#1078's measured
+    triple on a 20.1B denoiser). With it, the break RAISES and names itself.
+    """
+    try:
+        from torch._dynamo import exc as dexc
+
+        return isinstance(exc, (dexc.Unsupported, dexc.UserError))
+    except Exception:
+        return False
+
+
+def _emit_declared_range_event(label: str, exc: BaseException) -> None:
+    """Confess a declared-range refusal: the endpoint's `dynamic=(...)` names
+    a range its own inputs leave, so nothing can be marked and the target
+    degrades to eager. An authoring defect, named as one."""
+    try:
+        from . import activity as activity_mod
+
+        activity_mod.emit_event(
+            activity_mod.KIND_SERVE_DEGRADE,
+            detail=f"target={label} lane=regional {DECLARED_RANGE_TOKEN}: "
+                   f"{_clip(str(exc), 600)}",
+            phase=DECLARED_RANGE_TOKEN,
+        )
+    except Exception:  # pragma: no cover — telemetry never fails the serve
+        logger.debug("compile-cache: declared-range event emission failed",
+                     exc_info=True)
+
+
+def _emit_graph_break_event(label: str, exc: BaseException) -> None:
+    """Confess a fullgraph refusal on the wire, once, at the moment it
+    happens. The `jit_compile` audit counts breaks over a whole window; this
+    names the target that lost its compiled lane because of them."""
+    try:
+        from . import activity as activity_mod
+
+        activity_mod.emit_event(
+            activity_mod.KIND_SERVE_DEGRADE,
+            detail=(
+                f"target={label} lane=regional {GRAPH_BREAK_TOKEN}: the "
+                f"region did not trace whole under fullgraph, so this "
+                f"instance serves it EAGER and says so. "
+                f"{_clip(str(exc), 600)}"
+            ),
+            phase=GRAPH_BREAK_TOKEN,
+        )
+    except Exception:  # pragma: no cover — telemetry never fails the serve
+        logger.debug("compile-cache: graph-break event emission failed",
+                     exc_info=True)
+
+
+def _emit_compiled_degrade_event(
+    label: str, exc: BaseException, *, lane: str, fail_closed: bool,
+) -> None:
+    """pgw#1093: confess EVERY permanent degrade, whatever raised it.
+
+    The two classified degrades (graph break, declared range) have had their
+    own rows since pgw#1082. Everything else — a kernel that refuses this
+    shape, a dtype mismatch the marks let through, an OOM inside the compiled
+    region, an endpoint mutating a module the arm wrapped — took the
+    `logger.warning` path and reached the wire as nothing at all. This row is
+    what makes "installed and then broke, HERE, for THIS reason" a different
+    fact from "never installed", instead of the same `uncompiled`.
+    """
+    try:
+        from . import activity as activity_mod
+
+        activity_mod.emit_event(
+            activity_mod.KIND_SERVE_DEGRADE,
+            detail=(
+                f"target={label} lane={lane} {COMPILED_DEGRADE_TOKEN}: this "
+                f"target was ARMED and is now permanently EAGER for the rest "
+                f"of this process — {type(exc).__name__}: "
+                f"{_clip(str(exc), 600)}"
+                + (" (mandatory lane)" if fail_closed else "")
+            ),
+            phase=COMPILED_DEGRADE_TOKEN,
+        )
+    except Exception:  # pragma: no cover — telemetry never fails the serve
+        logger.debug("compile-cache: degrade event emission failed",
+                     exc_info=True)
+
+
 @dataclass(frozen=True)
 class GuardMiss:
     """One tenant request that hit fail-on-recompile on a compiled target.
@@ -616,10 +730,11 @@ def execution_lane_label(weight_lane: str, lora_bucket: int = 0) -> str:
 
     pgw#1040: this body existed twice, byte for byte, as
     ``cell_key._canonical_execution_lane`` and
-    ``aot_contract.ExportSpec.execution_lane_label``. One produces a cell-key
-    AXIS and the other the label stamped into a cell's metadata, so the two
-    copies drifting apart does not degrade — it mints cells under one name and
-    looks them up under another. Both now call this.
+    ``aot_contract.ExportSpec.execution_lane_label``; both were folded here.
+    Since pgw#1059 the lane is store METADATA + discovery scoping, never a
+    key axis — but the one-derivation rule stands for the same reason: a
+    lane stamped under one spelling and scoped under another is a cell
+    discovery can never find.
     """
     base, observed = execution_lane_bucket(str(weight_lane or ""))
     bucket = observed or int(lora_bucket or 0)
@@ -703,44 +818,25 @@ def parse_cell_ref(ref: str) -> Tuple[str, str]:
     return th.repo[len("family-"):], th.flavor or ""
 
 
-def cell_execution_lane(ref: str) -> str:
-    """The compiled weight-lane token encoded in a system-cell ref.
-
-    The flavor is human/routing metadata; artifact metadata remains the
-    authority. This narrow parser exists so a worker presented several cells
-    for one family tries the exact lane instead of whichever mapping entry
-    happened to arrive first (ie#496).
-    """
-    _family, flavor = parse_cell_ref(ref)
-    _prefix, sep, suffix = flavor.partition("-torch")
-    if not sep:
-        return ""
-    _version, sep, execution_lane = suffix.partition("-")
-    return execution_lane if sep else ""
-
-
 def family_from_ref(ref: str) -> str:
     """Family encoded in a compile-cache ref; '' when the ref is not a
     system-family cell ref."""
     return parse_cell_ref(ref)[0]
 
 
-def is_cache_ref(ref: str, family: str = "") -> bool:
-    """True when ``ref`` names an inductor compile-cache cell (optionally of
-    one specific family). Cells are flavored either with the legacy human
-    label (``inductor-<sku>-torch<mm>[-lane]``) or, post-th#883, with the
-    worker-computed cell key itself (``ck1-<sha256>`` — pull-by-key)."""
+def declared_compile_facts(cfg: Any, *, lora_bucket_override: Optional[int] = None) -> Dict[str, Any]:
+    """Canonical DECLARED compile-contract facts for ``cfg`` (a
+    ``registry.CompileCell`` or any duck with the same fields).
 
-    fam, flavor = parse_cell_ref(ref)
-    if not fam or (family and fam != family):
-        return False
-    return flavor.startswith("inductor-") or cell_key.is_key(flavor)
-
-
-def declared_contract_facts(cfg: Any, *, lora_bucket_override: Optional[int] = None) -> Dict[str, Any]:
-    """Canonical declared-shape-contract facts for ``cfg`` (a
-    ``registry.CompileCell`` or any duck with the same fields) — the ck2
-    ``contract`` cell-key axis digests exactly this dict (pgw#647)."""
+    pgw#1059: this is no longer a key-axis input — the fused ``contract``
+    axis is split into ``graph`` x ``envelope`` and the exported-cell key
+    reads recorded blocks only. What remains of this dict: the
+    torch-inductor-cache block ``declared_compile_contract`` (compared
+    verbatim by :func:`local_cell_mismatch` / :func:`contract_drift` — the
+    cozy-local store verdict), the SDK v2 manifest's opaque
+    ``shape_contract_digest`` (``registry.CompileCell.contract_digest``
+    digests its own near-twin of this dict), and the JIT semantic cache tag.
+    """
     bucket = int(getattr(cfg, "lora_bucket", 0) or 0)
     if lora_bucket_override is not None:
         bucket = int(lora_bucket_override)
@@ -748,7 +844,7 @@ def declared_contract_facts(cfg: Any, *, lora_bucket_override: Optional[int] = N
     if not text_lens and getattr(cfg, "text_len", None) is not None:
         text_lens = (int(cfg.text_len),)
     return {
-        "v": 3,
+        "v": 1,
         "shapes": sorted(
             [int(v) for v in row] for row in getattr(cfg, "shapes", ())),
         "targets": [str(t) for t in getattr(cfg, "targets", ())],
@@ -880,33 +976,50 @@ def static_code_closure() -> Tuple[Tuple[str, str], ...]:
 
 @functools.lru_cache(None)
 def toolchain_digest() -> Tuple[Tuple[str, str], ...]:
-    """pgw#710: CONTENT identity of the compile toolchain, per component —
-    the equivalence precondition that lets ``image_digest`` be relaxed
-    (pgw#700) without degrading the compile stack's identity to version
-    strings (the ccache ``compiler_check=mtime`` failure class; sccache's
-    answer — hash the compiler binary and its runtime libs — is the
-    precedent).
+    """pgw#710/pgw#1059: CONTENT identity of "the compiler stack AS WE
+    CONFIGURE IT", per component — the ``toolchain`` key axis's whole input.
 
-    Components: the dist-info ``RECORD`` of torch/triton and every
-    ``nvidia-*`` runtime wheel (RECORD already carries per-file sha256s, so
-    hashing it is whole-package content identity with no multi-GB re-walk)
-    plus the bundled CUDA tool BINARIES (ptxas/nvdisasm ride triton's
-    wheel; a swapped ptxas silently changes emitted cubins). Recorded in
-    metadata, never a key axis."""
-    out: Dict[str, str] = {}
-    try:
-        import importlib.metadata
+    The binary half (pgw#710) is the equivalence precondition that lets
+    ``image_digest`` be relaxed (pgw#700) without degrading the compile
+    stack's identity to version strings (the ccache ``compiler_check=mtime``
+    failure class; sccache's answer — hash the compiler binary and its
+    runtime libs — is the precedent): the dist-info ``RECORD`` of
+    torch/triton and every ``nvidia-*`` runtime wheel (RECORD already
+    carries per-file sha256s, so hashing it is whole-package content
+    identity with no multi-GB re-walk) plus the bundled CUDA tool BINARIES
+    (ptxas/nvdisasm ride triton's wheel; a swapped ptxas silently changes
+    emitted cubins).
 
-        # diffusers/transformers/peft ride here at package granularity
-        # (their VERSION axes left the key; content replaces them).
-        wanted = ("torch", "triton", "diffusers", "transformers", "peft")
-        for dist in importlib.metadata.distributions():
-            name = str(dist.metadata.get("Name") or "").lower()
-            if name in wanted or name.startswith("nvidia-"):
-                record = dist.read_text("RECORD") or ""
-                out[name] = hashlib.sha256(record.encode()).hexdigest()[:16]
-    except Exception:
-        logger.debug("toolchain_digest: dist-info walk failed", exc_info=True)
+    The configuration half (pgw#1059 amendment 4, on pgw#1049's seal v4):
+
+    * ``settings_declaration`` — the digest of the settings DECLARATION
+      (env table, torch flags + knobs, dynamo posture, host-ISA clamp,
+      process posture). Settings are compiler flags: with the single
+      settings authority the declaration is one value fleet-wide, so as its
+      own axis it carried zero bits — but a deliberate settings change must
+      still re-key, and this is the axis that change honestly belongs to.
+      The seal's GATE roles (boot verify, pre-trace tripwire) live in
+      ``env_seal`` unchanged.
+    * ``loaded_libs`` — the boot-frozen per-file manifest of the native
+      ``.so`` set the python env ships (pgw#719), which is what covers the
+      LD_PRELOAD/LD_LIBRARY_PATH substitution hole: it enumerates the FILES
+      rather than the packages, and pgw#1095 derives each digest from the
+      RECORD that installed the file while HASHING anything no RECORD
+      covers — a preloaded or non-wheel object is therefore still content,
+      not an assumption.
+    """
+    out: Dict[str, str] = {
+        "settings_declaration": env_seal.declaration_digest(),
+        "loaded_libs": env_seal.loaded_libs_digest(),
+    }
+    # ONE enumeration of the environment's RECORDs (pgw#1095): the seal's
+    # per-FILE digests and this axis's per-PACKAGE digests are two readings of
+    # the same manifests, and reading them twice is how two surfaces start
+    # disagreeing about what is installed.
+    wanted = ("torch", "triton", "diffusers", "transformers", "peft")
+    for name, record in dist_records.record_texts().items():
+        if name in wanted or name.startswith("nvidia-"):
+            out[name] = hashlib.sha256(record.encode()).hexdigest()[:16]
     try:
         import triton
 
@@ -961,7 +1074,7 @@ def artifact_metadata(
     lora_bucket: int = 0,
     graph_signature: str = "",
     weight_contract: Optional[Dict[str, Any]] = None,
-    shape_contract: Optional[Dict[str, Any]] = None,
+    declared_compile_contract: Optional[Dict[str, Any]] = None,
     composition: Iterable[Tuple[str, str]] = (),
 ) -> Dict[str, Any]:
     """Producer-side metadata for :func:`pack` (no timestamps: artifacts of
@@ -996,7 +1109,7 @@ def artifact_metadata(
         "lora_bucket": int(lora_bucket or 0),
         "graph_signature": str(graph_signature or ""),
         "weight_contract": dict(weight_contract or {}),
-        "shape_contract": dict(shape_contract or {}),
+        "declared_compile_contract": dict(declared_compile_contract or {}),
         # pgw#697: per-module fingerprint rows so an adoption refusal can
         # name the exact drifted module, not just a digest mismatch.
         "composition": [[str(p), str(d)] for p, d in composition],
@@ -1015,12 +1128,12 @@ def artifact_metadata(
         "loaded_libs": dict(env_seal.frozen_library_digests()),
         "libs": _lib_versions(),
     }
-    # gw#581/th#883: stamp the worker-owned cell key the recorded axes
-    # describe. Derived FROM the metadata (never probed separately), so the
-    # stamp can never disagree with the axes it summarizes. Callers that
-    # later override a key axis re-stamp.
-
-    return cell_key.stamp(meta)
+    # pgw#1059: NO cell_key stamp. A torch-inductor-cache artifact has no
+    # cell-key identity any more — the ck1 key names exported cells only,
+    # and the local/seeded verdict compares these recorded facts directly
+    # (local_cell_mismatch), which is strictly more nameable than a fused
+    # digest comparison ever was.
+    return meta
 
 
 def verify(meta: Dict[str, Any], *, family: str = "") -> str:
@@ -1066,6 +1179,75 @@ def verify(meta: Dict[str, Any], *, family: str = "") -> str:
     return ""
 
 
+def local_cell_mismatch(
+    meta: Dict[str, Any], *, family: str, weight_lane: str, cfg: Any,
+    lora_bucket_override: Optional[int] = None,
+) -> str:
+    """'' when a torch-inductor-cache artifact states exactly this runtime +
+    declaration, else the FIRST mismatch, named.
+
+    pgw#1059: the replacement for the retired ``kind="inductor"`` cell key
+    (``cell_key.compute`` / ``mismatch``). The cozy-local store and the
+    seeded-arm self-cell check need a PRE-TRACE verdict, which a key whose
+    ``graph`` axis is the traced-graph digest cannot give by construction —
+    so the verdict compares the recorded facts directly, each with the same
+    derivation the producer used, and names the fact instead of a digest:
+
+    * every :func:`verify` axis (format, torch/triton/sm/cuda/image,
+      gen_worker, libs, family) — strict, silent axes refused;
+    * the execution lane label (ONE derivation: :func:`execution_lane_label`);
+    * the declared compile contract (ONE derivation:
+      :func:`declared_compile_facts`) — STRICT: a cell recording no block is
+      refused, closing the fixture-shaped gap :func:`contract_drift`
+      deliberately left open;
+    * the settings declaration + loaded libs + binary toolchain, via the
+      recorded ``env_seal`` / ``toolchain`` blocks (the same facts the
+      exported key's ``toolchain`` axis folds).
+
+    The local store is a cache; every refusal here costs one re-mint.
+    """
+    reason = verify(meta, family=family)
+    if reason:
+        return reason
+    want_lane = execution_lane_label(
+        str(weight_lane or ""),
+        int(lora_bucket_override
+            if lora_bucket_override is not None
+            else int(getattr(cfg, "lora_bucket", 0) or 0)))
+    have_lane = execution_lane_label(
+        str(meta.get("weight_lane") or ""),
+        int(meta.get("lora_bucket") or 0))
+    if have_lane != want_lane:
+        return f"execution lane {have_lane!r} != runtime {want_lane!r}"
+    cell_contract = meta.get("declared_compile_contract")
+    if not isinstance(cell_contract, dict) or not cell_contract:
+        return (
+            "artifact records no declared_compile_contract block "
+            "(pre-pgw#1059 cell); refused — a cell that cannot state its "
+            "declaration cannot be shown to match this one")
+    here_contract = declared_compile_facts(
+        cfg, lora_bucket_override=lora_bucket_override)
+    if cell_contract != here_contract:
+        return (
+            "declared compile contract mismatch: "
+            + _first_contract_difference(cell_contract, here_contract))
+    seal = meta.get(env_seal.SEAL_KEY)
+    if not isinstance(seal, dict) or not seal:
+        return "artifact records no env_seal block; refused"
+    want_seal = env_seal.seal_digest(env_seal.effective_seal())
+    have_seal = env_seal.seal_digest(seal)
+    if have_seal != want_seal:
+        return f"env_seal {have_seal!r} != runtime {want_seal!r}"
+    toolchain = meta.get("toolchain")
+    if not isinstance(toolchain, dict) or not toolchain:
+        return "artifact records no toolchain block; refused"
+    want_tc = cell_key.facts_digest(dict(toolchain_digest()))
+    have_tc = cell_key.facts_digest(toolchain)
+    if have_tc != want_tc:
+        return f"toolchain {have_tc!r} != runtime {want_tc!r}"
+    return ""
+
+
 # ---------------------------------------------------------------------------
 # Pack / unpack
 # ---------------------------------------------------------------------------
@@ -1082,16 +1264,25 @@ def _clean_tarinfo(ti: tarfile.TarInfo, executable: bool = False) -> tarfile.Tar
 _ELF_MAGIC = b"\x7fELF"
 
 
+class _UnreadableCubin(ValueError):
+    """A packed cubin whose architecture cannot be determined (pgw#939)."""
+
+
 def _cubin_arch(path: Path) -> int:
     """The SM arch a cubin was compiled for (nvidia ELF ``e_flags`` low
-    byte), 0 when the file is unreadable or not ELF."""
+    byte). Raises :class:`_UnreadableCubin` when the file cannot be read or
+    is not an ELF — pgw#939: it used to return ``0`` for that, which the
+    caller's ``if cubin is not None and want_arch:`` then read as "no arch to
+    compare", so an unreadable kernel SKIPPED the gate that exists to catch
+    it. Absence of evidence is the finding here, not the absence of a
+    finding."""
     try:
         with open(path, "rb") as f:
             header = f.read(0x34)
-    except OSError:
-        return 0
+    except OSError as exc:
+        raise _UnreadableCubin(f"unreadable ({type(exc).__name__})") from exc
     if len(header) < 0x34 or not header.startswith(_ELF_MAGIC):
-        return 0
+        raise _UnreadableCubin("not an ELF object")
     # EI_CLASS: 2 = ELF64 (e_flags at 0x30), 1 = ELF32 (e_flags at 0x24).
     offset = 0x30 if header[4] == 2 else 0x24
     flags = int.from_bytes(header[offset:offset + 4], "little")
@@ -1105,8 +1296,14 @@ def _ptx_jit_gaps(
     form is PTX makes the HOST DRIVER's JIT compile it at load time — the
     one path where the deliberately-unkeyed driver version (gw#577) can
     re-enter compiled-kernel behavior. Every ``.ptx`` must ship a sibling
-    ``.cubin``, and when the artifact declares its sm the cubin arch must
-    match it exactly."""
+    ``.cubin``, and the cubin arch must match the artifact's sm exactly.
+
+    pgw#939: both halves of that comparison used to VANISH on an unreadable
+    input. A malformed ``metadata["sm"]`` set ``want_arch = 0`` and an
+    unreadable cubin returned ``0``, and either one made
+    ``if cubin is not None and want_arch:`` skip — so pgw#698's gate
+    disappeared per kernel exactly when the evidence for it was missing.
+    An `sm` this function cannot parse is now a gap in its own right."""
     want_arch = 0
     if sm.startswith("sm_"):
         try:
@@ -1117,22 +1314,49 @@ def _ptx_jit_gaps(
     for p in files:
         if p.suffix in (".ptx", ".cubin"):
             kernels.setdefault((p.parent, p.stem), {})[p.suffix] = p
+    # Scope, stated because pgw#939 narrowed it deliberately: this gate is
+    # about PTX JIT, so it rules on kernels that HAVE a `.ptx`. A `.cubin`
+    # with no PTX sibling cannot be JIT-compiled by the driver — there is
+    # nothing to compile — and whether it is the right architecture is the
+    # cell IDENTITY gate's question (`sm` is a strict `IDENTITY_AXES` field),
+    # not this one's.
+    exposed = {k: v for k, v in kernels.items() if ".ptx" in v}
+    if not exposed:
+        return []
     gaps: list[str] = []
+    if not want_arch:
+        # pgw#939: this used to set `want_arch = 0` and silently skip every
+        # comparison below, so a malformed `sm` deleted the gate wholesale.
+        gaps.append(
+            f"artifact declares sm={sm!r}, which names no comparable "
+            f"architecture while carrying {len(exposed)} PTX-exposed "
+            "kernel(s) — the arch gate cannot run, so the pack is refused "
+            "rather than packed unchecked (pgw#698/pgw#939)")
     for (_parent, _stem), forms in sorted(
-        kernels.items(), key=lambda kv: str(kv[0][0] / kv[0][1]),
+        exposed.items(), key=lambda kv: str(kv[0][0] / kv[0][1]),
     ):
-        ptx, cubin = forms.get(".ptx"), forms.get(".cubin")
-        if ptx is not None and cubin is None:
+        ptx, cubin = forms[".ptx"], forms.get(".cubin")
+        if cubin is None:
             gaps.append(
                 f"{ptx.relative_to(cache_root)}: PTX only — no cubin, the "
                 "driver JIT would compile it")
             continue
-        if cubin is not None and want_arch:
+        if not want_arch:
+            continue  # already refused above; do not repeat it per kernel
+        try:
             arch = _cubin_arch(cubin)
-            if arch and arch != want_arch:
-                gaps.append(
-                    f"{cubin.relative_to(cache_root)}: cubin arch sm_{arch} "
-                    f"!= artifact sm_{want_arch}")
+        except _UnreadableCubin as exc:
+            # pgw#939: `_cubin_arch` returned 0 here and `and want_arch`
+            # then skipped the comparison, so the gate disappeared for
+            # exactly the kernel whose evidence could not be read.
+            gaps.append(
+                f"{cubin.relative_to(cache_root)}: {exc} — its "
+                "architecture cannot be compared to the artifact's")
+            continue
+        if arch != want_arch:
+            gaps.append(
+                f"{cubin.relative_to(cache_root)}: cubin arch sm_{arch} "
+                f"!= artifact sm_{want_arch}")
     return gaps
 
 
@@ -1319,14 +1543,14 @@ def _semantic_cache_tag(pipeline: Any, cfg: Any) -> str:
     already hashes them natively (system info, config, dtypes) and the
     outer key pins them via env_seal/toolchain/code_closure — the tag's job
     is semantics only."""
-    execution_lane = cell_key._canonical_execution_lane(
+    execution_lane = execution_lane_label(
         pipeline_weight_lane(pipeline),
         int(getattr(cfg, "lora_bucket", 0) or 0))
     payload = "|".join((
         str(ARTIFACT_FORMAT), "inductor",
         str(getattr(cfg, "family", "") or ""), execution_lane,
         "regional" if bool(getattr(cfg, "regional", False)) else "whole",
-        cell_key.contract_digest(declared_contract_facts(cfg)),
+        cell_key.facts_digest(declared_compile_facts(cfg)),
     ))
     return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
@@ -1336,13 +1560,9 @@ def _set_semantic_cache_tag(pipeline: Any, cfg: Any) -> None:
     (torch.compiler.config), set at every arm before its warm compiles; a
     later cross-family arm in the same process retags before its own
     compiles — a mid-serve heal recompile under the newer tag can only
-    MISS, never cross-consume."""
-    try:
-        import torch.compiler.config as compiler_config
-
-        compiler_config.cache_key_tag = _semantic_cache_tag(pipeline, cfg)
-    except Exception:
-        logger.debug("semantic cache tag: unavailable", exc_info=True)
+    MISS, never cross-consume. The write itself is the authority's
+    (pgw#1049 fence)."""
+    settings_authority.set_compiler_cache_tag(_semantic_cache_tag(pipeline, cfg))
 
 
 def capture_env(root: Path) -> Path:
@@ -1355,50 +1575,12 @@ def capture_env(root: Path) -> Path:
         d = root / sub
         d.mkdir(parents=True, exist_ok=True)
         os.environ[env] = str(d)
-    _disable_aot_autograd_cache()
+    # gw#608: portability needs the (portable) FxGraphCache as the lookup
+    # surface — the authority owns the write (settings_authority docstring
+    # carries the full ASLR/thread-local history).
+    settings_authority.disable_autograd_cache()
     _reset_inductor_latch()
     return root
-
-
-def _disable_aot_autograd_cache() -> None:
-    """gw#608: the AOTAutogradCache key hashes ``fx_kwargs[get_decomp_fn]``
-    via the function's REPR — which embeds the process memory address
-    (ASLR), so AOT keys can NEVER match across processes/pods. On the
-    consumer, the AOT-layer miss recompiles without consulting the on-disk
-    FX entries, so a byte-portable cell reports cache_hits=0 (live: two
-    hosts, 8/8 misses on graphs whose FxGraphCache keys were bit-identical
-    across three independent mints). Compiled-cell portability therefore
-    requires the FX cache to be the lookup surface: disable the AOT layer
-    symmetrically for producer capture and consumer seeding. Costs a cheap
-    AOT re-analysis per fresh process; the expensive inductor compile still
-    serves from the (portable) FX entries.
-
-    LIVE DISPROOF of the 0.40.4/0.40.5 shape (2026-07-21, B200 pods,
-    gen-worker 0.40.5): the mint capture still packed 8 ASLR-keyed
-    ``aotautograd/`` entries and the store-served sibling still failed 8/8
-    — because in torch 2.13 ``ConfigModule`` user overrides are a
-    ContextVar, i.e. THREAD-LOCAL: the assignment below ran on the arming
-    thread while the warmup compile ran on another thread that still saw
-    the default True. The env var is no rescue post-import
-    (``env_name_force`` is read once at config install). Process-global
-    disable therefore needs BOTH: the pre-torch-import env in the
-    entrypoint (fresh processes, incl. compile-worker subprocesses) and
-    the installed config entry's ``env_value_force`` mutated here (torch
-    already imported — tools, tests, embedders)."""
-    os.environ["TORCHINDUCTOR_AUTOGRAD_CACHE"] = "0"
-
-    if "torch" not in sys.modules:
-        return
-    try:
-        import torch._functorch.config as fconf
-
-        fconf.enable_autograd_cache = False  # this thread (fast path, public API)
-        # Process-global: user overrides are thread-local ContextVars in
-        # torch>=2.13; the entry-level env force is consulted by every
-        # thread with top precedence.
-        fconf._config["enable_autograd_cache"].env_value_force = False  # type: ignore[attr-defined]
-    except Exception:
-        logger.debug("compile-cache: AOT autograd cache disable unavailable", exc_info=True)
 
 
 def _reset_inductor_latch() -> None:
@@ -1451,6 +1633,76 @@ def inductor_counters() -> Dict[str, int]:
 
 def counters_delta(before: Dict[str, int], after: Dict[str, int]) -> Dict[str, int]:
     return {k: int(after.get(k, 0)) - int(before.get(k, 0)) for k in after}
+
+
+@dataclass(frozen=True)
+class GraphAudit:
+    """How many graphs a compile produced, and what split them (pgw#1082).
+
+    ``unique_graphs`` and ``graph_breaks`` are dynamo's own process-global
+    counters; ``reasons`` is the break-reason histogram, highest first. A
+    region that traced whole reads ``graph_breaks=0``; anything else names
+    the ops that cut it, which is the only way to tell an armed-and-fast
+    region from an armed-and-fragmented one (the pgw#1078 measurement:
+    armed + entered + zero guard misses + zero speedup)."""
+
+    unique_graphs: int = 0
+    graph_breaks: int = 0
+    reasons: Tuple[Tuple[str, int], ...] = ()
+
+    @property
+    def whole(self) -> bool:
+        return self.graph_breaks == 0
+
+    def summary(self, top: int = 4) -> str:
+        head = f"n_graphs={self.unique_graphs} n_breaks={self.graph_breaks}"
+        if not self.reasons:
+            return head
+        top_reasons = " ".join(
+            f"{_clip(reason, 90)}x{count}"
+            for reason, count in self.reasons[:top])
+        return f"{head} breaks=[{top_reasons}]"
+
+
+def graph_audit() -> GraphAudit:
+    """This process's cumulative dynamo graph/break counters (monotonic).
+
+    pgw#1082: ``emit_jit_compile_event`` has carried an ``n_graphs``
+    parameter since th#1322 that NO caller ever populated, so every
+    ``jit_compile`` event on the platform read ``n_graphs=0`` and a fully
+    graph-broken 20.1B denoiser was indistinguishable on the wire from a
+    healthy one. This is the read that answers it."""
+    try:
+        from torch._dynamo.utils import counters
+
+        reasons = tuple(sorted(
+            ((str(k), int(v)) for k, v in counters["graph_break"].items()),
+            key=lambda kv: (-kv[1], kv[0])))
+        return GraphAudit(
+            unique_graphs=int(counters["stats"].get("unique_graphs", 0)),
+            graph_breaks=sum(c for _, c in reasons),
+            reasons=reasons,
+        )
+    except Exception:
+        logger.debug("compile-cache: dynamo graph counters unavailable",
+                     exc_info=True)
+        return GraphAudit()
+
+
+def graph_audit_delta(before: GraphAudit) -> GraphAudit:
+    """The audit of ONE compile window: after minus before, per reason."""
+    after = graph_audit()
+    prior = dict(before.reasons)
+    reasons = tuple(sorted(
+        ((reason, count - prior.get(reason, 0))
+         for reason, count in after.reasons
+         if count - prior.get(reason, 0) > 0),
+        key=lambda kv: (-kv[1], kv[0])))
+    return GraphAudit(
+        unique_graphs=max(0, after.unique_graphs - before.unique_graphs),
+        graph_breaks=sum(c for _, c in reasons),
+        reasons=reasons,
+    )
 
 
 def compile_wall_seconds() -> float:
@@ -1786,15 +2038,6 @@ class CellSelectionBugError(RuntimeError):
 
 class CompiledExecutionLaneUnavailableError(RetryableError):
     """A precision lane whose production contract requires a cell is unsafe."""
-
-
-def find_artifact(root: Path) -> Optional[Path]:
-    """The compile-cache tarball inside a downloaded snapshot dir (or the
-    file itself)."""
-    root = Path(root)
-    if root.is_file():
-        return root
-    return next(iter(sorted(root.rglob("*.tar.gz"))), None)
 
 
 def _merge_staged_cache(staged: Path, live: Path) -> None:
@@ -2309,91 +2552,156 @@ def execution_contract(pipeline: Any, cfg: Any) -> Tuple[str, Dict[str, Any]]:
     return hashlib.sha256(encoded).hexdigest(), weight_contract
 
 
-def _regional_dynamic_decline(cfg: Any, target: str) -> str:
-    """"" when the DYNAMO regional branch may arm ``target``, else the reason.
+def _mark_regional_blocks(owner: Any, dynamic_dims: tuple) -> int:
+    """Apply the DECLARED marks at the compiled-block ingress. Returns the
+    number of blocks wrapped.
 
-    pgw#817/D4 moved the `regional + dynamic` refusal out of the declaration
-    (where it forbade a combination the EXPORT lane measured as free) and into
-    the one lane that genuinely cannot honour it. `compile_repeated_blocks(
-    dynamic=None)` never applies the declared marks, so a dynamo regional arm
-    over a declaration carrying `dynamic=(...)` would serve a graph that does
-    not implement the contract its cell key asserts — the exact failure class
-    pgw#716 exists to prevent. Declining here sends the target to the
-    whole-forward branch, which DOES mark, so the declaration is still served;
-    it is only served by the other lane.
+    pgw#817/D4 answered "compile_repeated_blocks(dynamic=None) never applies
+    the declared marks" by DECLINING the dynamo regional branch whenever a
+    declaration carried ``dynamic=(...)``, which sent the target to the
+    whole-forward branch instead. That refusal is what ie#632 measured on
+    minimax-h3: a 20.1B denoiser whose author declared ``regional=True``
+    precisely because whole-graph inductor planning is unaffordable for its
+    class (ie#381) was silently compiled whole-forward, and every request
+    whose packed sequence differed from the boot warmup's guard-missed to
+    eager for the life of the pod.
+
+    The premise was wrong: ``compile_repeated_blocks`` compiles each repeated
+    BLOCK, so the block call is where this lane's graphs are traced and where
+    the marks belong. ``nn.Module.compile()`` installs ``_compiled_call_impl``;
+    wrapping it with the same :func:`_with_declared_marks` the whole-forward
+    branch uses makes the two lanes honour one declaration.
     """
-    dyn = tuple(getattr(cfg, "dynamic", ()) or ())
-    if not dyn:
-        return ""
-    names = ", ".join(str(getattr(d, "dim", "") or "?") for d in dyn)
-    return (
-        f"target {target!r} declares regional=True AND dynamic=({names}) — "
-        f"the dynamo regional branch calls compile_repeated_blocks("
-        f"dynamic=None) and never applies the declared marks, so it declines "
-        f"and this target takes the whole-forward branch (which does). The "
-        f"AOT export lane implements regional+dynamic directly (pgw#812 "
-        f"RESULT 3: free on a conv-free region)")
+    repeated = tuple(getattr(owner, "_repeated_blocks", ()) or ())
+    if not repeated:
+        return 0
+    marked = 0
+    for module in owner.modules():
+        if type(module).__name__ not in repeated:
+            continue
+        impl = getattr(module, "_compiled_call_impl", None)
+        if impl is None or getattr(impl, "_gw_declared_marks", False):
+            continue
+        wrapped = _with_declared_marks(impl, dynamic_dims)
+        wrapped._gw_declared_marks = True  # type: ignore[attr-defined]
+        module._compiled_call_impl = wrapped
+        marked += 1
+    logger.info(
+        "compile-cache: declared marks applied at the ingress of %d regional "
+        "block(s) on %s", marked, type(owner).__name__)
+    return marked
 
 
-def _apply_declared_shape_config(cfg: Any) -> None:
-    """The v2 dynamo posture: nothing becomes dynamic by accident.
+class DeclaredRangeExceeded(RuntimeError):
+    """A declared dynamic axis met an extent OUTSIDE its declared range.
 
-    ``automatic_dynamic_shapes=False`` — never promote a dim on change (a
-    novel signature is a guard miss routed by the consumer guards, never a
-    silent recompile-to-dynamic); ``assume_static_by_default=True`` —
-    unmarked dims are static. Declared dynamism arrives ONLY through
-    explicit ``mark_dynamic`` marks (``_with_declared_marks``)."""
-    try:
-        import torch._dynamo
+    pgw#1082: this used to be a ``ConstraintViolationError`` raised from
+    inside dynamo, caught by the guard as "some compiled target failed", and
+    swallowed into a permanent eager degrade that the wire still reported as
+    ``jit_cell``. It is an ENDPOINT DECLARATION defect — the declaration
+    named a range its own inputs leave — and it now says so by name.
+    """
 
-        torch._dynamo.config.automatic_dynamic_shapes = False
-        torch._dynamo.config.assume_static_by_default = True
-    except Exception:
-        logger.debug("compile-cache: could not set dynamo shape config",
-                     exc_info=True)
+
+#: Logical axis -> the tensor dim it is PRIMARILY read from. The extent found
+#: there is then propagated to every argument that carries it (see
+#: :func:`_with_declared_marks`), because a sequence axis is never carried by
+#: one tensor: H3's block takes ``hidden_states[B, S, H]``, ``adaln_indices[S]``
+#: and a ``(cos[S, D], sin[S, D])`` TUPLE, and leaving the last two static is
+#: what specialized the symbol and violated the mark.
+_AXIS_PRIMARY_DIM: Dict[str, int] = {"batch": 0, "sequence": 1}
+_AXIS_MIN_RANK: Dict[str, int] = {"batch": 1, "sequence": 3}
+
+
+def _iter_arg_tensors(obj: Any, depth: int = 0) -> Iterator[Any]:
+    """Every tensor in an argument tree, through tuples/lists/dicts."""
+    import torch
+
+    if isinstance(obj, torch.Tensor):
+        yield obj
+    elif depth < 3 and isinstance(obj, (tuple, list)):
+        for item in obj:
+            yield from _iter_arg_tensors(item, depth + 1)
+    elif depth < 3 and isinstance(obj, dict):
+        for item in obj.values():
+            yield from _iter_arg_tensors(item, depth + 1)
 
 
 def _with_declared_marks(fn: Callable[..., Any], dynamic_dims: tuple) -> Callable[..., Any]:
     """Wrap a compiled callable so every call marks the DECLARED dynamic
-    dims on its tensor inputs before dynamo sees them.
+    axes COHERENTLY across its whole argument tree before dynamo sees them.
 
-    Mapping of logical axes to tensor dims: ``batch`` marks dim 0 of every
-    floating tensor argument; ``sequence`` marks dim 1 of rank-3 floating
-    tensors (the ``[B, seq, hidden]`` conditioning shape). A dim smaller
-    than the declared ``min`` is left unmarked — torch's 0/1 specialization
-    is not overridable (ie#543) and gets its own free specialized graph. A
-    mark torch cannot honor raises ``ConstraintViolationError`` at
-    compile/warm time — a LOUD build failure, never a silent fallback to
-    recompilation (the mint's warm calls do not guard)."""
+    pgw#1082 rewrote this. The old mapping marked one dim of one KIND of
+    tensor — dim 0 of every float for ``batch``, dim 1 of every rank-3 float
+    for ``sequence`` — and that is not what an axis is. Every sibling tensor
+    indexed by the same axis (integer index tensors, rotary tables inside a
+    tuple) stayed STATIC, so dynamo specialized the symbol on them and then
+    raised ``ConstraintViolationError`` against the mark on the float:
+
+        You marked L['hidden_states'].size()[1] as dynamic but your code
+        specialized it to be a constant
+
+    On minimax-h3 that fired on the FIRST call of every regional block, the
+    guard degraded the target to eager for the life of the pod, and (because
+    the regional guard forgot to raise the degraded flag) the wire still
+    reported ``serving_mode=jit_cell`` with an empty ``fallback_reason``. A
+    20.1B denoiser served 100% eager while every telemetry axis said
+    compiled — measured at 6.27 s/step against the rig's 4.31 (pgw#1078).
+
+    So: find the axis EXTENT at its primary dim, then mark that extent
+    wherever it appears in the argument tree, integer tensors included. An
+    extent outside the declared range is a typed :class:`DeclaredRangeExceeded`
+    — the declaration is wrong and the endpoint must fix it — never a
+    dynamo-internal error nobody can attribute.
+    """
 
     import torch
 
-    def _mark(t: Any) -> None:
-        if not isinstance(t, torch.Tensor) or not t.is_floating_point():
-            return
+    def _mark(tensors: List[Any]) -> None:
         for d in dynamic_dims:
-            # Only the two logical dynamo axes are markable here. A named
-            # declared Dim (pgw#739) carries (input, axis) bindings and is
-            # the EXPORT lane's business — marking it at axis 1 by the old
-            # sequence heuristic would mark the wrong axis silently.
-            if d.dim == "batch":
-                dim = 0
-            elif d.dim == "sequence" and t.dim() >= 3:
-                dim = 1
-            else:
+            primary = _AXIS_PRIMARY_DIM.get(str(d.dim), -1)
+            if primary < 0:
+                # A named declared Dim (pgw#739) carries (input, axis)
+                # bindings and is the EXPORT lane's business; marking it by
+                # a positional heuristic would mark the wrong axis silently.
                 continue
-            if t.dim() <= dim:
+            min_rank = _AXIS_MIN_RANK.get(str(d.dim), primary + 1)
+            extent = 0
+            for t in tensors:
+                if not t.is_floating_point() or t.dim() < min_rank:
+                    continue
+                size = int(t.shape[primary])
+                if size < int(d.min):
+                    # 0/1 (and sub-min) sizes keep their free static graph —
+                    # torch's 0/1 specialization is not overridable (ie#543).
+                    continue
+                if size > int(d.max):
+                    raise DeclaredRangeExceeded(
+                        f"declared dynamic axis {d.dim!r} has range "
+                        f"[{int(d.min)}, {int(d.max)}] but this call presents "
+                        f"{size} at dim {primary} of a {tuple(t.shape)} input. "
+                        f"The DECLARATION is wrong: widen it to the real "
+                        f"extent this target sees, or stop declaring the axis."
+                    )
+                extent = size
+                break
+            if not extent:
                 continue
-            if int(t.shape[dim]) < int(d.min):
-                continue  # 0/1 (and sub-min) sizes keep their free static graph
-            torch._dynamo.mark_dynamic(t, dim, min=int(d.min), max=int(d.max))
+            for t in tensors:
+                for dim in range(t.dim()):
+                    if int(t.shape[dim]) != extent:
+                        continue
+                    torch._dynamo.mark_dynamic(
+                        t, dim, min=int(d.min), max=int(d.max))
 
     @functools.wraps(fn)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
+        tensors: List[Any] = []
         for a in args:
-            _mark(a)
+            tensors.extend(_iter_arg_tensors(a))
         for v in kwargs.values():
-            _mark(v)
+            tensors.extend(_iter_arg_tensors(v))
+        _mark(tensors)
         return fn(*args, **kwargs)
 
     return wrapper
@@ -2478,18 +2786,19 @@ def contract_drift(meta: Dict[str, Any], pipeline: Any, cfg: Any) -> str:
             f"guidance_scales {cell_guidance_scales!r} != declared "
             f"{guidance_scales!r}"
         )
-    # SDK v2: the recorded shape contract must be the declared one — a
-    # worker on a newer contract must never serve an older cell (pgw#647).
+    # SDK v2: the recorded declared compile contract must be the declared
+    # one — a worker on a newer contract must never serve an older cell
+    # (pgw#647).
     #
-    # NOT CUT by pgw#950, deliberately: a cell recording NO shape_contract is
-    # skipped here, which is the same silent-axis shape as the arm below, but
-    # ~9 test fixtures build metadata without one (every PRODUCTION mint passes
-    # ``shape_contract=declared_contract_facts(cfg)``, so the gap is fixtures,
-    # not producers). Tightening it is a fixture sweep, not a deletion, so it
-    # is its own change.
-    cell_contract = meta.get("shape_contract") or {}
+    # NOT CUT by pgw#950, deliberately: a cell recording NO block is skipped
+    # here, which is the same silent-axis shape as the arm below, but ~9 test
+    # fixtures build metadata without one (every PRODUCTION mint passes
+    # ``declared_compile_contract=declared_compile_facts(cfg)``, so the gap is
+    # fixtures, not producers). The STRICT verdict lives in
+    # :func:`local_cell_mismatch` (pgw#1059), which refuses the absent block.
+    cell_contract = meta.get("declared_compile_contract") or {}
     if cell_contract:
-        here_contract = declared_contract_facts(cfg)
+        here_contract = declared_compile_facts(cfg)
         if cell_contract != here_contract:
             return (
                 "shape contract mismatch: "
@@ -2667,6 +2976,13 @@ def _guarded(
             # while every request ran eager (the gw#586 class, one lane over).
             if isinstance(failure_signal, dict):
                 failure_signal["degraded"] = True
+                failure_signal["degrade_reason"] = _clip(
+                    f"{type(exc).__name__}: {exc}", 600)
+            # pgw#1093: the whole-graph twin of the regional confession — the
+            # tier flip below is a CAPABILITY projection, not an event, so
+            # without this row the degrade leaves no dated, greppable fact.
+            _emit_compiled_degrade_event(
+                label, exc, lane="whole", fail_closed=fail_closed)
             # Revoke scheduler-visible compiled proof synchronously before the
             # eager fallback: the tier flips to explicit eager on the wire.
             revoke(state["detail"])
@@ -2776,11 +3092,49 @@ def _guarded_regional(
                         label, exc, args, kwargs, failure_signal, original)
                     return _eager_once(args, kwargs)
                 state["failed"] = True
+                broke = _is_graph_break_error(exc)
                 state["detail"] = (
-                    f"regional compiled {'W8A8 ' if fail_closed else ''}"
-                    f"target {label} failed: "
-                    f"{type(exc).__name__}: {exc}"
+                    (f"regional compiled target {label} GRAPH-BROKE under "
+                     f"fullgraph — this region did NOT trace whole and the "
+                     f"platform refuses to serve fragments as compiled "
+                     f"({GRAPH_BREAK_TOKEN}): {_clip(str(exc), 600)}")
+                    if broke else
+                    (f"regional compiled {'W8A8 ' if fail_closed else ''}"
+                     f"target {label} failed: "
+                     f"{type(exc).__name__}: {exc}")
                 )
+                # pgw#1082 — THE LIE. `_guarded` has always raised this
+                # flag on a permanent degrade; the REGIONAL twin never did,
+                # and `is_compile_armed` reads exactly it. So a regional
+                # target that degraded to eager on its very first call kept
+                # reporting `serving_mode=jit_cell`, `served_eager_fallback
+                # =false`, EMPTY `fallback_reason` — for the life of the pod,
+                # at eager speed. Every telemetry axis said compiled while
+                # 100% of the work ran eager (minimax-h3 0.4.3: 6.27 s/step
+                # against the rig's 4.31 for the identical recipe).
+                if isinstance(failure_signal, dict):
+                    failure_signal["degraded"] = True
+                    # pgw#1093: the reason is carried on the SIGNAL, not only
+                    # in a log line, so `_eager_posture` can name it on every
+                    # request the pod serves afterwards instead of falling
+                    # through to the generic `uncompiled`.
+                    failure_signal["degrade_reason"] = _clip(
+                        f"{type(exc).__name__}: {exc}", 600)
+                    if broke:
+                        failure_signal["graph_break"] = _clip(str(exc), 600)
+                if broke:
+                    _emit_graph_break_event(label, exc)
+                elif isinstance(exc, DeclaredRangeExceeded):
+                    if isinstance(failure_signal, dict):
+                        failure_signal["declared_range_exceeded"] = _clip(
+                            str(exc), 600)
+                    _emit_declared_range_event(label, exc)
+                else:
+                    # pgw#1093: the catch-all that used to reach the wire as
+                    # NOTHING. Without it an installed-then-degraded target
+                    # and a never-installed one are the same reading.
+                    _emit_compiled_degrade_event(
+                        label, exc, lane="regional", fail_closed=fail_closed)
                 # Regional eager state is real only after the in-place block
                 # compilations are gone. Revoke proof after that mutation and
                 # before a state delta can be scheduled.
@@ -3001,8 +3355,8 @@ def apply(
     import torch
 
     # gw#608: cross-pod cell portability requires the (portable) FX graph
-    # cache to be the lookup surface — see _disable_aot_autograd_cache.
-    _disable_aot_autograd_cache()
+    # cache to be the lookup surface.
+    settings_authority.disable_autograd_cache()
     # The two inner-key alignments (both symmetric mint/consumer by
     # construction: every compile path arms through apply()):
     _install_fx_system_shim()          # SKU name -> sm token (P0, review §6.1)
@@ -3012,17 +3366,7 @@ def apply(
     # bigger than that (LTX: 12 video graphs, ie#381) would silently fall
     # back to eager for every shape past the limit. Size it to the declared
     # shape set — never lower an operator-raised value.
-    try:
-        import torch._dynamo
-
-        want = len(tuple(cfg.shapes)) + 8
-        torch._dynamo.config.cache_size_limit = max(
-            int(torch._dynamo.config.cache_size_limit), want)
-        if hasattr(torch._dynamo.config, "recompile_limit"):
-            torch._dynamo.config.recompile_limit = max(
-                int(torch._dynamo.config.recompile_limit), want)
-    except Exception:
-        logger.debug("compile-cache: could not raise recompile limit", exc_info=True)
+    settings_authority.raise_dynamo_cache_limits(len(tuple(cfg.shapes)) + 8)
 
     regional = bool(getattr(cfg, "regional", False))
 
@@ -3049,17 +3393,10 @@ def apply(
     applied: list[str] = []
     originals: list[Tuple[Any, str, Callable[..., Any]]] = []
     regional_mods: list[Any] = []
+    declared_dynamic = tuple(getattr(cfg, "dynamic", ()) or ())
     for target, owner, attr, fn in resolve_targets(pipeline, cfg):
-        # pgw#817/D4: computed BEFORE the branch so a declined regional target
-        # falls through to the whole-forward branch (which does apply the
-        # declared marks) instead of being skipped entirely.
-        regional_decline = _regional_dynamic_decline(cfg, target) \
-            if regional else ""
-        if regional_decline:
-            logger.info("compile-cache: %s", regional_decline)
         if (
             regional
-            and not regional_decline
             and attr == "forward"
             and callable(getattr(owner, "compile_repeated_blocks", None))
         ):
@@ -3067,8 +3404,30 @@ def apply(
             # casting + much cheaper cold compile. Blocks are compiled in
             # place; the guard wrapper clears them on the first failure.
             #
-            _apply_declared_shape_config(cfg)
-            owner.compile_repeated_blocks(dynamic=None)
+            settings_authority.impose_dynamo()
+            # pgw#1082: FULLGRAPH IS THE REGIONAL LANE'S CONTRACT, not an
+            # option. A repeated block is by construction one traceable unit
+            # — that is the whole reason its author declared `regional=True`
+            # — so a break inside it is an AUTHORING DEFECT, and the only
+            # question is whether the platform says so. Without fullgraph
+            # dynamo splits the block into eager-glued fragments and reports
+            # a clean arm: armed, entered, zero guard misses, zero speedup
+            # (ie#632/pgw#1078, 6.27 s/step against the rig's 4.31 for the
+            # identical recipe). With it the break raises, `_guarded_regional`
+            # classifies it as `graph_break`, the wire flips to explicit
+            # eager, and the break reasons ride the `jit_compile` event.
+            # There is no configuration surface for this: a silently
+            # fragmented region must not be expressible.
+            owner.compile_repeated_blocks(dynamic=None, fullgraph=True)
+            # pgw#1078: the declared marks are applied at the BLOCK ingress,
+            # which is where this lane's graphs are traced. Without them
+            # `regional=True` + `dynamic=(...)` used to DECLINE and send the
+            # target to the whole-forward branch — silently serving a 20B
+            # denoiser by the one lane its author declared regional to avoid,
+            # then guard-missing to eager on every request whose sequence
+            # differed from the boot warmup's (minimax-h3, ie#632).
+            if declared_dynamic:
+                _mark_regional_blocks(owner, declared_dynamic)
             # pgw#681: regional entry crosses the same canonical boundary as
             # whole-graph entry — block guards mint over canonical inputs.
             ingress = guard_closure.canonical_ingress(fn, target)
@@ -3106,9 +3465,8 @@ def apply(
         # ONLY dynamism. `dynamic=False` + mark_dynamic is NOT expressible
         # (torch raises ConstraintViolationError), so the global guard is
         # the config pair + dynamic=None, never dynamic=False.
-        _apply_declared_shape_config(cfg)
+        settings_authority.impose_dynamo()
         compiled = torch.compile(fn, dynamic=None)
-        declared_dynamic = tuple(getattr(cfg, "dynamic", ()) or ())
         if declared_dynamic:
             compiled = _with_declared_marks(compiled, declared_dynamic)
         # pgw#681: the single compiled-graph ingress — canonical strides +
@@ -3204,6 +3562,46 @@ def is_compile_armed(pipeline: Any) -> bool:
     if isinstance(signal, dict) and signal.get("degraded"):
         return False
     return True
+
+
+def graph_break_reason(pipeline: Any) -> str:
+    """Torch's verbatim fullgraph refusal for this pipeline, or "".
+
+    Non-empty means the declared region did not trace whole and this process
+    permanently degraded it to eager. The executor turns it into the
+    ``graph_break`` eager posture, so every request the pod serves afterwards
+    names the real cause instead of an empty ``fallback_reason``."""
+    marker = getattr(pipeline, _MARKER_ATTR, None)
+    signal = marker.get("failure_signal") if isinstance(marker, dict) else None
+    if isinstance(signal, dict):
+        return str(signal.get("graph_break") or "")
+    return ""
+
+
+def degrade_reason(pipeline: Any) -> str:
+    """pgw#1093: why this ARMED pipeline is permanently eager, or "".
+
+    Non-empty means `apply()` DID install the compiled callables and a served
+    call then failed permanently. That is a different fact from "no target
+    was ever installed", and before this the two were the same reading:
+    `is_compile_armed` False, `metrics.lane=…+eager`,
+    `fallback_reason=uncompiled`. The executor turns this into a
+    `compiled_degraded` eager posture so the distinction survives to the wire.
+    """
+    marker = getattr(pipeline, _MARKER_ATTR, None)
+    signal = marker.get("failure_signal") if isinstance(marker, dict) else None
+    if isinstance(signal, dict):
+        return str(signal.get("degrade_reason") or "")
+    return ""
+
+
+def declared_range_refusal(pipeline: Any) -> str:
+    """The typed declared-range refusal for this pipeline, or ""."""
+    marker = getattr(pipeline, _MARKER_ATTR, None)
+    signal = marker.get("failure_signal") if isinstance(marker, dict) else None
+    if isinstance(signal, dict):
+        return str(signal.get("declared_range_exceeded") or "")
+    return ""
 
 
 def unwrap(pipeline: Any) -> bool:
@@ -3356,9 +3754,10 @@ def enable(
             self_key = ""
             if staged is not None:
                 meta = staged.metadata
-                # th#883/gw#581: is this MY cell — the artifact whose axes
-                # describe exactly the key this runtime computes for itself
-                # with the one shared brain? If so, a refusal below is by
+                # th#883/gw#581/pgw#1059: is this MY cell — the artifact
+                # whose RECORDED FACTS state exactly this runtime + this
+                # declaration, judged by the one shared verdict
+                # (local_cell_mismatch)? If so, a refusal below is by
                 # construction a selection/parity bug, never compatibility.
                 try:
                     from .models.loading import (
@@ -3368,25 +3767,26 @@ def enable(
                     # gw#632: the EFFECTIVE bucket — a slot object with no
                     # resolvable compile target (sdxl's bare vae) never rides
                     # the branch lane (provision downgrades apply_lora_execution_lane
-                    # the same way, 0.52.1), so its self-key must not claim
-                    # the family's lora<bucket> cell and then explode on
-                    # lane drift (live: `weight_lane 'lora64' != pipeline ''`
-                    # -> CellSelectionBugError -> gw#608 seeded-cell refusal
-                    # -> all_declared_functions_disabled pod retire).
+                    # the same way, 0.52.1), so its self-verdict must not
+                    # claim the family's lora<bucket> cell and then explode
+                    # on lane drift (live: `weight_lane 'lora64' !=
+                    # pipeline ''` -> CellSelectionBugError -> gw#608
+                    # seeded-cell refusal -> all_declared_functions_disabled
+                    # pod retire).
                     eff_bucket = int(getattr(cfg, "lora_bucket", 0) or 0)
                     if eff_bucket and not has_compile_target(pipeline, cfg):
                         eff_bucket = 0
-                    want = cell_key.compute(
-                        str(getattr(cfg, "family", "") or ""),
-                        _pwl(pipeline),
-                        eff_bucket,
-                        contract=cell_key.contract_digest(
-                            declared_contract_facts(
-                                cfg, lora_bucket_override=eff_bucket)),
-                        regional=bool(getattr(cfg, "regional", False)),
-                    )
-                    if not cell_key.mismatch(meta, want):
-                        self_key = want.digest
+                    _fam = str(getattr(cfg, "family", "") or "")
+                    if not local_cell_mismatch(
+                        dict(meta),
+                        family=_fam,
+                        weight_lane=_pwl(pipeline),
+                        cfg=cfg,
+                        lora_bucket_override=eff_bucket,
+                    ):
+                        self_key = (
+                            f"{_fam}/"
+                            f"{execution_lane_label(_pwl(pipeline), eff_bucket) or 'plain'}")
                 except Exception:
                     self_key = ""
                 _reconcile_resident_mode(meta, pipeline)
@@ -3563,7 +3963,7 @@ def emit_jit_compile_event(
     family: str,
     execution_lane: str = "",
     route: str = "",
-    n_graphs: int = 0,
+    audit: Optional[GraphAudit] = None,
 ) -> None:
     """th#1322: report a JIT (dynamo/inductor) compile as typed NUMERIC events.
 
@@ -3575,11 +3975,19 @@ def emit_jit_compile_event(
     a grep of the other side's pod log (which a serve pod does not even
     expose, pgw#760).
 
+    pgw#1082: ``audit`` carries dynamo's OWN graph/break counters for this
+    compile window. It replaces the ``n_graphs`` parameter that shipped with
+    no caller — the blindness that let a graph-broken region report a clean
+    arm for two releases. A window with breaks also emits its own
+    ``phase=graph_break`` event per reason, so "which op cut this region"
+    is a column, not a pod log nobody can reach.
+
     Telemetry must never fail the compile it reports on.
     """
     try:
         from . import activity as activity_mod
 
+        audit = audit if audit is not None else GraphAudit()
         total_s = sum(float(v or 0.0) for v in timings.values())
         head = f"family={family or '(unset)'}"
         if execution_lane:
@@ -3596,11 +4004,17 @@ def emit_jit_compile_event(
                 phase=f"shape:{key}",
                 duration_ms=int(round(value * 1000)),
             )
+        for reason, count in audit.reasons[:8]:
+            activity_mod.emit_event(
+                activity_mod.KIND_JIT_COMPILE,
+                f"{head} graph_break x{count}: {_clip(reason, 300)}",
+                phase="graph_break",
+            )
         if total_s <= 0:
             return
         activity_mod.emit_event(
             activity_mod.KIND_JIT_COMPILE,
-            f"{head} n_shapes={len(timings)} n_graphs={n_graphs} "
+            f"{head} n_shapes={len(timings)} {audit.summary()} "
             f"total_s={round(total_s, 2)} shapes={dict(timings)}",
             phase=activity_mod.PHASE_MINTED,
             duration_ms=int(round(total_s * 1000)),
@@ -3627,6 +4041,7 @@ def _compile_and_warm(pipe: Any, cfg: Any, *, steps: int = 2, say: Any = None) -
 
     decode = any(t.startswith("vae") for t in cfg.targets)
     timings: Dict[str, float] = {}
+    audit_before = graph_audit()
     for shape in cfg.shapes:
         torch.cuda.synchronize()
         t0 = time.monotonic()
@@ -3646,9 +4061,12 @@ def _compile_and_warm(pipe: Any, cfg: Any, *, steps: int = 2, say: Any = None) -
     # (compile_cache.py:3803, "compiled %s in %.0fs") — a log-only important
     # metric, which is a defect class, not a style choice. Now it is a number in
     # a column too.
+    audit = graph_audit_delta(audit_before)
+    _say(f"  {audit.summary()}")
     emit_jit_compile_event(
         timings, family=getattr(cfg, "family", "") or "",
-        execution_lane=pipeline_weight_lane(pipe), route="compile_and_warm")
+        execution_lane=pipeline_weight_lane(pipe), route="compile_and_warm",
+        audit=audit)
 
 
 def mint_artifact(
@@ -3711,7 +4129,7 @@ def mint_artifact(
         lora_bucket=int(getattr(cfg, "lora_bucket", 0) or 0),
         graph_signature=graph_signature,
         weight_contract=weight_contract,
-        shape_contract=declared_contract_facts(cfg),
+        declared_compile_contract=declared_compile_facts(cfg),
         composition=composition_fingerprint(pipe, cfg),
     )
     meta[guard_closure.MANIFEST_KEY] = guard_manifest
@@ -3729,7 +4147,7 @@ def arm_jit_intake(pipe: Any, cfg: Any) -> None:
     the declared targets are enabled cold-allowed and GUARDED, this pod's own
     warmup performs the compile, and the pod serves compiled for its own life.
     Nothing is captured, packed, keyed or published — a JIT cell is an artifact
-    class with no consumer (``aot_cells`` adopts ``aot-inductor`` only), so
+    class with no consumer (only ``aot-inductor`` cells are ever adopted), so
     every honest cold boot re-compiles and that is the contract, not a gap.
 
     This used to be ``begin_fleet_mint``, which additionally re-pointed the
@@ -3785,9 +4203,10 @@ __all__ = [
     "arm_jit_intake",
     "capture_env",
     "cell_base_execution_lane",
+    "declared_compile_facts",
     "drop_lora_execution_lane",
-    "cell_execution_lane",
     "contract_drift",
+    "local_cell_mismatch",
     "counters_delta",
     "cache_hit_count",
     "cache_miss_count",
@@ -3798,7 +4217,6 @@ __all__ = [
     "execution_contract_digest",
     "family_from_ref",
     "parse_cell_ref",
-    "find_artifact",
     "flavor_label",
     "fx_cache_failure_report",
     "fx_key_forensics",
@@ -3809,7 +4227,6 @@ __all__ = [
     "set_guard_miss_callback",
     "tenant_serve_window",
     "inductor_counters",
-    "is_cache_ref",
     "is_compile_armed",
     "execution_lane_bucket",
     "execution_lane_token",

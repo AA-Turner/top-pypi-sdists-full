@@ -11,7 +11,7 @@ import signal
 import socketserver
 import subprocess
 
-from siliconcompiler.report.dashboard import AbstractDashboard
+from siliconcompiler.report.dashboard import AbstractDashboard, weak_atexit_call
 from siliconcompiler.report.dashboard.web import utils
 
 
@@ -108,9 +108,12 @@ class WebDashboard(AbstractDashboard):
 
         self.__lock = fasteners.InterProcessLock(self.__manifest_lock)
 
-        # Ensure cleanup is called on exit
-        self.__exit_registered = True
-        atexit.register(self.__cleanup)
+        # Ensure cleanup is called on exit. Register via a weakref trampoline
+        # so the atexit registry does not pin this dashboard (and, transitively,
+        # its project) alive for the whole process — a bound-method
+        # registration would leak both.
+        self.__atexit_func = weak_atexit_call(self.__cleanup)
+        atexit.register(self.__atexit_func)
 
     def open_dashboard(self):
         """
@@ -133,7 +136,11 @@ class WebDashboard(AbstractDashboard):
         # Temporarily override the SIGINT handler for graceful shutdown
         self.__signal_handler = signal.signal(signal.SIGINT, WebDashboard.__signal_handler)
 
-        self.__dashboard.start()
+        # Local import avoids a circular import at module load time
+        # (utils.multiprocessing imports this package's cli board).
+        from siliconcompiler.utils.multiprocessing import forking
+        with forking():
+            self.__dashboard.start()
 
     def update_manifest(self, payload=None):
         """
@@ -269,9 +276,9 @@ class WebDashboard(AbstractDashboard):
         except Exception:
             pass
         finally:
-            if self.__exit_registered:
-                atexit.unregister(self.__cleanup)
-                self.__exit_registered = False
+            if self.__atexit_func is not None:
+                atexit.unregister(self.__atexit_func)
+                self.__atexit_func = None
 
             try:
                 if os.path.exists(self.__directory):

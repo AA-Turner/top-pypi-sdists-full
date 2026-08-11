@@ -2014,6 +2014,7 @@ class CfnIndex(
                         # the properties below are optional
                         analyzer="analyzer",
                         compression_level="compressionLevel",
+                        data_type="dataType",
                         dimension=123,
                         index=False,
                         method=opensearchserverless.CfnIndex.MethodProperty(
@@ -2598,6 +2599,7 @@ class CfnIndex(
                             # the properties below are optional
                             analyzer="analyzer",
                             compression_level="compressionLevel",
+                            data_type="dataType",
                             dimension=123,
                             index=False,
                             method=opensearchserverless.CfnIndex.MethodProperty(
@@ -2839,6 +2841,7 @@ class CfnIndex(
             "type": "type",
             "analyzer": "analyzer",
             "compression_level": "compressionLevel",
+            "data_type": "dataType",
             "dimension": "dimension",
             "index": "index",
             "method": "method",
@@ -2854,6 +2857,7 @@ class CfnIndex(
             type: builtins.str,
             analyzer: typing.Optional[builtins.str] = None,
             compression_level: typing.Optional[builtins.str] = None,
+            data_type: typing.Optional[builtins.str] = None,
             dimension: typing.Optional[jsii.Number] = None,
             index: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             method: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIndex.MethodProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2866,6 +2870,7 @@ class CfnIndex(
             :param type: The field data type. Must be a valid OpenSearch field type.
             :param analyzer: The analyzer to use for this field (for text and keyword fields).
             :param compression_level: The compression level for knn_vector fields.
+            :param data_type: The data type for knn_vector fields (e.g. float, byte). Controls how vector values are stored.
             :param dimension: Dimension size for vector fields, defines the number of dimensions in the vector.
             :param index: Whether a field should be indexed.
             :param method: Configuration for k-NN search method.
@@ -2890,6 +2895,7 @@ class CfnIndex(
                     # the properties below are optional
                     analyzer="analyzer",
                     compression_level="compressionLevel",
+                    data_type="dataType",
                     dimension=123,
                     index=False,
                     method=opensearchserverless.CfnIndex.MethodProperty(
@@ -2915,6 +2921,7 @@ class CfnIndex(
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
                 check_type(argname="argument analyzer", value=analyzer, expected_type=type_hints["analyzer"])
                 check_type(argname="argument compression_level", value=compression_level, expected_type=type_hints["compression_level"])
+                check_type(argname="argument data_type", value=data_type, expected_type=type_hints["data_type"])
                 check_type(argname="argument dimension", value=dimension, expected_type=type_hints["dimension"])
                 check_type(argname="argument index", value=index, expected_type=type_hints["index"])
                 check_type(argname="argument method", value=method, expected_type=type_hints["method"])
@@ -2928,6 +2935,8 @@ class CfnIndex(
                 self._values["analyzer"] = analyzer
             if compression_level is not None:
                 self._values["compression_level"] = compression_level
+            if data_type is not None:
+                self._values["data_type"] = data_type
             if dimension is not None:
                 self._values["dimension"] = dimension
             if index is not None:
@@ -2969,6 +2978,15 @@ class CfnIndex(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-index-propertymapping.html#cfn-opensearchserverless-index-propertymapping-compressionlevel
             '''
             result = self._values.get("compression_level")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def data_type(self) -> typing.Optional[builtins.str]:
+            '''The data type for knn_vector fields (e.g. float, byte). Controls how vector values are stored.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-index-propertymapping.html#cfn-opensearchserverless-index-propertymapping-datatype
+            '''
+            result = self._values.get("data_type")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -3093,6 +3111,7 @@ class CfnIndexProps:
                             # the properties below are optional
                             analyzer="analyzer",
                             compression_level="compressionLevel",
+                            data_type="dataType",
                             dimension=123,
                             index=False,
                             method=opensearchserverless.CfnIndex.MethodProperty(
@@ -5387,6 +5406,7 @@ def _typecheckingstub__3f7c10818297058609492c7bc5b994ff55948eef9013ef34074e5e42d
     type: builtins.str,
     analyzer: typing.Optional[builtins.str] = None,
     compression_level: typing.Optional[builtins.str] = None,
+    data_type: typing.Optional[builtins.str] = None,
     dimension: typing.Optional[jsii.Number] = None,
     index: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     method: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIndex.MethodProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

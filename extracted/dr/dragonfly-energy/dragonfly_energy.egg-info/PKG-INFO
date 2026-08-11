@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dragonfly-energy
-Version: 1.45.13
+Version: 1.45.15
 Summary: Dragonfly extension for energy simulation.
 Home-page: https://github.com/ladybug-tools/dragonfly-energy
 Author: Ladybug Tools
@@ -18,8 +18,8 @@ Classifier: Programming Language :: Python :: Implementation :: IronPython
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: dragonfly-core==1.76.40
-Requires-Dist: honeybee-energy==1.123.12
+Requires-Dist: dragonfly-core==1.76.41
+Requires-Dist: honeybee-energy==1.123.14
 Provides-Extra: standards
 Requires-Dist: honeybee-energy-standards==2.2.6; extra == "standards"
 Provides-Extra: openstudio

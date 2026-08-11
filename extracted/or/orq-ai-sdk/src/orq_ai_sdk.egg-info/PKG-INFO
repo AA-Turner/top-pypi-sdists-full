@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: orq-ai-sdk
-Version: 4.13.1
+Version: 4.13.4
 Summary: Python Client SDK for the Orq API.
 Author: Orq
 Project-URL: repository, https://github.com/orq-ai/orq-python.git
@@ -539,11 +539,11 @@ with Orq(
 ### [RoutingRules](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/routingrules/README.md)
 
 * [list](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/routingrules/README.md#list) - List routing rules
-* [create](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/routingrules/README.md#create) - Create a routing rule
-* [list_used_models](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/routingrules/README.md#list_used_models) - List models used by routing rules
-* [retrieve](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/routingrules/README.md#retrieve) - Retrieve a routing rule
-* [delete](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/routingrules/README.md#delete) - Delete a routing rule
-* [update](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/routingrules/README.md#update) - Update a routing rule
+* [create](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/routingrules/README.md#create) - Create routing rule
+* [list_used_models](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/routingrules/README.md#list_used_models) - List used models
+* [delete](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/routingrules/README.md#delete) - Delete routing rule
+* [retrieve](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/routingrules/README.md#retrieve) - Get routing rule
+* [update](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/routingrules/README.md#update) - Update routing rule
 
 ### [Schedules](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/schedules/README.md)
 

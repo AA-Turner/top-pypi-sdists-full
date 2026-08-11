@@ -25,6 +25,11 @@ def fake_root():
     with patch("snowflake.core._root.Root"):
         mock_instance = MagicMock()
         mock_instance._hostname = "localhost"
+        mock_instance.assert_hostname = None
+        mock_instance.proxy = None
+        mock_instance.retries = None
+        mock_instance.socket_options = None
+        mock_instance.connection_pool_maxsize = None
         mock_instance.connection = mock.MagicMock(rest=mock.MagicMock(_protocol="http", _port="80"))
         mock_instance.root_config = MagicMock()
         mock_instance.root_config.has_user_agents = MagicMock(return_value=False)

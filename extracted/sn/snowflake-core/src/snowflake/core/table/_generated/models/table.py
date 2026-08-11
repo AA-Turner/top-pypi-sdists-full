@@ -22,6 +22,10 @@ from typing import Any, List, Optional
 from pydantic import BaseModel, ConfigDict, StrictBool, StrictInt, StrictStr, field_validator
 
 from snowflake.core.table._generated.models.constraint import Constraint, ConstraintModel
+from snowflake.core.table._generated.models.search_optimization_expression import (
+    SearchOptimizationExpression,
+    SearchOptimizationExpressionModel,
+)
 from snowflake.core.table._generated.models.table_column import TableColumn, TableColumnModel
 
 
@@ -54,6 +58,10 @@ class Table(BaseModel):
 
     comment : str, optional
         Comment for the table
+    row_timestamp : bool, optional
+        Whether ROW_TIMESTAMP is enabled on this table.
+    error_logging : bool, optional
+        Whether ERROR_LOGGING is enabled on this table.
     created_on : datetime, optional
         Date and time when the table was created — **Read-only:** *any user-provided value will be ignored.*
     database_name : str, optional
@@ -76,6 +84,8 @@ class Table(BaseModel):
         Percentage of the table that has been optimized for search — **Read-only:** *any user-provided value will be ignored.*
     search_optimization_bytes : int, optional
         Number of additional bytes of storage that the search optimization service consumes for this table — **Read-only:** *any user-provided value will be ignored.*
+    search_optimization_configuration : list[SearchOptimizationExpression], optional
+        Per-expression search optimization configuration. Configuration is not settable through this API (POST/PUT); use ALTER TABLE ... ADD/DROP SEARCH OPTIMIZATION — **Read-only:** *any user-provided value will be ignored.*
     owner_role_type : str, optional
         The type of role that owns the object — **Read-only:** *any user-provided value will be ignored.*
     budget : str, optional
@@ -106,6 +116,10 @@ class Table(BaseModel):
 
     comment: Optional[StrictStr] = None
 
+    row_timestamp: Optional[StrictBool] = None
+
+    error_logging: Optional[StrictBool] = None
+
     created_on: Optional[datetime] = None
 
     database_name: Optional[StrictStr] = None
@@ -128,6 +142,8 @@ class Table(BaseModel):
 
     search_optimization_bytes: Optional[StrictInt] = None
 
+    search_optimization_configuration: Optional[List[SearchOptimizationExpression]] = None
+
     owner_role_type: Optional[StrictStr] = None
 
     budget: Optional[StrictStr] = None
@@ -146,6 +162,8 @@ class Table(BaseModel):
         "columns",
         "constraints",
         "comment",
+        "row_timestamp",
+        "error_logging",
         "created_on",
         "database_name",
         "schema_name",
@@ -157,6 +175,7 @@ class Table(BaseModel):
         "search_optimization",
         "search_optimization_progress",
         "search_optimization_bytes",
+        "search_optimization_configuration",
         "owner_role_type",
         "budget",
         "table_type",
@@ -164,6 +183,7 @@ class Table(BaseModel):
 
     @field_validator("kind")
     def kind_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("PERMANENT", "TRANSIENT", "TEMPORARY", "", "transient", "temporary"):
@@ -174,6 +194,7 @@ class Table(BaseModel):
 
     @field_validator("table_type")
     def table_type_validate_enum(cls, v):
+
         if v is None:
             return v
         if v not in ("NORMAL", "DYNAMIC", "EXTERNAL", "EVENT", "HYBRID", "ICEBERG", "IMMUTABLE"):
@@ -221,6 +242,7 @@ class Table(BaseModel):
                     "search_optimization",
                     "search_optimization_progress",
                     "search_optimization_bytes",
+                    "search_optimization_configuration",
                     "owner_role_type",
                     "budget",
                     "table_type",
@@ -244,6 +266,22 @@ class Table(BaseModel):
                 if _item:
                     _items.append(_item.to_dict())
             _dict["constraints"] = _items
+
+        # override the default output from pydantic by calling `to_dict()` of each item in search_optimization_configuration (list)
+        _items = []
+        if self.search_optimization_configuration:
+            for _item in self.search_optimization_configuration:
+                if _item:
+                    _items.append(_item.to_dict())
+            _dict["search_optimization_configuration"] = _items
+
+        # set to None if row_timestamp (nullable) is None
+        if self.row_timestamp is None:
+            _dict["row_timestamp"] = None
+
+        # set to None if error_logging (nullable) is None
+        if self.error_logging is None:
+            _dict["error_logging"] = None
 
         return _dict
 
@@ -277,6 +315,8 @@ class Table(BaseModel):
                 if obj.get("constraints") is not None
                 else None,
                 "comment": obj.get("comment"),
+                "row_timestamp": obj.get("row_timestamp"),
+                "error_logging": obj.get("error_logging"),
                 "created_on": obj.get("created_on"),
                 "database_name": obj.get("database_name"),
                 "schema_name": obj.get("schema_name"),
@@ -288,6 +328,12 @@ class Table(BaseModel):
                 "search_optimization": obj.get("search_optimization"),
                 "search_optimization_progress": obj.get("search_optimization_progress"),
                 "search_optimization_bytes": obj.get("search_optimization_bytes"),
+                "search_optimization_configuration": [
+                    SearchOptimizationExpression.from_dict(_item)
+                    for _item in obj.get("search_optimization_configuration")
+                ]
+                if obj.get("search_optimization_configuration") is not None
+                else None,
                 "owner_role_type": obj.get("owner_role_type"),
                 "budget": obj.get("budget"),
                 "table_type": obj.get("table_type"),
@@ -312,6 +358,8 @@ class TableModel:
         columns: Optional[list[TableColumn]] = None,
         constraints: Optional[list[Constraint]] = None,
         comment: Optional[str] = None,
+        row_timestamp: Optional[bool] = None,
+        error_logging: Optional[bool] = None,
         created_on: Optional[datetime] = None,
         database_name: Optional[str] = None,
         schema_name: Optional[str] = None,
@@ -323,6 +371,7 @@ class TableModel:
         search_optimization: Optional[bool] = None,
         search_optimization_progress: Optional[int] = None,
         search_optimization_bytes: Optional[int] = None,
+        search_optimization_configuration: Optional[list[SearchOptimizationExpression]] = None,
         owner_role_type: Optional[str] = None,
         budget: Optional[str] = None,
         table_type: Optional[str] = None,
@@ -355,6 +404,10 @@ class TableModel:
 
         comment : str, optional
             Comment for the table
+        row_timestamp : bool, optional
+            Whether ROW_TIMESTAMP is enabled on this table.
+        error_logging : bool, optional
+            Whether ERROR_LOGGING is enabled on this table.
         created_on : datetime, optional
             Date and time when the table was created.
         database_name : str, optional
@@ -377,6 +430,8 @@ class TableModel:
             Percentage of the table that has been optimized for search.
         search_optimization_bytes : int, optional
             Number of additional bytes of storage that the search optimization service consumes for this table
+        search_optimization_configuration : list[SearchOptimizationExpression], optional
+            Per-expression search optimization configuration. Configuration is not settable through this API (POST/PUT); use ALTER TABLE ... ADD/DROP SEARCH OPTIMIZATION.
         owner_role_type : str, optional
             The type of role that owns the object.
         budget : str, optional
@@ -395,6 +450,8 @@ class TableModel:
         self.columns = columns
         self.constraints = constraints
         self.comment = comment
+        self.row_timestamp = row_timestamp
+        self.error_logging = error_logging
         self.created_on = created_on
         self.database_name = database_name
         self.schema_name = schema_name
@@ -406,6 +463,7 @@ class TableModel:
         self.search_optimization = search_optimization
         self.search_optimization_progress = search_optimization_progress
         self.search_optimization_bytes = search_optimization_bytes
+        self.search_optimization_configuration = search_optimization_configuration
         self.owner_role_type = owner_role_type
         self.budget = budget
         self.table_type = table_type
@@ -422,6 +480,8 @@ class TableModel:
         "columns",
         "constraints",
         "comment",
+        "row_timestamp",
+        "error_logging",
         "created_on",
         "database_name",
         "schema_name",
@@ -433,6 +493,7 @@ class TableModel:
         "search_optimization",
         "search_optimization_progress",
         "search_optimization_bytes",
+        "search_optimization_configuration",
         "owner_role_type",
         "budget",
         "table_type",
@@ -454,6 +515,8 @@ class TableModel:
             columns=[x._to_model() for x in self.columns] if self.columns is not None else None,
             constraints=[x._to_model() for x in self.constraints] if self.constraints is not None else None,
             comment=self.comment,
+            row_timestamp=self.row_timestamp,
+            error_logging=self.error_logging,
             created_on=self.created_on,
             database_name=self.database_name,
             schema_name=self.schema_name,
@@ -465,6 +528,9 @@ class TableModel:
             search_optimization=self.search_optimization,
             search_optimization_progress=self.search_optimization_progress,
             search_optimization_bytes=self.search_optimization_bytes,
+            search_optimization_configuration=[x._to_model() for x in self.search_optimization_configuration]
+            if self.search_optimization_configuration is not None
+            else None,
             owner_role_type=self.owner_role_type,
             budget=self.budget,
             table_type=self.table_type,
@@ -484,6 +550,8 @@ class TableModel:
             columns=[TableColumnModel._from_model(x) for x in model.columns] if model.columns else None,
             constraints=[ConstraintModel._from_model(x) for x in model.constraints] if model.constraints else None,
             comment=model.comment,
+            row_timestamp=model.row_timestamp,
+            error_logging=model.error_logging,
             created_on=model.created_on,
             database_name=model.database_name,
             schema_name=model.schema_name,
@@ -495,6 +563,11 @@ class TableModel:
             search_optimization=model.search_optimization,
             search_optimization_progress=model.search_optimization_progress,
             search_optimization_bytes=model.search_optimization_bytes,
+            search_optimization_configuration=[
+                SearchOptimizationExpressionModel._from_model(x) for x in model.search_optimization_configuration
+            ]
+            if model.search_optimization_configuration
+            else None,
             owner_role_type=model.owner_role_type,
             budget=model.budget,
             table_type=model.table_type,

@@ -78,6 +78,45 @@ fn builtin_hooks_unknown_hook() {
 }
 
 #[test]
+fn deny_filename_pattern_hook_matches_only_basename() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    context.write_pre_commit_config(indoc::indoc! {r"
+        repos:
+          - repo: builtin
+            hooks:
+              - id: deny-filename-pattern
+                args: [--ignore-case, 'readme']
+                files: '\.md$'
+    "});
+
+    let cwd = context.work_dir();
+    cwd.child("docs").create_dir_all()?;
+    cwd.child("README").create_dir_all()?;
+    cwd.child("docs/README.md").touch()?;
+    cwd.child("README/guide.md").touch()?;
+    cwd.child("docs/guide.md").touch()?;
+    context.git_add(".");
+
+    cmd_snapshot!(context.filters(), context.run(), @r"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    deny filename patterns...................................................Failed
+    - hook id: deny-filename-pattern
+    - description: Fails if any selected filename matches a regular expression
+    - exit code: 1
+
+      docs/README.md: filename matches a denied pattern
+
+    ----- stderr -----
+    ");
+
+    Ok(())
+}
+
+#[test]
 fn deny_pattern_hook_reports_matching_lines() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
@@ -111,6 +150,7 @@ fn deny_pattern_hook_reports_matching_lines() -> Result<()> {
     ----- stdout -----
     deny patterns............................................................Failed
     - hook id: deny-pattern
+    - description: Fails if any file contains a matching regular expression
     - exit code: 1
 
       policy.typ:2:TODO: remove this
@@ -193,11 +233,57 @@ fn deny_pattern_hook_reports_earliest_multiline_match() -> Result<()> {
     ----- stdout -----
     deny patterns............................................................Failed
     - hook id: deny-pattern
+    - description: Fails if any file contains a matching regular expression
     - exit code: 1
 
       block.txt:2:BEGIN
       middle
       END
+
+    ----- stderr -----
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn require_filename_pattern_hook_accepts_any_pattern_for_basename() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    context.write_pre_commit_config(indoc::indoc! {r"
+        repos:
+          - repo: builtin
+            hooks:
+              - id: require-filename-pattern
+                args:
+                  - '^test_.*\.py$'
+                  - '^__init__\.py$'
+                  - '^conftest\.py$'
+                files: '(^|/)tests/.+\.py$'
+    "});
+
+    let cwd = context.work_dir();
+    cwd.child("tests/unit").create_dir_all()?;
+    cwd.child("tests/test_unit").create_dir_all()?;
+    cwd.child("tests/unit/test_parser.py").touch()?;
+    cwd.child("tests/unit/parser_test.py").touch()?;
+    cwd.child("tests/unit/__init__.py").touch()?;
+    cwd.child("tests/unit/conftest.py").touch()?;
+    cwd.child("tests/test_unit/parser.py").touch()?;
+    context.git_add(".");
+
+    cmd_snapshot!(context.filters(), context.run(), @r"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    require filename patterns................................................Failed
+    - hook id: require-filename-pattern
+    - description: Fails if any selected filename does not match a regular expression
+    - exit code: 1
+
+      tests/test_unit/parser.py: filename does not match any required pattern
+      tests/unit/parser_test.py: filename does not match any required pattern
 
     ----- stderr -----
     ");
@@ -231,6 +317,7 @@ fn require_pattern_hook_reports_files_without_any_match() -> Result<()> {
     ----- stdout -----
     require patterns.........................................................Failed
     - hook id: require-pattern
+    - description: Fails if any file does not contain a matching regular expression
     - exit code: 1
 
       missing.txt: no pattern matched
@@ -277,6 +364,7 @@ fn end_of_file_fixer_hook() -> Result<()> {
     ----- stdout -----
     fix end of files.........................................................Failed
     - hook id: end-of-file-fixer
+    - description: Ensures that a file is either empty, or ends with one newline
     - exit code: 1
     - files were modified by this hook
 
@@ -341,6 +429,7 @@ fn file_contents_sorter_hook() -> Result<()> {
     ----- stdout -----
     file contents sorter.....................................................Failed
     - hook id: file-contents-sorter
+    - description: Sorts the lines in specified files (defaults to alphabetical)
     - exit code: 1
     - files were modified by this hook
 
@@ -398,6 +487,7 @@ fn builtin_hook_checks_filename_from_args_after_options() -> Result<()> {
     ----- stdout -----
     file contents sorter.....................................................Failed
     - hook id: file-contents-sorter
+    - description: Sorts the lines in specified files (defaults to alphabetical)
     - exit code: 1
     - files were modified by this hook
 
@@ -443,6 +533,7 @@ fn requirements_txt_fixer_hook() -> Result<()> {
     ----- stdout -----
     fix requirements.txt.....................................................Failed
     - hook id: requirements-txt-fixer
+    - description: Sorts entries in requirements.txt
     - exit code: 1
     - files were modified by this hook
 
@@ -489,6 +580,7 @@ fn requirements_txt_fixer_hook() -> Result<()> {
     ----- stdout -----
     fix requirements.txt.....................................................Failed
     - hook id: requirements-txt-fixer
+    - description: Sorts entries in requirements.txt
     - exit code: 1
 
       requirements.txt:2: requirement entry starts with whitespace
@@ -558,6 +650,7 @@ fn forbid_new_submodules_hook_in_workspace_project() -> Result<()> {
     × project2
       forbid new submodules..................................................Failed
       - hook id: forbid-new-submodules
+      - description: Prevents the addition of new Git submodules
       - exit code: 1
 
         sub module: new submodule introduced
@@ -602,6 +695,7 @@ fn check_yaml_hook() -> Result<()> {
     ----- stdout -----
     check yaml...............................................................Failed
     - hook id: check-yaml
+    - description: Checks YAML files for parseable syntax
     - exit code: 1
 
       duplicate.yaml: Failed to yaml decode (error: line 2 column 1: duplicate mapping key: a not allowed here
@@ -674,6 +768,7 @@ fn check_yaml_multiple_document() -> Result<()> {
     allow multiple documents.................................................Passed
     disallow multiple documents..............................................Failed
     - hook id: check-yaml
+    - description: Checks YAML files for parseable syntax
     - exit code: 1
 
       multiple.yaml: Failed to yaml decode (error: line 4 column 1: only single YAML document expected but multiple found
@@ -719,6 +814,7 @@ fn check_vcs_permalinks_builtin() -> Result<()> {
     ----- stdout -----
     check vcs permalinks.....................................................Failed
     - hook id: check-vcs-permalinks
+    - description: Ensures that links to VCS websites are permalinks
     - exit code: 1
 
       Non-permanent github link detected: links.md:1:https://github.com/owner/repo/blob/main/file.py#L10
@@ -760,6 +856,7 @@ fn check_json_hook() -> Result<()> {
     ----- stdout -----
     check json...............................................................Failed
     - hook id: check-json
+    - description: Checks JSON files for parseable syntax
     - exit code: 1
 
       duplicate.json: Failed to json decode (duplicate key `a` at line 1 column 12)
@@ -819,6 +916,7 @@ fn mixed_line_ending_hook() -> Result<()> {
     ----- stdout -----
     mixed line ending........................................................Failed
     - hook id: mixed-line-ending
+    - description: Replaces or checks mixed line endings
     - exit code: 1
     - files were modified by this hook
 
@@ -873,6 +971,7 @@ fn mixed_line_ending_hook() -> Result<()> {
     ----- stdout -----
     mixed line ending........................................................Failed
     - hook id: mixed-line-ending
+    - description: Replaces or checks mixed line endings
     - exit code: 1
 
       mixed.txt: mixed line endings
@@ -903,6 +1002,7 @@ fn mixed_line_ending_hook() -> Result<()> {
     ----- stdout -----
     mixed line ending........................................................Failed
     - hook id: mixed-line-ending
+    - description: Replaces or checks mixed line endings
     - exit code: 1
     - files were modified by this hook
 
@@ -977,6 +1077,7 @@ fn check_added_large_files_hook() -> Result<()> {
     ----- stdout -----
     check for added large files..............................................Failed
     - hook id: check-added-large-files
+    - description: Prevents giant files from being committed
     - exit code: 1
 
       large_file.txt (2 KB) exceeds 1 KB
@@ -1008,6 +1109,7 @@ fn check_added_large_files_hook() -> Result<()> {
     ----- stdout -----
     check for added large files..............................................Failed
     - hook id: check-added-large-files
+    - description: Prevents giant files from being committed
     - exit code: 1
 
       large_file.txt (2 KB) exceeds 1 KB
@@ -1116,6 +1218,7 @@ fn check_added_large_files_workspace_mode_respects_project_relative_added_files(
     × app
       check for added large files............................................Failed
       - hook id: check-added-large-files
+      - description: Prevents giant files from being committed
       - exit code: 1
 
         large.bin (2 KB) exceeds 1 KB
@@ -1242,6 +1345,7 @@ fn builtin_hooks_workspace_mode() -> Result<()> {
         large.bin
       fix end of files.......................................................Failed
       - hook id: end-of-file-fixer
+      - description: Ensures that a file is either empty, or ends with one newline
       - exit code: 1
       - files were modified by this hook
 
@@ -1253,6 +1357,7 @@ fn builtin_hooks_workspace_mode() -> Result<()> {
         Fixing invalid.yaml
       check yaml.............................................................Failed
       - hook id: check-yaml
+      - description: Checks YAML files for parseable syntax
       - exit code: 1
 
         duplicate.yaml: Failed to yaml decode (error: line 2 column 1: duplicate mapping key: a not allowed here
@@ -1268,24 +1373,28 @@ fn builtin_hooks_workspace_mode() -> Result<()> {
           |     ^ mapping values are not allowed in this context)
       check json.............................................................Failed
       - hook id: check-json
+      - description: Checks JSON files for parseable syntax
       - exit code: 1
 
         duplicate.json: Failed to json decode (duplicate key `a` at line 1 column 12)
         invalid.json: Failed to json decode (trailing comma at line 1 column 9)
       mixed line ending......................................................Failed
       - hook id: mixed-line-ending
+      - description: Replaces or checks mixed line endings
       - exit code: 1
       - files were modified by this hook
 
         Fixing mixed.txt
       trim trailing whitespace...............................................Failed
       - hook id: trailing-whitespace
+      - description: Trims trailing whitespace
       - exit code: 1
       - files were modified by this hook
 
         Fixing trailing_ws.txt
       check for added large files............................................Failed
       - hook id: check-added-large-files
+      - description: Prevents giant files from being committed
       - exit code: 1
 
         large.bin (2 KB) exceeds 1 KB
@@ -1410,6 +1519,7 @@ fn fix_byte_order_marker_hook() -> Result<()> {
     ----- stdout -----
     fix utf-8 byte order marker..............................................Failed
     - hook id: fix-byte-order-marker
+    - description: Removes UTF-8 byte order marker
     - exit code: 1
     - files were modified by this hook
 
@@ -1496,6 +1606,7 @@ fn pretty_format_json_hook() -> Result<()> {
     ----- stdout -----
     pretty format json.......................................................Failed
     - hook id: pretty-format-json
+    - description: Checks that JSON files are pretty-formatted
     - exit code: 1
     - files were modified by this hook
 
@@ -1602,6 +1713,7 @@ fn pretty_format_json_with_options() -> Result<()> {
     ----- stdout -----
     pretty format json.......................................................Failed
     - hook id: pretty-format-json
+    - description: Checks that JSON files are pretty-formatted
     - exit code: 1
     - files were modified by this hook
 
@@ -1660,6 +1772,7 @@ fn pretty_format_json_with_top_keys() -> Result<()> {
     ----- stdout -----
     pretty format json.......................................................Failed
     - hook id: pretty-format-json
+    - description: Checks that JSON files are pretty-formatted
     - exit code: 1
     - files were modified by this hook
 
@@ -1717,6 +1830,7 @@ fn pretty_format_json_no_ensure_ascii() -> Result<()> {
     ----- stdout -----
     pretty format json.......................................................Failed
     - hook id: pretty-format-json
+    - description: Checks that JSON files are pretty-formatted
     - exit code: 1
     - files were modified by this hook
 
@@ -1771,6 +1885,7 @@ fn pretty_format_json_custom_space_indent() -> Result<()> {
     ----- stdout -----
     pretty format json.......................................................Failed
     - hook id: pretty-format-json
+    - description: Checks that JSON files are pretty-formatted
     - exit code: 1
     - files were modified by this hook
 
@@ -1840,6 +1955,7 @@ fn check_symlinks_hook_unix() -> Result<()> {
     ----- stdout -----
     check for broken symlinks................................................Failed
     - hook id: check-symlinks
+    - description: Checks for symlinks which do not point to anything
     - exit code: 1
 
       broken_link.txt: Broken symlink
@@ -1910,6 +2026,7 @@ fn check_symlinks_hook_windows() -> Result<()> {
     ----- stdout -----
     check for broken symlinks................................................Failed
     - hook id: check-symlinks
+    - description: Checks for symlinks which do not point to anything
     - exit code: 1
 
       broken_link.txt: Broken symlink
@@ -2000,6 +2117,7 @@ fn destroyed_symlinks_hook() -> Result<()> {
     ----- stdout -----
     detect destroyed symlinks................................................Failed
     - hook id: destroyed-symlinks
+    - description: Detects symlinks that were replaced with regular files whose contents are the original symlink target path
     - exit code: 1
 
       Destroyed symlinks:
@@ -2024,6 +2142,7 @@ fn destroyed_symlinks_hook() -> Result<()> {
     ----- stdout -----
     detect destroyed symlinks................................................Failed
     - hook id: destroyed-symlinks
+    - description: Detects symlinks that were replaced with regular files whose contents are the original symlink target path
     - exit code: 1
 
       Destroyed symlinks:
@@ -2119,6 +2238,7 @@ fn detect_private_key_hook() -> Result<()> {
     ----- stdout -----
     detect private key.......................................................Failed
     - hook id: detect-private-key
+    - description: Detects the presence of private keys
     - exit code: 1
 
       Private key found: private.asc
@@ -2211,6 +2331,7 @@ fn check_merge_conflict_hook() -> Result<()> {
     ----- stdout -----
     check for merge conflicts................................................Failed
     - hook id: check-merge-conflict
+    - description: Checks for files that contain merge conflict strings
     - exit code: 1
 
       partial_conflict.txt:2: Merge conflict string "<<<<<<< " found
@@ -2318,6 +2439,7 @@ fn check_merge_conflict_diff3_hook() -> Result<()> {
     ----- stdout -----
     check for merge conflicts................................................Failed
     - hook id: check-merge-conflict
+    - description: Checks for files that contain merge conflict strings
     - exit code: 1
 
       diff3.txt:2: Merge conflict string "<<<<<<< " found
@@ -2419,6 +2541,7 @@ fn check_xml_hook() -> Result<()> {
     ----- stdout -----
     check xml................................................................Failed
     - hook id: check-xml
+    - description: Checks XML files for parseable syntax
     - exit code: 1
 
       empty.xml: Failed to xml parse (1:1 Unexpected end of stream: no root element found)
@@ -2459,6 +2582,7 @@ fn check_xml_hook() -> Result<()> {
     ----- stdout -----
     check xml................................................................Failed
     - hook id: check-xml
+    - description: Checks XML files for parseable syntax
     - exit code: 1
 
       empty.xml: Failed to xml parse (1:1 Unexpected end of stream: no root element found)
@@ -2552,6 +2676,7 @@ fn no_commit_to_branch_hook() -> Result<()> {
     ----- stdout -----
     don't commit to branch...................................................Failed
     - hook id: no-commit-to-branch
+    - description: Protects specific branches from direct commits
     - exit code: 1
 
       You are not allowed to commit to branch 'master'
@@ -2589,6 +2714,7 @@ fn no_commit_to_branch_hook() -> Result<()> {
     ----- stdout -----
     don't commit to branch...................................................Failed
     - hook id: no-commit-to-branch
+    - description: Protects specific branches from direct commits
     - exit code: 1
 
       You are not allowed to commit to branch 'main'
@@ -2642,6 +2768,7 @@ fn no_commit_to_branch_hook_with_custom_branches() -> Result<()> {
     ----- stdout -----
     don't commit to branch...................................................Failed
     - hook id: no-commit-to-branch
+    - description: Protects specific branches from direct commits
     - exit code: 1
 
       You are not allowed to commit to branch 'develop'
@@ -2663,6 +2790,7 @@ fn no_commit_to_branch_hook_with_custom_branches() -> Result<()> {
     ----- stdout -----
     don't commit to branch...................................................Failed
     - hook id: no-commit-to-branch
+    - description: Protects specific branches from direct commits
     - exit code: 1
 
       You are not allowed to commit to branch 'production'
@@ -2700,6 +2828,7 @@ fn no_commit_to_branch_hook_with_patterns() -> Result<()> {
     ----- stdout -----
     don't commit to branch...................................................Failed
     - hook id: no-commit-to-branch
+    - description: Protects specific branches from direct commits
     - exit code: 1
 
       You are not allowed to commit to branch 'master'
@@ -2720,6 +2849,7 @@ fn no_commit_to_branch_hook_with_patterns() -> Result<()> {
     ----- stdout -----
     don't commit to branch...................................................Failed
     - hook id: no-commit-to-branch
+    - description: Protects specific branches from direct commits
     - exit code: 1
 
       You are not allowed to commit to branch 'feature/new-feature'
@@ -2740,6 +2870,7 @@ fn no_commit_to_branch_hook_with_patterns() -> Result<()> {
     ----- stdout -----
     don't commit to branch...................................................Failed
     - hook id: no-commit-to-branch
+    - description: Protects specific branches from direct commits
     - exit code: 1
 
       You are not allowed to commit to branch 'my-branch-wip'
@@ -2797,7 +2928,7 @@ fn no_commit_to_branch_hook_with_patterns() -> Result<()> {
 
     ----- stderr -----
     error: Failed to run hook `no-commit-to-branch`
-      caused by: Failed to compile regex patterns
+      caused by: Failed to compile regex pattern `*invalid-pattern*`
       caused by: Parsing error at position 0: Target of repeat operator is invalid
     ");
 
@@ -2851,6 +2982,7 @@ fn check_executables_have_shebangs_hook() -> Result<()> {
     ----- stdout -----
     check that executables have shebangs.....................................Failed
     - hook id: check-executables-have-shebangs
+    - description: Ensures that (non-binary) executables have a shebang
     - exit code: 1
 
       empty.sh marked executable but has no (or invalid) shebang!
@@ -2931,6 +3063,7 @@ fn check_executables_have_shebangs_win() -> Result<()> {
     ----- stdout -----
     check that executables have shebangs.....................................Failed
     - hook id: check-executables-have-shebangs
+    - description: Ensures that (non-binary) executables have a shebang
     - exit code: 1
 
       win_script_without_shebang.sh marked executable but has no (or invalid) shebang!
@@ -2998,6 +3131,7 @@ fn check_executables_have_shebangs_various_cases() -> Result<()> {
     ----- stdout -----
     check that executables have shebangs.....................................Failed
     - hook id: check-executables-have-shebangs
+    - description: Ensures that (non-binary) executables have a shebang
     - exit code: 1
 
       invalid_shebang.sh marked executable but has no (or invalid) shebang!
@@ -3086,6 +3220,7 @@ fn check_executables_have_shebangs_various_cases_win() -> Result<()> {
     ----- stdout -----
     check that executables have shebangs.....................................Failed
     - hook id: check-executables-have-shebangs
+    - description: Ensures that (non-binary) executables have a shebang
     - exit code: 1
 
       invalid_shebang.sh marked executable but has no (or invalid) shebang!
@@ -3143,6 +3278,7 @@ fn check_shebang_scripts_are_executable() -> Result<()> {
     ----- stdout -----
     check that scripts with shebangs are executable..........................Failed
     - hook id: check-shebang-scripts-are-executable
+    - description: Ensures that (non-binary) files with a shebang are executable
     - exit code: 1
 
       script.sh has a shebang but is not marked executable!
@@ -3220,6 +3356,7 @@ fn check_case_conflict_hook() -> Result<()> {
     ----- stdout -----
     check for case conflicts.................................................Failed
     - hook id: check-case-conflict
+    - description: Checks for files that would conflict in case-insensitive filesystems
     - exit code: 1
 
       Case-insensitivity conflict found: src/FOO.txt
@@ -3281,6 +3418,7 @@ fn check_case_conflict_directory() -> Result<()> {
     ----- stdout -----
     check for case conflicts.................................................Failed
     - hook id: check-case-conflict
+    - description: Checks for files that would conflict in case-insensitive filesystems
     - exit code: 1
 
       Case-insensitivity conflict found: src/UTILS
@@ -3326,6 +3464,7 @@ fn check_case_conflict_among_new_files() -> Result<()> {
     ----- stdout -----
     check for case conflicts.................................................Failed
     - hook id: check-case-conflict
+    - description: Checks for files that would conflict in case-insensitive filesystems
     - exit code: 1
 
       Case-insensitivity conflict found: NEWFILE.TXT
@@ -3384,6 +3523,7 @@ fn check_case_conflict_workspace_mode_includes_added_files() -> Result<()> {
     × app
       check for case conflicts...............................................Failed
       - hook id: check-case-conflict
+      - description: Checks for files that would conflict in case-insensitive filesystems
       - exit code: 1
 
         Case-insensitivity conflict found: FOO.txt
@@ -3435,6 +3575,7 @@ fn check_json5() -> Result<()> {
     ----- stdout -----
     check json5..............................................................Failed
     - hook id: check-json5
+    - description: Checks JSON5 files for parseable syntax
     - exit code: 1
 
       invalid_missing_comma.json5: Failed to json5 decode (expected comma at line 3 column 5)
@@ -3489,6 +3630,7 @@ fn check_illegal_windows_names() -> Result<()> {
     ----- stdout -----
     check illegal windows names..............................................Failed
     - hook id: check-illegal-windows-names
+    - description: Checks for filenames which cannot be created on Windows
     - exit code: 1
 
       CON.txt: Illegal Windows filename
@@ -3548,6 +3690,7 @@ fn builtin_hooks_ignore_system_path_binaries() -> Result<()> {
     ----- stdout -----
     trim trailing whitespace.................................................Failed
     - hook id: trailing-whitespace
+    - description: Trims trailing whitespace
     - exit code: 1
     - files were modified by this hook
 

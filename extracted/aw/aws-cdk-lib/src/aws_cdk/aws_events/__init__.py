@@ -5546,6 +5546,419 @@ class CfnEventBusProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_events_49a540ff.IReplayRef)
+class CfnReplay(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_events.CfnReplay",
+):
+    '''An EventBridge Replay replays archived events from an archive to an event bus.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-replay.html
+    :cloudformationResource: AWS::Events::Replay
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_events as events
+        
+        cfn_replay = events.CfnReplay(self, "MyCfnReplay",
+            destination=events.CfnReplay.DestinationProperty(
+                arn="arn"
+            ),
+            event_end_time="eventEndTime",
+            event_source_arn="eventSourceArn",
+            event_start_time="eventStartTime",
+            replay_name="replayName"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        destination: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplay.DestinationProperty", typing.Dict[builtins.str, typing.Any]]],
+        event_end_time: builtins.str,
+        event_source_arn: builtins.str,
+        event_start_time: builtins.str,
+        replay_name: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::Events::Replay``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param destination: A ReplayDestination object that includes details about the destination for the replay.
+        :param event_end_time: A time stamp for the time to stop replaying events.
+        :param event_source_arn: The ARN of the archive to replay events from.
+        :param event_start_time: A time stamp for the time to start replaying events.
+        :param replay_name: The name of the replay.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2d4cbd8e5c8b1fe4a1cedc7f6ae0f1543d785cc6f2c688a71196cf54bcce574b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnReplayProps(
+            destination=destination,
+            event_end_time=event_end_time,
+            event_source_arn=event_source_arn,
+            event_start_time=event_start_time,
+            replay_name=replay_name,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForReplay")
+    @builtins.classmethod
+    def arn_for_replay(
+        cls,
+        resource: "_aws_events_49a540ff.IReplayRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__487d248d3069ee3ac8d42b175b0751f1b44aa1fc96e077872071ebca152aea62)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForReplay", [resource]))
+
+    @jsii.member(jsii_name="isCfnReplay")
+    @builtins.classmethod
+    def is_cfn_replay(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnReplay.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__eb1e443ba6349c935ad3c02fd46da4d946e1b4db3cc621fb150aa97b35ec2c5c)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReplay", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fe00dd99d75f1f5fcd3c652cc5290e6a857af878de68ddc2578d9653cc051914)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9e47804ea732c6a2505b1f2e21fbc01a6594ba49adcfc6bbad908f5df377aaa9)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrReplayArn")
+    def attr_replay_arn(self) -> builtins.str:
+        '''The ARN of the replay.
+
+        :cloudformationAttribute: ReplayArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrReplayArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrReplayStartTime")
+    def attr_replay_start_time(self) -> builtins.str:
+        '''A time stamp for the time that the replay started.
+
+        :cloudformationAttribute: ReplayStartTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrReplayStartTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The current state of the replay.
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="replayRef")
+    def replay_ref(self) -> "_aws_events_49a540ff.ReplayReference":
+        '''A reference to a Replay resource.'''
+        return typing.cast("_aws_events_49a540ff.ReplayReference", jsii.get(self, "replayRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="destination")
+    def destination(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplay.DestinationProperty"]:
+        '''A ReplayDestination object that includes details about the destination for the replay.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplay.DestinationProperty"], jsii.get(self, "destination"))
+
+    @destination.setter
+    def destination(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplay.DestinationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bd4b7e5e62ea8d66867a42b4177440994026033cdd2ce327e143afcda8449561)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "destination", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="eventEndTime")
+    def event_end_time(self) -> builtins.str:
+        '''A time stamp for the time to stop replaying events.'''
+        return typing.cast(builtins.str, jsii.get(self, "eventEndTime"))
+
+    @event_end_time.setter
+    def event_end_time(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__63a08e04b9c9bf446791ab82f1afa0176a1518f9e24c15cddc3725b0baeede8b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "eventEndTime", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="eventSourceArn")
+    def event_source_arn(self) -> builtins.str:
+        '''The ARN of the archive to replay events from.'''
+        return typing.cast(builtins.str, jsii.get(self, "eventSourceArn"))
+
+    @event_source_arn.setter
+    def event_source_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bb1a764b11368a94db97c5a7215c52585ca11b24a4d0a78f64cfab94c0944beb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "eventSourceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="eventStartTime")
+    def event_start_time(self) -> builtins.str:
+        '''A time stamp for the time to start replaying events.'''
+        return typing.cast(builtins.str, jsii.get(self, "eventStartTime"))
+
+    @event_start_time.setter
+    def event_start_time(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c02569383e7d36c9c926eb55e10b9b566262558357682e29205906c55c5a2c3b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "eventStartTime", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="replayName")
+    def replay_name(self) -> builtins.str:
+        '''The name of the replay.'''
+        return typing.cast(builtins.str, jsii.get(self, "replayName"))
+
+    @replay_name.setter
+    def replay_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b00f25a198aa33e871dd677bfa6e146a6db5153a84d3026704053e915026cfe2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "replayName", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_events.CfnReplay.DestinationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"arn": "arn"},
+    )
+    class DestinationProperty:
+        def __init__(self, *, arn: builtins.str) -> None:
+            '''A ReplayDestination object that includes details about the destination for the replay.
+
+            :param arn: The ARN of the event bus to replay events to.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-replay-destination.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_events as events
+                
+                destination_property = events.CfnReplay.DestinationProperty(
+                    arn="arn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__893c38a4d1f0490eb3c72db4529988046cf2ccb908eed537cd553d7bc0b752fd)
+                check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "arn": arn,
+            }
+
+        @builtins.property
+        def arn(self) -> builtins.str:
+            '''The ARN of the event bus to replay events to.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-events-replay-destination.html#cfn-events-replay-destination-arn
+            '''
+            result = self._values.get("arn")
+            assert result is not None, "Required property 'arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DestinationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.CfnReplayProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "destination": "destination",
+        "event_end_time": "eventEndTime",
+        "event_source_arn": "eventSourceArn",
+        "event_start_time": "eventStartTime",
+        "replay_name": "replayName",
+    },
+)
+class CfnReplayProps:
+    def __init__(
+        self,
+        *,
+        destination: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReplay.DestinationProperty", typing.Dict[builtins.str, typing.Any]]],
+        event_end_time: builtins.str,
+        event_source_arn: builtins.str,
+        event_start_time: builtins.str,
+        replay_name: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnReplay``.
+
+        :param destination: A ReplayDestination object that includes details about the destination for the replay.
+        :param event_end_time: A time stamp for the time to stop replaying events.
+        :param event_source_arn: The ARN of the archive to replay events from.
+        :param event_start_time: A time stamp for the time to start replaying events.
+        :param replay_name: The name of the replay.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-replay.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_events as events
+            
+            cfn_replay_props = events.CfnReplayProps(
+                destination=events.CfnReplay.DestinationProperty(
+                    arn="arn"
+                ),
+                event_end_time="eventEndTime",
+                event_source_arn="eventSourceArn",
+                event_start_time="eventStartTime",
+                replay_name="replayName"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__670eb6a7c81b41dc2a1bf7d757dc87c533b51191ad7076c3a8c6b986421799b9)
+            check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
+            check_type(argname="argument event_end_time", value=event_end_time, expected_type=type_hints["event_end_time"])
+            check_type(argname="argument event_source_arn", value=event_source_arn, expected_type=type_hints["event_source_arn"])
+            check_type(argname="argument event_start_time", value=event_start_time, expected_type=type_hints["event_start_time"])
+            check_type(argname="argument replay_name", value=replay_name, expected_type=type_hints["replay_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "destination": destination,
+            "event_end_time": event_end_time,
+            "event_source_arn": event_source_arn,
+            "event_start_time": event_start_time,
+            "replay_name": replay_name,
+        }
+
+    @builtins.property
+    def destination(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplay.DestinationProperty"]:
+        '''A ReplayDestination object that includes details about the destination for the replay.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-replay.html#cfn-events-replay-destination
+        '''
+        result = self._values.get("destination")
+        assert result is not None, "Required property 'destination' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReplay.DestinationProperty"], result)
+
+    @builtins.property
+    def event_end_time(self) -> builtins.str:
+        '''A time stamp for the time to stop replaying events.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-replay.html#cfn-events-replay-eventendtime
+        '''
+        result = self._values.get("event_end_time")
+        assert result is not None, "Required property 'event_end_time' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def event_source_arn(self) -> builtins.str:
+        '''The ARN of the archive to replay events from.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-replay.html#cfn-events-replay-eventsourcearn
+        '''
+        result = self._values.get("event_source_arn")
+        assert result is not None, "Required property 'event_source_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def event_start_time(self) -> builtins.str:
+        '''A time stamp for the time to start replaying events.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-replay.html#cfn-events-replay-eventstarttime
+        '''
+        result = self._values.get("event_start_time")
+        assert result is not None, "Required property 'event_start_time' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def replay_name(self) -> builtins.str:
+        '''The name of the replay.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-events-replay.html#cfn-events-replay-replayname
+        '''
+        result = self._values.get("replay_name")
+        assert result is not None, "Required property 'replay_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnReplayProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_events_49a540ff.IRuleRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnRule(
     _aws_cdk_0cae9daa.CfnResource,
@@ -12168,6 +12581,10 @@ class RuleTargetInput(
         May contain strings returned by ``EventField.from()`` to substitute in parts
         of the matched event.
 
+        As with ``fromText``, each line is JSON-encoded, so every line is wrapped in
+        double quotes in the synthesized template. Whether those quotes are visible
+        to the recipient depends on the target service.
+
         :param text: -
         '''
         if __debug__:
@@ -12203,6 +12620,18 @@ class RuleTargetInput(
         The Rule Target input value will be a single string: the string you pass
         here.  Do not use this method to pass a complex value like a JSON object to
         a Rule Target.  Use ``RuleTargetInput.fromObject()`` instead.
+
+        The target ``Input`` field must be valid JSON, so the text is JSON-encoded
+        when the template is synthesized. As a result a plain string is wrapped in
+        double quotes: ``fromText('something')`` renders as ``Input: '"something"'``.
+        The quotes are part of the required JSON encoding, not an extra value added
+        by CDK, and cannot be removed.
+
+        Whether those quotes are visible to the recipient depends on the target
+        service. Some targets deliver the JSON-encoded value as-is, so the recipient
+        sees the surrounding quotes (for example, an SNS topic delivering to an
+        email subscriber shows ``"something"``). To send a structured payload, use
+        ``RuleTargetInput.fromObject()`` instead.
 
         :param text: -
         '''
@@ -13196,6 +13625,8 @@ __all__ = [
     "CfnEventBusPolicy",
     "CfnEventBusPolicyProps",
     "CfnEventBusProps",
+    "CfnReplay",
+    "CfnReplayProps",
     "CfnRule",
     "CfnRuleProps",
     "Connection",
@@ -14048,6 +14479,91 @@ def _typecheckingstub__79e3f734387b70ada8040490433e9e9ec9b92701ddfb55826c4adc111
     log_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnEventBus.LogConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     policy: typing.Any = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2d4cbd8e5c8b1fe4a1cedc7f6ae0f1543d785cc6f2c688a71196cf54bcce574b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    destination: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplay.DestinationProperty, typing.Dict[builtins.str, typing.Any]]],
+    event_end_time: builtins.str,
+    event_source_arn: builtins.str,
+    event_start_time: builtins.str,
+    replay_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__487d248d3069ee3ac8d42b175b0751f1b44aa1fc96e077872071ebca152aea62(
+    resource: _aws_events_49a540ff.IReplayRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eb1e443ba6349c935ad3c02fd46da4d946e1b4db3cc621fb150aa97b35ec2c5c(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fe00dd99d75f1f5fcd3c652cc5290e6a857af878de68ddc2578d9653cc051914(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e47804ea732c6a2505b1f2e21fbc01a6594ba49adcfc6bbad908f5df377aaa9(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bd4b7e5e62ea8d66867a42b4177440994026033cdd2ce327e143afcda8449561(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnReplay.DestinationProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__63a08e04b9c9bf446791ab82f1afa0176a1518f9e24c15cddc3725b0baeede8b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bb1a764b11368a94db97c5a7215c52585ca11b24a4d0a78f64cfab94c0944beb(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c02569383e7d36c9c926eb55e10b9b566262558357682e29205906c55c5a2c3b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b00f25a198aa33e871dd677bfa6e146a6db5153a84d3026704053e915026cfe2(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__893c38a4d1f0490eb3c72db4529988046cf2ccb908eed537cd553d7bc0b752fd(
+    *,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__670eb6a7c81b41dc2a1bf7d757dc87c533b51191ad7076c3a8c6b986421799b9(
+    *,
+    destination: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReplay.DestinationProperty, typing.Dict[builtins.str, typing.Any]]],
+    event_end_time: builtins.str,
+    event_source_arn: builtins.str,
+    event_start_time: builtins.str,
+    replay_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

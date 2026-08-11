@@ -6936,6 +6936,88 @@ typing.cast(typing.Any, CfnElement).__jsii_proxy_class__ = lambda : _CfnElementP
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.CfnGeneratedTemplateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "generated_template_name": "generatedTemplateName",
+        "template_configuration": "templateConfiguration",
+    },
+)
+class CfnGeneratedTemplateProps:
+    def __init__(
+        self,
+        *,
+        generated_template_name: builtins.str,
+        template_configuration: typing.Optional[typing.Union["IResolvable", typing.Union["CfnGeneratedTemplate.TemplateConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnGeneratedTemplate``.
+
+        :param generated_template_name: The name assigned to the generated template.
+        :param template_configuration: The configuration details of the generated template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-generatedtemplate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            
+            cfn_generated_template_props = cdk.CfnGeneratedTemplateProps(
+                generated_template_name="generatedTemplateName",
+            
+                # the properties below are optional
+                template_configuration=cdk.CfnGeneratedTemplate.TemplateConfigurationProperty(
+                    deletion_policy="deletionPolicy",
+                    update_replace_policy="updateReplacePolicy"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__197b8c24c09026b19d09a7be28791c8d86f8c8ed0bce5b4cd03a9aeb4b213107)
+            check_type(argname="argument generated_template_name", value=generated_template_name, expected_type=type_hints["generated_template_name"])
+            check_type(argname="argument template_configuration", value=template_configuration, expected_type=type_hints["template_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "generated_template_name": generated_template_name,
+        }
+        if template_configuration is not None:
+            self._values["template_configuration"] = template_configuration
+
+    @builtins.property
+    def generated_template_name(self) -> builtins.str:
+        '''The name assigned to the generated template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-generatedtemplate.html#cfn-cloudformation-generatedtemplate-generatedtemplatename
+        '''
+        result = self._values.get("generated_template_name")
+        assert result is not None, "Required property 'generated_template_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def template_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["IResolvable", "CfnGeneratedTemplate.TemplateConfigurationProperty"]]:
+        '''The configuration details of the generated template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-generatedtemplate.html#cfn-cloudformation-generatedtemplate-templateconfiguration
+        '''
+        result = self._values.get("template_configuration")
+        return typing.cast(typing.Optional[typing.Union["IResolvable", "CfnGeneratedTemplate.TemplateConfigurationProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnGeneratedTemplateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.CfnGuardHookProps",
     jsii_struct_bases=[],
     name_mapping={
@@ -7765,6 +7847,8 @@ class CfnJsonProps:
         "hook_status": "hookStatus",
         "lambda_function": "lambdaFunction",
         "target_operations": "targetOperations",
+        "auto_update": "autoUpdate",
+        "logging_config": "loggingConfig",
         "stack_filters": "stackFilters",
         "target_filters": "targetFilters",
     },
@@ -7779,6 +7863,8 @@ class CfnLambdaHookProps:
         hook_status: builtins.str,
         lambda_function: builtins.str,
         target_operations: typing.Sequence[builtins.str],
+        auto_update: typing.Optional[typing.Union[builtins.bool, "IResolvable"]] = None,
+        logging_config: typing.Optional[typing.Union["IResolvable", typing.Union["CfnLambdaHook.LoggingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         stack_filters: typing.Optional[typing.Union["IResolvable", typing.Union["CfnLambdaHook.StackFiltersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         target_filters: typing.Optional[typing.Union["IResolvable", typing.Union["CfnLambdaHook.TargetFiltersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -7790,6 +7876,8 @@ class CfnLambdaHookProps:
         :param hook_status: Specifies if the Hook is ``ENABLED`` or ``DISABLED`` . Default: - "ENABLED"
         :param lambda_function: Specifies the Lambda function for the Hook. You can use:. - The full Amazon Resource Name (ARN) without a suffix. - A qualified ARN with a version or alias suffix.
         :param target_operations: Specifies the list of operations the Hook is run against. For more information, see `Hook targets <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-concepts.html#hook-terms-hook-target>`_ in the *CloudFormation Hooks User Guide* . Valid values: ``STACK`` | ``RESOURCE`` | ``CHANGE_SET`` | ``CLOUD_CONTROL``
+        :param auto_update: Whether to automatically update the extension in this account and Region when a new minor version is published by the extension publisher. Default: - true
+        :param logging_config: Contains logging configuration information for an extension.
         :param stack_filters: Specifies the stack level filters for the Hook. Example stack level filter in JSON: ``"StackFilters": {"FilteringCriteria": "ALL", "StackNames": {"Exclude": [ "stack-1", "stack-2"]}}`` Example stack level filter in YAML: ``StackFilters: FilteringCriteria: ALL StackNames: Exclude: - stack-1 - stack-2``
         :param target_filters: Specifies the target filters for the Hook. Example target filter in JSON: ``"TargetFilters": {"Actions": [ "CREATE", "UPDATE", "DELETE" ]}`` Example target filter in YAML: ``TargetFilters: Actions: - CREATE - UPDATE - DELETE``
 
@@ -7811,6 +7899,11 @@ class CfnLambdaHookProps:
                 target_operations=["targetOperations"],
             
                 # the properties below are optional
+                auto_update=False,
+                logging_config=cdk.CfnLambdaHook.LoggingConfigProperty(
+                    log_group_name="logGroupName",
+                    log_role_arn="logRoleArn"
+                ),
                 stack_filters=cdk.CfnLambdaHook.StackFiltersProperty(
                     filtering_criteria="filteringCriteria",
             
@@ -7846,6 +7939,8 @@ class CfnLambdaHookProps:
             check_type(argname="argument hook_status", value=hook_status, expected_type=type_hints["hook_status"])
             check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
             check_type(argname="argument target_operations", value=target_operations, expected_type=type_hints["target_operations"])
+            check_type(argname="argument auto_update", value=auto_update, expected_type=type_hints["auto_update"])
+            check_type(argname="argument logging_config", value=logging_config, expected_type=type_hints["logging_config"])
             check_type(argname="argument stack_filters", value=stack_filters, expected_type=type_hints["stack_filters"])
             check_type(argname="argument target_filters", value=target_filters, expected_type=type_hints["target_filters"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7856,6 +7951,10 @@ class CfnLambdaHookProps:
             "lambda_function": lambda_function,
             "target_operations": target_operations,
         }
+        if auto_update is not None:
+            self._values["auto_update"] = auto_update
+        if logging_config is not None:
+            self._values["logging_config"] = logging_config
         if stack_filters is not None:
             self._values["stack_filters"] = stack_filters
         if target_filters is not None:
@@ -7934,6 +8033,30 @@ class CfnLambdaHookProps:
         result = self._values.get("target_operations")
         assert result is not None, "Required property 'target_operations' is missing"
         return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def auto_update(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "IResolvable"]]:
+        '''Whether to automatically update the extension in this account and Region when a new minor version is published by the extension publisher.
+
+        :default: - true
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-lambdahook.html#cfn-cloudformation-lambdahook-autoupdate
+        '''
+        result = self._values.get("auto_update")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "IResolvable"]], result)
+
+    @builtins.property
+    def logging_config(
+        self,
+    ) -> typing.Optional[typing.Union["IResolvable", "CfnLambdaHook.LoggingConfigProperty"]]:
+        '''Contains logging configuration information for an extension.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-lambdahook.html#cfn-cloudformation-lambdahook-loggingconfig
+        '''
+        result = self._values.get("logging_config")
+        return typing.cast(typing.Optional[typing.Union["IResolvable", "CfnLambdaHook.LoggingConfigProperty"]], result)
 
     @builtins.property
     def stack_filters(
@@ -10191,6 +10314,66 @@ class CfnResourceProps:
 
     def __repr__(self) -> str:
         return "CfnResourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.CfnResourceScanProps",
+    jsii_struct_bases=[],
+    name_mapping={"scan_filters": "scanFilters"},
+)
+class CfnResourceScanProps:
+    def __init__(
+        self,
+        *,
+        scan_filters: typing.Optional[typing.Union["IResolvable", typing.Sequence[typing.Union["IResolvable", typing.Union["CfnResourceScan.ScanFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnResourceScan``.
+
+        :param scan_filters: The scan filters to use.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourcescan.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            
+            cfn_resource_scan_props = cdk.CfnResourceScanProps(
+                scan_filters=[cdk.CfnResourceScan.ScanFilterProperty(
+                    types=["types"]
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a2bd015e637820a8493aeb3873d61b7bb7f363dafc92b9b5af36de24dc0e5b0c)
+            check_type(argname="argument scan_filters", value=scan_filters, expected_type=type_hints["scan_filters"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if scan_filters is not None:
+            self._values["scan_filters"] = scan_filters
+
+    @builtins.property
+    def scan_filters(
+        self,
+    ) -> typing.Optional[typing.Union["IResolvable", typing.List[typing.Union["IResolvable", "CfnResourceScan.ScanFilterProperty"]]]]:
+        '''The scan filters to use.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourcescan.html#cfn-cloudformation-resourcescan-scanfilters
+        '''
+        result = self._values.get("scan_filters")
+        return typing.cast(typing.Optional[typing.Union["IResolvable", typing.List[typing.Union["IResolvable", "CfnResourceScan.ScanFilterProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourceScanProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -23234,7 +23417,7 @@ class ReferenceStrength(enum.Enum):
     '''Weak reference: uses Fn::GetStackOutput to read an output directly from the producing stack.
 
     The producing stack or resource can be deleted independently of consumers.
-    This will cause infrastructure in consuming stacks to temporarily reference a nonexistant
+    This will cause infrastructure in consuming stacks to temporarily reference a nonexistent
     resource until the consumers are updated as well, causing any accesses in that time
     frame to fail.
 
@@ -33341,6 +33524,399 @@ class CfnDynamicReference(
         jsii.create(self.__class__, self, [service, key])
 
 
+@jsii.implements(IInspectable, _aws_cloudformation_68a282c8.IGeneratedTemplateRef)
+class CfnGeneratedTemplate(
+    CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.CfnGeneratedTemplate",
+):
+    '''Creates a generated template from existing resources using the CloudFormation IaC Generator.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-generatedtemplate.html
+    :cloudformationResource: AWS::CloudFormation::GeneratedTemplate
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk as cdk
+        
+        cfn_generated_template = cdk.CfnGeneratedTemplate(self, "MyCfnGeneratedTemplate",
+            generated_template_name="generatedTemplateName",
+        
+            # the properties below are optional
+            template_configuration=cdk.CfnGeneratedTemplate.TemplateConfigurationProperty(
+                deletion_policy="deletionPolicy",
+                update_replace_policy="updateReplacePolicy"
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        generated_template_name: builtins.str,
+        template_configuration: typing.Optional[typing.Union["IResolvable", typing.Union["CfnGeneratedTemplate.TemplateConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CloudFormation::GeneratedTemplate``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param generated_template_name: The name assigned to the generated template.
+        :param template_configuration: The configuration details of the generated template.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__079daed3c556ee3579b90c4b8c4e9b4946791b7e85b9c1ff1abea6ef2daed089)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnGeneratedTemplateProps(
+            generated_template_name=generated_template_name,
+            template_configuration=template_configuration,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForGeneratedTemplate")
+    @builtins.classmethod
+    def arn_for_generated_template(
+        cls,
+        resource: "_aws_cloudformation_68a282c8.IGeneratedTemplateRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d48f7cc3b3990716020ca171024c540d9b1bb1d60ba0f92a47473ae394affae3)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForGeneratedTemplate", [resource]))
+
+    @jsii.member(jsii_name="isCfnGeneratedTemplate")
+    @builtins.classmethod
+    def is_cfn_generated_template(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnGeneratedTemplate.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e6a8745839adfb28053215284a3704036a8d5059836488d00705fd565a879007)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGeneratedTemplate", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__58dd2a73a813801cf0b15900dcafa26266b4ed486dc3926924f82599cbdddd9c)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__69731edeca35262c07a4e0efab8ed5567874b263443e77844c8302e30ca4c9f6)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> builtins.str:
+        '''The time the generated template was created.
+
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrGeneratedTemplateId")
+    def attr_generated_template_id(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the generated template.
+
+        :cloudformationAttribute: GeneratedTemplateId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrGeneratedTemplateId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedTime")
+    def attr_last_updated_time(self) -> builtins.str:
+        '''The time the generated template was last updated.
+
+        :cloudformationAttribute: LastUpdatedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProgress")
+    def attr_progress(self) -> "IResolvable":
+        '''A summary of the progress of the template generation.
+
+        :cloudformationAttribute: Progress
+        '''
+        return typing.cast("IResolvable", jsii.get(self, "attrProgress"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the template generation.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTotalWarnings")
+    def attr_total_warnings(self) -> jsii.Number:
+        '''The number of warnings generated for this template.
+
+        :cloudformationAttribute: TotalWarnings
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrTotalWarnings"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="generatedTemplateRef")
+    def generated_template_ref(
+        self,
+    ) -> "_aws_cloudformation_68a282c8.GeneratedTemplateReference":
+        '''A reference to a GeneratedTemplate resource.'''
+        return typing.cast("_aws_cloudformation_68a282c8.GeneratedTemplateReference", jsii.get(self, "generatedTemplateRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="generatedTemplateName")
+    def generated_template_name(self) -> builtins.str:
+        '''The name assigned to the generated template.'''
+        return typing.cast(builtins.str, jsii.get(self, "generatedTemplateName"))
+
+    @generated_template_name.setter
+    def generated_template_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__838ea95b782aef96eae5e68cce0db470f2ba0630edc82b6968769e1e3e3c0e6b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "generatedTemplateName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="templateConfiguration")
+    def template_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["IResolvable", "CfnGeneratedTemplate.TemplateConfigurationProperty"]]:
+        '''The configuration details of the generated template.'''
+        return typing.cast(typing.Optional[typing.Union["IResolvable", "CfnGeneratedTemplate.TemplateConfigurationProperty"]], jsii.get(self, "templateConfiguration"))
+
+    @template_configuration.setter
+    def template_configuration(
+        self,
+        value: typing.Optional[typing.Union["IResolvable", "CfnGeneratedTemplate.TemplateConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8a5cea298bbdcc5fea3ee90283516b63244b816d5c9259f4a0b6d4863825e76e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "templateConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.CfnGeneratedTemplate.TemplateConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "deletion_policy": "deletionPolicy",
+            "update_replace_policy": "updateReplacePolicy",
+        },
+    )
+    class TemplateConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            deletion_policy: typing.Optional[builtins.str] = None,
+            update_replace_policy: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The configuration details of the generated template.
+
+            :param deletion_policy: The DeletionPolicy assigned to resources in the generated template.
+            :param update_replace_policy: The UpdateReplacePolicy assigned to resources in the generated template.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-generatedtemplate-templateconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                import aws_cdk as cdk
+                
+                template_configuration_property = cdk.CfnGeneratedTemplate.TemplateConfigurationProperty(
+                    deletion_policy="deletionPolicy",
+                    update_replace_policy="updateReplacePolicy"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__bb3ca98b442afd4aaf89b90afa63bf0286f2b4262cacdcc5ec285630470e0192)
+                check_type(argname="argument deletion_policy", value=deletion_policy, expected_type=type_hints["deletion_policy"])
+                check_type(argname="argument update_replace_policy", value=update_replace_policy, expected_type=type_hints["update_replace_policy"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if deletion_policy is not None:
+                self._values["deletion_policy"] = deletion_policy
+            if update_replace_policy is not None:
+                self._values["update_replace_policy"] = update_replace_policy
+
+        @builtins.property
+        def deletion_policy(self) -> typing.Optional[builtins.str]:
+            '''The DeletionPolicy assigned to resources in the generated template.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-generatedtemplate-templateconfiguration.html#cfn-cloudformation-generatedtemplate-templateconfiguration-deletionpolicy
+            '''
+            result = self._values.get("deletion_policy")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def update_replace_policy(self) -> typing.Optional[builtins.str]:
+            '''The UpdateReplacePolicy assigned to resources in the generated template.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-generatedtemplate-templateconfiguration.html#cfn-cloudformation-generatedtemplate-templateconfiguration-updatereplacepolicy
+            '''
+            result = self._values.get("update_replace_policy")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TemplateConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.CfnGeneratedTemplate.TemplateProgressProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "resources_failed": "resourcesFailed",
+            "resources_pending": "resourcesPending",
+            "resources_processing": "resourcesProcessing",
+            "resources_succeeded": "resourcesSucceeded",
+        },
+    )
+    class TemplateProgressProperty:
+        def __init__(
+            self,
+            *,
+            resources_failed: typing.Optional[jsii.Number] = None,
+            resources_pending: typing.Optional[jsii.Number] = None,
+            resources_processing: typing.Optional[jsii.Number] = None,
+            resources_succeeded: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''A summary of the progress of the template generation.
+
+            :param resources_failed: The number of resources that failed the template generation.
+            :param resources_pending: The number of resources that are still pending the template generation.
+            :param resources_processing: The number of resources that are in-process for the template generation.
+            :param resources_succeeded: The number of resources that succeeded the template generation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-generatedtemplate-templateprogress.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                import aws_cdk as cdk
+                
+                template_progress_property = cdk.CfnGeneratedTemplate.TemplateProgressProperty(
+                    resources_failed=123,
+                    resources_pending=123,
+                    resources_processing=123,
+                    resources_succeeded=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__7b286992101ca1b3ae05ac268691a23888f5e2458ec53c9f358cfb9e56218a58)
+                check_type(argname="argument resources_failed", value=resources_failed, expected_type=type_hints["resources_failed"])
+                check_type(argname="argument resources_pending", value=resources_pending, expected_type=type_hints["resources_pending"])
+                check_type(argname="argument resources_processing", value=resources_processing, expected_type=type_hints["resources_processing"])
+                check_type(argname="argument resources_succeeded", value=resources_succeeded, expected_type=type_hints["resources_succeeded"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if resources_failed is not None:
+                self._values["resources_failed"] = resources_failed
+            if resources_pending is not None:
+                self._values["resources_pending"] = resources_pending
+            if resources_processing is not None:
+                self._values["resources_processing"] = resources_processing
+            if resources_succeeded is not None:
+                self._values["resources_succeeded"] = resources_succeeded
+
+        @builtins.property
+        def resources_failed(self) -> typing.Optional[jsii.Number]:
+            '''The number of resources that failed the template generation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-generatedtemplate-templateprogress.html#cfn-cloudformation-generatedtemplate-templateprogress-resourcesfailed
+            '''
+            result = self._values.get("resources_failed")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def resources_pending(self) -> typing.Optional[jsii.Number]:
+            '''The number of resources that are still pending the template generation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-generatedtemplate-templateprogress.html#cfn-cloudformation-generatedtemplate-templateprogress-resourcespending
+            '''
+            result = self._values.get("resources_pending")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def resources_processing(self) -> typing.Optional[jsii.Number]:
+            '''The number of resources that are in-process for the template generation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-generatedtemplate-templateprogress.html#cfn-cloudformation-generatedtemplate-templateprogress-resourcesprocessing
+            '''
+            result = self._values.get("resources_processing")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def resources_succeeded(self) -> typing.Optional[jsii.Number]:
+            '''The number of resources that succeeded the template generation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-generatedtemplate-templateprogress.html#cfn-cloudformation-generatedtemplate-templateprogress-resourcessucceeded
+            '''
+            result = self._values.get("resources_succeeded")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TemplateProgressProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
 @jsii.implements(IInspectable, _aws_cloudformation_68a282c8.IGuardHookRef)
 class CfnGuardHook(
     CfnResource,
@@ -35104,6 +35680,11 @@ class CfnLambdaHook(
             target_operations=["targetOperations"],
         
             # the properties below are optional
+            auto_update=False,
+            logging_config=cdk.CfnLambdaHook.LoggingConfigProperty(
+                log_group_name="logGroupName",
+                log_role_arn="logRoleArn"
+            ),
             stack_filters=cdk.CfnLambdaHook.StackFiltersProperty(
                 filtering_criteria="filteringCriteria",
         
@@ -35143,6 +35724,8 @@ class CfnLambdaHook(
         hook_status: builtins.str,
         lambda_function: builtins.str,
         target_operations: typing.Sequence[builtins.str],
+        auto_update: typing.Optional[typing.Union[builtins.bool, "IResolvable"]] = None,
+        logging_config: typing.Optional[typing.Union["IResolvable", typing.Union["CfnLambdaHook.LoggingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         stack_filters: typing.Optional[typing.Union["IResolvable", typing.Union["CfnLambdaHook.StackFiltersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         target_filters: typing.Optional[typing.Union["IResolvable", typing.Union["CfnLambdaHook.TargetFiltersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -35156,6 +35739,8 @@ class CfnLambdaHook(
         :param hook_status: Specifies if the Hook is ``ENABLED`` or ``DISABLED`` . Default: - "ENABLED"
         :param lambda_function: Specifies the Lambda function for the Hook. You can use:. - The full Amazon Resource Name (ARN) without a suffix. - A qualified ARN with a version or alias suffix.
         :param target_operations: Specifies the list of operations the Hook is run against. For more information, see `Hook targets <https://docs.aws.amazon.com/cloudformation-cli/latest/hooks-userguide/hooks-concepts.html#hook-terms-hook-target>`_ in the *CloudFormation Hooks User Guide* . Valid values: ``STACK`` | ``RESOURCE`` | ``CHANGE_SET`` | ``CLOUD_CONTROL``
+        :param auto_update: Whether to automatically update the extension in this account and Region when a new minor version is published by the extension publisher. Default: - true
+        :param logging_config: Contains logging configuration information for an extension.
         :param stack_filters: Specifies the stack level filters for the Hook. Example stack level filter in JSON: ``"StackFilters": {"FilteringCriteria": "ALL", "StackNames": {"Exclude": [ "stack-1", "stack-2"]}}`` Example stack level filter in YAML: ``StackFilters: FilteringCriteria: ALL StackNames: Exclude: - stack-1 - stack-2``
         :param target_filters: Specifies the target filters for the Hook. Example target filter in JSON: ``"TargetFilters": {"Actions": [ "CREATE", "UPDATE", "DELETE" ]}`` Example target filter in YAML: ``TargetFilters: Actions: - CREATE - UPDATE - DELETE``
         '''
@@ -35170,6 +35755,8 @@ class CfnLambdaHook(
             hook_status=hook_status,
             lambda_function=lambda_function,
             target_operations=target_operations,
+            auto_update=auto_update,
+            logging_config=logging_config,
             stack_filters=stack_filters,
             target_filters=target_filters,
         )
@@ -35328,6 +35915,42 @@ class CfnLambdaHook(
         jsii.set(self, "targetOperations", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="autoUpdate")
+    def auto_update(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "IResolvable"]]:
+        '''Whether to automatically update the extension in this account and Region when a new minor version is published by the extension publisher.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "IResolvable"]], jsii.get(self, "autoUpdate"))
+
+    @auto_update.setter
+    def auto_update(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__53a8fc968b06c25349ace7ccbffd32e448d214adb51415f103df40f2574c1fb5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "autoUpdate", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="loggingConfig")
+    def logging_config(
+        self,
+    ) -> typing.Optional[typing.Union["IResolvable", "CfnLambdaHook.LoggingConfigProperty"]]:
+        '''Contains logging configuration information for an extension.'''
+        return typing.cast(typing.Optional[typing.Union["IResolvable", "CfnLambdaHook.LoggingConfigProperty"]], jsii.get(self, "loggingConfig"))
+
+    @logging_config.setter
+    def logging_config(
+        self,
+        value: typing.Optional[typing.Union["IResolvable", "CfnLambdaHook.LoggingConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f5336ce2ed282bf7c5ee1ecc88b6762e307a0c7d7faccd68d92ecaadc89fb264)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "loggingConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="stackFilters")
     def stack_filters(
         self,
@@ -35452,6 +36075,77 @@ class CfnLambdaHook(
 
         def __repr__(self) -> str:
             return "HookTargetProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.CfnLambdaHook.LoggingConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"log_group_name": "logGroupName", "log_role_arn": "logRoleArn"},
+    )
+    class LoggingConfigProperty:
+        def __init__(
+            self,
+            *,
+            log_group_name: builtins.str,
+            log_role_arn: builtins.str,
+        ) -> None:
+            '''Contains logging configuration information for an extension.
+
+            :param log_group_name: The Amazon CloudWatch Logs group to which CloudFormation sends error logging information when invoking the extension's handlers.
+            :param log_role_arn: The ARN of the role that CloudFormation should assume when sending log entries to CloudWatch Logs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-lambdahook-loggingconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                import aws_cdk as cdk
+                
+                logging_config_property = cdk.CfnLambdaHook.LoggingConfigProperty(
+                    log_group_name="logGroupName",
+                    log_role_arn="logRoleArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__55dba4f1e752bc771e3f79937f0682e93fdd79ff896eea58a90700cad7cbc27c)
+                check_type(argname="argument log_group_name", value=log_group_name, expected_type=type_hints["log_group_name"])
+                check_type(argname="argument log_role_arn", value=log_role_arn, expected_type=type_hints["log_role_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "log_group_name": log_group_name,
+                "log_role_arn": log_role_arn,
+            }
+
+        @builtins.property
+        def log_group_name(self) -> builtins.str:
+            '''The Amazon CloudWatch Logs group to which CloudFormation sends error logging information when invoking the extension's handlers.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-lambdahook-loggingconfig.html#cfn-cloudformation-lambdahook-loggingconfig-loggroupname
+            '''
+            result = self._values.get("log_group_name")
+            assert result is not None, "Required property 'log_group_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def log_role_arn(self) -> builtins.str:
+            '''The ARN of the role that CloudFormation should assume when sending log entries to CloudWatch Logs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-lambdahook-loggingconfig.html#cfn-cloudformation-lambdahook-loggingconfig-logrolearn
+            '''
+            result = self._values.get("log_role_arn")
+            assert result is not None, "Required property 'log_role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LoggingConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -37104,6 +37798,243 @@ class CfnResourceDefaultVersion(
             type_hints = cached_type_hints(_typecheckingstub__dd41a20885eade487854b9a6ac2e6748158d9a5e9f3b4b25e79e4f0501f4bcc9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "versionId", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.implements(IInspectable, _aws_cloudformation_68a282c8.IResourceScanRef)
+class CfnResourceScan(
+    CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.CfnResourceScan",
+):
+    '''Represents a CloudFormation resource scan that discovers existing AWS resources in an account and region.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourcescan.html
+    :cloudformationResource: AWS::CloudFormation::ResourceScan
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk as cdk
+        
+        cfn_resource_scan = cdk.CfnResourceScan(self, "MyCfnResourceScan",
+            scan_filters=[cdk.CfnResourceScan.ScanFilterProperty(
+                types=["types"]
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        scan_filters: typing.Optional[typing.Union["IResolvable", typing.Sequence[typing.Union["IResolvable", typing.Union["CfnResourceScan.ScanFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CloudFormation::ResourceScan``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param scan_filters: The scan filters to use.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__11e6c33d0374a376d37cc0a84f831b2548f39051ddcae845ec78e233f7019ffd)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnResourceScanProps(scan_filters=scan_filters)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForResourceScan")
+    @builtins.classmethod
+    def arn_for_resource_scan(
+        cls,
+        resource: "_aws_cloudformation_68a282c8.IResourceScanRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9ae8125f479686d115cda557ebc794a21ae45fc0568d5cc3d526beeff57bae65)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForResourceScan", [resource]))
+
+    @jsii.member(jsii_name="isCfnResourceScan")
+    @builtins.classmethod
+    def is_cfn_resource_scan(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnResourceScan.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__78aa2dc88c1a91b43ac89ad62a563038a7324a44eef5d1b2efa9de0a266af6af)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourceScan", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9c0f3dc4c017c96ad15f36988d264e0f15c241c661a790034b31d2b5da822870)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0e9ba2d4539d85eb35382adb1704761513c41e9884f88498932ca558fd73a487)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPercentageCompleted")
+    def attr_percentage_completed(self) -> "IResolvable":
+        '''The percentage of the resource scan that has been completed.
+
+        :cloudformationAttribute: PercentageCompleted
+        '''
+        return typing.cast("IResolvable", jsii.get(self, "attrPercentageCompleted"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrResourceScanId")
+    def attr_resource_scan_id(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the resource scan.
+
+        :cloudformationAttribute: ResourceScanId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrResourceScanId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrScanId")
+    def attr_scan_id(self) -> builtins.str:
+        '''The unique identifier portion of the resource scan ARN.
+
+        :cloudformationAttribute: ScanId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrScanId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStartTime")
+    def attr_start_time(self) -> builtins.str:
+        '''The time that the resource scan was started.
+
+        :cloudformationAttribute: StartTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStartTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''Status of the resource scan.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceScanRef")
+    def resource_scan_ref(self) -> "_aws_cloudformation_68a282c8.ResourceScanReference":
+        '''A reference to a ResourceScan resource.'''
+        return typing.cast("_aws_cloudformation_68a282c8.ResourceScanReference", jsii.get(self, "resourceScanRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="scanFilters")
+    def scan_filters(
+        self,
+    ) -> typing.Optional[typing.Union["IResolvable", typing.List[typing.Union["IResolvable", "CfnResourceScan.ScanFilterProperty"]]]]:
+        '''The scan filters to use.'''
+        return typing.cast(typing.Optional[typing.Union["IResolvable", typing.List[typing.Union["IResolvable", "CfnResourceScan.ScanFilterProperty"]]]], jsii.get(self, "scanFilters"))
+
+    @scan_filters.setter
+    def scan_filters(
+        self,
+        value: typing.Optional[typing.Union["IResolvable", typing.List[typing.Union["IResolvable", "CfnResourceScan.ScanFilterProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__69dbe11b1e11dc071dca56e0ab337e11dd9ba1ff290ab2ded71563757ebaed8f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "scanFilters", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.CfnResourceScan.ScanFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"types": "types"},
+    )
+    class ScanFilterProperty:
+        def __init__(
+            self,
+            *,
+            types: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''A filter that is used to specify which resource types to scan.
+
+            :param types: An array of strings where each string represents an AWS resource type to scan.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-resourcescan-scanfilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                import aws_cdk as cdk
+                
+                scan_filter_property = cdk.CfnResourceScan.ScanFilterProperty(
+                    types=["types"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__75993fef3aaf8da68e223cdde04ad215f11d7a727be5131aa3fb552004596c8d)
+                check_type(argname="argument types", value=types, expected_type=type_hints["types"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if types is not None:
+                self._values["types"] = types
+
+        @builtins.property
+        def types(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''An array of strings where each string represents an AWS resource type to scan.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-resourcescan-scanfilter.html#cfn-cloudformation-resourcescan-scanfilter-types
+            '''
+            result = self._values.get("types")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ScanFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
 
 @jsii.implements(IInspectable, _aws_cloudformation_68a282c8.IResourceVersionRef)
@@ -42240,6 +43171,8 @@ __all__ = [
     "CfnDynamicReferenceProps",
     "CfnDynamicReferenceService",
     "CfnElement",
+    "CfnGeneratedTemplate",
+    "CfnGeneratedTemplateProps",
     "CfnGuardHook",
     "CfnGuardHookProps",
     "CfnHook",
@@ -42276,6 +43209,8 @@ __all__ = [
     "CfnResourceDefaultVersion",
     "CfnResourceDefaultVersionProps",
     "CfnResourceProps",
+    "CfnResourceScan",
+    "CfnResourceScanProps",
     "CfnResourceSignal",
     "CfnResourceVersion",
     "CfnResourceVersionProps",
@@ -42498,6 +43433,7 @@ __all__ = [
     "aws_aps",
     "aws_arcregionswitch",
     "aws_arczonalshift",
+    "aws_artifact",
     "aws_athena",
     "aws_auditmanager",
     "aws_autoscaling",
@@ -42508,6 +43444,7 @@ __all__ = [
     "aws_b2bi",
     "aws_backup",
     "aws_backupgateway",
+    "aws_backupsearch",
     "aws_batch",
     "aws_bcmdataexports",
     "aws_bcmpricingcalculator",
@@ -42546,6 +43483,7 @@ __all__ = [
     "aws_codestarnotifications",
     "aws_cognito",
     "aws_cognito_identitypool",
+    "aws_cognitosync",
     "aws_comprehend",
     "aws_computeoptimizer",
     "aws_config",
@@ -42557,7 +43495,6 @@ __all__ = [
     "aws_cur",
     "aws_customerprofiles",
     "aws_databrew",
-    "aws_dataexchange",
     "aws_datapipeline",
     "aws_datasync",
     "aws_datazone",
@@ -42680,6 +43617,7 @@ __all__ = [
     "aws_neptune",
     "aws_neptunegraph",
     "aws_networkfirewall",
+    "aws_networkflowmonitor",
     "aws_networkmanager",
     "aws_nimblestudio",
     "aws_notifications",
@@ -42746,6 +43684,7 @@ __all__ = [
     "aws_sam",
     "aws_scheduler",
     "aws_scheduler_targets",
+    "aws_scn",
     "aws_sdb",
     "aws_secretsmanager",
     "aws_securityagent",
@@ -42769,13 +43708,18 @@ __all__ = [
     "aws_ssmincidents",
     "aws_ssmquicksetup",
     "aws_sso",
+    "aws_states",
     "aws_stepfunctions",
     "aws_stepfunctions_tasks",
+    "aws_storagegateway",
     "aws_supportapp",
     "aws_synthetics",
     "aws_systemsmanagersap",
+    "aws_thinclient",
     "aws_timestream",
+    "aws_transcribe",
     "aws_transfer",
+    "aws_usernotifications",
     "aws_uxc",
     "aws_verifiedpermissions",
     "aws_voiceid",
@@ -42783,6 +43727,7 @@ __all__ = [
     "aws_waf",
     "aws_wafregional",
     "aws_wafv2",
+    "aws_wellarchitected",
     "aws_wisdom",
     "aws_workspaces",
     "aws_workspacesinstances",
@@ -42830,6 +43775,7 @@ if typing.TYPE_CHECKING:
     from . import aws_aps as aws_aps
     from . import aws_arcregionswitch as aws_arcregionswitch
     from . import aws_arczonalshift as aws_arczonalshift
+    from . import aws_artifact as aws_artifact
     from . import aws_athena as aws_athena
     from . import aws_auditmanager as aws_auditmanager
     from . import aws_autoscaling as aws_autoscaling
@@ -42840,6 +43786,7 @@ if typing.TYPE_CHECKING:
     from . import aws_b2bi as aws_b2bi
     from . import aws_backup as aws_backup
     from . import aws_backupgateway as aws_backupgateway
+    from . import aws_backupsearch as aws_backupsearch
     from . import aws_batch as aws_batch
     from . import aws_bcmdataexports as aws_bcmdataexports
     from . import aws_bcmpricingcalculator as aws_bcmpricingcalculator
@@ -42878,6 +43825,7 @@ if typing.TYPE_CHECKING:
     from . import aws_codestarnotifications as aws_codestarnotifications
     from . import aws_cognito as aws_cognito
     from . import aws_cognito_identitypool as aws_cognito_identitypool
+    from . import aws_cognitosync as aws_cognitosync
     from . import aws_comprehend as aws_comprehend
     from . import aws_computeoptimizer as aws_computeoptimizer
     from . import aws_config as aws_config
@@ -42889,7 +43837,6 @@ if typing.TYPE_CHECKING:
     from . import aws_cur as aws_cur
     from . import aws_customerprofiles as aws_customerprofiles
     from . import aws_databrew as aws_databrew
-    from . import aws_dataexchange as aws_dataexchange
     from . import aws_datapipeline as aws_datapipeline
     from . import aws_datasync as aws_datasync
     from . import aws_datazone as aws_datazone
@@ -43012,6 +43959,7 @@ if typing.TYPE_CHECKING:
     from . import aws_neptune as aws_neptune
     from . import aws_neptunegraph as aws_neptunegraph
     from . import aws_networkfirewall as aws_networkfirewall
+    from . import aws_networkflowmonitor as aws_networkflowmonitor
     from . import aws_networkmanager as aws_networkmanager
     from . import aws_nimblestudio as aws_nimblestudio
     from . import aws_notifications as aws_notifications
@@ -43078,6 +44026,7 @@ if typing.TYPE_CHECKING:
     from . import aws_sam as aws_sam
     from . import aws_scheduler as aws_scheduler
     from . import aws_scheduler_targets as aws_scheduler_targets
+    from . import aws_scn as aws_scn
     from . import aws_sdb as aws_sdb
     from . import aws_secretsmanager as aws_secretsmanager
     from . import aws_securityagent as aws_securityagent
@@ -43101,13 +44050,18 @@ if typing.TYPE_CHECKING:
     from . import aws_ssmincidents as aws_ssmincidents
     from . import aws_ssmquicksetup as aws_ssmquicksetup
     from . import aws_sso as aws_sso
+    from . import aws_states as aws_states
     from . import aws_stepfunctions as aws_stepfunctions
     from . import aws_stepfunctions_tasks as aws_stepfunctions_tasks
+    from . import aws_storagegateway as aws_storagegateway
     from . import aws_supportapp as aws_supportapp
     from . import aws_synthetics as aws_synthetics
     from . import aws_systemsmanagersap as aws_systemsmanagersap
+    from . import aws_thinclient as aws_thinclient
     from . import aws_timestream as aws_timestream
+    from . import aws_transcribe as aws_transcribe
     from . import aws_transfer as aws_transfer
+    from . import aws_usernotifications as aws_usernotifications
     from . import aws_uxc as aws_uxc
     from . import aws_verifiedpermissions as aws_verifiedpermissions
     from . import aws_voiceid as aws_voiceid
@@ -43115,6 +44069,7 @@ if typing.TYPE_CHECKING:
     from . import aws_waf as aws_waf
     from . import aws_wafregional as aws_wafregional
     from . import aws_wafv2 as aws_wafv2
+    from . import aws_wellarchitected as aws_wellarchitected
     from . import aws_wisdom as aws_wisdom
     from . import aws_workspaces as aws_workspaces
     from . import aws_workspacesinstances as aws_workspacesinstances
@@ -43161,6 +44116,7 @@ _SUBMODULES = {
     "aws_aps",
     "aws_arcregionswitch",
     "aws_arczonalshift",
+    "aws_artifact",
     "aws_athena",
     "aws_auditmanager",
     "aws_autoscaling",
@@ -43171,6 +44127,7 @@ _SUBMODULES = {
     "aws_b2bi",
     "aws_backup",
     "aws_backupgateway",
+    "aws_backupsearch",
     "aws_batch",
     "aws_bcmdataexports",
     "aws_bcmpricingcalculator",
@@ -43209,6 +44166,7 @@ _SUBMODULES = {
     "aws_codestarnotifications",
     "aws_cognito",
     "aws_cognito_identitypool",
+    "aws_cognitosync",
     "aws_comprehend",
     "aws_computeoptimizer",
     "aws_config",
@@ -43220,7 +44178,6 @@ _SUBMODULES = {
     "aws_cur",
     "aws_customerprofiles",
     "aws_databrew",
-    "aws_dataexchange",
     "aws_datapipeline",
     "aws_datasync",
     "aws_datazone",
@@ -43343,6 +44300,7 @@ _SUBMODULES = {
     "aws_neptune",
     "aws_neptunegraph",
     "aws_networkfirewall",
+    "aws_networkflowmonitor",
     "aws_networkmanager",
     "aws_nimblestudio",
     "aws_notifications",
@@ -43409,6 +44367,7 @@ _SUBMODULES = {
     "aws_sam",
     "aws_scheduler",
     "aws_scheduler_targets",
+    "aws_scn",
     "aws_sdb",
     "aws_secretsmanager",
     "aws_securityagent",
@@ -43432,13 +44391,18 @@ _SUBMODULES = {
     "aws_ssmincidents",
     "aws_ssmquicksetup",
     "aws_sso",
+    "aws_states",
     "aws_stepfunctions",
     "aws_stepfunctions_tasks",
+    "aws_storagegateway",
     "aws_supportapp",
     "aws_synthetics",
     "aws_systemsmanagersap",
+    "aws_thinclient",
     "aws_timestream",
+    "aws_transcribe",
     "aws_transfer",
+    "aws_usernotifications",
     "aws_uxc",
     "aws_verifiedpermissions",
     "aws_voiceid",
@@ -43446,6 +44410,7 @@ _SUBMODULES = {
     "aws_waf",
     "aws_wafregional",
     "aws_wafv2",
+    "aws_wellarchitected",
     "aws_wisdom",
     "aws_workspaces",
     "aws_workspacesinstances",
@@ -43992,6 +44957,14 @@ def _typecheckingstub__35527c1c15f1d11226cd8202c8bb59488bfa266082a6df8314d095974
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__197b8c24c09026b19d09a7be28791c8d86f8c8ed0bce5b4cd03a9aeb4b213107(
+    *,
+    generated_template_name: builtins.str,
+    template_configuration: typing.Optional[typing.Union[IResolvable, typing.Union[CfnGeneratedTemplate.TemplateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0af504bd749e0a62686c10b562deecc015abe54143ca61ed442f20ab5b08fee9(
     *,
     alias: builtins.str,
@@ -44076,6 +45049,8 @@ def _typecheckingstub__4a131cdc86d452e41ccdf75ad468f0b377a8ec03cc7f13c95235a7c90
     hook_status: builtins.str,
     lambda_function: builtins.str,
     target_operations: typing.Sequence[builtins.str],
+    auto_update: typing.Optional[typing.Union[builtins.bool, IResolvable]] = None,
+    logging_config: typing.Optional[typing.Union[IResolvable, typing.Union[CfnLambdaHook.LoggingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     stack_filters: typing.Optional[typing.Union[IResolvable, typing.Union[CfnLambdaHook.StackFiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_filters: typing.Optional[typing.Union[IResolvable, typing.Union[CfnLambdaHook.TargetFiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -44453,6 +45428,13 @@ def _typecheckingstub__4d1b62b09ffbab6ff0f59d664e89ba6054339a477f55c26bf979a6779
     *,
     type: builtins.str,
     properties: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a2bd015e637820a8493aeb3873d61b7bb7f363dafc92b9b5af36de24dc0e5b0c(
+    *,
+    scan_filters: typing.Optional[typing.Union[IResolvable, typing.Sequence[typing.Union[IResolvable, typing.Union[CfnResourceScan.ScanFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -47224,6 +48206,70 @@ def _typecheckingstub__f4382454e1b2012ad94b6695331fb17ad1e5c1efffcba7978396a05ac
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__079daed3c556ee3579b90c4b8c4e9b4946791b7e85b9c1ff1abea6ef2daed089(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    generated_template_name: builtins.str,
+    template_configuration: typing.Optional[typing.Union[IResolvable, typing.Union[CfnGeneratedTemplate.TemplateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d48f7cc3b3990716020ca171024c540d9b1bb1d60ba0f92a47473ae394affae3(
+    resource: _aws_cloudformation_68a282c8.IGeneratedTemplateRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e6a8745839adfb28053215284a3704036a8d5059836488d00705fd565a879007(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__58dd2a73a813801cf0b15900dcafa26266b4ed486dc3926924f82599cbdddd9c(
+    inspector: TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__69731edeca35262c07a4e0efab8ed5567874b263443e77844c8302e30ca4c9f6(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__838ea95b782aef96eae5e68cce0db470f2ba0630edc82b6968769e1e3e3c0e6b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8a5cea298bbdcc5fea3ee90283516b63244b816d5c9259f4a0b6d4863825e76e(
+    value: typing.Optional[typing.Union[IResolvable, CfnGeneratedTemplate.TemplateConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bb3ca98b442afd4aaf89b90afa63bf0286f2b4262cacdcc5ec285630470e0192(
+    *,
+    deletion_policy: typing.Optional[builtins.str] = None,
+    update_replace_policy: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7b286992101ca1b3ae05ac268691a23888f5e2458ec53c9f358cfb9e56218a58(
+    *,
+    resources_failed: typing.Optional[jsii.Number] = None,
+    resources_pending: typing.Optional[jsii.Number] = None,
+    resources_processing: typing.Optional[jsii.Number] = None,
+    resources_succeeded: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__af8d2663a8bac5046ca50537b031b46f870c6edd4948ed8528ca4e3ff9367b17(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -47579,6 +48625,8 @@ def _typecheckingstub__407b4a631e3a832f02376728222302ded8f1ba90d2538b0469e5b9964
     hook_status: builtins.str,
     lambda_function: builtins.str,
     target_operations: typing.Sequence[builtins.str],
+    auto_update: typing.Optional[typing.Union[builtins.bool, IResolvable]] = None,
+    logging_config: typing.Optional[typing.Union[IResolvable, typing.Union[CfnLambdaHook.LoggingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     stack_filters: typing.Optional[typing.Union[IResolvable, typing.Union[CfnLambdaHook.StackFiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_filters: typing.Optional[typing.Union[IResolvable, typing.Union[CfnLambdaHook.TargetFiltersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -47639,6 +48687,18 @@ def _typecheckingstub__c939eb89d0bbf1e467d3cada5ca3624fb0c5c0e583c9063149c81f825
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__53a8fc968b06c25349ace7ccbffd32e448d214adb51415f103df40f2574c1fb5(
+    value: typing.Optional[typing.Union[builtins.bool, IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f5336ce2ed282bf7c5ee1ecc88b6762e307a0c7d7faccd68d92ecaadc89fb264(
+    value: typing.Optional[typing.Union[IResolvable, CfnLambdaHook.LoggingConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b3b265cde01add2f07458da4c365ab2135a7f387383ca39d0b26bfac5dbed2f2(
     value: typing.Optional[typing.Union[IResolvable, CfnLambdaHook.StackFiltersProperty]],
 ) -> None:
@@ -47656,6 +48716,14 @@ def _typecheckingstub__f5099edf768971d322b0fcf34f784be6ab8e56dbcfdc245fafbda2e7e
     action: builtins.str,
     invocation_point: builtins.str,
     target_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__55dba4f1e752bc771e3f79937f0682e93fdd79ff896eea58a90700cad7cbc27c(
+    *,
+    log_group_name: builtins.str,
+    log_role_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -48025,6 +49093,52 @@ def _typecheckingstub__24b6d4eafd157ff7a5f438d4853f5dc78c9773081309212c101dae019
 
 def _typecheckingstub__dd41a20885eade487854b9a6ac2e6748158d9a5e9f3b4b25e79e4f0501f4bcc9(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__11e6c33d0374a376d37cc0a84f831b2548f39051ddcae845ec78e233f7019ffd(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    scan_filters: typing.Optional[typing.Union[IResolvable, typing.Sequence[typing.Union[IResolvable, typing.Union[CfnResourceScan.ScanFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ae8125f479686d115cda557ebc794a21ae45fc0568d5cc3d526beeff57bae65(
+    resource: _aws_cloudformation_68a282c8.IResourceScanRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__78aa2dc88c1a91b43ac89ad62a563038a7324a44eef5d1b2efa9de0a266af6af(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9c0f3dc4c017c96ad15f36988d264e0f15c241c661a790034b31d2b5da822870(
+    inspector: TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0e9ba2d4539d85eb35382adb1704761513c41e9884f88498932ca558fd73a487(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__69dbe11b1e11dc071dca56e0ab337e11dd9ba1ff290ab2ded71563757ebaed8f(
+    value: typing.Optional[typing.Union[IResolvable, typing.List[typing.Union[IResolvable, CfnResourceScan.ScanFilterProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__75993fef3aaf8da68e223cdde04ad215f11d7a727be5131aa3fb552004596c8d(
+    *,
+    types: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -11,10 +11,15 @@ Two files are needed because the ecosystem is split:
   (``//<host>/api/v4/packages/npm/:_authToken=``).
 - ``~/.yarnrc.yml`` — **Yarn 2+ ignores .npmrc** and reads its own home config:
   ``npmScopes.<owner>.npmRegistryServer`` for the mapping and ``npmRegistries``
-  for that registry's token. It also carries ``npmMinimalAgeGate: 0``: Yarn's
-  cooldown refuses packages published less than N minutes ago, which is aimed at
-  the public registry but would equally block a private package built minutes
-  earlier by our own CI.
+  for that registry's token. That scope entry also carries
+  ``npmMinimalAgeGate: 0``: Yarn's cooldown refuses packages published less than
+  N minutes ago, which is aimed at the public registry but would equally block a
+  private package built minutes earlier by our own CI. The gate has to go
+  **inside the scope entry**: a scope declared in ``npmScopes`` does not inherit
+  the root value, it keeps a hardcoded 1440-minute default until set explicitly
+  (yarnpkg/berry#7192), so a root ``npmMinimalAgeGate: 0`` leaves our packages
+  quarantined. Written next to ``npmRegistryServer``, matching what the
+  ``registry-auth.yml`` CI template already does.
 
 The token is always attached to the GitLab host and never posed as a global
 setting, so no request to a public registry can carry it.
@@ -42,7 +47,8 @@ from .targets import RegistryTargets
 
 _AUTH_SUFFIX = ":_authToken"
 
-# Yarn's publish cooldown, in minutes. Zero disables it — see the module docstring.
+# Yarn's publish cooldown, in minutes, set inside the scope entry (a declared scope
+# ignores the root value — see the module docstring). Zero disables it.
 _MINIMAL_AGE_GATE_KEY = "npmMinimalAgeGate"
 _MINIMAL_AGE_GATE = 0
 
@@ -167,7 +173,7 @@ class NpmConsumer(RegistryConsumer):
             and bool(registry_entry.get("npmAuthToken"))
             and isinstance(scope_entry, dict)
             and bool(scope_entry.get("npmRegistryServer"))
-            and yarnrc.get(_MINIMAL_AGE_GATE_KEY) == _MINIMAL_AGE_GATE
+            and scope_entry.get(_MINIMAL_AGE_GATE_KEY) == _MINIMAL_AGE_GATE
         )
 
         locations = tuple(str(path) for path, ok in ((npmrc_path(), npmrc_ok), (yarnrc_path(), yarn_ok)) if ok)
@@ -218,16 +224,22 @@ class NpmConsumer(RegistryConsumer):
         scopes = _nested_mapping(data, "npmScopes")
         scope_entry = _nested_mapping(scopes, targets.owner)
         scope_entry["npmRegistryServer"] = targets.npm_registry
+        scope_entry[_MINIMAL_AGE_GATE_KEY] = _MINIMAL_AGE_GATE
         scopes[targets.owner] = scope_entry
         data["npmScopes"] = scopes
+
+        # Earlier versions wrote the gate at the root, which our scope never picks up.
+        # Drop that key so the home ends up with one gate, in the only place that works
+        # — but only when it holds the value we used to write, never a cooldown the
+        # user chose for everything else.
+        if data.get(_MINIMAL_AGE_GATE_KEY) == _MINIMAL_AGE_GATE:
+            data.pop(_MINIMAL_AGE_GATE_KEY)
 
         registries = _nested_mapping(data, "npmRegistries")
         registry_entry = _nested_mapping(registries, targets.npm_auth_key)
         registry_entry["npmAuthToken"] = token
         registries[targets.npm_auth_key] = registry_entry
         data["npmRegistries"] = registries
-
-        data[_MINIMAL_AGE_GATE_KEY] = _MINIMAL_AGE_GATE
 
         updated = _dump_yarnrc(data)
         if updated == existing:
@@ -269,15 +281,25 @@ class NpmConsumer(RegistryConsumer):
                 data.pop("npmRegistries", None)
 
         scopes = _nested_mapping(data, "npmScopes")
-        if targets.owner and scopes.pop(targets.owner, None) is not None:
-            touched = True
-            if scopes:
-                data["npmScopes"] = scopes
-            else:
+        scope_entry = scopes.get(targets.owner) if targets.owner else None
+        if isinstance(scope_entry, MutableMapping):
+            # Key by key rather than dropping the whole scope entry: anything the user
+            # added next to our two keys is theirs and stays.
+            if scope_entry.pop("npmRegistryServer", None) is not None:
+                touched = True
+            # Only drop the gate when we are the ones who set it to zero — a user who
+            # picked their own cooldown keeps it.
+            if scope_entry.get(_MINIMAL_AGE_GATE_KEY) == _MINIMAL_AGE_GATE:
+                scope_entry.pop(_MINIMAL_AGE_GATE_KEY)
+                touched = True
+            # `scopes` is the mapping from the file, edited in place — an emptied scope
+            # entry leaves no trace behind, and neither does an emptied `npmScopes`.
+            if not scope_entry:
+                scopes.pop(targets.owner)
+            if not scopes:
                 data.pop("npmScopes", None)
 
-        # Only drop the gate when we are the ones who set it to zero — a user who
-        # picked their own cooldown keeps it.
+        # A root gate left by a version that wrote it there — same guard, same reason.
         if data.get(_MINIMAL_AGE_GATE_KEY) == _MINIMAL_AGE_GATE:
             data.pop(_MINIMAL_AGE_GATE_KEY)
             touched = True

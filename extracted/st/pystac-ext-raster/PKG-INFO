@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pystac-ext-raster
-Version: 1.1.0
+Version: 1.1.1
 Summary: Raster extension for PySTAC
 Project-URL: Documentation, https://pystac.readthedocs.io
 Project-URL: Repository, https://github.com/stac-utils/pystac

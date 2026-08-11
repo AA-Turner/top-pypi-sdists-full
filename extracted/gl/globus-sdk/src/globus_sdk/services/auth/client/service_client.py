@@ -71,6 +71,10 @@ class AuthClient(client.BaseClient):
         AuthScopes.email,
     ]
 
+    # annotate but do not assign 'resource_server'
+    # because we know that the classproperty of this name will evaluate to a string
+    resource_server: str
+
     def __init__(
         self,
         environment: str | None = None,

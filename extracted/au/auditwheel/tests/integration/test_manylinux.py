@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import itertools
 import json
 import logging
 import os
@@ -15,16 +16,17 @@ from typing import TYPE_CHECKING, Any
 
 import docker
 import pytest
-
-if TYPE_CHECKING:
-    from collections.abc import Generator
-
-    from docker.models.containers import Container
+from elftools.elf.dynamic import DynamicSection
 from elftools.elf.elffile import ELFFile
 
 from auditwheel.architecture import Architecture
 from auditwheel.libc import Libc
 from auditwheel.policy import WheelPolicies
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+    from docker.models.containers import Container
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +121,9 @@ SHOW_RE = re.compile(
     flags=re.DOTALL,
 )
 TAG_RE = re.compile(r"^manylinux_(?P<major>[0-9]+)_(?P<minor>[0-9]+)_(?P<arch>\S+)$")
+ALLOWED_PATCHERS = ["patchelf"]
+if PLATFORM in {"aarch64", "i686", "x86_64"}:
+    ALLOWED_PATCHERS.append("lief-patchelf")
 
 
 class AnyLinuxContainer:
@@ -175,9 +180,10 @@ class AnyLinuxContainer:
         expected_retcode: int = 0,
         plat: str | None = None,
         only_plat: bool = True,
-        strip: bool = False,
+        strip: bool = True,  # default to True to reveal bad interactions between patchelf & strip
         library_paths: list[str] | None = None,
         excludes: list[str] | None = None,
+        use_none_patcher: bool = False,
     ) -> str:
         plat = plat or self._policy
         args = []
@@ -193,6 +199,8 @@ class AnyLinuxContainer:
             args.append("--strip")
         if excludes:
             args.extend(f"--exclude={exclude}" for exclude in excludes)
+        if use_none_patcher:
+            args.append("--patcher=none")
         args.append(f"/io/{wheel}")
         cmd = ["bash", "-c", " ".join(args)]
         return self.exec(cmd, expected_retcode=expected_retcode, coverage=True)
@@ -398,6 +406,7 @@ def tmp_docker_image(
     finally:
         client = image.client
         assert client is not None
+        assert image.id is not None
         client.images.remove(image.id)
 
 
@@ -467,6 +476,33 @@ def build_numpy(container: AnyLinuxContainer, output_dir: Path) -> str:
 
 
 class Anylinux:
+    @staticmethod
+    def get_auditwheel_install_commands(patcher: str) -> list[str]:
+        commands = [
+            'git config --global --add safe.directory "/auditwheel_src"',
+            "pip install -U pip setuptools 'coverage[toml]>=7.13'",
+            "pip install -U -e /auditwheel_src",
+        ]
+        if patcher != "patchelf":
+            commands.append("pipx uninstall patchelf")
+        if patcher == "lief-patchelf":
+            lief_patchelf_file = {
+                "aarch64": "lief-tools-aarch64-unknown-linux-musl.zip",
+                "i686": "lief-tools-i686-unknown-linux-musl.zip",
+                "x86_64": "lief-tools-x86_64-unknown-linux-musl.zip",
+            }[PLATFORM]
+            lief_patchelf_url = "https://github.com/lief-project/LIEF/releases/download"
+            lief_patchelf_url = f"{lief_patchelf_url}/0.17.6/{lief_patchelf_file}"
+            commands.extend(
+                (
+                    f"curl -fsSLo /tmp/lief-tools.zip {lief_patchelf_url}",
+                    "bash -c 'cd /tmp && unzip /tmp/lief-tools.zip'",
+                    "mv -f /tmp/bin/lief-patchelf /usr/local/bin/",
+                    "chmod +x /usr/local/bin/lief-patchelf",
+                ),
+            )
+        return commands
+
     @pytest.fixture
     def io_folder(self, tmp_path):
         d = tmp_path / "io"
@@ -683,7 +719,7 @@ class Anylinux:
         isa_ext_check = policy != "manylinux_2_34_x86_64"
 
         # Repair the wheel using the appropriate manylinux container
-        anylinux.repair(orig_wheel, isa_ext_check=isa_ext_check)
+        anylinux.repair(orig_wheel, isa_ext_check=isa_ext_check, strip=True)
         repaired_wheel = anylinux.check_wheel("testpackage", python_abi="py3-none")
         assert_show_output(anylinux, repaired_wheel, policy, False, isa_ext_check)
 
@@ -750,6 +786,7 @@ class Anylinux:
             with HERE.joinpath("testrpath", lib, f"lib{lib}.so").open("rb") as f:
                 elf = ELFFile(f)
                 dynamic = elf.get_section_by_name(".dynamic")
+                assert isinstance(dynamic, DynamicSection)
                 tags = {t.entry.d_tag for t in dynamic.iter_tags()}
                 if dtag != "none":
                     assert f"DT_{dtag.upper()}" in tags
@@ -777,6 +814,7 @@ class Anylinux:
                 with w.open(name) as f:
                     elf = ELFFile(io.BytesIO(f.read()))
                     dynamic = elf.get_section_by_name(".dynamic")
+                    assert isinstance(dynamic, DynamicSection)
                     # DT_RUNPATH shall be removed
                     runpath_tags = [t for t in dynamic.iter_tags() if t.entry.d_tag == "DT_RUNPATH"]
                     assert len(runpath_tags) == 0
@@ -785,7 +823,7 @@ class Anylinux:
                         # liba has a dependency on libb
                         # DT_RPATH shall be overridden or written with "$ORIGIN"
                         assert len(rpath_tags) == 1
-                        assert rpath_tags[0].rpath == "$ORIGIN"
+                        assert rpath_tags[0].rpath == "$ORIGIN"  # type: ignore[attr-defined]
                     if ".libs/libb" in name:
                         # libb has no dependency
                         # DT_RPATH shall be removed
@@ -817,6 +855,7 @@ class Anylinux:
                 with w.open(name) as f:
                     elf = ELFFile(io.BytesIO(f.read()))
                     dynamic = elf.get_section_by_name(".dynamic")
+                    assert isinstance(dynamic, DynamicSection)
                     runpath_tags = [t for t in dynamic.iter_tags() if t.entry.d_tag == "DT_RUNPATH"]
                     assert len(runpath_tags) == 0
                     rpath_tags = [t for t in dynamic.iter_tags() if t.entry.d_tag == "DT_RPATH"]
@@ -888,24 +927,6 @@ class Anylinux:
                     for name in w.namelist()
                 )
 
-    def test_strip(self, anylinux: AnyLinuxContainer, python: PythonContainer) -> None:
-        policy = anylinux.policy
-
-        test_path = "/auditwheel_src/tests/integration/sample_extension"
-        orig_wheel = anylinux.build_wheel(test_path)
-        assert orig_wheel.startswith("sample_extension-0.1.0")
-
-        # Repair the wheel using the appropriate manylinux container
-        anylinux.repair(orig_wheel, strip=True)
-
-        repaired_wheel = next(anylinux.io_folder.glob(f"*{policy}*.whl")).name
-
-        python.install_wheel(repaired_wheel)
-        output = python.run(
-            "from sample_extension import test_func; print(test_func(1))",
-        )
-        assert output.strip() == "2"
-
     def test_nonpy_rpath(
         self,
         anylinux: AnyLinuxContainer,
@@ -942,7 +963,7 @@ class Anylinux:
         # Repair the wheel using the appropriate manylinux container
         if policy.startswith("manylinux_2_28_"):
             with pytest.raises(CalledProcessError):
-                anylinux.repair(orig_wheel)
+                anylinux.repair(orig_wheel, use_none_patcher=True)
             # TODO if a "permissive" mode is implemented, add the relevant flag to the
             # repair_command here and drop the return statement below
             return
@@ -1016,7 +1037,13 @@ class Anylinux:
         test_path = f"/auditwheel_src/tests/integration/arch-wheels/{source}"
         orig_wheel = f"testsimple-0.0.1-{python_abi}-linux_{arch.value}.whl"
         anylinux.exec(["cp", "-f", f"{test_path}/{orig_wheel}", f"/io/{orig_wheel}"])
-        anylinux.repair(orig_wheel, plat="auto", only_plat=False)
+        anylinux.repair(
+            orig_wheel,
+            plat="auto",
+            only_plat=False,
+            use_none_patcher=True,
+            strip=False,
+        )
         anylinux.check_wheel(
             "testsimple",
             python_abi=python_abi,
@@ -1032,13 +1059,14 @@ class TestManylinux(Anylinux):
         with tmp_docker_image(MANYLINUX_PYTHON_IMAGE_ID, commnds) as img_id:
             yield img_id
 
-    @pytest.fixture(scope="session", params=MANYLINUX_IMAGES.keys())
+    @pytest.fixture(
+        scope="session",
+        params=itertools.product(MANYLINUX_IMAGES.keys(), ALLOWED_PATCHERS),
+        ids=lambda arg: f"{arg[0]}-{arg[1].replace('-', '_')}",
+    )
     def any_manylinux_img(self, request):
-        """Each manylinux image, with auditwheel installed.
-
-        Plus up-to-date pip, setuptools and coverage
-        """
-        policy = request.param
+        """Each manylinux image, with auditwheel installed."""
+        policy, patcher = request.param
         check_set = {
             "manylinux_2_12": {"38", "39", "310"},
         }.get(policy)
@@ -1047,11 +1075,9 @@ class TestManylinux(Anylinux):
 
         base = MANYLINUX_IMAGES[policy]
         env = {"PATH": PATH[policy]}
-        commands = [
-            'git config --global --add safe.directory "/auditwheel_src"',
-            "pip install -U pip setuptools 'coverage[toml]>=7.13'",
-            "pip install -U -e /auditwheel_src",
-        ]
+        if patcher != "patchelf":
+            env["AUDITWHEEL_PATCHER"] = patcher
+        commands = Anylinux.get_auditwheel_install_commands(patcher)
         if policy in {"manylinux_2_31", "manylinux_2_35"}:
             commands.append("apt-get update -yqq")
         with tmp_docker_image(base, commands, env) as img_id:
@@ -1157,7 +1183,7 @@ class TestManylinux(Anylinux):
                 target_tag = ".".join(sorted([policy_, *aliases_]))
 
         # we shall ba able to repair the wheel for all targets
-        anylinux.repair(orig_wheel, plat=target_policy, only_plat=only_plat)
+        anylinux.repair(orig_wheel, plat=target_policy, only_plat=only_plat, use_none_patcher=True)
         if only_plat or target_tag == expect_tag:
             repaired_tag = target_tag
         else:
@@ -1190,7 +1216,7 @@ class TestManylinux(Anylinux):
         orig_wheel = anylinux.build_wheel(test_path, check_filename=False)
 
         # Repair the wheel using the appropriate manylinux container
-        anylinux.repair(orig_wheel, only_plat=False)
+        anylinux.repair(orig_wheel, only_plat=False, use_none_patcher=True)
         platform_tag = f"manylinux_2_24_x86_64.{policy}"
         repaired_wheel = anylinux.check_wheel(
             "test_mvec",
@@ -1201,32 +1227,6 @@ class TestManylinux(Anylinux):
 
         # Test the resulting wheel outside the manylinux container
         python.install_wheel(repaired_wheel)
-
-    def test_zlib_blacklist(self, anylinux: AnyLinuxContainer) -> None:
-        policy = anylinux.policy
-        if policy.startswith(
-            (
-                "manylinux_2_17_",
-                "manylinux_2_28_",
-                "manylinux_2_31_",
-                "manylinux_2_34_",
-                "manylinux_2_35_",
-                "manylinux_2_39_",
-            ),
-        ):
-            pytest.skip(f"{policy} image has no blacklist symbols in libz.so.1")
-
-        test_path = "/auditwheel_src/tests/integration/testzlib"
-        orig_wheel = anylinux.build_wheel(test_path)
-        assert orig_wheel.startswith("testzlib-0.0.1")
-
-        # Repair the wheel using the appropriate manylinux container
-        with pytest.raises(CalledProcessError):
-            anylinux.repair(orig_wheel)
-
-        # Check auditwheel show warns about the black listed symbols
-        output = anylinux.show(orig_wheel, verbose=True)
-        assert "black-listed symbol dependencies" in output.replace("\n", " ")
 
     @pytest.mark.skipif(PLATFORM != "aarch64", reason="glibc blacklist only for aarch64")
     def test_glibc_blacklist(self, anylinux: AnyLinuxContainer, python: PythonContainer) -> None:
@@ -1285,19 +1285,18 @@ class TestMusllinux(Anylinux):
         with tmp_docker_image(MUSLLINUX_PYTHON_IMAGE_ID, commands) as img_id:
             yield img_id
 
-    @pytest.fixture(scope="session", params=MUSLLINUX_IMAGES.keys())
+    @pytest.fixture(
+        scope="session",
+        params=itertools.product(MUSLLINUX_IMAGES.keys(), ALLOWED_PATCHERS),
+        ids=lambda arg: f"{arg[0]}-{arg[1].replace('-', '_')}",
+    )
     def any_manylinux_img(self, request):
-        """Each musllinux image, with auditwheel installed.
-
-        Plus up-to-date pip, setuptools and coverage
-        """
-        policy = request.param
+        """Each musllinux image, with auditwheel installed."""
+        policy, patcher = request.param
         base = MUSLLINUX_IMAGES[policy]
         env = {"PATH": PATH[policy]}
-        commands = [
-            'git config --global --add safe.directory "/auditwheel_src"',
-            "pip install -U pip setuptools 'coverage[toml]>=7.13'",
-            "pip install -U -e /auditwheel_src",
-        ]
+        if patcher != "patchelf":
+            env["AUDITWHEEL_PATCHER"] = patcher
+        commands = Anylinux.get_auditwheel_install_commands(patcher)
         with tmp_docker_image(base, commands, env) as img_id:
             yield policy, img_id

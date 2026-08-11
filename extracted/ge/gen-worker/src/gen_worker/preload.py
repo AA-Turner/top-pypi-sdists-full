@@ -51,11 +51,13 @@ import concurrent.futures
 import logging
 import os
 import typing
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 from . import activity as activity_mod
-from .api.binding import wire_ref
+from . import dispatch
+from .api.binding import binding_wire_refs, component_overrides, wire_ref
 from .models import residency as residency_mod
+from .models.loading import ComponentSubstitutionError
 from .models.pinned_swap import prestage_module
 from pathlib import Path
 import functools
@@ -111,6 +113,13 @@ class Preloader:
         # background stage this generation — retried only on a new desired
         # set, never in a loop.
         self._failed: set = set()
+        # pgw#1048: identities REFUSED deterministically (a composition the
+        # tree plus the injection cannot satisfy). Never cleared by a new
+        # desired set: the verdict is a function of the identity's own bytes,
+        # so re-sending the same DesiredInstance cannot change it. A hub that
+        # fixes the binding sends DIFFERENT bytes and is retried on merit —
+        # that is the progress signal here, and it is why there is no timer.
+        self._refused: set = set()
 
     # ---- inputs -----------------------------------------------------------
 
@@ -188,12 +197,29 @@ class Preloader:
             if self._stopped or self._ex.draining:
                 return False
             ident = instance.SerializeToString(deterministic=True)
-            if ident in self._failed:
+            if ident in self._failed or ident in self._refused:
                 continue
             try:
                 did = await self._stage_instance(instance)
             except asyncio.CancelledError:
                 raise
+            except ComponentSubstitutionError as exc:
+                # pgw#1048: deterministic, not a failure to retry. The tree is
+                # materialized and the injection is known, so the next desired
+                # set carrying these same bytes has the same answer — pgw#1047
+                # measured that loop as 9 minutes of a paid pod.
+                self._refused.add(ident)
+                logger.error(
+                    "rotation preload REFUSED %s: %s", instance.function_name, exc)
+                activity_mod.emit_event(
+                    activity_mod.KIND_ROTATION_PRELOAD,
+                    f"fn={instance.function_name} "
+                    f"generation={self._generation}: stage REFUSED, terminal "
+                    f"for this dispatched identity (a refetch cannot satisfy "
+                    f"it): {type(exc).__name__}: {exc}",
+                    phase="stage_refused",
+                )
+                continue
             except Exception as exc:
                 self._failed.add(ident)
                 logger.warning(
@@ -229,38 +255,36 @@ class Preloader:
         spec = ex.specs.get(instance.function_name)
         if spec is None or spec.cls is None:
             return None
-        remapped: List[pb.ModelBinding] = []
+        orders: Dict[str, dispatch.SlotOrder] = {}
         for m in instance.models:
-            binding = pb.ModelBinding()
-            binding.CopyFrom(m)
-            binding.slot = m.slot.strip()
+            slot = m.slot.strip()
             ref = m.ref.strip()
             pick = ex._model_resolutions.get(ref)
             if pick is not None and pick[0]:
                 ref = pick[0]
-            binding.ref = ref
-            remapped.append(binding)
-        if any(not b.slot or not b.ref for b in remapped):
-            return None
-        run = pb.RunJob(function_name=instance.function_name, models=remapped)
+            if not slot or not ref:
+                return None
+            orders[slot] = dispatch.SlotOrder(
+                ref=ref,
+                components=tuple(sorted(
+                    (str(k).strip(), str(v).strip())
+                    for k, v in m.components.items()
+                    if str(k).strip() and str(v).strip())),
+            )
         try:
-            return ex._effective_spec(spec, run)
+            return ex._dispatched_spec(spec, orders)
         except Exception:
             return None
 
     def _instance_refs(self, effective: Any) -> Dict[str, Any]:
         """ref -> binding for every setup slot and component override."""
-        # CYCLE: executor imports preload; hoisting makes `gen_worker.entrypoint`
-        # fail at boot.
-        from .executor import _binding_wire_refs, _component_overrides
-
         ex = self._ex
         out: Dict[str, Any] = {}
         for slot in ex._setup_slots(effective):
             binding = effective.models[slot]
-            for ref in _binding_wire_refs(binding):
+            for ref in binding_wire_refs(binding):
                 out.setdefault(ref, binding)
-            for _comp, comp_ref in _component_overrides(binding):
+            for _comp, comp_ref in component_overrides(binding):
                 try:
                     out.setdefault(comp_ref, ex._hub_binding(comp_ref))
                 except ValueError:
@@ -350,8 +374,6 @@ class Preloader:
         disk reads). Shared components already resident stay untouched —
         the component-first ruling by construction."""
 
-        # CYCLE (see _stage_components_): executor imports preload.
-        from .executor import _component_overrides
         # CYCLE: models.loading is reached through executor, which imports preload.
         from .models.loading import load_component_override
 
@@ -383,7 +405,7 @@ class Preloader:
             if not digests:
                 continue
             sizes = ex.store.component_sizes(ref)
-            overridden = {c for c, _ in _component_overrides(binding)}
+            overridden = {c for c, _ in component_overrides(binding)}
             for comp, digest in sorted(digests.items()):
                 if self._stopped or self._ex.draining:
                     return staged_any

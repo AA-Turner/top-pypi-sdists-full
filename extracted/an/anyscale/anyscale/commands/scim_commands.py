@@ -93,9 +93,21 @@ def scim_cli() -> None:
     output_formats=[OutputFormat.TEXT],
     examples=[
         CommandExample(
-            description="Preview the permission changes without applying them.",
+            description="Preview the permission changes without applying them (dry-run).",
             command="anyscale scim enforce-groups --dry-run",
-            output_raw=command_examples.SCIM_ENFORCE_GROUP_PERMISSIONS_EXAMPLE,
+            output_raw=(
+                "=== Permission Changes Preview ===\n\n"
+                "user1@example.com:\n"
+                "  - clouds:\n"
+                "      - prod-cloud: collaborator -> readonly\n"
+                "  - organization: owner -> collaborator\n\n"
+                "(No changes were applied. Remove --dry-run to apply changes.)\n"
+            ),
+        ),
+        CommandExample(
+            description="Apply permission changes to match user-group membership (prompts for confirmation).",
+            command="anyscale scim enforce-groups",
+            output_raw="SCIM permission migration completed successfully.\n",
         ),
     ],
 )

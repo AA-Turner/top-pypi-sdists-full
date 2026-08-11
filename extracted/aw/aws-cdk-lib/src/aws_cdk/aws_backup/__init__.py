@@ -5232,6 +5232,603 @@ class CfnFrameworkProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_backup_bc4c1c6b.ILegalHoldRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnLegalHold(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_backup.CfnLegalHold",
+):
+    '''Creates a legal hold on recovery points (backups).
+
+    A legal hold prevents backups from being deleted while under hold.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-legalhold.html
+    :cloudformationResource: AWS::Backup::LegalHold
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_backup as backup
+        
+        cfn_legal_hold = backup.CfnLegalHold(self, "MyCfnLegalHold",
+            description="description",
+            recovery_point_selection=backup.CfnLegalHold.RecoveryPointSelectionProperty(
+                date_range=backup.CfnLegalHold.DateRangeProperty(
+                    from_date="fromDate",
+                    to_date="toDate"
+                ),
+                resource_identifiers=["resourceIdentifiers"],
+                vault_names=["vaultNames"]
+            ),
+            title="title",
+        
+            # the properties below are optional
+            tags=[backup.CfnLegalHold.TagsItemsProperty(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        description: builtins.str,
+        recovery_point_selection: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLegalHold.RecoveryPointSelectionProperty", typing.Dict[builtins.str, typing.Any]]],
+        title: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnLegalHold.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Backup::LegalHold``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param description: The description of the legal hold.
+        :param recovery_point_selection: The criteria to assign a set of resources, such as resource types or backup vaults.
+        :param title: The title of the legal hold.
+        :param tags: Optional tags to include.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__85990031a70e013305fa6caf419cfe8fd61e9c10d475eb95b27f44576314deaa)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnLegalHoldProps(
+            description=description,
+            recovery_point_selection=recovery_point_selection,
+            title=title,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForLegalHold")
+    @builtins.classmethod
+    def arn_for_legal_hold(
+        cls,
+        resource: "_aws_backup_bc4c1c6b.ILegalHoldRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__74f4a7942ab241df18f6385abcc1aa06ed4d494a913e9f345cbba8c6d1926dc9)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForLegalHold", [resource]))
+
+    @jsii.member(jsii_name="isCfnLegalHold")
+    @builtins.classmethod
+    def is_cfn_legal_hold(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnLegalHold.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7e4ddb6cacce6138ab854cede8e1e65cc09be544e111686474fa7fd0615724a3)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLegalHold", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__abc128b83fc36f89b717c88b7ec5fff4b0add26c984dbb0abfc376fc97cf17b5)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__56c6006fb8211b6ea2d26065b69986fb7b99f12ae49bfbdbcde043392acc2c60)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the legal hold.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationDate")
+    def attr_creation_date(self) -> builtins.str:
+        '''The time when the legal hold was created.
+
+        :cloudformationAttribute: CreationDate
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationDate"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLegalHoldId")
+    def attr_legal_hold_id(self) -> builtins.str:
+        '''The ID of the legal hold.
+
+        :cloudformationAttribute: LegalHoldId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLegalHoldId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the legal hold.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="legalHoldRef")
+    def legal_hold_ref(self) -> "_aws_backup_bc4c1c6b.LegalHoldReference":
+        '''A reference to a LegalHold resource.'''
+        return typing.cast("_aws_backup_bc4c1c6b.LegalHoldReference", jsii.get(self, "legalHoldRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> builtins.str:
+        '''The description of the legal hold.'''
+        return typing.cast(builtins.str, jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fd2a2a068c5383a2e16f264d647d77085eae723a3c95fdb5f58b7ae711a0cd74)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="recoveryPointSelection")
+    def recovery_point_selection(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLegalHold.RecoveryPointSelectionProperty"]:
+        '''The criteria to assign a set of resources, such as resource types or backup vaults.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLegalHold.RecoveryPointSelectionProperty"], jsii.get(self, "recoveryPointSelection"))
+
+    @recovery_point_selection.setter
+    def recovery_point_selection(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLegalHold.RecoveryPointSelectionProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__182c29dca23fcb27279e87a6ea6cdc0e5311518470b4efb1e75d3291f167a399)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "recoveryPointSelection", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="title")
+    def title(self) -> builtins.str:
+        '''The title of the legal hold.'''
+        return typing.cast(builtins.str, jsii.get(self, "title"))
+
+    @title.setter
+    def title(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2c7fd2fd17b18fb8418cb15b4a780d90febaab7798b33ee2548a26885e150662)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "title", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["CfnLegalHold.TagsItemsProperty"]]:
+        '''Optional tags to include.'''
+        return typing.cast(typing.Optional[typing.List["CfnLegalHold.TagsItemsProperty"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["CfnLegalHold.TagsItemsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__990f4770a713683ab3b0f99d29563803dd78d1708c91bbe12d8c782623e0aa8d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_backup.CfnLegalHold.DateRangeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"from_date": "fromDate", "to_date": "toDate"},
+    )
+    class DateRangeProperty:
+        def __init__(self, *, from_date: builtins.str, to_date: builtins.str) -> None:
+            '''A date range for filtering recovery points.
+
+            :param from_date: The beginning date, inclusive. ISO 8601 date-time.
+            :param to_date: The end date, inclusive. ISO 8601 date-time.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-legalhold-daterange.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_backup as backup
+                
+                date_range_property = backup.CfnLegalHold.DateRangeProperty(
+                    from_date="fromDate",
+                    to_date="toDate"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__df808a054b03d4e903e2f493f6cae7637e657cc4c50f6d7ca3c1d976414a668b)
+                check_type(argname="argument from_date", value=from_date, expected_type=type_hints["from_date"])
+                check_type(argname="argument to_date", value=to_date, expected_type=type_hints["to_date"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "from_date": from_date,
+                "to_date": to_date,
+            }
+
+        @builtins.property
+        def from_date(self) -> builtins.str:
+            '''The beginning date, inclusive.
+
+            ISO 8601 date-time.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-legalhold-daterange.html#cfn-backup-legalhold-daterange-fromdate
+            '''
+            result = self._values.get("from_date")
+            assert result is not None, "Required property 'from_date' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def to_date(self) -> builtins.str:
+            '''The end date, inclusive.
+
+            ISO 8601 date-time.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-legalhold-daterange.html#cfn-backup-legalhold-daterange-todate
+            '''
+            result = self._values.get("to_date")
+            assert result is not None, "Required property 'to_date' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DateRangeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_backup.CfnLegalHold.RecoveryPointSelectionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "date_range": "dateRange",
+            "resource_identifiers": "resourceIdentifiers",
+            "vault_names": "vaultNames",
+        },
+    )
+    class RecoveryPointSelectionProperty:
+        def __init__(
+            self,
+            *,
+            date_range: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLegalHold.DateRangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            resource_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
+            vault_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''The criteria to assign a set of resources, such as resource types or backup vaults.
+
+            :param date_range: A date range for filtering recovery points.
+            :param resource_identifiers: The resources included in the resource selection.
+            :param vault_names: The names of the vaults in which the selected recovery points are contained.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-legalhold-recoverypointselection.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_backup as backup
+                
+                recovery_point_selection_property = backup.CfnLegalHold.RecoveryPointSelectionProperty(
+                    date_range=backup.CfnLegalHold.DateRangeProperty(
+                        from_date="fromDate",
+                        to_date="toDate"
+                    ),
+                    resource_identifiers=["resourceIdentifiers"],
+                    vault_names=["vaultNames"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c5e7e970aa723ca8cf734fb15665ca7920452e43323d30f28b435e039a741b9f)
+                check_type(argname="argument date_range", value=date_range, expected_type=type_hints["date_range"])
+                check_type(argname="argument resource_identifiers", value=resource_identifiers, expected_type=type_hints["resource_identifiers"])
+                check_type(argname="argument vault_names", value=vault_names, expected_type=type_hints["vault_names"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if date_range is not None:
+                self._values["date_range"] = date_range
+            if resource_identifiers is not None:
+                self._values["resource_identifiers"] = resource_identifiers
+            if vault_names is not None:
+                self._values["vault_names"] = vault_names
+
+        @builtins.property
+        def date_range(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLegalHold.DateRangeProperty"]]:
+            '''A date range for filtering recovery points.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-legalhold-recoverypointselection.html#cfn-backup-legalhold-recoverypointselection-daterange
+            '''
+            result = self._values.get("date_range")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLegalHold.DateRangeProperty"]], result)
+
+        @builtins.property
+        def resource_identifiers(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The resources included in the resource selection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-legalhold-recoverypointselection.html#cfn-backup-legalhold-recoverypointselection-resourceidentifiers
+            '''
+            result = self._values.get("resource_identifiers")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def vault_names(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The names of the vaults in which the selected recovery points are contained.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-legalhold-recoverypointselection.html#cfn-backup-legalhold-recoverypointselection-vaultnames
+            '''
+            result = self._values.get("vault_names")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RecoveryPointSelectionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_backup.CfnLegalHold.TagsItemsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class TagsItemsProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''
+            :param key: The key name of the tag.
+            :param value: The value for the tag.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-legalhold-tagsitems.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_backup as backup
+                
+                tags_items_property = backup.CfnLegalHold.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__863c6cc6ecb789f735e54bec6e597e3ff3c3e8f6ae0a4e89a78622f88ef77936)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''The key name of the tag.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-legalhold-tagsitems.html#cfn-backup-legalhold-tagsitems-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''The value for the tag.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-backup-legalhold-tagsitems.html#cfn-backup-legalhold-tagsitems-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TagsItemsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_backup.CfnLegalHoldProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "recovery_point_selection": "recoveryPointSelection",
+        "title": "title",
+        "tags": "tags",
+    },
+)
+class CfnLegalHoldProps:
+    def __init__(
+        self,
+        *,
+        description: builtins.str,
+        recovery_point_selection: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLegalHold.RecoveryPointSelectionProperty", typing.Dict[builtins.str, typing.Any]]],
+        title: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnLegalHold.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLegalHold``.
+
+        :param description: The description of the legal hold.
+        :param recovery_point_selection: The criteria to assign a set of resources, such as resource types or backup vaults.
+        :param title: The title of the legal hold.
+        :param tags: Optional tags to include.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-legalhold.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_backup as backup
+            
+            cfn_legal_hold_props = backup.CfnLegalHoldProps(
+                description="description",
+                recovery_point_selection=backup.CfnLegalHold.RecoveryPointSelectionProperty(
+                    date_range=backup.CfnLegalHold.DateRangeProperty(
+                        from_date="fromDate",
+                        to_date="toDate"
+                    ),
+                    resource_identifiers=["resourceIdentifiers"],
+                    vault_names=["vaultNames"]
+                ),
+                title="title",
+            
+                # the properties below are optional
+                tags=[backup.CfnLegalHold.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3fa7a38798f7aa959844e4717afbf35dbc2a850982a65b78194a8532288985e8)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument recovery_point_selection", value=recovery_point_selection, expected_type=type_hints["recovery_point_selection"])
+            check_type(argname="argument title", value=title, expected_type=type_hints["title"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "description": description,
+            "recovery_point_selection": recovery_point_selection,
+            "title": title,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''The description of the legal hold.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-legalhold.html#cfn-backup-legalhold-description
+        '''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def recovery_point_selection(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLegalHold.RecoveryPointSelectionProperty"]:
+        '''The criteria to assign a set of resources, such as resource types or backup vaults.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-legalhold.html#cfn-backup-legalhold-recoverypointselection
+        '''
+        result = self._values.get("recovery_point_selection")
+        assert result is not None, "Required property 'recovery_point_selection' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLegalHold.RecoveryPointSelectionProperty"], result)
+
+    @builtins.property
+    def title(self) -> builtins.str:
+        '''The title of the legal hold.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-legalhold.html#cfn-backup-legalhold-title
+        '''
+        result = self._values.get("title")
+        assert result is not None, "Required property 'title' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["CfnLegalHold.TagsItemsProperty"]]:
+        '''Optional tags to include.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-backup-legalhold.html#cfn-backup-legalhold-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnLegalHold.TagsItemsProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLegalHoldProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_backup_bc4c1c6b.ILogicallyAirGappedBackupVaultRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnLogicallyAirGappedBackupVault(
     _aws_cdk_0cae9daa.CfnResource,
@@ -8833,6 +9430,8 @@ __all__ = [
     "CfnBackupVaultProps",
     "CfnFramework",
     "CfnFrameworkProps",
+    "CfnLegalHold",
+    "CfnLegalHoldProps",
     "CfnLogicallyAirGappedBackupVault",
     "CfnLogicallyAirGappedBackupVaultProps",
     "CfnReportPlan",
@@ -9479,6 +10078,101 @@ def _typecheckingstub__a04013c0cacc7cf95b5f7954572128dbc2c4529bb364b61a38c324e4d
     framework_description: typing.Optional[builtins.str] = None,
     framework_name: typing.Optional[builtins.str] = None,
     framework_tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__85990031a70e013305fa6caf419cfe8fd61e9c10d475eb95b27f44576314deaa(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    description: builtins.str,
+    recovery_point_selection: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLegalHold.RecoveryPointSelectionProperty, typing.Dict[builtins.str, typing.Any]]],
+    title: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnLegalHold.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__74f4a7942ab241df18f6385abcc1aa06ed4d494a913e9f345cbba8c6d1926dc9(
+    resource: _aws_backup_bc4c1c6b.ILegalHoldRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e4ddb6cacce6138ab854cede8e1e65cc09be544e111686474fa7fd0615724a3(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__abc128b83fc36f89b717c88b7ec5fff4b0add26c984dbb0abfc376fc97cf17b5(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__56c6006fb8211b6ea2d26065b69986fb7b99f12ae49bfbdbcde043392acc2c60(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fd2a2a068c5383a2e16f264d647d77085eae723a3c95fdb5f58b7ae711a0cd74(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__182c29dca23fcb27279e87a6ea6cdc0e5311518470b4efb1e75d3291f167a399(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLegalHold.RecoveryPointSelectionProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c7fd2fd17b18fb8418cb15b4a780d90febaab7798b33ee2548a26885e150662(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__990f4770a713683ab3b0f99d29563803dd78d1708c91bbe12d8c782623e0aa8d(
+    value: typing.Optional[typing.List[CfnLegalHold.TagsItemsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__df808a054b03d4e903e2f493f6cae7637e657cc4c50f6d7ca3c1d976414a668b(
+    *,
+    from_date: builtins.str,
+    to_date: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c5e7e970aa723ca8cf734fb15665ca7920452e43323d30f28b435e039a741b9f(
+    *,
+    date_range: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLegalHold.DateRangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resource_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
+    vault_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__863c6cc6ecb789f735e54bec6e597e3ff3c3e8f6ae0a4e89a78622f88ef77936(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3fa7a38798f7aa959844e4717afbf35dbc2a850982a65b78194a8532288985e8(
+    *,
+    description: builtins.str,
+    recovery_point_selection: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLegalHold.RecoveryPointSelectionProperty, typing.Dict[builtins.str, typing.Any]]],
+    title: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnLegalHold.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

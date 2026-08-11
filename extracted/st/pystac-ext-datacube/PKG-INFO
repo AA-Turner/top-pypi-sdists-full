@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pystac-ext-datacube
-Version: 2.2.0
+Version: 2.2.1
 Summary: Datacube extension for PySTAC
 Project-URL: Documentation, https://pystac.readthedocs.io
 Project-URL: Repository, https://github.com/stac-utils/pystac

@@ -31,7 +31,12 @@ from ..tool import Tool
 from ..tracing import generation_span
 from ..tracing.span_data import GenerationSpanData
 from ..tracing.spans import Span
-from ..usage import Usage
+from ..usage import (
+    Usage,
+    _raw_usage_snapshot,
+    _requests_for_response_without_usage,
+    model_usage_to_span_usage,
+)
 from ..util._error_tracing import model_span_errors
 from ..util._json import _to_dump_compatible
 from ._openai_retry import get_openai_retry_advice
@@ -277,7 +282,7 @@ class OpenAIChatCompletionsModel(Model):
                         json.dumps(message.model_dump(), indent=2, ensure_ascii=False),
                     )
                 else:
-                    finish_reason = first_choice.finish_reason if first_choice else "-"
+                    finish_reason = first_choice.finish_reason if first_choice is not None else "-"
                     logger.debug("LLM resp had no message. finish_reason: %s", finish_reason)
 
             usage = (
@@ -290,8 +295,9 @@ class OpenAIChatCompletionsModel(Model):
                     input_tokens_details=response.usage.prompt_tokens_details,  # type: ignore[arg-type]
                     output_tokens_details=response.usage.completion_tokens_details,  # type: ignore[arg-type]
                 )
-                if response.usage
-                else Usage()
+                if response.usage is not None
+                # The request completed, so it counts even when the provider omits usage.
+                else Usage(requests=1)
             )
 
             # Some providers signal a filtered non-streaming completion only through
@@ -336,7 +342,11 @@ class OpenAIChatCompletionsModel(Model):
             )
 
             logprob_models = None
-            if first_choice and first_choice.logprobs and first_choice.logprobs.content:
+            if (
+                first_choice is not None
+                and first_choice.logprobs is not None
+                and first_choice.logprobs.content
+            ):
                 logprob_models = ChatCmplHelpers.convert_logprobs_for_output_text(
                     first_choice.logprobs.content
                 )
@@ -348,7 +358,38 @@ class OpenAIChatCompletionsModel(Model):
                 output=items,
                 usage=usage,
                 response_id=None,
+                # The OpenAI SDK records the `x-request-id` header on every parsed response,
+                # so callers can inspect the same debugging handle as on the Responses path.
+                request_id=getattr(response, "_request_id", None),
+                raw_usage=(
+                    _raw_usage_snapshot(response.usage)
+                    if model_settings.preserve_raw_usage is True
+                    else None
+                ),
             )
+
+    @staticmethod
+    def _attach_stream_request_id(response: Response, stream: Any) -> None:
+        """Copy the OpenAI request ID onto the synthesized streamed response.
+
+        The streamed Chat Completions response is built locally rather than returned by the
+        API, so the `x-request-id` header has to be carried over from the underlying HTTP
+        response. The terminal response is a `model_copy()` of this object, and that copy
+        preserves the private attribute, so `Runner` can read it back. Custom clients and
+        test doubles may yield a bare async iterator with no HTTP response attached.
+        """
+        headers = getattr(getattr(stream, "response", None), "headers", None)
+        if headers is None:
+            return
+        request_id = headers.get("x-request-id")
+        if request_id is None:
+            return
+        try:
+            response._request_id = request_id
+        except Exception:
+            # Matches the Responses adapter: a custom response object that rejects the
+            # attribute must not break the stream for a debugging field.
+            return
 
     def _attach_logprobs_to_output(
         self, output_items: list[ResponseOutputItem], logprobs: list[Logprob]
@@ -409,6 +450,8 @@ class OpenAIChatCompletionsModel(Model):
                 prompt=None,
             )
 
+            self._attach_stream_request_id(response, stream)
+
             final_response: Response | None = None
             stream_for_handler: AsyncIterator[ChatCompletionChunk]
             if self._buffer_streamed_tool_calls:
@@ -416,6 +459,9 @@ class OpenAIChatCompletionsModel(Model):
             else:
                 stream_for_handler = stream
 
+            raw_usage_options: dict[str, Any] = (
+                {"preserve_raw_usage": True} if model_settings.preserve_raw_usage is True else {}
+            )
             close_stream_in_background = False
             yielded_terminal_event = False
             try:
@@ -424,10 +470,17 @@ class OpenAIChatCompletionsModel(Model):
                     cast(AsyncStream[ChatCompletionChunk], stream_for_handler),
                     model=self.model,
                     strict_feature_validation=self._strict_feature_validation,
+                    **raw_usage_options,
                 ):
                     if chunk.type == "response.completed":
                         final_response = chunk.response
                         yielded_terminal_event = True
+                        # Populate the span before yielding, because a caller that stops
+                        # consuming at the terminal event closes this generator and never
+                        # resumes it, which would leave the span without usage.
+                        self._populate_stream_generation_span(
+                            span_generation, final_response, tracing
+                        )
 
                     yield chunk
             except asyncio.CancelledError:
@@ -448,26 +501,36 @@ class OpenAIChatCompletionsModel(Model):
                         else:
                             raise
 
-            if tracing.include_data() and final_response:
-                span_generation.span_data.output = [final_response.model_dump()]
+    @staticmethod
+    def _populate_stream_generation_span(
+        span_generation: Span[GenerationSpanData],
+        final_response: Response,
+        tracing: ModelTracing,
+    ) -> None:
+        if tracing.include_data():
+            span_generation.span_data.output = [final_response.model_dump()]
 
-            if final_response and final_response.usage:
-                span_generation.span_data.usage = {
-                    "requests": 1,
-                    "input_tokens": final_response.usage.input_tokens,
-                    "output_tokens": final_response.usage.output_tokens,
-                    "total_tokens": final_response.usage.total_tokens,
-                    "input_tokens_details": (
-                        final_response.usage.input_tokens_details.model_dump()
-                        if final_response.usage.input_tokens_details
-                        else {"cached_tokens": 0, "cache_write_tokens": 0}
-                    ),
-                    "output_tokens_details": (
-                        final_response.usage.output_tokens_details.model_dump()
-                        if final_response.usage.output_tokens_details
-                        else {"reasoning_tokens": 0}
-                    ),
-                }
+        if final_response.usage is not None:
+            span_generation.span_data.usage = {
+                "requests": 1,
+                "input_tokens": final_response.usage.input_tokens,
+                "output_tokens": final_response.usage.output_tokens,
+                "total_tokens": final_response.usage.total_tokens,
+                "input_tokens_details": (
+                    final_response.usage.input_tokens_details.model_dump()
+                    if final_response.usage.input_tokens_details is not None
+                    else {"cached_tokens": 0, "cache_write_tokens": 0}
+                ),
+                "output_tokens_details": (
+                    final_response.usage.output_tokens_details.model_dump()
+                    if final_response.usage.output_tokens_details is not None
+                    else {"reasoning_tokens": 0}
+                ),
+            }
+        elif _requests_for_response_without_usage(final_response):
+            # Keep streamed tracing aligned with the non-streaming path, which records the
+            # request even when the provider reports no usage.
+            span_generation.span_data.usage = model_usage_to_span_usage(Usage(requests=1))
 
     def _handle_unsupported_server_managed_conversation_state(
         self,
@@ -568,12 +631,6 @@ class OpenAIChatCompletionsModel(Model):
         if tracing.include_data():
             span.span_data.input = converted_messages
 
-        if model_settings.parallel_tool_calls and tools:
-            parallel_tool_calls: bool | Omit = True
-        elif model_settings.parallel_tool_calls is False:
-            parallel_tool_calls = False
-        else:
-            parallel_tool_calls = omit
         tool_choice = Converter.convert_tool_choice(model_settings.tool_choice)
         response_format = Converter.convert_response_format(output_schema)
 
@@ -584,6 +641,11 @@ class OpenAIChatCompletionsModel(Model):
 
         converted_tools = _to_dump_compatible(converted_tools)
         tools_param = converted_tools if converted_tools else omit
+        # Chat Completions rejects parallel_tool_calls unless tools are present, so derive it
+        # from the converted list, which also covers handoff-only turns.
+        parallel_tool_calls: bool | Omit = (
+            self._non_null_or_omit(model_settings.parallel_tool_calls) if converted_tools else omit
+        )
 
         if _debug.DONT_LOG_MODEL_DATA:
             logger.debug("Calling LLM")
@@ -607,7 +669,9 @@ class OpenAIChatCompletionsModel(Model):
                 response_format,
             )
 
-        reasoning_effort = model_settings.reasoning.effort if model_settings.reasoning else None
+        reasoning_effort = (
+            model_settings.reasoning.effort if model_settings.reasoning is not None else None
+        )
         store = ChatCmplHelpers.get_store_param(self._get_client(), model_settings)
 
         stream_options = ChatCmplHelpers.get_stream_options_param(

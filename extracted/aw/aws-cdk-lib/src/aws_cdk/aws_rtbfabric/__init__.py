@@ -68,12 +68,14 @@ class _LazyImport:
 if typing.TYPE_CHECKING:
 
     import aws_cdk as _aws_cdk_0cae9daa
+    import aws_cdk.interfaces.aws_certificatemanager as _aws_certificatemanager_7969630d
     import aws_cdk.interfaces.aws_ec2 as _aws_ec2_18162e09
     import aws_cdk.interfaces.aws_rtbfabric as _aws_rtbfabric_0d6b6007
     import constructs as _constructs_77d1e7e8
 else:
 
     _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
+    _aws_certificatemanager_7969630d = _LazyImport("aws_cdk.interfaces.aws_certificatemanager")
     _aws_ec2_18162e09 = _LazyImport("aws_cdk.interfaces.aws_ec2")
     _aws_rtbfabric_0d6b6007 = _LazyImport("aws_cdk.interfaces.aws_rtbfabric")
     _constructs_77d1e7e8 = _LazyImport("constructs")
@@ -4501,7 +4503,7 @@ class CfnResponderGateway(
         security_group_ids: typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]],
         subnet_ids: typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]],
         vpc_id: typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"],
-        acm_certificate_arn: typing.Optional[builtins.str] = None,
+        acm_certificate_arn: typing.Optional[typing.Union[builtins.str, "_aws_certificatemanager_7969630d.ICertificateRef"]] = None,
         description: typing.Optional[builtins.str] = None,
         domain_name: typing.Optional[builtins.str] = None,
         gateway_type: typing.Optional[builtins.str] = None,
@@ -5513,7 +5515,7 @@ class CfnResponderGatewayProps:
         security_group_ids: typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISecurityGroupRef"]],
         subnet_ids: typing.Sequence[typing.Union[builtins.str, "_aws_ec2_18162e09.ISubnetRef"]],
         vpc_id: typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"],
-        acm_certificate_arn: typing.Optional[builtins.str] = None,
+        acm_certificate_arn: typing.Optional[typing.Union[builtins.str, "_aws_certificatemanager_7969630d.ICertificateRef"]] = None,
         description: typing.Optional[builtins.str] = None,
         domain_name: typing.Optional[builtins.str] = None,
         gateway_type: typing.Optional[builtins.str] = None,
@@ -5694,12 +5696,14 @@ class CfnResponderGatewayProps:
         return typing.cast(typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"], result)
 
     @builtins.property
-    def acm_certificate_arn(self) -> typing.Optional[builtins.str]:
+    def acm_certificate_arn(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_certificatemanager_7969630d.ICertificateRef"]]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-respondergateway.html#cfn-rtbfabric-respondergateway-acmcertificatearn
         '''
         result = self._values.get("acm_certificate_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_certificatemanager_7969630d.ICertificateRef"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -6419,7 +6423,7 @@ def _typecheckingstub__cb840846f651123d9a88e886198c38a19418b49d00a405569125e9b5f
     security_group_ids: typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]],
     subnet_ids: typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISubnetRef]],
     vpc_id: typing.Union[builtins.str, _aws_ec2_18162e09.IVPCRef],
-    acm_certificate_arn: typing.Optional[builtins.str] = None,
+    acm_certificate_arn: typing.Optional[typing.Union[builtins.str, _aws_certificatemanager_7969630d.ICertificateRef]] = None,
     description: typing.Optional[builtins.str] = None,
     domain_name: typing.Optional[builtins.str] = None,
     gateway_type: typing.Optional[builtins.str] = None,
@@ -6597,7 +6601,7 @@ def _typecheckingstub__c9eb5e991b472975a887a9142289f690ca12906379267bff2fae6a074
     security_group_ids: typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISecurityGroupRef]],
     subnet_ids: typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISubnetRef]],
     vpc_id: typing.Union[builtins.str, _aws_ec2_18162e09.IVPCRef],
-    acm_certificate_arn: typing.Optional[builtins.str] = None,
+    acm_certificate_arn: typing.Optional[typing.Union[builtins.str, _aws_certificatemanager_7969630d.ICertificateRef]] = None,
     description: typing.Optional[builtins.str] = None,
     domain_name: typing.Optional[builtins.str] = None,
     gateway_type: typing.Optional[builtins.str] = None,

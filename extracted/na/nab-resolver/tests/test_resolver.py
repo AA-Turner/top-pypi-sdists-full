@@ -35,6 +35,7 @@ from nab_resolver.report import (
     union_terms,
 )
 from nab_resolver.resolver import (
+    DEFAULT_MAX_ITERATIONS,
     ResolutionError,
     Resolver,
     ResolverObserver,
@@ -44,6 +45,7 @@ from nab_resolver.types import (
     Incompatibility,
     IncompatibilityCause,
     RangeProtocol,
+    RootRequirement,
     SetRelation,
     Term,
 )
@@ -601,6 +603,12 @@ class TestPreference:
 
 
 class TestMaxIterations:
+    def test_default_is_public(self) -> None:
+        resolver = Resolver(DictProvider({}))
+
+        assert DEFAULT_MAX_ITERATIONS == 200_000
+        assert resolver.max_iterations == DEFAULT_MAX_ITERATIONS
+
     def test_exceeds_max_iterations(self) -> None:
         """Resolver raises when max_iterations is exceeded."""
         provider = DictProvider(
@@ -1998,12 +2006,102 @@ class TestErrorMessages:
             "so qux [5, +inf)",
         ]
 
+    def test_clause_holding_only_the_root_states_the_conclusion(self) -> None:
+        """A clause left with the virtual root alone has no package to name."""
+        # Term[Any, int] sidesteps the invariant PackageType TypeVar so
+        # ROOT and str entries can share a list.
+        root_term: Term[Any, int] = Term(ROOT, Range.singleton(0), positive=True)
+        absent_baz: Term[Any, int] = Term("baz", Range.full(), positive=False)
+        project = Incompatibility(
+            [root_term, absent_baz],
+            cause=IncompatibilityCause.ROOT,
+        )
+        terminal = Incompatibility(
+            [root_term],
+            cause=IncompatibilityCause.DERIVED,
+            cause_left=project,
+        )
+        assert format_error(terminal).splitlines() == [
+            "because your project depends on baz",
+            "so your project's requirements cannot be satisfied",
+        ]
+
+    def test_report_never_names_the_root_sentinel(self) -> None:
+        """A derived line that absorbed a project requirement drops the root term."""
+        provider = DictProvider({"a": {2: {"b": Range.at_least(2)}}, "b": {1: {}}})
+        with pytest.raises(ResolutionError) as exc_info:
+            Resolver(provider).resolve(
+                {"a": Range.singleton(2), "b": Range.between(1, 2)}
+            )
+        assert str(exc_info.value).splitlines() == [
+            "because a 2 depends on b [2, +inf)",
+            "because your project depends on b [1, 2)",
+            "so a 2",
+            "because your project depends on a 2",
+            "so your project's requirements cannot be satisfied",
+        ]
+
     def test_format_term_marks_negation(self) -> None:
         """format_term prefixes a negated term with `not` and leaves positives bare."""
         positive = format_term(Term("a", Range.at_least(1), positive=True))
         negative = format_term(Term("a", Range.at_least(1), positive=False))
         assert positive == "a [1, +inf)"
         assert negative == "not a [1, +inf)"
+
+
+class TestFormatRangeHook:
+    """``format_range`` renders every constraint a report line shows.
+
+    A range type whose ``str`` is a debug representation supplies its own; the
+    default is ``str``, which reads well for :class:`Range`.
+    """
+
+    @staticmethod
+    def _shown(_constraint: object) -> str:
+        return "SHOWN"
+
+    @staticmethod
+    def _blank(_constraint: object) -> str:
+        return ""
+
+    def test_hook_renders_terms_on_both_sides_of_a_dependency(self) -> None:
+        dependency = Incompatibility(
+            [
+                Term("a", Range.at_least(1), positive=True),
+                Term("b", Range.at_least(3), positive=False),
+            ],
+            cause=IncompatibilityCause.DEPENDENCY,
+        )
+        assert (
+            format_error(dependency, format_range=self._shown)
+            == "because a SHOWN depends on b SHOWN"
+        )
+
+    def test_hook_renders_the_user_constraint_line(self) -> None:
+        constrained = Incompatibility(
+            [Term("a", Range.at_least(1), positive=True)],
+            cause=IncompatibilityCause.CONSTRAINT,
+            constraint_range=Range.less_than(2),
+        )
+        assert (
+            format_error(constrained, format_range=self._shown)
+            == "because the user constrained a SHOWN"
+        )
+
+    def test_a_range_rendered_as_nothing_leaves_no_trailing_space(self) -> None:
+        """An unconstrained range renders empty, so the name carries the line."""
+        term = Term("a", Range.at_least(1), positive=False)
+        assert format_term(term, self._blank) == "not a"
+
+        constrained = Incompatibility(
+            [Term("a", Range.at_least(1), positive=True)],
+            cause=IncompatibilityCause.CONSTRAINT,
+            constraint_range=Range.full(),
+        )
+        assert (
+            format_error(constrained, format_range=self._blank)
+            == "because the user constrained a"
+        )
 
 
 class TestFullRangeWording:
@@ -2138,6 +2236,95 @@ class TestFullRangeWording:
         assert lines[2] == "so p0 1"
         assert lines[-2] == f"because p{depth - 1} 1 depends on tail [1, +inf)"
         assert lines[-1] == f"so p{depth - 1} 1"
+
+
+class TestRootRequirements:
+    def test_disjoint_requirements_are_named_separately(self) -> None:
+        """Two roots on one package each get a line naming what was written."""
+        provider = DictProvider({"pkg": {2: {}, 1: {}}})
+        with pytest.raises(ResolutionError) as excinfo:
+            Resolver(provider).resolve(
+                [
+                    RootRequirement("pkg", Range.greater_than(1)),
+                    RootRequirement("pkg", Range.singleton(1)),
+                ]
+            )
+
+        lines = str(excinfo.value).splitlines()
+        assert "because your project depends on pkg (1, +inf)" in lines
+        assert "because your project depends on pkg 1" in lines
+        assert not any("empty" in line for line in lines)
+
+    def test_overlapping_requirements_survive_to_the_solution(self) -> None:
+        """Roots that intersect to a live range still resolve, once."""
+        provider = DictProvider({"pkg": {3: {}, 2: {}, 1: {}}})
+        result = Resolver(provider).resolve(
+            [
+                RootRequirement("pkg", Range.at_least(1)),
+                RootRequirement("pkg", Range.at_most(2)),
+            ]
+        )
+        assert result == {"pkg": 2}
+
+    def test_transitive_narrowing_names_the_written_requirement(self) -> None:
+        """A conflict past the intersection still quotes a root as written."""
+        provider = DictProvider(
+            {
+                "pkg": {2: {"dep": Range.singleton(9)}},
+                "dep": {1: {}},
+            }
+        )
+        with pytest.raises(ResolutionError) as excinfo:
+            Resolver(provider).resolve(
+                [
+                    RootRequirement("pkg", Range.at_least(1)),
+                    RootRequirement("pkg", Range.at_most(2)),
+                ]
+            )
+
+        lines = str(excinfo.value).splitlines()
+        assert "because your project depends on pkg [1, +inf)" in lines
+        assert "because your project depends on pkg (-inf, 2]" in lines
+
+    def test_repeated_package_keeps_its_first_mention_order(self) -> None:
+        """Naming a package twice must not push its decision later."""
+        provider = DictProvider({"pkg": {1: {}}, "other": {1: {}}})
+        resolver = Resolver(provider)
+        resolver.resolve(
+            [
+                RootRequirement("pkg", Range.full()),
+                RootRequirement("other", Range.full()),
+                RootRequirement("pkg", Range.at_least(1)),
+            ]
+        )
+        assert resolver.root_package_order["pkg"] == (0, 0, "")
+        assert resolver.root_package_order["other"] == (0, 1, "")
+
+    def test_origin_travels_onto_the_root_clause(self) -> None:
+        """The caller's opaque origin is readable off the clause it produced."""
+        provider = DictProvider({"pkg": {1: {}}})
+        resolver = Resolver(provider)
+        resolver.resolve([RootRequirement("pkg", Range.full(), "pkg>=1 (line 3)")])
+
+        origins = [
+            incompatibility.origin
+            for incompatibility in resolver.incompatibilities
+            if incompatibility.cause is IncompatibilityCause.ROOT
+        ]
+        assert origins == ["pkg>=1 (line 3)"]
+
+    def test_mapping_form_leaves_the_origin_unset(self) -> None:
+        """A mapping caller keeps working and sets no origin."""
+        provider = DictProvider({"pkg": {1: {}}})
+        resolver = Resolver(provider)
+        assert resolver.resolve({"pkg": Range.full()}) == {"pkg": 1}
+
+        roots = [
+            incompatibility
+            for incompatibility in resolver.incompatibilities
+            if incompatibility.cause is IncompatibilityCause.ROOT
+        ]
+        assert [incompatibility.origin for incompatibility in roots] == [None]
 
 
 class TestConstraints:

@@ -302,7 +302,7 @@ class Platform:
                 if a_dev.name == key:
                     out = a_dev
         else:
-            if len(self.devices) > devid > 0:
+            if len(self.devices) > devid >= 0:
                 out = self.devices[devid]
         return out
 
@@ -555,7 +555,7 @@ class OpenCL:
                 if a_plat.name == key:
                     out = a_plat
         else:
-            if len(self.platforms) > platid > 0:
+            if len(self.platforms) > platid >= 0:
                 out = self.platforms[platid]
         return out
 
@@ -872,9 +872,9 @@ def query_kernel_info(program, kernel, what="WORK_GROUP_SIZE"):
     assert isinstance(program, pyopencl.Program)
     if not isinstance(kernel, pyopencl.Kernel):
         kernel_name = kernel
-        assert kernel in (
-            k.function_name for k in program.all_kernels()
-        ), "the kernel exists"
+        assert kernel in (k.function_name for k in program.all_kernels()), (
+            "the kernel exists"
+        )
         kernel = pyopencl.Kernel(program, kernel_name)
 
     device = program.devices[0]

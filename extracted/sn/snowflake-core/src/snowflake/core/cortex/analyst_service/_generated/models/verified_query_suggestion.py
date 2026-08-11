@@ -16,7 +16,7 @@ import json
 import pprint
 import re  # noqa: F401
 
-from typing import Any, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, StrictFloat, StrictInt
 
@@ -35,6 +35,9 @@ class VerifiedQuerySuggestion(BaseModel):
     vq_to_add : VerifiedQuery, optional
 
     vq_to_remove : VerifiedQuery, optional
+
+    metadata : object, optional
+        Arbitrary metadata associated with this suggestion.
     """
 
     score: Optional[Union[StrictFloat, StrictInt]] = None
@@ -43,7 +46,9 @@ class VerifiedQuerySuggestion(BaseModel):
 
     vq_to_remove: Optional[VerifiedQuery] = None
 
-    __properties = ["score", "vq_to_add", "vq_to_remove"]
+    metadata: Optional[Dict[str, Any]] = None
+
+    __properties = ["score", "vq_to_add", "vq_to_remove", "metadata"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -107,6 +112,7 @@ class VerifiedQuerySuggestion(BaseModel):
                 "vq_to_remove": VerifiedQuery.from_dict(obj.get("vq_to_remove"))
                 if obj.get("vq_to_remove") is not None
                 else None,
+                "metadata": obj.get("metadata"),
             }
         )
 
@@ -119,6 +125,7 @@ class VerifiedQuerySuggestionModel:
         score: Optional[float] = None,
         vq_to_add: Optional[VerifiedQuery] = None,
         vq_to_remove: Optional[VerifiedQuery] = None,
+        metadata: Optional[object] = None,
     ):
         """A model object representing the VerifiedQuerySuggestion resource.
 
@@ -131,12 +138,16 @@ class VerifiedQuerySuggestionModel:
         vq_to_add : VerifiedQuery, optional
 
         vq_to_remove : VerifiedQuery, optional
+
+        metadata : object, optional
+            Arbitrary metadata associated with this suggestion.
         """
         self.score = score
         self.vq_to_add = vq_to_add
         self.vq_to_remove = vq_to_remove
+        self.metadata = metadata
 
-    __properties = ["score", "vq_to_add", "vq_to_remove"]
+    __properties = ["score", "vq_to_add", "vq_to_remove", "metadata"]
 
     def __repr__(self) -> str:
         return repr(self._to_model())
@@ -146,6 +157,7 @@ class VerifiedQuerySuggestionModel:
             score=self.score,
             vq_to_add=self.vq_to_add._to_model() if self.vq_to_add is not None else None,
             vq_to_remove=self.vq_to_remove._to_model() if self.vq_to_remove is not None else None,
+            metadata=self.metadata,
         )
 
     @classmethod
@@ -154,6 +166,7 @@ class VerifiedQuerySuggestionModel:
             score=model.score,
             vq_to_add=VerifiedQueryModel._from_model(model.vq_to_add) if model.vq_to_add else None,
             vq_to_remove=VerifiedQueryModel._from_model(model.vq_to_remove) if model.vq_to_remove else None,
+            metadata=model.metadata,
         )
 
     def to_dict(self):

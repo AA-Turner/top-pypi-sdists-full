@@ -124,6 +124,7 @@ class Dataset(str, Enum):
         "TaiwanStockDispositionSecuritiesPeriod"
     )
     TaiwanStockIndustryChain = "TaiwanStockIndustryChain"
+    TaiwanStockIndustryChainMoneyFlow = "TaiwanStockIndustryChainMoneyFlow"
     TaiwanStockTradingDate = "TaiwanStockTradingDate"
     TaiwanStockInfoWithWarrantSummary = "TaiwanStockInfoWithWarrantSummary"
     TaiwanStockSplitPrice = "TaiwanStockSplitPrice"
@@ -143,9 +144,13 @@ class Dataset(str, Enum):
     TaiwanStockConvertibleBondMonthlyAnalysis = (
         "TaiwanStockConvertibleBondMonthlyAnalysis"
     )
+    TaiwanStockConvertibleBondPutProvision = (
+        "TaiwanStockConvertibleBondPutProvision"
+    )
     TaiwanOptionVix = "TaiwanOptionVix"
     TaiwanAssetSwapFixedIncomeDaily = "TaiwanAssetSwapFixedIncomeDaily"
     TaiwanAssetSwapOptionDaily = "TaiwanAssetSwapOptionDaily"
+    TaiwanStockMarginMaintenance = "TaiwanStockMarginMaintenance"
 
 
 class Version(str, Enum):

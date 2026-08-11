@@ -9,7 +9,7 @@ from fivetran_connector_sdk.constants import (
     FIVETRAN_FILE_PATH_COLUMN
 )
 from fivetran_connector_sdk.file_upload import FileUpload, file_upload_chunks, validate_file_upload_if_present
-from fivetran_connector_sdk.helpers import _validate_table_name, print_library_log
+from fivetran_connector_sdk.helpers import _validate_table_name, _validate_message, _validate_trace, print_library_log
 from fivetran_connector_sdk.logger import Logging
 from fivetran_connector_sdk.protos import connector_sdk_pb2, common_pb2
 from fivetran_connector_sdk.operation_stream import _OperationStream
@@ -135,6 +135,55 @@ class Operations:
         checkpoint = connector_sdk_pb2.Checkpoint(state_json=json.dumps(state))
 
         Operations.operation_stream.add_checkpoint(checkpoint)
+
+    @staticmethod
+    def error(message: str, trace: Optional[str] = None):
+        """Reports an error that occurred during the sync. This method allows the connector to communicate
+        errors to Fivetran, terminating the sync process. The error will be logged and displayed
+        in the Fivetran dashboard.
+
+        Args:
+            message (str): A description of the error that occurred.
+            trace (str, optional): Stack trace or additional debugging information about the error.
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: If message is empty or contains only whitespace.
+            TypeError: If message or trace is not a string (trace may be None).
+        """
+        _validate_message(message)
+        _validate_trace(trace)
+        payload = {"message": message}
+        if trace and trace.strip():
+            payload["trace"] = trace
+        error_json = json.dumps(payload)
+        error = common_pb2.Task(message=error_json)
+        Operations.operation_stream.add_task(error)
+
+    @staticmethod
+    def warning(message: str):
+        """Reports a warning that occurred during the sync. This method allows the connector to communicate
+        non-critical issues to Fivetran without affecting the sync process. The warning will be logged and
+        displayed in the Fivetran dashboard.
+
+        Args:
+            message (str): A description of the warning or non-critical issue that occurred.
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: If message is empty or contains only whitespace.
+            TypeError: If message is not a string.
+        """
+        _validate_message(message)
+        payload = {"message": message}
+        warning_json = json.dumps(payload)
+        warning = common_pb2.Warning(message=warning_json)
+        Operations.operation_stream.add_warning(warning)
+
 
 def _get_columns(table: str) -> dict:
     """Retrieves the columns and maps to their type for the specified table.

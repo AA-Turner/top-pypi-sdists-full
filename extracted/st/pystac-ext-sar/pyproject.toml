@@ -2,7 +2,7 @@
 name = "pystac-ext-sar"
 description = "SAR extension for PySTAC"
 readme = "README.md"
-version = "1.0.0"
+version = "1.0.1"
 authors = []
 maintainers = []
 keywords = ["pystac", "imagery", "raster", "catalog", "STAC", "sar"]
@@ -20,6 +20,9 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = ["pystac-core"]
+
+[project.entry-points."pystac.extensions"]
+sar = "pystac.extensions.sar:SAR_EXTENSION_HOOKS"
 
 [project.urls]
 Documentation = "https://pystac.readthedocs.io"

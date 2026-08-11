@@ -47,6 +47,11 @@ urlpatterns = [
     path("nomessage", views.nomessage, name="nomessage"),
     path("view-with-signal", views.view_with_signal, name="view_with_signal"),
     path("mylogin", views.mylogin, name="mylogin"),
+    path(
+        "mylogin-with-exception",
+        views.mylogin_with_exception,
+        name="mylogin_with_exception",
+    ),
     path("classbased", views.ClassBasedView.as_view(), name="classbased"),
     path("sentryclass", views.SentryClassBasedView(), name="sentryclass"),
     path(
@@ -145,6 +150,20 @@ try:
         )
     )
     urlpatterns.append(path("rest-hello", views.rest_hello, name="rest_hello"))
+    urlpatterns.append(
+        path(
+            "rest-authenticated-hello",
+            views.rest_authenticated_hello,
+            name="rest_authenticated_hello",
+        )
+    )
+    urlpatterns.append(
+        path(
+            "rest-unauthenticated-hello",
+            views.rest_unauthenticated_hello,
+            name="rest_unauthenticated_hello",
+        )
+    )
     urlpatterns.append(
         path("rest-json-response", views.rest_json_response, name="rest_json_response")
     )

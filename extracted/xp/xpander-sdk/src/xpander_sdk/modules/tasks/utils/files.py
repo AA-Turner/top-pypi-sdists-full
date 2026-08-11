@@ -20,6 +20,29 @@ _FETCH_TIMEOUT = float(os.getenv("XPANDER_FILE_FETCH_TIMEOUT", "15"))
 _MAX_INLINE_TEXT_CHARS = int(os.getenv("XPANDER_MAX_INLINE_TEXT_CHARS", "8000"))
 _MAX_INLINE_TOTAL_CHARS = int(os.getenv("XPANDER_MAX_INLINE_TOTAL_CHARS", "24000"))
 
+# Extracted text is clipped again per-file downstream; this only stops a converted
+# document (a 6MB spreadsheet renders ~27M chars of Markdown) from being carried around whole.
+_MAX_DOC_MARKDOWN_CHARS = max(1000, int(os.getenv("XPANDER_MAX_DOC_MARKDOWN_CHARS", "200000")))
+
+# Concurrency for per-attachment download+convert; each one blocks on I/O then releases the GIL.
+# Floored at 1 so setting it to 0 to "disable concurrency" serializes instead of raising.
+_ATTACHMENT_WORKERS = max(1, int(os.getenv("XPANDER_ATTACHMENT_WORKERS", "4")))
+
+# Concurrent downloads coexist in memory, so the worker count is also bounded by how many
+# whole attachments we are willing to hold at once.
+_ATTACHMENT_BYTES_BUDGET = int(os.getenv("XPANDER_ATTACHMENT_BYTES_BUDGET", str(64 * 1024 * 1024)))
+
+DOC_UNREADABLE_NOTE = (
+    "No text could be extracted from this attachment, so its contents are NOT included here; "
+    "fetch it via your tools/workspace if you need them"
+)
+
+
+def attachment_workers(item_count: int, per_item_bytes: int) -> int:
+    """Worker count for a fan-out of *item_count* attachments, bounded by the in-flight byte budget."""
+    by_memory = max(1, _ATTACHMENT_BYTES_BUDGET // max(1, per_item_bytes))
+    return max(1, min(_ATTACHMENT_WORKERS, item_count, by_memory))
+
 
 def truncate_inline_text(content: str, url: str, remaining: int) -> str:
     """Clip inlined file *content* to *remaining* (and the per-file cap), noting the URL for the rest."""
@@ -36,7 +59,17 @@ _IMAGE_SIGNATURES = (
     (b"GIF89a", "gif", "image/gif"),
 )
 
-_DOCUMENT_EXTS = {".docx", ".doc", ".xlsx", ".xls", ".pptx"}
+# iWork formats are proprietary, but the files are zips embedding a QuickLook preview PDF.
+_IWORK_EXTS = {".pages", ".key", ".numbers"}
+
+# What anydoc's format_from_extension() resolves, minus csv (raw injection) and pdf (native path).
+_DOCUMENT_EXTS = {
+    ".docx", ".doc", ".docm",
+    ".xlsx", ".xls", ".xlsm", ".xlsb",
+    ".pptx", ".ppt", ".pptm", ".pot", ".pps", ".ppsx",
+    ".odt", ".ods", ".odp",
+    ".rtf", ".epub",
+} | _IWORK_EXTS
 
 
 class FileCategorization(BaseModel):
@@ -84,6 +117,14 @@ def categorize_files(file_urls: list[str]) -> FileCategorization:
         ".rb",
         ".php",
         ".sh",
+        # plain-text formats that need no conversion, just injection
+        ".tsv",
+        ".log",
+        ".ini",
+        ".toml",
+        ".tex",
+        ".ipynb",
+        ".eml",
     }
 
     result = {"images": [], "pdfs": [], "files": [], "documents": []}
@@ -205,6 +246,7 @@ def plan_attachments(
 
     skipped_images = 0
     inlined_images = 0
+    unreadable: List[str] = []
     for category, url in categories:
         size = sizes.get(url)
         if category == "image":
@@ -231,6 +273,16 @@ def plan_attachments(
             plan.items.append(AttachmentDecision(url=url, category=category, action="text_extract", size=size))
         else:
             plan.items.append(AttachmentDecision(url=url, category=category, action="url_only", size=size))
+            # No converter for this format (.msg, .zip, extension-less URLs, ...): without
+            # this note the model answers about content it never saw.
+            unreadable.append(url)
+
+    if unreadable:
+        plan.notes.append(
+            "these attachments cannot be read directly and their content is NOT included; "
+            "do not guess their contents - fetch them via your tools/workspace if you need "
+            "them: " + ", ".join(unreadable)
+        )
 
     if skipped_images:
         plural = "s" if skipped_images != 1 else ""
@@ -318,29 +370,177 @@ def _pptx_text(data: bytes) -> str:
     return "\n".join(out)
 
 
-def extract_document_text(
-    url: str, *, max_bytes: int = _MAX_DOC_BYTES, timeout: float = _FETCH_TIMEOUT
-) -> str:
-    """Download an office document and extract its text; '' when the format is unsupported or its parser lib is missing."""
-    _, ext = os.path.splitext(urlparse(url).path.lower())
+def _cap_text(text: str, max_chars: Optional[int] = None) -> str:
+    """Clip extracted text to *max_chars*, stating the true length up front so a second clip cannot hide it."""
+    cap = max(1, _MAX_DOC_MARKDOWN_CHARS if max_chars is None else max_chars)
+    if len(text) <= cap:
+        return text
+    return f"[showing the first {cap:,} of {len(text):,} characters]\n" + text[:cap]
+
+
+_anydoc_import_warned = False
+
+
+def _document_markdown(data: bytes, ext: str = "", max_chars: Optional[int] = None) -> Optional[str]:
+    """Convert office-document bytes to Markdown via anydoc; None means the caller falls back."""
+    global _anydoc_import_warned
     try:
-        content, _ = _download(url, max_bytes=max_bytes, timeout=timeout)
-        if ext in (".docx", ".doc"):
-            return _docx_text(content)
-        if ext in (".xlsx", ".xls"):
-            return _xlsx_text(content)
-        if ext == ".pptx":
-            return _pptx_text(content)
-        return ""
+        import anydoc
+    except Exception as e:
+        # Once per process: an unimportable anydoc silently reverts every document to the
+        # plain-text extractors, which is invisible at debug level.
+        if not _anydoc_import_warned:
+            _anydoc_import_warned = True
+            logger.warning(f"anydoc unavailable ({e}); documents fall back to plain-text extraction")
+        return None
+
+    # Resolved rather than named in an except clause, which would raise AttributeError on a
+    # build that lacks it and escape this function entirely.
+    convertible = getattr(anydoc, "ConvertError", None)
+    try:
+        fmt = anydoc.format_from_extension(ext.lstrip(".")) if ext else None
+        markdown = anydoc.to_markdown_bytes(data, format=fmt)
+    except Exception as e:
+        # A document anydoc declines to convert is routine and per-file; anything else says
+        # the library itself is behaving differently than this code expects.
+        if convertible is not None and isinstance(e, convertible):
+            logger.debug(f"anydoc cannot convert this document ({e}); falling back")
+        else:
+            logger.warning(f"anydoc conversion failed ({e}); falling back")
+        return None
+    return _cap_text(markdown, max_chars)
+
+
+def _iwork_preview_pdf(data: bytes, max_bytes: Optional[int] = None) -> Tuple[Optional[bytes], str]:
+    """Return (preview_pdf_bytes, status in {"ok","too_large","missing"}) for an iWork zip archive."""
+    import zipfile
+
+    cap = _MAX_DOC_BYTES if max_bytes is None else max_bytes
+    saw_oversized = False
+    try:
+        with zipfile.ZipFile(BytesIO(data)) as zf:
+            names = {n.lower(): n for n in zf.namelist()}
+            candidates = [names[c] for c in ("quicklook/preview.pdf", "preview.pdf") if c in names]
+            candidates += [
+                real for lower, real in names.items()
+                if lower.endswith(".pdf") and "quicklook" in lower and real not in candidates
+            ]
+            for name in candidates:
+                # A member can declare a far larger uncompressed size than the archive that
+                # passed the download cap; skip it and try the remaining candidates.
+                if zf.getinfo(name).file_size > cap:
+                    saw_oversized = True
+                    logger.warning(f"iWork preview {name} exceeds {cap} bytes; skipping")
+                    continue
+                return zf.read(name), "ok"
+    except Exception as e:
+        logger.warning(f"failed to open iWork archive: {e}")
+    return None, ("too_large" if saw_oversized else "missing")
+
+
+def extract_document_text(
+    url: str, *, max_bytes: Optional[int] = None, timeout: Optional[float] = None
+) -> str:
+    """Download an office document and extract its text; '' when the format is not a document at all."""
+    _, ext = os.path.splitext(urlparse(url).path.lower())
+    cap = _MAX_DOC_BYTES if max_bytes is None else max_bytes
+    try:
+        content, _ = _download(
+            url, max_bytes=cap, timeout=_FETCH_TIMEOUT if timeout is None else timeout
+        )
+        if ext in _IWORK_EXTS:
+            # iWork content is proprietary; read the embedded preview PDF instead. Explicit
+            # errors (not '') reach the model, so it says so instead of guessing.
+            if not content.startswith(b"PK"):
+                # Not a zip archive, e.g. a PEM ".key" file rather than Keynote.
+                return "Error: attachment could not be read (unsupported file format)"
+            preview, status = _iwork_preview_pdf(content, max_bytes=cap)
+            if preview is None:
+                if status == "too_large":
+                    return (
+                        "Error: attachment could not be read (the iWork file's embedded "
+                        "preview exceeds the size limit; export the document as PDF instead)"
+                    )
+                return (
+                    "Error: attachment could not be read (iWork file with no embedded "
+                    "preview; re-save it with preview enabled, or export as PDF)"
+                )
+            markdown = _document_markdown(preview, ".pdf")
+            if markdown:
+                return markdown
+            return (
+                "Error: attachment could not be read (the iWork file's embedded "
+                "preview could not be converted; export the document as PDF instead)"
+            )
+        # An empty conversion is a failure, not an empty document: fall through.
+        markdown = _document_markdown(content, ext)
+        if markdown:
+            return markdown
+        try:
+            if ext in (".docx", ".doc"):
+                text = _docx_text(content)
+            elif ext in (".xlsx", ".xls"):
+                text = _xlsx_text(content)
+            elif ext == ".pptx":
+                text = _pptx_text(content)
+            else:
+                text = ""
+        except Exception as e:
+            # A raising fallback is the case the note below exists for, so it must not
+            # reach the outer handler and become ''.
+            logger.warning(f"fallback extraction failed for {url}: {e}")
+            text = ""
+        if text.strip():
+            return _cap_text(text)
+        # Formats with no fallback extractor (.odt, .rtf, .epub, ...) and documents that
+        # yield nothing end here; saying so beats the model answering about content it
+        # never received.
+        return DOC_UNREADABLE_NOTE if ext in _DOCUMENT_EXTS else ""
     except Exception as e:
         logger.warning(f"failed to extract text from document {url}: {e}")
         return ""
+
+
+def extract_documents_text(urls: List[str]) -> List[Tuple[str, str]]:
+    """Extract several documents concurrently, preserving order; each download blocks and anydoc frees the GIL."""
+    if len(urls) <= 1:
+        return [(url, extract_document_text(url=url)) for url in urls]
+    from concurrent.futures import ThreadPoolExecutor
+
+    workers = attachment_workers(len(urls), _MAX_DOC_BYTES)
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        return list(zip(urls, pool.map(lambda u: extract_document_text(url=u), urls)))
+
+
+# Density gate for skipping the native page-image attachment: a text PDF has to yield both
+# an absolute floor of Markdown and ~2 chars per KB of file. Scanned pages yield near-zero.
+PDF_INLINE_MIN_CHARS = int(os.getenv("XPANDER_PDF_INLINE_MIN_CHARS", "1000"))
+PDF_INLINE_CHARS_PER_KB = int(os.getenv("XPANDER_PDF_INLINE_CHARS_PER_KB", "2"))
+
+
+def pdf_markdown_disabled() -> bool:
+    """True when the env switch keeps every PDF on the native attachment path."""
+    return os.getenv("XPANDER_PDF_MARKDOWN", "").strip().lower() in ("off", "0", "false")
+
+
+def _pdf_markdown_or_none(data: bytes) -> Optional[str]:
+    """Markdown for a text-dense PDF, None for scanned/image PDFs so the caller keeps the native attachment."""
+    if pdf_markdown_disabled():
+        return None
+    markdown = _document_markdown(data, ".pdf")
+    floor = max(PDF_INLINE_MIN_CHARS, (len(data) // 1024) * PDF_INLINE_CHARS_PER_KB)
+    if markdown is not None and len(markdown) >= floor:
+        return markdown
+    return None
 
 
 def fetch_file(url: str):
     """
     Fetch a remote file from URL and wrap it as a File object.
     Automatically derives filename, name, format, and mime type.
+
+    This is the legacy/kill-switch attachment path and attaches bytes as-is;
+    the text-based-PDF Markdown routing lives in media.prepare_pdf().
 
     Args:
         url (str): Remote file URL.

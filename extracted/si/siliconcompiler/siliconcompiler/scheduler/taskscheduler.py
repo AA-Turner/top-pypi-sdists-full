@@ -14,12 +14,11 @@ from siliconcompiler import NodeStatus
 from siliconcompiler import utils
 from siliconcompiler.flowgraph import RuntimeFlowgraph
 
-from siliconcompiler.package import Resolver
 from siliconcompiler.schema import Journal
 
 from siliconcompiler.utils.logging import SCBlankLoggerFormatter, \
     SCBlankColorlessLoggerFormatter, SCTeeLoggerHandler
-from siliconcompiler.utils.multiprocessing import MPManager
+from siliconcompiler.utils.multiprocessing import MPManager, get_process_context, forking
 from siliconcompiler.scheduler import SCRuntimeError
 
 if TYPE_CHECKING:
@@ -87,7 +86,22 @@ class TaskScheduler:
             to_steps=self.__project.option.get_to(),
             prune_nodes=self.__project.option.get_prune())
 
-        self.__log_queue = MPManager.get_manager().Queue()
+        # Queue for collecting log records from node worker processes.
+        #
+        # Under the ``fork`` start method (Linux) a worker inherits the parent's
+        # live SyncManager socket connections. A manager-backed queue would then
+        # have the worker's QueueHandler.put() and the parent's
+        # QueueListener.get() drive the *same* inherited connection from two
+        # processes at once, corrupting the manager's framed protocol and
+        # deadlocking every manager proxy (including the dashboard Board and its
+        # lock) on a recv that never returns. A plain pipe-backed queue is
+        # fork-safe (and faster), so use it on the fork path. Spawn cannot
+        # inherit fds and needs the picklable manager queue; it re-connects with
+        # a fresh connection per worker, so it is unaffected.
+        if get_process_context().get_start_method() == "fork":
+            self.__log_queue = get_process_context().Queue()
+        else:
+            self.__log_queue = MPManager.get_manager().Queue()
 
         self.__nodes: Dict[Tuple[str, str], Dict[str, Any]] = {}
         self.__startTimes: Dict[Optional[Tuple[str, str]], float] = {}
@@ -135,7 +149,7 @@ class TaskScheduler:
                 threads = self.__max_threads
             task["threads"] = max(1, min(threads, self.__max_threads))
 
-            task["proc"] = multiprocessing.Process(target=task["node"].run)
+            task["proc"] = get_process_context().Process(target=task["node"].run)
             self.__nodes[(step, index)] = task
 
         # Create ordered list of nodes
@@ -309,10 +323,11 @@ class TaskScheduler:
                 # for a full second when a child died without writing.
                 if info["parent_pipe"] and info["parent_pipe"].poll(0):
                     try:
-                        packages = info["parent_pipe"].recv()
-                        if isinstance(packages, dict):
-                            for package, path in packages.items():
-                                Resolver.set_cache(self.__project, package, path)
+                        # Take the paths the node resolved, but not its failures:
+                        # a fetch that failed for one node may still succeed for
+                        # the next, so each node gets its own retry budget for now.
+                        MPManager.get_path_cache().seed(
+                            info["parent_pipe"].recv(), include_failures=False)
                     except:  # noqa E722
                         pass
 
@@ -404,9 +419,10 @@ class TaskScheduler:
 
         # Start the process
         info["running"] = True
-        info["parent_pipe"], pipe = multiprocessing.Pipe()
+        info["parent_pipe"], pipe = get_process_context().Pipe()
         info["node"].set_queue(pipe, self.__log_queue)
-        info["proc"].start()
+        with forking():
+            info["proc"].start()
 
     def __launch_nodes(self) -> bool:
         """

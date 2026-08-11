@@ -49,16 +49,6 @@ class TestContractAttributes(unittest.TestCase):
             )
         else:
             return ContractAttributes(
-                use_cases = [
-                    ''
-                    ],
-                standards = [
-                    ''
-                    ],
-                auditor = fireblocks.models.auditor_data.AuditorData(
-                    name = '', 
-                    image_url = '', 
-                    link = '', ),
         )
         """
 

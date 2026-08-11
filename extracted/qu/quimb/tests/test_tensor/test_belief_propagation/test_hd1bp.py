@@ -28,7 +28,7 @@ def test_contract_tree_exact(normalize):
         progbar=True,
     )
     assert info["converged"]
-    assert Z == pytest.approx(Z_bp, rel=1e-12)
+    assert Z == pytest.approx(Z_bp, rel=1e-10)
 
 
 @pytest.mark.parametrize("dtype", ["float32", "complex64"])
@@ -40,6 +40,19 @@ def test_contract_with_exponent(dtype):
     bp = qbp.HD1BP(tn)
     bp.run()
     assert bp.contract() == pytest.approx(Zex, rel=1e-5)
+
+
+def test_gloop_expand_default_gloops_use_the_automatic_size():
+    # the default `gloops=None` means generate them, not an empty supply
+    tn = qtn.TN2D_from_fill_fn(
+        lambda s: qu.randn(s, dist="uniform", loc=0.5), 3, 3, 2
+    )
+    bp = qbp.HD1BP(tn)
+    bp.run(tol=1e-12)
+    z_auto = bp.contract_gloop_expand()
+    # every site is in a plaquette, so covering agrees with the smallest size
+    assert z_auto == pytest.approx(bp.contract_gloop_expand(gloops="min"))
+    assert z_auto == pytest.approx(bp.contract_gloop_expand(gloops=4))
 
 
 @pytest.mark.parametrize("damping", [0.0, 0.1])

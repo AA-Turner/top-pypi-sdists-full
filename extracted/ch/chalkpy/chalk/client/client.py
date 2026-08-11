@@ -3413,6 +3413,7 @@ class ChalkClient:
         enable_profiling: bool = False,
         resource_group: str | None = None,
         input_sql: str | None = None,
+        plan_only: bool = False,
     ) -> Any:
         """Trigger one or more aggregate backfill jobs.
 
@@ -3443,11 +3444,14 @@ class ChalkClient:
             Resource group to use for the created backfill jobs.
         input_sql : str, optional
             Chalk SQL query to use to resolve event data. Mutually exclusive with `resolver`.
+        plan_only : bool, optional
+            If `True`, return the aggregate backfill plan without creating jobs.
 
         Returns
         -------
-        list
-            A list of aggregate backfill job responses, one per planned backfill job.
+        list | PlanAggregateBackfillResponse
+            A list of aggregate backfill job responses, one per planned backfill job,
+            or the plan when `plan_only=True`.
         """
         ...
 

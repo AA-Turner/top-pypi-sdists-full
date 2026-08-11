@@ -73,6 +73,17 @@ class Geoanalysis:
         # poppy uses "kg/ha". Internal DataFrame columns / numeric values are
         # unchanged; this only re-labels user-facing text.
         self.yield_units = self.parser.get("ML", "yield_units", fallback="Mg/ha")
+        self._yield_units_base = self.yield_units
+        # Optional per-crop DISPLAY conversion applied to yield-valued columns
+        # right after the DB query (the DB itself stays in tn/ha). Maps
+        # crop -> [unit_label, factor_from_t_per_ha], e.g. for US reporting:
+        #   yield_display = {"maize": ["bu/ac", 15.9318],
+        #                    "soybean": ["bu/ac", 14.8697],
+        #                    "rice": ["cwt/ac", 8.9218]}
+        # Crops absent from the map keep yield_units unchanged (factor 1).
+        self.yield_display = ast.literal_eval(
+            self.parser.get("ML", "yield_display", fallback="{}")
+        )
         self.dir_out = Path(self.parser.get("PATHS", "dir_output")) / self.project_name
         self._date = ar.utcnow().to("America/New_York")
         self.today = self._date.format("MMMM_DD_YYYY")
@@ -141,6 +152,38 @@ class Geoanalysis:
 
         con.commit()
         con.close()
+
+        self._apply_display_units()
+
+    def _apply_display_units(self):
+        """Convert yield-valued columns to the configured display unit.
+
+        Uses [ML] yield_display (crop -> [unit_label, factor]). Conversion
+        happens once, immediately after the query, so every downstream plot,
+        metric annotation and companion CSV is in display units while the
+        SQLite DB stays in tn/ha. Column NAMES keep the "(tn per ha)" suffix
+        (dozens of hardcoded references); axis labels use self.yield_units,
+        which is swapped to the display label here.
+        """
+        disp = self.yield_display.get(self.crop)
+        if not disp or self.df_analysis is None or self.df_analysis.empty:
+            # instance may be reused across crops - don't leak a prior label
+            self.yield_units = self._yield_units_base
+            return
+        label, factor = str(disp[0]), float(disp[1])
+        cols = [
+            c for c in self.df_analysis.columns
+            if "Yield (tn per ha)" in c or c in ("lower CI", "upper CI")
+        ]
+        for c in cols:
+            self.df_analysis[c] = (
+                pd.to_numeric(self.df_analysis[c], errors="coerce") * factor
+            )
+        self.yield_units = label
+        self.logger.info(
+            f"Display units: {self.crop} yields x{factor} -> {label} "
+            f"({len(cols)} columns)"
+        )
 
     def annual_metrics(self, df):
         """

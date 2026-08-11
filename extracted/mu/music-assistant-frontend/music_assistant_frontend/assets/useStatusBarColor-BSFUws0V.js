@@ -1,0 +1,1 @@
+var e=``,t;function n(t){e=t,i()}function r(e){t=e,i()}function i(){let n=document.documentElement;t?n.style.backgroundColor=t:n.style.removeProperty(`background-color`);let r=t??e,i=document.querySelector(`meta[name="theme-color"]`);i&&r&&(i.content=r)}export{n,r as t};

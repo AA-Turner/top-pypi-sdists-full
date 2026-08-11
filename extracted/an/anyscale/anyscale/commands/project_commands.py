@@ -20,12 +20,14 @@ from anyscale.commands.list_util import (
     display_list,
     MAX_PAGE_SIZE,
     NON_INTERACTIVE_DEFAULT_MAX_ITEMS,
+    resolve_interactive,
 )
 from anyscale.commands.output_format import (
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     OutputFormat,
     print_output,
+    warn_deprecated_flag,
 )
 from anyscale.commands.util import AnyscaleCommand
 from anyscale.project.models import (
@@ -117,8 +119,13 @@ def project_cli() -> None:
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(Dhyey): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="Get the details of a project by ID.",
@@ -128,7 +135,14 @@ def project_cli() -> None:
             output_instance={
                 "id": "prj_abc123",
                 "name": "my-project",
+                "description": "My project.",
+                "created_at": "2026-01-01 00:00:00",
+                "creator_id": "usr_abc123",
                 "parent_cloud_id": "cld_abc123",
+                "is_owner": True,
+                "is_read_only": False,
+                "directory_name": "default",
+                "is_default": False,
             },
         ),
     ],
@@ -147,10 +161,11 @@ def project_cli() -> None:
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 @click.option(
@@ -161,6 +176,8 @@ def project_cli() -> None:
     help="Output the details in a structured JSON format.",
 )
 def get(id: str, output_format: str, json: bool = False):  # noqa: A002
+    if json:
+        warn_deprecated_flag("--json", "-o json")
     try:
         project: Project = anyscale.project.get(project_id=id)
     except ValueError as e:
@@ -168,11 +185,11 @@ def get(id: str, output_format: str, json: bool = False):  # noqa: A002
         sys.exit(1)
 
     console = Console()
-    if json:
+    if output_format != OutputFormat.TEXT.value:
+        print_output(project, output_format)
+    elif json:
         json_str = json_dumps(project.to_dict(), indent=2, cls=AnyscaleJSONEncoder)
         console.print_json(json=json_str)
-    elif output_format != OutputFormat.TEXT.value:
-        print_output(project, output_format)
     else:
         stream = StringIO()
         yaml.dump(project.to_dict(), stream, sort_keys=False)
@@ -182,8 +199,13 @@ def get(id: str, output_format: str, json: bool = False):  # noqa: A002
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(Dhyey): flip to [TEXT, JSON] when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="List all projects.",
@@ -194,6 +216,9 @@ def get(id: str, output_format: str, json: bool = False):  # noqa: A002
                 {
                     "id": "prj_abc123",
                     "name": "my-project",
+                    "description": "My project.",
+                    "created_at": "2026-01-01 00:00:00",
+                    "creator_id": "usr_abc123",
                     "parent_cloud_id": "cld_abc123",
                 }
             ],
@@ -252,7 +277,6 @@ def get(id: str, output_format: str, json: bool = False):  # noqa: A002
     type=click.Choice([OutputFormat.TEXT.value, OutputFormat.JSON.value]),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 @click.option(
@@ -275,7 +299,11 @@ def list(  # noqa: A001, PLR0913
     output_format: str = OutputFormat.TEXT.value,
     json: bool = False,
 ):
+    if json:
+        warn_deprecated_flag("--json", "-o json")
     json = json or output_format == OutputFormat.JSON.value
+
+    interactive = resolve_interactive(interactive, json)
 
     if max_items is not None and interactive:
         raise click.UsageError("--max-items only allowed with --no-interactive")
@@ -438,8 +466,13 @@ def delete(id: str):  # noqa: A002
 @command_metadata(
     status=ReleaseStatus.GA,
     since="0.0.0",
-    # TODO(Dhyey): flip to all OutputFormat values when -o is unhidden.
-    output_formats=[OutputFormat.TEXT],
+    output_formats=[OutputFormat.TEXT, OutputFormat.JSON, OutputFormat.YAML],
+    option_docs={
+        "--json": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use -o json instead."},
+        }
+    },
     examples=[
         CommandExample(
             description="Get the default project of a cloud.",
@@ -449,7 +482,14 @@ def delete(id: str):  # noqa: A002
             output_instance={
                 "id": "prj_abc123",
                 "name": "default",
+                "description": "My project.",
+                "created_at": "2026-01-01 00:00:00",
+                "creator_id": "usr_abc123",
                 "parent_cloud_id": "cld_abc123",
+                "is_owner": True,
+                "is_read_only": False,
+                "directory_name": "default",
+                "is_default": True,
             },
         ),
     ],
@@ -468,10 +508,11 @@ def delete(id: str):  # noqa: A002
     OUTPUT_FLAG,
     OUTPUT_FLAG_LONG,
     "output_format",
-    type=click.Choice([f.value for f in OutputFormat]),
+    type=click.Choice(
+        [OutputFormat.TEXT.value, OutputFormat.JSON.value, OutputFormat.YAML.value]
+    ),
     default=OutputFormat.TEXT.value,
     show_default=True,
-    hidden=True,
     help="Output format for the result.",
 )
 @click.option(
@@ -482,6 +523,8 @@ def delete(id: str):  # noqa: A002
     help="Output the project in a structured JSON format.",
 )
 def get_default(cloud: str, output_format: str, json: bool = False):
+    if json:
+        warn_deprecated_flag("--json", "-o json")
     try:
         project: Project = anyscale.project.get_default(cloud)
     except ValueError as e:
@@ -489,11 +532,11 @@ def get_default(cloud: str, output_format: str, json: bool = False):
         sys.exit(1)
 
     console = Console()
-    if json:
+    if output_format != OutputFormat.TEXT.value:
+        print_output(project, output_format)
+    elif json:
         json_str = json_dumps(project.to_dict(), indent=2, cls=AnyscaleJSONEncoder)
         console.print_json(json=json_str)
-    elif output_format != OutputFormat.TEXT.value:
-        print_output(project, output_format)
     else:
         stream = StringIO()
         yaml.dump(project.to_dict(), stream, sort_keys=False)

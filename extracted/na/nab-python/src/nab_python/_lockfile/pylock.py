@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import os
 from collections import Counter, defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import reduce
 from itertools import product
 from pathlib import Path
@@ -22,9 +22,10 @@ import tomli_w
 
 from nab_index.atomic import atomic_write_text
 
-from .._conflict_kind import MARKER_VARIABLE_FOR_KIND
+from .._conflict_kind import KIND_GROUP, MARKER_VARIABLE_FOR_KIND
 from .._vendor.packaging.markers import Marker
 from .._vendor.packaging.markersets import (
+    DecisionStore,
     IntractableMarkerSet,
     MarkerSet,
     UnserializableMarkerSet,
@@ -43,7 +44,9 @@ from .._vendor.packaging.utils import canonicalize_name
 from .._vendor.packaging.version import Version
 from ..config import conflict_exclusion_groups, conflict_member_groups
 from .builder import require_artifact_hashes
+from .coverage import validate_marker_coverage
 from .disjointness import validate_marker_disjointness
+from .groups import BASE_MEMBER
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
@@ -80,8 +83,9 @@ class _ForkAxes:
     """The declared conflict sets a lock's forks vary along.
 
     ``exclusion_groups`` are the ``(kind, name)`` member sets an install
-    context may activate at most one member of.  ``forks`` indexes every
-    target by its environment and its selection, which is how
+    context may activate at most one member of, restricted to the members
+    the resolve forked over (:func:`_forked_exclusion_groups`).  ``forks``
+    indexes every target by its environment and its selection, which is how
     :func:`_project_fork` walks one set's members with the other sets
     held fixed.  ``markers`` is each fork's unprojected selection marker,
     which does not vary by package, and ``gates`` each fork's
@@ -94,6 +98,17 @@ class _ForkAxes:
     env_signatures: Mapping[str, _EnvSignature]
     markers: Mapping[str, str]
     gates: Mapping[tuple[str, str], _Members]
+
+
+@dataclass(frozen=True, slots=True)
+class _GatedMarker:
+    """The environments one gate selects a package in.
+
+    ``marker`` is ``None`` when the gate holds on all of them.
+    """
+
+    marker: Marker | None
+    gate: tuple[tuple[str, str], ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,6 +138,23 @@ def _fork_index(
         (env_signatures[label], frozenset(lock.target.selection)): label
         for label, lock in targets.items()
     }
+
+
+def _forked_exclusion_groups(
+    exclusion_groups: Sequence[AbstractSet[tuple[str, str]]],
+    targets: Mapping[str, TargetLock],
+) -> tuple[AbstractSet[tuple[str, str]], ...]:
+    """Restrict each declared conflict set to the members a fork selects.
+
+    A set forks only over the members the run selected, so a declared
+    member the selection omits has no fork for :func:`_project_fork` to
+    swap in and no place in the lock's ``extras`` or ``dependency-groups``
+    arrays for an install context to activate.
+    """
+    forked = frozenset(
+        member for lock in targets.values() for member in lock.target.selection
+    )
+    return tuple(group & forked for group in exclusion_groups)
 
 
 class UnsoundSimplificationError(ValueError):
@@ -201,10 +233,15 @@ def build_pylock(lock_input: LockInput, *, lock_dir: Path | None = None) -> Pylo
     """
     from ..lockfile import LOCK_VERSION
 
+    lock_input = _name_base_group(lock_input)
+
     base = (lock_dir if lock_dir is not None else Path.cwd()).resolve()
     exclusion_groups = conflict_exclusion_groups(lock_input.conflicts)
     universe = _emission_universe(lock_input)
-    package_records = _build_packages(lock_input, base, exclusion_groups, universe)
+    store = DecisionStore()
+    package_records = _build_packages(
+        lock_input, base, exclusion_groups, universe, store
+    )
     package_records.sort(key=_package_sort_key)
     validate_marker_disjointness(
         package_records,
@@ -213,6 +250,11 @@ def build_pylock(lock_input: LockInput, *, lock_dir: Path | None = None) -> Pylo
         groups=lock_input.active_groups,
         exclusive_groups=exclusion_groups,
         declared_groups=conflict_member_groups(lock_input.conflicts),
+    )
+    validate_marker_coverage(
+        [lock.target for lock in lock_input.targets.values()],
+        environments=lock_input.environments,
+        store=store,
     )
     tool: dict[str, Any] | None = (
         {"nab": lock_input.provenance.to_block()}
@@ -232,20 +274,67 @@ def build_pylock(lock_input: LockInput, *, lock_dir: Path | None = None) -> Pylo
             if lock_input.extras
             else None
         ),
-        dependency_groups=(
-            tuple(canonicalize_name(g) for g in lock_input.dependency_groups)
-            if lock_input.dependency_groups
-            else None
+        dependency_groups=_group_array(
+            lock_input.dependency_groups,
+            lock_input.base_group,
+            lock_input.build_group,
         ),
-        default_groups=(
-            tuple(canonicalize_name(g) for g in lock_input.default_groups)
-            if lock_input.default_groups
-            else None
+        default_groups=_group_array(
+            lock_input.default_groups,
+            lock_input.base_group if not lock_input.default_groups else None,
         ),
         created_by=lock_input.created_by,
         packages=package_records,
         tool=tool,
     )
+
+
+def _name_base_group(lock_input: LockInput) -> LockInput:
+    """Return ``lock_input`` with the base member named, or cut from every gate.
+
+    The builder records :data:`~nab_python.lockfile.BASE_MEMBER` on every
+    package the project's own dependencies reach.  With ``base-group``
+    unset there is no name to give it, so those packages lose their gate
+    and stay unconditional.
+    """
+    name = lock_input.base_group
+    member = (KIND_GROUP, name)
+    targets = {
+        label: replace(
+            lock,
+            package_gates={
+                gated: tuple(
+                    member if gate_member == BASE_MEMBER else gate_member
+                    for gate_member in gate
+                )
+                for gated, gate in lock.package_gates.items()
+                if name is not None or BASE_MEMBER not in gate
+            },
+        )
+        for label, lock in lock_input.targets.items()
+    }
+    return replace(lock_input, targets=targets)
+
+
+def _group_array(
+    groups: Sequence[str], *configured: str | None
+) -> tuple[str, ...] | None:
+    """Render one of the lock's group arrays, or ``None`` when it is empty.
+
+    Every name is canonicalized here and deduplicated in order.  Which
+    arrays a ``configured`` name belongs in is the caller's decision:
+    ``build-group`` joins ``dependency-groups`` alone, and ``base-group``
+    joins it too, since an installer that offers only those names would
+    otherwise never reach it.  ``base-group`` joins ``default-groups``
+    only when the project declares none of its own, because a declared
+    ``default-groups`` replaces the default selection rather than
+    extending it.
+    """
+    names = dict.fromkeys(str(canonicalize_name(group)) for group in groups)
+    for name in configured:
+        if name is not None:
+            names[str(canonicalize_name(name))] = None
+    return tuple(names) or None
 
 
 def _relativize_path(target: str | os.PathLike[str], lock_dir: Path) -> str:
@@ -439,7 +528,10 @@ def _emission_universe(lock_input: LockInput) -> MarkerSet:
 
 
 def _finalize_marker(
-    raw: Marker | None, within: MarkerSet, name: str = ""
+    raw: Marker | None,
+    within: MarkerSet,
+    name: str = "",
+    store: DecisionStore | None = None,
 ) -> Marker | None:
     """Return ``raw`` in its shortest form equivalent over ``within``.
 
@@ -458,14 +550,14 @@ def _finalize_marker(
     if raw is None:
         return None
     try:
-        simplified = MarkerSet.from_marker(raw).simplify(within=within)
+        simplified = MarkerSet.from_marker(raw).simplify(within=within, store=store)
         text = simplified.to_marker_string()
         rebuilt = None if text is None else Marker(text)
         emitted = (
             MarkerSet.full() if rebuilt is None else MarkerSet.from_marker(rebuilt)
         )
         shown = "no marker" if rebuilt is None else str(rebuilt)
-        sound = _sound_within_universe(raw, emitted, within)
+        sound = _sound_within_universe(raw, emitted, within, store)
     except (IntractableMarkerSet, UnserializableMarkerSet):
         return raw
     if not sound:
@@ -482,6 +574,7 @@ def _finalize_cached(
     within: MarkerSet,
     name: str,
     memo: dict[str, Marker | None],
+    store: DecisionStore,
 ) -> Marker | None:
     """:func:`_finalize_marker` memoised for the span of one lock.
 
@@ -493,18 +586,23 @@ def _finalize_cached(
         return None
     key = str(raw)
     if key not in memo:
-        memo[key] = _finalize_marker(raw, within, name)
+        memo[key] = _finalize_marker(raw, within, name, store)
     return memo[key]
 
 
-def _sound_within_universe(raw: Marker, emitted: MarkerSet, within: MarkerSet) -> bool:
+def _sound_within_universe(
+    raw: Marker,
+    emitted: MarkerSet,
+    within: MarkerSet,
+    store: DecisionStore | None = None,
+) -> bool:
     """Whether ``emitted`` and ``raw`` agree on every environment in ``within``.
 
     ``emitted`` is what the lock ships: the reparsed marker bytes, or
     :meth:`MarkerSet.full` when no marker field is emitted.  Decided per universe
     row, under the same budget as the operator it checks.
     """
-    return MarkerSet.from_marker(raw).equivalent_within(emitted, within)
+    return MarkerSet.from_marker(raw).equivalent_within(emitted, within, store=store)
 
 
 def _build_packages(
@@ -512,6 +610,7 @@ def _build_packages(
     lock_dir: Path,
     exclusion_groups: Sequence[AbstractSet[tuple[str, str]]],
     universe: MarkerSet,
+    store: DecisionStore,
 ) -> list[Package]:
     """Collapse the per-target pins into Package entries with markers.
 
@@ -529,10 +628,9 @@ def _build_packages(
     Each emitted marker is finalised to its shortest form equivalent over
     the declared environments (:func:`_finalize_marker`).
 
-    A package a selected extra or group reaches while the project's own
-    dependencies do not is gated on that selection, so a default install
-    (no extras, the default groups) leaves it out.  See
-    :func:`_build_marker`.
+    A package carries the gate of every install context that reaches it,
+    which with ``[tool.nab].base-group`` set includes the project's own
+    dependencies.  See :func:`_build_marker`.
 
     A conflict fork injects a membership clause into every target's
     marker, including the forks' base dependencies.  A base dependency
@@ -564,14 +662,15 @@ def _build_packages(
         for canonical_name, per_target in by_name.items()
     }
     shortened: dict[str, Marker | None] = {}
+    forked_groups = _forked_exclusion_groups(exclusion_groups, targets)
     axes = _ForkAxes(
-        exclusion_groups=tuple(exclusion_groups),
+        exclusion_groups=forked_groups,
         forks=_fork_index(targets, env_signatures),
         targets=targets,
         env_signatures=env_signatures,
         # One selection marker per label; it does not vary by package.
         markers={
-            label: _selection_marker(lock.target, exclusion_groups)
+            label: _selection_marker(lock.target, forked_groups)
             for label, lock in targets.items()
         },
         gates={
@@ -593,7 +692,7 @@ def _build_packages(
         )
 
         for pins, labels in groups:
-            marker = _build_marker(
+            parts = _build_marker(
                 canonical_name,
                 labels,
                 env_fork_counts,
@@ -601,7 +700,7 @@ def _build_packages(
                 axes,
                 projections,
             )
-            marker = _finalize_cached(marker, universe, canonical_name, shortened)
+            marker = _finalize_parts(parts, universe, canonical_name, shortened, store)
             out.append(
                 _pin_to_package(
                     _merge_pins_in_group(pins),
@@ -843,8 +942,8 @@ def _build_marker(
     env_base_names: Mapping[tuple[tuple[str, str], ...], frozenset[str]],
     axes: _ForkAxes,
     projections: Mapping[tuple[str, str], _Projection],
-) -> Marker | None:
-    """Return the marker selecting ``labels``, or ``None`` if unconditional.
+) -> tuple[_GatedMarker, ...]:
+    """Return the marker selecting ``labels``, split by gate.
 
     For each environment the package appears in, the contribution is
     the membership-free env-only marker when the package is present in
@@ -875,10 +974,9 @@ def _build_marker(
     :func:`_fork_projections`.  The projection makes several forks render
     the same contribution, which is emitted once.
 
-    A package a selected extra or group reaches while the project's own
-    dependencies do not carries that selection's gate (see
-    :attr:`~nab_python.lockfile.TargetLock.package_gates`), which is
-    joined by ``and`` onto each contribution.  A fork whose gate names
+    A package carries the gate of every install context that reaches it
+    (see :attr:`~nab_python.lockfile.TargetLock.package_gates`), joined
+    by ``and`` onto each contribution.  A fork whose gate names
     its own selection needs no gate: its marker already asserts that
     member.  An env collapses only when its forks agree on the rest of
     the gate, and the collapsed entry carries their union, so a package
@@ -900,8 +998,8 @@ def _build_marker(
     # every environment collapsed to its env-only marker. A member-only
     # dep present in all forks of an env keeps the membership OR, so it
     # is not unconditional even at full coverage.
-    contributions: list[Marker] = []
-    collapsed_gates: set[tuple[tuple[str, str], ...]] = set()
+    by_gate: defaultdict[tuple[tuple[str, str], ...], list[Marker]] = defaultdict(list)
+    loose: list[Marker] = []
     unconditional = len(labels) >= len(targets)
     for signature, env_labels in by_env.items():
         is_base = _is_base(name, signature, env_fork_counts, env_base_names)
@@ -910,31 +1008,45 @@ def _build_marker(
             == 1
         )
 
-        if len(env_labels) >= env_fork_counts[signature] and is_base and agreed_gate:
-            head = targets[env_labels[0]].target
-            merged = _merge_gates(gates[label] for label in env_labels)
-            collapsed_gates.add(merged)
-            contributions.append(
-                Marker(_with_gate(head.environment_marker_string, merged))
-            )
-        else:
-            contributions.extend(
-                Marker(text)
-                for text in _fork_contributions(axes, projections, name, env_labels)
-            )
-            unconditional = False
+        collapses = len(env_labels) >= env_fork_counts[signature] and is_base
+        head = targets[env_labels[0]].target
 
+        if collapses and agreed_gate:
+            merged = _merge_gates(gates[label] for label in env_labels)
+            by_gate[merged].append(Marker(head.environment_marker_string))
+            continue
+
+        # Forks that disagree on the gate still agree on what they share,
+        # and a base dep is present in all of them, so the shared part
+        # holds whichever fork the install context picks, including none.
+        if collapses:
+            shared = _common_gate(gates[label] for label in env_labels)
+            if shared:
+                by_gate[shared].append(Marker(head.environment_marker_string))
+
+        loose.extend(
+            Marker(text)
+            for text in _fork_contributions(axes, projections, name, env_labels)
+        )
+        unconditional = False
+
+    parts = tuple(
+        _GatedMarker(_or_markers(environments), gate)
+        for gate, environments in by_gate.items()
+    )
+    if loose:
+        parts += (_GatedMarker(_or_markers(loose), ()),)
     if not unconditional:
-        return _or_markers(contributions)
+        return parts
 
     # Every env collapsed at full coverage: the environment is not what
     # selects this package, so only the gate can, and only when every
     # env agrees on it.
-    if collapsed_gates == {()}:
-        return None
-    if len(collapsed_gates) == 1:
-        return Marker(_gate_clause(next(iter(collapsed_gates))))
-    return _or_markers(contributions)
+    if set(by_gate) == {()}:
+        return (_GatedMarker(None, ()),)
+    if len(by_gate) == 1:
+        return (_GatedMarker(None, next(iter(by_gate))),)
+    return parts
 
 
 def _fork_contributions(
@@ -1048,9 +1160,9 @@ def _project_fork(
 ) -> _Projection:
     """Return the clauses one fork's entry for ``name`` can drop.
 
-    A declared conflict set is irrelevant to a package when swapping the
-    fork's member of that set for any other member, every other set held
-    fixed, leaves the package at the same pin reached the same way.
+    A conflict set is irrelevant to a package when swapping the fork's
+    member of that set for any other member, every other set held fixed,
+    leaves the package at the same pin reached the same way.
     Conjoining such a set's clauses narrows the entry to the forks that
     vary something the package does not depend on, so a selection naming
     a member of one set alone matches no entry and the package silently
@@ -1179,6 +1291,21 @@ def _fork_gate(
     return tuple(sorted(gate))
 
 
+def _common_gate(
+    gates: Iterable[tuple[tuple[str, str], ...]],
+) -> tuple[tuple[str, str], ...]:
+    """Return the members every fork of one environment gates a package on.
+
+    A gate is a disjunction, so a member every fork names implies every
+    fork's gate: the package is reached under that member whichever fork
+    the install context selects.
+    """
+    common: set[tuple[str, str]] | None = None
+    for gate in gates:
+        common = set(gate) if common is None else common & set(gate)
+    return tuple(sorted(common or ()))
+
+
 def _merge_gates(
     gates: Iterable[tuple[tuple[str, str], ...]],
 ) -> tuple[tuple[str, str], ...]:
@@ -1243,6 +1370,47 @@ def _gate_clause(gate: Sequence[tuple[str, str]]) -> str:
     return " or ".join(
         f'"{name}" in {MARKER_VARIABLE_FOR_KIND[kind]}' for kind, name in sorted(gate)
     )
+
+
+def _finalize_parts(
+    parts: Sequence[_GatedMarker],
+    universe: MarkerSet,
+    name: str,
+    memo: dict[str, Marker | None],
+    store: DecisionStore,
+) -> Marker | None:
+    """Simplify each gate's environments, then the marker they assemble into.
+
+    Simplifying the whole marker in one pass walks a cell space the
+    membership variables multiply.  Each gate's environments carry no
+    membership variable, so they shrink first, and the marker they
+    assemble into is small by the time the second pass canonicalises it.
+    """
+    assembled: list[Marker] = []
+    for part in parts:
+        simplified = _finalize_cached(part.marker, universe, name, memo, store)
+        if not part.gate:
+            if simplified is None:
+                return None
+            assembled.append(simplified)
+            continue
+        assembled.append(_gated_marker(simplified, part.gate))
+
+    # One ungated part is already what the second pass would return.
+    if len(parts) == 1 and not parts[0].gate:
+        return assembled[0]
+    return _finalize_cached(_or_markers(assembled), universe, name, memo, store)
+
+
+def _gated_marker(marker: Marker | None, gate: Sequence[tuple[str, str]]) -> Marker:
+    """Conjoin a gate onto the simplified environments it selects in.
+
+    With no environments the gate is the whole marker.  Otherwise they
+    are parenthesised, since they may disjoin and ``and`` binds tighter.
+    """
+    if marker is None:
+        return Marker(_gate_clause(gate))
+    return Marker(_with_gate(f"({marker})", gate))
 
 
 def _with_gate(marker: str, gate: Sequence[tuple[str, str]]) -> str:

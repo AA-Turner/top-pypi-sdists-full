@@ -9,10 +9,13 @@ import io
 import json
 import logging
 import re
+import sys
 import tarfile
 import time
 import zipfile
 from collections.abc import Mapping
+from dataclasses import replace
+from email.utils import formatdate
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin, urlsplit
@@ -25,8 +28,10 @@ import nab_index.cached_client as cached_client_mod
 from nab_index.cache import CachePolicy, NullCache, OfflineError, OnDiskCache
 from nab_index.cached_client import (
     CachedAsyncSimpleClient,
+    _freshness_lifetime,
     _header,
-    _parse_max_age,
+    _max_age_directive,
+    _parse_age,
 )
 from nab_index.client import (
     MalformedSimpleResponseError,
@@ -57,6 +62,9 @@ LISTING = {
 }
 LISTING_BYTES = json.dumps(LISTING).encode()
 
+# A digit run just past CPython's int-from-string limit.
+OVERSIZED_DIGITS = "9" * (sys.get_int_max_str_digits() + 1)
+
 
 class _FakeResponse:
     def __init__(
@@ -64,10 +72,14 @@ class _FakeResponse:
         body: bytes,
         status: int = 200,
         headers: Mapping[str, str] | None = None,
+        url: str = "",
     ) -> None:
         self.content = body
         self.status_code = status
         self.headers = headers or {}
+        # Empty means the transport fills in the requested URL. Set it to
+        # stand in for a page the index redirected to.
+        self.url = url
 
     @property
     def text(self) -> str:
@@ -107,7 +119,10 @@ class _FakeTransport:
         if not self._responses:
             msg = f"unexpected request to {url}"
             raise AssertionError(msg)
-        return self._responses.pop(0)
+        response = self._responses.pop(0)
+        if not response.url:
+            response.url = url
+        return response
 
     async def aclose(self) -> None:
         return None
@@ -480,6 +495,25 @@ class TestRelativeUrlResolution:
         expected = "https://example.com/simple/foo/foo-1.0-py3-none-any.whl"
         assert files[0].url == expected
 
+    def test_relative_url_resolves_against_the_page_that_was_served(self) -> None:
+        """A redirect moves the project page, and with it the base."""
+        data = {
+            "files": [
+                {
+                    "filename": "foo-1.0-py3-none-any.whl",
+                    "url": "foo-1.0-py3-none-any.whl",
+                },
+            ],
+        }
+        files = _parse_files(
+            data,
+            "https://example.com/simple/",
+            "foo",
+            page_url="https://example.com/pypi/simple/foo/",
+        )
+        expected = "https://example.com/pypi/simple/foo/foo-1.0-py3-none-any.whl"
+        assert files[0].url == expected
+
     def test_dot_dot_relative_url_is_normalised(self) -> None:
         data = {
             "files": [
@@ -720,18 +754,148 @@ class TestSelectArtifactHash:
         assert _select_artifact_hash(hashes) == ("sha512", "f" * 128)
 
 
-class TestParseMaxAge:
-    def test_default_when_none(self) -> None:
-        assert _parse_max_age(None) == 600
+class TestMaxAgeDirective:
+    def test_none_when_field_absent(self) -> None:
+        assert _max_age_directive(None) is None
 
-    def test_default_when_unparseable(self) -> None:
-        assert _parse_max_age("public") == 600
+    def test_none_when_directive_absent(self) -> None:
+        assert _max_age_directive("public") is None
 
     def test_extracts_value(self) -> None:
-        assert _parse_max_age("max-age=900, public") == 900
+        assert _max_age_directive("max-age=900, public") == 900
 
     def test_extracts_value_with_spaces(self) -> None:
-        assert _parse_max_age("public, max-age = 1200") == 1200
+        assert _max_age_directive("public, max-age = 1200") == 1200
+
+    def test_leading_zeros_ignored(self) -> None:
+        assert _max_age_directive("max-age=00000000900") == 900
+
+    def test_above_ceiling_clamped(self) -> None:
+        assert _max_age_directive("max-age=9999999999") == 2**31
+
+    def test_digit_run_too_long_to_convert_clamped(self) -> None:
+        assert _max_age_directive("max-age=" + "9" * 9000) == 2**31
+
+    def test_directive_name_is_case_insensitive(self) -> None:
+        assert _max_age_directive("Max-Age=0") == 0
+
+    def test_uppercase_directive_among_others(self) -> None:
+        assert _max_age_directive("public, MAX-AGE = 30, must-revalidate") == 30
+
+    def test_quoted_value_extracted(self) -> None:
+        assert _max_age_directive('max-age="300"') == 300
+
+
+class TestFreshnessLifetime:
+    """Freshness lifetime read from one response's headers."""
+
+    _NOW = 1_700_000_000.0
+
+    @pytest.fixture(autouse=True)
+    def _frozen_clock(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(time, "time", lambda: self._NOW)
+
+    def _lifetime(self, headers: dict[str, str]) -> int:
+        return _freshness_lifetime(_FakeResponse(b"", headers=headers))
+
+    def _http_date(self, offset: float) -> str:
+        return formatdate(self._NOW + offset, usegmt=True)
+
+    def test_heuristic_when_response_states_nothing(self) -> None:
+        assert self._lifetime({}) == 600
+
+    def test_heuristic_when_cache_control_carries_no_max_age(self) -> None:
+        assert self._lifetime({"cache-control": "public"}) == 600
+
+    def test_max_age_outranks_expires(self) -> None:
+        headers = {
+            "cache-control": "max-age=30",
+            "date": self._http_date(0),
+            "expires": self._http_date(86400),
+        }
+        assert self._lifetime(headers) == 30
+
+    def test_expires_measured_from_date(self) -> None:
+        headers = {"date": self._http_date(-1000), "expires": self._http_date(800)}
+        assert self._lifetime(headers) == 1800
+
+    def test_expires_measured_from_arrival_without_date(self) -> None:
+        assert self._lifetime({"expires": self._http_date(45)}) == 45
+
+    def test_unparseable_date_falls_back_to_arrival(self) -> None:
+        headers = {"date": "whenever", "expires": self._http_date(45)}
+        assert self._lifetime(headers) == 45
+
+    def test_expires_before_date_is_already_expired(self) -> None:
+        headers = {"date": self._http_date(0), "expires": self._http_date(-1)}
+        assert self._lifetime(headers) == 0
+
+    def test_expires_zero_is_already_expired(self) -> None:
+        assert self._lifetime({"expires": "0"}) == 0
+
+    def test_unparseable_expires_is_already_expired(self) -> None:
+        assert self._lifetime({"expires": "tomorrow, maybe"}) == 0
+
+    def test_out_of_range_year_is_already_expired(self) -> None:
+        assert self._lifetime({"expires": "Mon, 01 Jan 99999 00:00:00 GMT"}) == 0
+
+    @pytest.mark.parametrize(
+        "expires",
+        [
+            "Mon, 01 Jan 2030 00:00:00 +99999999999999999999999",
+            "Mon, 01 Jan 9999999999999999999999999 00:00:00 GMT",
+            "Mon, 99999999999999999999 Jan 2030 00:00:00 GMT",
+            "Mon, 01 Jan 2030 99999999999999999999:00:00 GMT",
+        ],
+    )
+    def test_overflowing_expires_is_already_expired(self, expires: str) -> None:
+        assert self._lifetime({"expires": expires}) == 0
+
+    def test_overflowing_date_falls_back_to_arrival(self) -> None:
+        headers = {
+            "date": "Mon, 01 Jan 2030 00:00:00 +99999999999999999999999",
+            "expires": self._http_date(45),
+        }
+        assert self._lifetime(headers) == 45
+
+    def test_zoneless_expires_reads_as_gmt(self) -> None:
+        asctime = time.asctime(time.gmtime(self._NOW + 120))
+        assert self._lifetime({"expires": asctime}) == 120
+
+    def test_far_future_expires_clamped(self) -> None:
+        assert self._lifetime({"expires": "Fri, 31 Dec 9999 23:59:59 GMT"}) == 2**31
+
+
+class TestParseAge:
+    def test_absent_is_zero(self) -> None:
+        assert _parse_age(None) == 0
+
+    def test_extracts_value(self) -> None:
+        assert _parse_age("472") == 472
+
+    def test_surrounding_space_tolerated(self) -> None:
+        assert _parse_age(" 472 ") == 472
+
+    def test_non_numeric_is_zero(self) -> None:
+        assert _parse_age("a while") == 0
+
+    def test_negative_is_zero(self) -> None:
+        assert _parse_age("-5") == 0
+
+    def test_above_ceiling_clamped(self) -> None:
+        assert _parse_age("9999999999") == 2**31
+
+    def test_digit_run_too_long_to_convert_clamped(self) -> None:
+        assert _parse_age("9" * 9000) == 2**31
+
+    def test_leading_zeros_ignored(self) -> None:
+        assert _parse_age("00000000472") == 472
+
+    def test_all_zeros_is_zero(self) -> None:
+        assert _parse_age("0" * 9000) == 0
+
+    def test_padded_value_above_ceiling_clamped(self) -> None:
+        assert _parse_age("0" * 9000 + "9" * 20) == 2**31
 
 
 class TestHeader:
@@ -898,6 +1062,26 @@ class TestGetFiles:
         assert cached is not None
         _, new_policy = cached
         assert new_policy.max_age == 120
+
+    def test_uppercase_max_age_directive_is_stored(self, tmp_path: Path) -> None:
+        cache = _make_cache(tmp_path)
+        transport = _FakeTransport(
+            [
+                _FakeResponse(
+                    LISTING_BYTES,
+                    headers={"etag": "v1", "cache-control": "public, Max-Age=0"},
+                ),
+                _FakeResponse(b"", status=304, headers={"etag": "v1"}),
+            ]
+        )
+
+        assert len(_run_get_files(transport, cache, "pkg")) == 1
+        stored = _make_cache(tmp_path).get_simple("pkg")
+        assert stored is not None
+        assert stored[1].max_age == 0
+
+        assert len(_run_get_files(transport, cache, "pkg")) == 1
+        assert len(transport.calls) == 2
 
     def test_stale_revalidates_304_with_new_etag_replaces_etag(
         self, tmp_path: Path
@@ -1147,6 +1331,509 @@ class TestGetFiles:
         files = asyncio.run(go())
         assert len(files) == 1
 
+    def test_unwritable_cache_root_still_serves_the_listing(
+        self, tmp_path: Path
+    ) -> None:
+        root = tmp_path / "cache"
+        root.write_bytes(b"not a directory")
+        cache = OnDiskCache(root, "https://pypi.org/simple/")
+        transport = _FakeTransport([_FakeResponse(LISTING_BYTES)])
+
+        async def go() -> list:
+            client = CachedAsyncSimpleClient(transport, cache)
+            try:
+                return await client.get_files("pkg")
+            finally:
+                await client.aclose()
+
+        files = asyncio.run(go())
+        assert len(files) == 1
+
+
+class TestResponseAge:
+    """An Age header counts toward the entry's age (RFC 9111 4.2.3).
+
+    A shared cache in front of the index reports how long ago the origin
+    generated the representation, so the window opened before nab's receipt.
+    """
+
+    def test_cold_fetch_opens_window_at_origin_generation(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(time, "time", lambda: 1000.0)
+        cache = _make_cache(tmp_path)
+        transport = _FakeTransport(
+            [
+                _FakeResponse(
+                    LISTING_BYTES,
+                    headers={
+                        "etag": "v1",
+                        "cache-control": "max-age=600, must-revalidate",
+                        "age": "472",
+                    },
+                )
+            ]
+        )
+
+        assert len(_run_get_files(transport, cache, "pkg")) == 1
+
+        cached = cache.get_simple("pkg")
+        assert cached is not None
+        _, policy = cached
+        assert policy.fetched_at == 528
+        assert policy.is_fresh(now=1127) is True
+        assert policy.is_fresh(now=1128) is False
+
+    def test_relayed_entry_revalidates_before_receipt_window_ends(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        cache = _make_cache(tmp_path)
+        monkeypatch.setattr(time, "time", lambda: 1000.0)
+        cold = _FakeTransport(
+            [
+                _FakeResponse(
+                    LISTING_BYTES,
+                    headers={
+                        "etag": "v1",
+                        "cache-control": "max-age=600",
+                        "age": "472",
+                    },
+                )
+            ]
+        )
+        assert len(_run_get_files(cold, cache, "pkg")) == 1
+
+        monkeypatch.setattr(time, "time", lambda: 1300.0)
+        warm = _FakeTransport([_FakeResponse(b"", status=304, headers={"etag": "v1"})])
+        assert len(_run_get_files(warm, cache, "pkg")) == 1
+
+        assert len(warm.calls) == 1
+        sent_headers = warm.calls[0][1]
+        assert sent_headers is not None
+        assert sent_headers.get("If-None-Match") == "v1"
+
+    def test_no_age_header_opens_window_at_receipt(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(time, "time", lambda: 1000.0)
+        cache = _make_cache(tmp_path)
+        transport = _FakeTransport(
+            [
+                _FakeResponse(
+                    LISTING_BYTES,
+                    headers={"etag": "v1", "cache-control": "max-age=600"},
+                )
+            ]
+        )
+
+        assert len(_run_get_files(transport, cache, "pkg")) == 1
+
+        cached = cache.get_simple("pkg")
+        assert cached is not None
+        _, policy = cached
+        assert policy.fetched_at == 1000
+
+    def test_304_refresh_backdates_by_age(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(time, "time", lambda: 5000.0)
+        cache = _make_cache(tmp_path)
+        cache.put_simple(
+            "pkg",
+            LISTING_BYTES,
+            CachePolicy(fetched_at=0, max_age=60, etag="v1"),
+        )
+        transport = _FakeTransport(
+            [_FakeResponse(b"", status=304, headers={"etag": "v1", "age": "30"})]
+        )
+
+        assert len(_run_get_files(transport, cache, "pkg")) == 1
+
+        cached = cache.get_simple("pkg")
+        assert cached is not None
+        _, policy = cached
+        assert policy.fetched_at == 4970
+        assert policy.max_age == 60
+
+    def test_revalidated_200_backdates_by_age(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(time, "time", lambda: 5000.0)
+        cache = _make_cache(tmp_path)
+        cache.put_simple(
+            "pkg",
+            LISTING_BYTES,
+            CachePolicy(fetched_at=0, max_age=60, etag="v1"),
+        )
+        transport = _FakeTransport(
+            [
+                _FakeResponse(
+                    LISTING_BYTES,
+                    headers={
+                        "etag": "v2",
+                        "cache-control": "max-age=600",
+                        "age": "90",
+                    },
+                )
+            ]
+        )
+
+        assert len(_run_get_files(transport, cache, "pkg")) == 1
+
+        cached = cache.get_simple("pkg")
+        assert cached is not None
+        _, policy = cached
+        assert policy.fetched_at == 4910
+        assert policy.etag == "v2"
+
+    def test_404_sentinel_backdates_by_age(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(time, "time", lambda: 1000.0)
+        cache = _make_cache(tmp_path)
+        transport = _FakeTransport(
+            [
+                _FakeResponse(
+                    b"",
+                    status=404,
+                    headers={"cache-control": "max-age=600", "age": "500"},
+                )
+            ]
+        )
+
+        assert _run_get_files(transport, cache, "absent") == []
+
+        neg = cache.get_negative("absent")
+        assert neg is not None
+        assert neg.fetched_at == 500
+        assert neg.is_fresh(now=1099) is True
+        assert neg.is_fresh(now=1100) is False
+
+    def test_age_at_max_age_is_stale_on_arrival(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(time, "time", lambda: 1000.0)
+        cache = _make_cache(tmp_path)
+        cold = _FakeTransport(
+            [
+                _FakeResponse(
+                    LISTING_BYTES,
+                    headers={
+                        "etag": "v1",
+                        "cache-control": "max-age=600",
+                        "age": "600",
+                    },
+                )
+            ]
+        )
+        assert len(_run_get_files(cold, cache, "pkg")) == 1
+
+        cached = cache.get_simple("pkg")
+        assert cached is not None
+        _, policy = cached
+        assert policy.is_fresh(now=1000) is False
+
+        warm = _FakeTransport([_FakeResponse(b"", status=304, headers={"etag": "v1"})])
+        assert len(_run_get_files(warm, cache, "pkg")) == 1
+
+        assert len(warm.calls) == 1
+        sent_headers = warm.calls[0][1]
+        assert sent_headers is not None
+        assert sent_headers.get("If-None-Match") == "v1"
+
+
+class TestExpiresFreshness:
+    """Expires sets the freshness lifetime when Cache-Control does not.
+
+    RFC 9111 4.2.1 ranks Expires minus Date above the heuristic window, and
+    4.2.2 rules the heuristic out once a response carries an explicit expiry.
+    """
+
+    _NOW = 1_700_000_000.0
+    _RELISTING = json.dumps(
+        {
+            "meta": {"api-version": "1.0"},
+            "name": "pkg",
+            "files": [
+                *LISTING["files"],
+                {
+                    "filename": "pkg-2.0-py3-none-any.whl",
+                    "url": "https://files.example.com/pkg-2.0-py3-none-any.whl",
+                },
+            ],
+        }
+    ).encode()
+
+    def _freeze(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(time, "time", lambda: self._NOW)
+
+    def _resolve_twice(
+        self, tmp_path: Path, headers: dict[str, str]
+    ) -> tuple[_FakeTransport, list]:
+        """Read pkg, then read it again once a second release has landed."""
+        cache = _make_cache(tmp_path)
+        transport = _FakeTransport(
+            [
+                _FakeResponse(LISTING_BYTES, headers=headers),
+                _FakeResponse(self._RELISTING, headers=headers),
+            ]
+        )
+        assert len(_run_get_files(transport, cache, "pkg")) == 1
+        return transport, _run_get_files(transport, cache, "pkg")
+
+    def _stored_policy(self, tmp_path: Path, headers: dict[str, str]) -> CachePolicy:
+        cache = _make_cache(tmp_path)
+        transport = _FakeTransport([_FakeResponse(LISTING_BYTES, headers=headers)])
+        assert len(_run_get_files(transport, cache, "pkg")) == 1
+        cached = cache.get_simple("pkg")
+        assert cached is not None
+        return cached[1]
+
+    def test_expires_in_the_past_revalidates_immediately(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._freeze(monkeypatch)
+        transport, files = self._resolve_twice(
+            tmp_path,
+            {
+                "date": formatdate(self._NOW, usegmt=True),
+                "expires": formatdate(self._NOW - 3600, usegmt=True),
+            },
+        )
+
+        assert len(transport.calls) == 2
+        assert len(files) == 2
+
+    def test_expires_zero_is_already_expired(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._freeze(monkeypatch)
+        transport, files = self._resolve_twice(
+            tmp_path,
+            {"date": formatdate(self._NOW, usegmt=True), "expires": "0"},
+        )
+
+        assert len(transport.calls) == 2
+        assert len(files) == 2
+
+    def test_expires_grants_a_lifetime_past_the_heuristic_window(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._freeze(monkeypatch)
+        policy = self._stored_policy(
+            tmp_path,
+            {
+                "date": formatdate(self._NOW, usegmt=True),
+                "expires": formatdate(self._NOW + 86400, usegmt=True),
+            },
+        )
+
+        assert policy.max_age == 86400
+        assert policy.is_fresh(now=int(self._NOW) + 3600) is True
+
+    def test_expires_without_date_measured_from_arrival(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._freeze(monkeypatch)
+        policy = self._stored_policy(
+            tmp_path, {"expires": formatdate(self._NOW + 300, usegmt=True)}
+        )
+
+        assert policy.max_age == 300
+
+    def test_max_age_outranks_expires(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._freeze(monkeypatch)
+        policy = self._stored_policy(
+            tmp_path,
+            {
+                "cache-control": "max-age=60",
+                "date": formatdate(self._NOW, usegmt=True),
+                "expires": formatdate(self._NOW + 86400, usegmt=True),
+            },
+        )
+
+        assert policy.max_age == 60
+
+    def test_expires_with_an_overflowing_zone_offset_is_already_expired(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._freeze(monkeypatch)
+        policy = self._stored_policy(
+            tmp_path,
+            {"expires": "Mon, 01 Jan 2030 00:00:00 +99999999999999999999999"},
+        )
+
+        assert policy.max_age == 0
+
+    def test_304_expires_replaces_the_stored_lifetime(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._freeze(monkeypatch)
+        cache = _make_cache(tmp_path)
+        cache.put_simple(
+            "pkg", LISTING_BYTES, CachePolicy(fetched_at=0, max_age=60, etag="v1")
+        )
+        transport = _FakeTransport(
+            [
+                _FakeResponse(
+                    b"",
+                    status=304,
+                    headers={
+                        "date": formatdate(self._NOW, usegmt=True),
+                        "expires": formatdate(self._NOW + 1800, usegmt=True),
+                    },
+                )
+            ]
+        )
+
+        assert len(_run_get_files(transport, cache, "pkg")) == 1
+
+        cached = cache.get_simple("pkg")
+        assert cached is not None
+        assert cached[1].max_age == 1800
+
+
+class TestRedirectedProjectPage:
+    """A relative file URL resolves against the page the index served.
+
+    An index may redirect a project page and still publish a relative
+    ``files[].url``. RFC 3986 section 5.1.3 makes the redirect target the
+    base, so the resolved URL must not point back at the requested path.
+    """
+
+    _MOVED_PAGE = "https://mirror.example.com/pypi/simple/pkg/"
+    _EXPECTED_URL = f"{_MOVED_PAGE}pkg-1.0-py3-none-any.whl"
+    _RELATIVE_LISTING = json.dumps(
+        {
+            "meta": {"api-version": "1.1"},
+            "name": "pkg",
+            "files": [
+                {
+                    "filename": "pkg-1.0-py3-none-any.whl",
+                    "url": "pkg-1.0-py3-none-any.whl",
+                    "hashes": {"sha256": "0" * 64},
+                    "core-metadata": True,
+                }
+            ],
+        }
+    ).encode()
+
+    def _run(self, transport: _FakeTransport, cache: OnDiskCache) -> list:
+        async def go() -> list:
+            client = CachedAsyncSimpleClient(transport, cache)
+            try:
+                return await client.get_files("pkg")
+            finally:
+                await client.aclose()
+
+        return asyncio.run(go())
+
+    def test_cold_fetch_resolves_against_the_redirect_target(
+        self, tmp_path: Path
+    ) -> None:
+        cache = _make_cache(tmp_path)
+        transport = _FakeTransport(
+            [_FakeResponse(self._RELATIVE_LISTING, url=self._MOVED_PAGE)]
+        )
+
+        (wheel,) = self._run(transport, cache)
+
+        assert wheel.url == self._EXPECTED_URL
+        assert isinstance(wheel, WheelFile)
+        assert wheel.metadata_url == f"{self._EXPECTED_URL}.metadata"
+
+    def test_warm_hit_reuses_the_recorded_page(self, tmp_path: Path) -> None:
+        cache = _make_cache(tmp_path)
+        transport = _FakeTransport(
+            [
+                _FakeResponse(
+                    self._RELATIVE_LISTING,
+                    headers={"cache-control": "max-age=600"},
+                    url=self._MOVED_PAGE,
+                )
+            ]
+        )
+        self._run(transport, cache)
+
+        # A second transport with nothing queued fails any request it gets.
+        (wheel,) = self._run(_FakeTransport(), cache)
+
+        assert wheel.url == self._EXPECTED_URL
+        assert len(transport.calls) == 1
+
+    def test_offline_hit_reuses_the_recorded_page(self, tmp_path: Path) -> None:
+        cache = _make_cache(tmp_path)
+        cache.put_simple(
+            "pkg",
+            self._RELATIVE_LISTING,
+            CachePolicy(fetched_at=0, max_age=1, etag=None, page_url=self._MOVED_PAGE),
+        )
+
+        async def go() -> list:
+            client = CachedAsyncSimpleClient(_FakeTransport(), cache, offline=True)
+            try:
+                return await client.get_files("pkg")
+            finally:
+                await client.aclose()
+
+        (wheel,) = asyncio.run(go())
+
+        assert wheel.url == self._EXPECTED_URL
+
+    def test_304_revalidation_adopts_the_redirect_target(self, tmp_path: Path) -> None:
+        cache = _make_cache(tmp_path)
+        cache.put_simple(
+            "pkg",
+            self._RELATIVE_LISTING,
+            CachePolicy(fetched_at=0, max_age=1, etag="v1"),
+        )
+        transport = _FakeTransport(
+            [
+                _FakeResponse(
+                    b"", status=304, headers={"etag": "v1"}, url=self._MOVED_PAGE
+                )
+            ]
+        )
+
+        (wheel,) = self._run(transport, cache)
+
+        assert wheel.url == self._EXPECTED_URL
+        cached = cache.get_simple("pkg")
+        assert cached is not None
+        assert cached[1].page_url == self._MOVED_PAGE
+
+    def test_200_revalidation_adopts_the_redirect_target(self, tmp_path: Path) -> None:
+        cache = _make_cache(tmp_path)
+        cache.put_simple(
+            "pkg",
+            b'{"files": []}',
+            CachePolicy(fetched_at=0, max_age=1, etag="old"),
+        )
+        transport = _FakeTransport(
+            [_FakeResponse(self._RELATIVE_LISTING, url=self._MOVED_PAGE)]
+        )
+
+        (wheel,) = self._run(transport, cache)
+
+        assert wheel.url == self._EXPECTED_URL
+
+    def test_entry_stored_without_a_page_falls_back_to_the_index(
+        self, tmp_path: Path
+    ) -> None:
+        """A cache written before the page URL was recorded keeps working."""
+        cache = _make_cache(tmp_path)
+        cache.put_simple(
+            "pkg",
+            self._RELATIVE_LISTING,
+            CachePolicy(fetched_at=2_000_000_000, max_age=99999, etag=None),
+        )
+
+        (wheel,) = self._run(_FakeTransport(), cache)
+
+        assert wheel.url == "https://pypi.org/simple/pkg/pkg-1.0-py3-none-any.whl"
+
 
 class TestNonJsonListingBody:
     """A 200 response whose body is not JSON must not poison the cache.
@@ -1346,6 +2033,54 @@ class TestHtmlListing:
         assert wheel.requires_python == ">=3.9"
         assert wheel.hashes == (("sha256", self._DIGEST),)
         assert wheel.upload_time == self._UPLOAD_TIME
+
+    def test_hash_fragment_before_an_egg_part(self, tmp_path: Path) -> None:
+        page = (
+            f'<a href="torch-2.7.0-py3-none-any.whl#sha256={self._DIGEST}'
+            '&amp;egg=torch-2.7.0">torch</a>'
+        ).encode()
+        files, _ = self._fetch(_make_cache(tmp_path), page, "text/html")
+        assert files[0].hashes == (("sha256", self._DIGEST),)
+
+    def test_hash_fragment_after_an_egg_part(self, tmp_path: Path) -> None:
+        page = (
+            '<a href="torch-2.7.0-py3-none-any.whl#egg=torch-2.7.0'
+            f'&amp;sha256={self._DIGEST}">torch</a>'
+        ).encode()
+        files, _ = self._fetch(_make_cache(tmp_path), page, "text/html")
+        assert files[0].hashes == (("sha256", self._DIGEST),)
+
+    def test_every_fragment_hash_is_read(self, tmp_path: Path) -> None:
+        sha512 = "f" * 128
+        page = (
+            f'<a href="torch-2.7.0-py3-none-any.whl#sha256={self._DIGEST}'
+            f'&amp;sha512={sha512}">torch</a>'
+        ).encode()
+        files, _ = self._fetch(_make_cache(tmp_path), page, "text/html")
+        assert files[0].hashes == (("sha256", self._DIGEST), ("sha512", sha512))
+
+    def test_relative_href_resolves_against_the_redirect_target(
+        self, tmp_path: Path
+    ) -> None:
+        """A moved HTML page is the base for its own relative hrefs."""
+        moved = "https://mirror.example.com/whl/cpu/torch/"
+        page = b'<a href="torch-2.7.0-py3-none-any.whl">torch</a>'
+        transport = _FakeTransport(
+            [_FakeResponse(page, headers={"content-type": "text/html"}, url=moved)]
+        )
+
+        async def go() -> list:
+            client = CachedAsyncSimpleClient(
+                transport, _make_cache(tmp_path), self._INDEX
+            )
+            try:
+                return await client.get_files("torch")
+            finally:
+                await client.aclose()
+
+        (wheel,) = asyncio.run(go())
+
+        assert wheel.url == f"{moved}torch-2.7.0-py3-none-any.whl"
 
     def test_malformed_ipv6_href_is_dropped(self, tmp_path: Path) -> None:
         # An unterminated IPv6 bracket makes the href join and split raise;
@@ -2191,8 +2926,9 @@ class TestGetSdistFiles:
     ) -> None:
         """A crash while writing the entry must not leave a partial cache.
 
-        The first fetch fails as the single record is committed; the second
-        must still recover the full PKG-INFO plus pyproject.toml pair.
+        The first fetch's write is dropped as the single record is
+        committed; the second must still recover the full PKG-INFO and
+        pyproject.toml pair.
         """
         cache = _make_cache(tmp_path)
         marker = b"partial-write-marker"
@@ -2225,8 +2961,10 @@ class TestGetSdistFiles:
             finally:
                 await client.aclose()
 
-        with pytest.raises(OSError, match="simulated crash"):
-            asyncio.run(fetch())
+        first_pkg_info, first_pyproject = asyncio.run(fetch())
+        assert first_pkg_info is not None
+        assert first_pyproject is not None
+        assert cache.get_sdist_files("pkg", "1.0") is None
 
         fail["active"] = False
         pkg_info, recovered_pyproject = asyncio.run(fetch())
@@ -2770,9 +3508,93 @@ class TestNegativeCaching:
         assert neg is not None
         assert neg.max_age == 120
 
+    def test_404_uppercase_max_age_directive_is_stored(self, tmp_path: Path) -> None:
+        cache = _make_cache(tmp_path)
+        transport = _FakeTransport(
+            [
+                _FakeResponse(b"", status=404, headers={"cache-control": "Max-Age=0"}),
+                _FakeResponse(b"", status=404, headers={"cache-control": "Max-Age=0"}),
+            ]
+        )
+
+        assert _run_get_files(transport, cache, "absent") == []
+        neg = _make_cache(tmp_path).get_negative("absent")
+        assert neg is not None
+        assert neg.max_age == 0
+
+        assert _run_get_files(transport, cache, "absent") == []
+        assert len(transport.calls) == 2
+
     def test_404_no_cache_control_defaults_600(self, tmp_path: Path) -> None:
         cache = _make_cache(tmp_path)
         transport = _FakeTransport([_FakeResponse(b"", status=404)])
+
+        _run_get_files(transport, cache, "absent")
+        neg = cache.get_negative("absent")
+        assert neg is not None
+        assert neg.max_age == 600
+
+    def test_404_expires_in_the_past_refetches_on_the_next_read(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        now = 1_700_000_000.0
+        monkeypatch.setattr(time, "time", lambda: now)
+
+        published = json.dumps(
+            {
+                "meta": {"api-version": "1.0"},
+                "name": "absent",
+                "files": [
+                    {
+                        "filename": "absent-1.0-py3-none-any.whl",
+                        "url": "https://files.example.com/absent-1.0-py3-none-any.whl",
+                    }
+                ],
+            }
+        ).encode()
+
+        cache = _make_cache(tmp_path)
+        transport = _FakeTransport(
+            [
+                _FakeResponse(
+                    b"",
+                    status=404,
+                    headers={
+                        "date": formatdate(now, usegmt=True),
+                        "expires": formatdate(now - 60, usegmt=True),
+                    },
+                ),
+                _FakeResponse(published, headers={"cache-control": "max-age=600"}),
+            ]
+        )
+
+        assert _run_get_files(transport, cache, "absent") == []
+        neg = cache.get_negative("absent")
+        assert neg is not None
+        assert neg.max_age == 0
+
+        assert len(_run_get_files(transport, cache, "absent")) == 1
+        assert len(transport.calls) == 2
+
+    def test_404_expires_still_capped_at_600(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        now = 1_700_000_000.0
+        monkeypatch.setattr(time, "time", lambda: now)
+
+        cache = _make_cache(tmp_path)
+        transport = _FakeTransport(
+            [
+                _FakeResponse(
+                    b"",
+                    status=404,
+                    headers={
+                        "date": formatdate(now, usegmt=True),
+                        "expires": formatdate(now + 86400, usegmt=True),
+                    },
+                )
+            ]
+        )
 
         _run_get_files(transport, cache, "absent")
         neg = cache.get_negative("absent")
@@ -3021,6 +3843,64 @@ class TestCorruptCachedListing:
         assert str(caught.value) == str(wire.value)
 
 
+class TestOversizedListingInt:
+    """A listing integer too long to convert reads as an undecodable body.
+
+    ``json.loads`` builds a JSON integer with ``int()``, so a numeric literal
+    past CPython's conversion limit raises a bare :class:`ValueError` rather
+    than a :class:`json.JSONDecodeError`. PEP 700 makes ``size`` a required
+    field, so every api-version 1.1 listing carries one.
+    """
+
+    # json.dumps hits the same limit writing the int out, so splice it in.
+    _BODY = (
+        json.dumps(
+            {
+                "meta": {"api-version": "1.1"},
+                "name": "pkg",
+                "files": [
+                    {
+                        "filename": "pkg-1.0-py3-none-any.whl",
+                        "url": "https://files.example.com/pkg-1.0-py3-none-any.whl",
+                        "size": "PLACEHOLDER",
+                    },
+                ],
+            }
+        )
+        .replace('"PLACEHOLDER"', OVERSIZED_DIGITS)
+        .encode()
+    )
+
+    def test_wire_body_raises_clean_and_skips_cache(self, tmp_path: Path) -> None:
+        cache = _make_cache(tmp_path)
+        transport = _FakeTransport([_FakeResponse(self._BODY, status=200)])
+
+        with pytest.raises(
+            MalformedSimpleResponseError, match="malformed Simple-API"
+        ) as caught:
+            _run_get_files(transport, cache, "pkg")
+
+        assert isinstance(caught.value, HttpError)
+        assert cache.get_simple("pkg") is None
+
+    def test_cached_body_self_heals_online(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        cache = _make_cache(tmp_path)
+        cache.put_simple("pkg", self._BODY, _fresh_policy())
+        transport = _FakeTransport([_FakeResponse(LISTING_BYTES, status=200)])
+
+        with caplog.at_level(logging.WARNING, logger="nab_index.cached_client"):
+            files = _run_get_files(transport, cache, "pkg")
+
+        assert len(files) == 1
+        assert len(transport.calls) == 1
+        healed = cache.get_simple("pkg")
+        assert healed is not None
+        assert healed[0] == LISTING_BYTES
+        assert len(_cached_warnings(caplog)) == 1
+
+
 class TestModuleDocstring:
     """Keep the module docstring in step with the client's constructor."""
 
@@ -3085,3 +3965,254 @@ class TestModuleDocstring:
         cache_type = annotations["cache"].split(".")[-1]
         assert transport_type in referenced
         assert cache_type in referenced
+
+
+def _run_get_files_floor(
+    transport: object,
+    cache: object,
+    package: str,
+    *,
+    min_fresh_seconds: int | None = None,
+    offline: bool = False,
+) -> list:
+    async def go() -> list:
+        client = CachedAsyncSimpleClient(
+            transport,  # type: ignore[arg-type]
+            cache,  # type: ignore[arg-type]
+            offline=offline,
+            min_fresh_seconds=min_fresh_seconds,
+        )
+        try:
+            return await client.get_files(package)
+        finally:
+            await client.aclose()
+
+    return asyncio.run(go())
+
+
+def _debug_records(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
+    return [
+        r
+        for r in caplog.records
+        if r.levelno == logging.DEBUG and r.name == "nab_index.cached_client"
+    ]
+
+
+class TestAssumeFreshFloor:
+    """Read-time freshness floor: extend, never shorten, and never rewrite disk."""
+
+    def test_stale_positive_within_floor_serves_cached_no_transport(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        monkeypatch.setattr(time, "time", lambda: 1000.0)
+        cache = _make_cache(tmp_path)
+        cache.put_simple(
+            "pkg", LISTING_BYTES, CachePolicy(fetched_at=500, max_age=1, etag="e")
+        )
+        transport = _FakeTransport()  # raises on any call
+
+        with caplog.at_level(logging.DEBUG, logger="nab_index.cached_client"):
+            files = _run_get_files_floor(
+                transport, cache, "pkg", min_fresh_seconds=3600
+            )
+
+        assert len(files) == 1
+        assert transport.calls == []
+        records = _debug_records(caplog)
+        assert len(records) == 1
+        assert "listing" in records[0].getMessage()
+
+    def test_stale_positive_past_floor_revalidates(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(time, "time", lambda: 200.0)
+        cache = _make_cache(tmp_path)
+        cache.put_simple(
+            "pkg", LISTING_BYTES, CachePolicy(fetched_at=0, max_age=1, etag="old")
+        )
+        transport = _FakeTransport(
+            [_FakeResponse(b"", status=304, headers={"etag": "old"})]
+        )
+
+        files = _run_get_files_floor(transport, cache, "pkg", min_fresh_seconds=100)
+        assert len(files) == 1
+        assert len(transport.calls) == 1
+
+    def test_no_floor_revalidates_and_no_debug_line(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        cache = _make_cache(tmp_path)
+        cache.put_simple(
+            "pkg", LISTING_BYTES, CachePolicy(fetched_at=0, max_age=1, etag="old")
+        )
+        transport = _FakeTransport(
+            [_FakeResponse(b"", status=304, headers={"etag": "old"})]
+        )
+
+        with caplog.at_level(logging.DEBUG, logger="nab_index.cached_client"):
+            files = _run_get_files_floor(
+                transport, cache, "pkg", min_fresh_seconds=None
+            )
+        assert len(files) == 1
+        assert len(transport.calls) == 1
+        assert _debug_records(caplog) == []
+
+    def test_stale_sentinel_within_floor_answers_empty_no_transport(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        monkeypatch.setattr(time, "time", lambda: 1000.0)
+        cache = _make_cache(tmp_path)
+        cache.put_negative("absent", CachePolicy(fetched_at=500, max_age=1, etag=None))
+        transport = _FakeTransport()
+
+        with caplog.at_level(logging.DEBUG, logger="nab_index.cached_client"):
+            result = _run_get_files_floor(
+                transport, cache, "absent", min_fresh_seconds=3600
+            )
+
+        assert result == []
+        assert transport.calls == []
+        records = _debug_records(caplog)
+        assert len(records) == 1
+        assert "absent-name sentinel" in records[0].getMessage()
+
+    def test_stale_sentinel_past_floor_reprobes(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(time, "time", lambda: 1000.0)
+        cache = _make_cache(tmp_path)
+        cache.put_negative("absent", CachePolicy(fetched_at=0, max_age=1, etag=None))
+        transport = _FakeTransport([_FakeResponse(b"gone", status=404)])
+
+        result = _run_get_files_floor(transport, cache, "absent", min_fresh_seconds=100)
+        assert result == []
+        assert len(transport.calls) == 1
+
+    def test_floor_smaller_than_stored_window_is_noop(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        monkeypatch.setattr(time, "time", lambda: 1300.0)
+        cache = _make_cache(tmp_path)
+        cache.put_simple(
+            "pkg", LISTING_BYTES, CachePolicy(fetched_at=1000, max_age=600, etag="e")
+        )
+        transport = _FakeTransport()  # raises on any call
+
+        with caplog.at_level(logging.DEBUG, logger="nab_index.cached_client"):
+            files = _run_get_files_floor(transport, cache, "pkg", min_fresh_seconds=100)
+
+        assert len(files) == 1
+        assert transport.calls == []
+        assert _debug_records(caplog) == []
+
+    def test_offline_with_floor_serves_cached_no_helper_no_debug(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        cache = _make_cache(tmp_path)
+        cache.put_simple(
+            "pkg", LISTING_BYTES, CachePolicy(fetched_at=0, max_age=1, etag="old")
+        )
+        transport = _FakeTransport()  # raises on any call
+
+        with caplog.at_level(logging.DEBUG, logger="nab_index.cached_client"):
+            files = _run_get_files_floor(
+                transport, cache, "pkg", min_fresh_seconds=3600, offline=True
+            )
+
+        assert len(files) == 1
+        assert transport.calls == []
+        assert _debug_records(caplog) == []
+
+    def test_stored_policy_unchanged_after_floor_suppressed_read(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(time, "time", lambda: 1000.0)
+        cache = _make_cache(tmp_path)
+        stored = CachePolicy(fetched_at=500, max_age=1, etag="e")
+        digest = cache.put_simple("pkg", LISTING_BYTES, stored)
+        transport = _FakeTransport()
+
+        _run_get_files_floor(transport, cache, "pkg", min_fresh_seconds=3600)
+
+        cached = cache.get_simple("pkg")
+        assert cached is not None
+        body, policy = cached
+        assert body == LISTING_BYTES
+        # put_simple stamps the body digest; the suppressed read leaves it be.
+        assert policy == replace(stored, body_digest=digest)
+
+    def test_stored_sentinel_unchanged_after_floor_suppressed_read(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(time, "time", lambda: 1000.0)
+        cache = _make_cache(tmp_path)
+        stored = CachePolicy(fetched_at=500, max_age=1, etag=None)
+        cache.put_negative("absent", stored)
+        transport = _FakeTransport()
+
+        _run_get_files_floor(transport, cache, "absent", min_fresh_seconds=3600)
+
+        assert cache.get_negative("absent") == stored
+
+    def test_immutable_metadata_text_warm_hit_with_floor(self, tmp_path: Path) -> None:
+        cache = _make_cache(tmp_path)
+        cache.put_metadata("pkg", "https://x/pkg.metadata", "stored")
+        transport = _FakeTransport()
+
+        async def go() -> str:
+            client = CachedAsyncSimpleClient(transport, cache, min_fresh_seconds=3600)
+            try:
+                return await client.get_metadata_text(
+                    "pkg", "1.0", "https://x/pkg.metadata"
+                )
+            finally:
+                await client.aclose()
+
+        assert asyncio.run(go()) == "stored"
+        assert transport.calls == []
+
+    def test_immutable_range_metadata_warm_hit_with_floor(self, tmp_path: Path) -> None:
+        cache = _make_cache(tmp_path)
+        cache.put_metadata("pkg", _WHEEL_URL, _RANGE_META.decode())
+        transport = _FakeTransport()
+
+        async def go() -> RangeMetadataResult:
+            client = CachedAsyncSimpleClient(transport, cache, min_fresh_seconds=3600)
+            try:
+                return await client.get_range_metadata(
+                    "pkg", "1.0", _WHEEL_URL, canonicalize_name("pkg")
+                )
+            finally:
+                await client.aclose()
+
+        result = asyncio.run(go())
+        assert result.text == _RANGE_META.decode()
+        assert transport.calls == []
+
+    def test_immutable_sdist_files_warm_hit_with_floor(self, tmp_path: Path) -> None:
+        cache = _make_cache(tmp_path)
+        cache.put_sdist_files("pkg", "1.0", "Name: cached\n", None)
+        transport = _FakeTransport()
+
+        async def go() -> tuple[str | None, str | None]:
+            client = CachedAsyncSimpleClient(transport, cache, min_fresh_seconds=3600)
+            try:
+                return await client.get_sdist_files(
+                    "pkg", "1.0", "https://x/pkg.tar.gz"
+                )
+            finally:
+                await client.aclose()
+
+        pkg_info, pyproject = asyncio.run(go())
+        assert pkg_info == "Name: cached\n"
+        assert pyproject is None
+        assert transport.calls == []

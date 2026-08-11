@@ -41,7 +41,15 @@ _BASE_TOKENS = ("", "bf16", "fp16", "fp32")
 
 @dataclass(frozen=True)
 class Placement:
-    """Arch requirements for one flavor. Empty fields = unconstrained."""
+    """Arch requirements for one flavor. Empty fields = unconstrained.
+
+    pgw#973 censused ``sm_min = 0`` as a §4.24 item-4 absence collapse and it is
+    NOT one: "unconstrained" is this class's STATED meaning for every empty
+    field (`sm_allowed=()` says the same thing), the placement is the flavor's
+    own declaration rather than an operator knob, and a missing floor cannot
+    admit anything ``sm_allowed`` and the engine list do not already admit.
+    Kept as filed, verdict recorded so it is not re-opened.
+    """
 
     precision_class: str
     sm_allowed: tuple[int, ...] = ()  # discrete allow-list (gpu_sm as int, e.g. 89, 120)
@@ -262,6 +270,11 @@ EMERGENCY_NF4_VRAM_FACTOR = 0.45  # nf4 denoiser, encoders/VAE at compute dtype
 NF4_WEIGHT_BYTES_FACTOR = 0.30
 
 
+# th#1361/pgw#1065: the flavor-token parses (classify_flavor_token,
+# placement_for_flavor, pick_family_fp8_flavor) are package-internal choke
+# points, not public API — the hub unexported its twin under th#1433. They
+# die when th#1721 typed descriptors are backfilled; nothing new may grow
+# on them.
 __all__ = [
     "FP8_COMPUTE_MIN_SM",
     "CLASS_BASE",
@@ -274,12 +287,9 @@ __all__ = [
     "EMERGENCY_NF4_VRAM_FACTOR",
     "NF4_WEIGHT_BYTES_FACTOR",
     "Placement",
-    "classify_flavor_token",
     "default_placement",
     "family_root",
     "maybe_rebind_family_fp8",
-    "pick_family_fp8_flavor",
-    "placement_for_flavor",
     "placement_from_metadata",
     "placement_to_metadata",
     "w8a8_excluded_for_family",

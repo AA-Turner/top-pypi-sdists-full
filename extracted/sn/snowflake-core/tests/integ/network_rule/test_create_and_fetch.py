@@ -26,7 +26,7 @@ def test_create_and_fetch(network_rules):
         assert fetched_rule.name.upper() == name.upper()
         assert fetched_rule.type == "HOST_PORT"
         assert fetched_rule.mode.upper() == "EGRESS"
-        assert fetched_rule.value_list == ["example.com:443", "api.example.com:443"]
+        assert fetched_rule.value_list == ["example.com", "example.com:443"]
         assert fetched_rule.comment == "Test network rule"
     finally:
         network_rule_handle.drop(if_exists=True)

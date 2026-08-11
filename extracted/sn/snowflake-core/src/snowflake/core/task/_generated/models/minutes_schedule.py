@@ -16,9 +16,10 @@ import json
 import pprint
 import re  # noqa: F401
 
-from typing import Any
+from typing import Any, Optional
 
-from pydantic import ConfigDict, StrictInt
+from pydantic import ConfigDict, Field, StrictInt
+from typing_extensions import Annotated
 
 from snowflake.core.task._generated.models.task_schedule import TaskSchedule
 
@@ -31,10 +32,14 @@ class MinutesSchedule(TaskSchedule):
     Parameters
     __________
     minutes : int
-        The number of minutes between each task run.
+        The number of whole minutes between each task run.
+    seconds : int, optional
+        Additional seconds past `minutes` between each task run. Combined with `minutes`, the total interval is `minutes * 60 + seconds` seconds. When omitted in a request, the server treats the remainder as 0.
     """
 
     minutes: StrictInt
+
+    seconds: Optional[Annotated[int, Field(le=59, strict=True, ge=0)]] = None
 
     __properties = ["schedule_type"]
 
@@ -88,6 +93,7 @@ class MinutesSchedule(TaskSchedule):
         _obj = MinutesSchedule.model_validate(
             {
                 "minutes": obj.get("minutes"),
+                "seconds": obj.get("seconds"),
             }
         )
 
@@ -99,6 +105,7 @@ class MinutesScheduleModel(TaskSchedule):
         self,
         minutes: int,
         # optional properties
+        seconds: Optional[int] = None,
     ):
         """A model object representing the MinutesSchedule resource.
 
@@ -107,10 +114,13 @@ class MinutesScheduleModel(TaskSchedule):
         Parameters
         __________
         minutes : int
-            The number of minutes between each task run.
+            The number of whole minutes between each task run.
+        seconds : int, optional
+            Additional seconds past `minutes` between each task run. Combined with `minutes`, the total interval is `minutes * 60 + seconds` seconds. When omitted in a request, the server treats the remainder as 0.
         """
         super().__init__()
         self.minutes = minutes
+        self.seconds = seconds
 
     __properties = ["schedule_type"]
 
@@ -120,12 +130,14 @@ class MinutesScheduleModel(TaskSchedule):
     def _to_model(self):
         return MinutesSchedule(
             minutes=self.minutes,
+            seconds=self.seconds,
         )
 
     @classmethod
     def _from_model(cls, model) -> MinutesScheduleModel:
         return MinutesScheduleModel(
             minutes=model.minutes,
+            seconds=model.seconds,
         )
 
     def to_dict(self):

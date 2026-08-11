@@ -2829,7 +2829,7 @@ components:
                   description: 'Source URL (from attachment.url). For GIFs this is an l.facebook.com redirect.'
         post:
           type: object
-          required: [id, platformPostId]
+          required: [id, platformPostId, content, imageUrl, permalink]
           properties:
             id:
               type: [string, "null"]
@@ -2837,6 +2837,15 @@ components:
             platformPostId:
               type: string
               description: Platform's post ID
+            content:
+              type: [string, "null"]
+              description: 'Post text, from our synced copy — no platform call is made on the comment path, so null when the post was never synced.'
+            imageUrl:
+              type: [string, "null"]
+              description: 'Post thumbnail or first media item URL. Platform CDN URLs expire, fetch promptly.'
+            permalink:
+              type: [string, "null"]
+              description: 'Public URL of the post. Null for posts published through Zernio that were never re-synced.'
         account:
           type: object
           required: [id, platform, username]
@@ -4864,8 +4873,29 @@ components:
                 example: 0
         audioName:
           type: string
-          description: Custom name for original audio in Reels. Replaces the default "Original Audio" label. Can only be set once.
+          description: 'Custom name for original audio in Reels. Replaces the default "Original Audio" label. Can only be set once. Unrelated to audioConfiguration, which attaches a catalog track.'
           example: "My Podcast Intro"
+        audioConfiguration:
+          type: object
+          description: 'Attach a licensed music track or original sound from the Instagram audio catalog to a Reel. Reels only (single video post, not a story or image). Requires an Instagram account connected via Facebook Login; classic Instagram Login accounts get a 400 (instagram_audio_requires_facebook_login). Get audio IDs from GET /v1/accounts/{accountId}/instagram/audio. If the track becomes unavailable by publish time (removed, region-blocked, licensing change), the post fails with a user-error; it is not published without the audio.'
+          required: [audioId]
+          properties:
+            audioId:
+              type: string
+              description: 'Audio asset ID from the audio search endpoint.'
+              example: "482851939985510"
+            audioVolume:
+              type: integer
+              minimum: 0
+              maximum: 100
+              description: 'Volume of the attached audio track, 0-100. Defaults to 100.'
+              example: 80
+            videoVolume:
+              type: integer
+              minimum: 0
+              maximum: 100
+              description: 'Volume of the video''s own sound, 0-100. Defaults to 100. Set 0 to mute the original video audio.'
+              example: 100
         thumbOffset:
           type: integer
           minimum: 0
@@ -4884,6 +4914,25 @@ components:
           default: false
           description: When true, the post is labeled by Instagram as containing AI-generated media. Per Meta, this self-disclosure label is for AI-generated media, not AI-written captions. Applies to feed posts, Reels, Stories, and carousels.
       description: Feed aspect ratio 0.8-1.91, carousels up to 10 items, stories require media (no captions). User tag coordinates 0.0-1.0 from top-left. Images over 8 MB and videos over platform limits are auto-compressed.
+
+    InstagramAudioAsset:
+      type: object
+      description: 'One asset from the Instagram audio catalog. Licensed music carries artist/artwork fields; original sounds carry creator fields instead, so most fields are nullable.'
+      properties:
+        audioId:
+          type: string
+          description: 'Audio asset ID. Pass it as platformSpecificData.audioConfiguration.audioId when creating a Reel.'
+          example: "482851939985510"
+        title: { type: [string, "null"], description: 'Track or sound title.' }
+        audioType: { type: [string, "null"], enum: [music, original_sound, null], description: 'Catalog type of the asset.' }
+        durationInMs: { type: [integer, "null"], description: 'Asset duration in milliseconds.' }
+        displayArtist: { type: [string, "null"], description: 'Artist name (licensed music only).' }
+        coverArtworkThumbnailUrl: { type: [string, "null"], description: 'Cover artwork thumbnail (licensed music only).' }
+        downloadUrl: { type: [string, "null"], description: 'Temporary preview URL. Meta expires it after roughly 1.5 days; re-fetch the asset to refresh it.' }
+        igUsername: { type: [string, "null"], description: 'Creator username (original sounds only).' }
+        profilePictureUrl: { type: [string, "null"], description: 'Creator profile picture (original sounds only).' }
+        isAdsEligible: { type: [boolean, "null"], description: 'Whether the asset is eligible for ads use.' }
+        onPlatformAudioPreviewLink: { type: [string, "null"], description: 'Instagram web link to preview the audio.' }
 
     LinkedInPlatformData:
       type: object
@@ -4917,6 +4966,14 @@ components:
         amount:       { type: string, description: "Amount as a decimal string, e.g. \"88.59\"." }
         currencyCode: { type: string, description: "ISO 4217 currency code, e.g. \"USD\"." }
 
+    MetaAdsPlatformData:
+      type: object
+      additionalProperties: false
+      description: 'Meta (facebook/instagram) options for platformSpecificData on POST /v1/ads/boost and /v1/ads/create. Unknown keys are rejected, not dropped.'
+      properties:
+        bidStrategy: { $ref: '#/components/schemas/BidStrategy' }
+        bidAmount: { type: number, description: "Whole currency units (USD: 5 = $5.00). Required when bidStrategy is LOWEST_COST_WITH_BID_CAP or COST_CAP. May also be sent alone, WITHOUT bidStrategy, to set the cap on an ad set joining a COST_CAP / LOWEST_COST_WITH_BID_CAP campaign (the strategy is inherited from the campaign). On POST /v1/ads/create that shape requires existingCampaignId and is a 400 otherwise; on POST /v1/ads/boost it is promoted to LOWEST_COST_WITH_BID_CAP." }
+        roasAverageFloor: { type: number, description: "Decimal ROAS multiplier (2.0 = 2.0x). Required when bidStrategy is LOWEST_COST_WITH_MIN_ROAS; sending it without bidStrategy is a 400." }
     LinkedInAdsPlatformData:
       type: object
       additionalProperties: false
@@ -7856,6 +7913,22 @@ components:
         platformAdSetId: { type: string }
         message: { type: string }
 
+    CustomConversion:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: [string, "null"] }
+        rule: { type: [object, "null"], description: "Meta's rule, parsed back from the string Meta stores." }
+        customEventType: { type: [string, "null"] }
+        pixelId: { type: [string, "null"], description: "Meta's event_source_id — the pixel the rule reads from." }
+        isArchived: { type: boolean }
+    CustomConversionResult:
+      type: object
+      properties:
+        adAccountId: { type: string }
+        customConversionId: { type: string, description: "Drops straight into promotedObject.customConversionId on POST /v1/ads/create." }
+        reused: { type: boolean, description: "True when an existing conversion matched name + pixelId; the response is then a 200." }
+        customConversion: { $ref: '#/components/schemas/CustomConversion' }
     TrackingTag:
       type: object
       description: |
@@ -20558,6 +20631,96 @@ paths:
         '404': { description: Account not found }
         '502': { description: Instagram rejected the request }
 
+  /v1/accounts/{accountId}/instagram/audio:
+    get:
+      x-resource-group: "accounts"
+      operationId: searchInstagramAudio
+      tags: [Instagram]
+      summary: Search Instagram audio
+      description: |
+        Search Instagram's audio catalog (licensed music or original sounds),
+        or list what is currently trending by omitting `q`. Returns up to ~30
+        assets; Meta exposes no pagination on this edge.
+
+        Pass the returned `audioId` as
+        `platformSpecificData.audioConfiguration.audioId` when creating a Reel
+        to publish it with that track.
+
+        Requires an Instagram account connected via **Facebook Login**. Meta
+        hosts this catalog on graph.facebook.com only, so accounts connected
+        with classic Instagram Login receive a 400
+        (`instagram_audio_requires_facebook_login`) and must be reconnected
+        choosing the Facebook option.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: The ID of the Instagram account
+          schema: { type: string }
+        - name: audioType
+          in: query
+          required: true
+          description: 'Catalog to search: licensed music or original sounds from Reels.'
+          schema: { type: string, enum: [music, original_sound] }
+        - name: q
+          in: query
+          required: false
+          description: 'Search keywords. Omit to get the current trending list.'
+          schema: { type: string, minLength: 1, maxLength: 200 }
+      responses:
+        '200':
+          description: Matching audio assets (may be empty)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  audio:
+                    type: array
+                    items: { $ref: '#/components/schemas/InstagramAudioAsset' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Account not found }
+        '502': { description: Instagram rejected the request }
+
+  /v1/accounts/{accountId}/instagram/audio/{audioId}:
+    get:
+      x-resource-group: "accounts"
+      operationId: getInstagramAudio
+      tags: [Instagram]
+      summary: Get Instagram audio metadata
+      description: |
+        Fetch one audio asset's metadata by ID. Use it to re-validate a stored
+        `audioId` before a scheduled Reel publishes, or to refresh the preview
+        `downloadUrl` (Meta expires preview URLs after roughly 1.5 days).
+
+        Same connection requirement as the search endpoint: Facebook-Login
+        Instagram accounts only.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: The ID of the Instagram account
+          schema: { type: string }
+        - name: audioId
+          in: path
+          required: true
+          description: Instagram audio asset ID
+          schema: { type: string, pattern: '^\d{1,30}$' }
+      responses:
+        '200':
+          description: The audio asset
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  audio: { $ref: '#/components/schemas/InstagramAudioAsset' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Account not found }
+        '502': { description: Instagram rejected the request }
+
   /v1/accounts/{accountId}/instagram/stories/{storyId}/insights:
     get:
       x-resource-group: "analytics"
@@ -20573,6 +20736,10 @@ paths:
           (story has expired but we received its final-state metrics from Meta)
         - `unavailable` — story has expired and we never received its webhook
           payload (for example, the account connected after the story expired)
+
+        Meta can report an expired story as an empty successful result rather
+        than an error, so an expired story resolves to `cached` or `unavailable`
+        even though the upstream request itself succeeded.
 
         Field semantics follow Meta's API. Counts below 5 may be returned as 0
         due to Meta's privacy floor on small audiences. The `navigation` field
@@ -20627,6 +20794,7 @@ paths:
         '400': { description: Invalid request. }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Instagram account not found. }
+        '502': { description: 'Instagram rejected the request.' }
 
   /v1/accounts/{accountId}/pinterest-boards:
     get:
@@ -35290,6 +35458,7 @@ paths:
                         error: { type: string }
                         errorCode: { type: [integer, "null"], description: 'Meta WhatsApp error code (e.g. 131049 for antispam, 131021 for invalid phone, 131026 for re-engagement required). Only populated for status=failed.' }
                         errorExplanation: { type: [string, "null"], description: 'Plain-language translation of errorCode (e.g. for 131026, that the recipient has likely opted out of marketing messages). Null for unmapped codes; fall back to error.' }
+                        errorTraceId: { type: [string, "null"], description: 'Meta trace id (fbtrace_id) for the failed send. Quote this when escalating to Meta Direct Support. Only populated for status=failed on Meta platforms.' }
                         sentAt: { type: string, format: date-time }
                         deliveredAt: { type: string, format: date-time }
                         readAt: { type: string, format: date-time }
@@ -36802,6 +36971,64 @@ paths:
         '403':
           description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
 
+  /v1/ads/search-terms:
+    get:
+      x-resource-group: "ads"
+      operationId: getAdsSearchTerms
+      tags: ["Ad Insights"]
+      x-platforms: ["google"]
+      summary: Google Ads search terms report
+      description: |-
+        The actual search queries that triggered your ads, with matched-keyword
+        status and spend metrics — the raw material for wasted-spend analysis and
+        negative-keyword lists. Reads Google's `search_term_view` live; defaults
+        to the last 30 days. Rows are ordered by cost, descending. Draws on the
+        shared Google Ads operations budget.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Google ads SocialAccount id." }
+        - { name: customerId, in: query, schema: { type: string }, description: "Numeric Google Ads customer id (no dashes). Defaults to the account's connected customer." }
+        - { name: fromDate, in: query, schema: { type: string, format: date }, description: "Defaults to 30 days ago." }
+        - { name: toDate, in: query, schema: { type: string, format: date }, description: "Defaults to today." }
+        - { name: campaignId, in: query, schema: { type: string }, description: "Numeric Google campaign id filter." }
+        - { name: adGroupId, in: query, schema: { type: string }, description: "Numeric Google ad group id filter." }
+        - { name: pageToken, in: query, schema: { type: string }, description: "Cursor from paging.nextPageToken of the previous page." }
+      responses:
+        '200':
+          description: Search terms
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        searchTerm: { type: [string, "null"] }
+                        status: { type: [string, "null"], description: "ADDED / EXCLUDED / ADDED_EXCLUDED / NONE — whether the term is already a keyword or a negative." }
+                        matchType: { type: [string, "null"], description: "How the term matched (BROAD, PHRASE, EXACT, NEAR_PHRASE, NEAR_EXACT)." }
+                        campaignId: { type: [string, "null"] }
+                        campaignName: { type: [string, "null"] }
+                        adGroupId: { type: [string, "null"] }
+                        adGroupName: { type: [string, "null"] }
+                        impressions: { type: integer }
+                        clicks: { type: integer }
+                        costMicros: { type: integer, description: "Cost in micros of the account currency (divide by 1,000,000)." }
+                        conversions: { type: number }
+                        conversionsValue: { type: number }
+                  paging:
+                    type: object
+                    properties:
+                      nextPageToken: { type: [string, "null"], description: "Null when the last page was returned." }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { description: "Google Ads operations budget exhausted; retry later." }
+        '501': { description: Only available on Google Ads accounts }
+
   /v1/ads/keywords:
     get:
       x-resource-group: "ads"
@@ -36975,7 +37202,7 @@ paths:
                   type: string
                   enum: [LOWEST_COST_WITHOUT_CAP, LOWEST_COST_WITH_BID_CAP, COST_CAP, LOWEST_COST_WITH_MIN_ROAS]
                   description: "Campaign bid strategy. Meta stores `bid_strategy` alongside the budget, so this REQUIRES `budgetAmount` + `budgetType` on the same request; sending it without a campaign budget is a 400. A campaign carrying a strategy without its `bid_amount` makes every ad set created under it fail with an error that names the ad set (code 100, subcode 1815857), so the bad state is rejected up front rather than accepted. To bid at ad-set level, set the strategy there instead."
-                bidAmount: { type: number, description: "Whole currency units (USD: 5 = $5.00). Required for LOWEST_COST_WITH_BID_CAP and COST_CAP; ignored otherwise." }
+                bidAmount: { type: number, description: "Whole currency units (USD: 5 = $5.00). Required for LOWEST_COST_WITH_BID_CAP and COST_CAP; ignored otherwise. Validated here but NOT stored by Meta: the campaign object has no bid_amount field, only bid_strategy lives on it. The amount takes effect once an ad set joins this campaign (existingCampaignId on POST /v1/ads/create) and supplies its own bidAmount there." }
                 roasAverageFloor: { type: number, description: "Decimal ROAS multiplier (2.0 = 2.0x). Required for LOWEST_COST_WITH_MIN_ROAS." }
       responses:
         '201':
@@ -37500,6 +37727,10 @@ paths:
         - `LOWEST_COST_WITHOUT_CAP`: no `bidAmount`, no `roasAverageFloor`.
         - `LOWEST_COST_WITH_BID_CAP` / `COST_CAP`: `bidAmount` REQUIRED (whole currency units).
         - `LOWEST_COST_WITH_MIN_ROAS`: `roasAverageFloor` REQUIRED (decimal multiplier, e.g. 2.0 = 2.0x ROAS).
+        - Meta only: send `bidAmount` WITHOUT `bidStrategy` to change the cap amount on an ad set
+          under a COST_CAP / LOWEST_COST_WITH_BID_CAP parent campaign, leaving the strategy itself
+          (inherited from the campaign) untouched. `roasAverageFloor` without `bidStrategy` is
+          rejected (it has no meaning outside LOWEST_COST_WITH_MIN_ROAS).
 
         Delivery settings are validated by Meta against the campaign objective;
         incompatible combinations (e.g. a billingEvent the optimization goal
@@ -37545,7 +37776,10 @@ paths:
                   description: |
                     Bid cap in WHOLE currency units (USD: 5 = $5.00; JPY: 100 = ¥100). Required when
                     bidStrategy is LOWEST_COST_WITH_BID_CAP or COST_CAP. Internally converted to Meta's
-                    smallest-denomination integer, or (on OpenAI) to micros (× 1,000,000).
+                    smallest-denomination integer, or (on OpenAI) to micros (× 1,000,000). Meta only:
+                    may be sent alone, WITHOUT bidStrategy, to update the cap amount on an ad set whose
+                    parent campaign is COST_CAP or LOWEST_COST_WITH_BID_CAP (the strategy is inherited
+                    from the campaign and is left untouched).
                 roasAverageFloor:
                   type: number
                   description: |
@@ -39092,6 +39326,54 @@ paths:
         '400': { description: "Invalid input, or Meta rejected the query" }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '501': { description: Only supported on Meta (facebook/instagram) }
+    post:
+      x-resource-group: "ads"
+      operationId: createHighDemandPeriod
+      tags: ["Ad Accounts"]
+      x-platforms: ["meta"]
+      summary: Schedule a budget increase
+      description: |-
+        Pre-schedule a temporary budget increase (Black Friday, a launch, a sale) instead of
+        editing the budget by hand on the day. Same target rule as the GET: exactly one of
+        `campaignId` / `adSetId`.
+
+        Two Meta constraints worth knowing before you call it. `timeStart` / `timeEnd` must
+        fall on a 15-minute boundary, and a campaign cannot mix `ABSOLUTE` and `MULTIPLIER`
+        across its schedules — the second type is rejected with "Can't mix your budget scaling
+        selection". Window rules (must sit inside the campaign's run dates, minimum lead time,
+        no overlap) are Meta's and its message is forwarded verbatim.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, budgetValue, budgetValueType, timeStart, timeEnd]
+              properties:
+                accountId: { type: string, description: "Zernio SocialAccount id used to resolve the Meta token." }
+                campaignId: { type: string, description: "Platform campaign id. Exactly one of campaignId / adSetId." }
+                adSetId: { type: string, description: "Platform ad set id. Exactly one of campaignId / adSetId." }
+                budgetValue: { type: number, description: "With ABSOLUTE, a budget in the ad account's currency in WHOLE units (50 = $50.00). With MULTIPLIER, a factor of the existing budget (2 = double it) and NOT a currency amount." }
+                budgetValueType: { type: string, enum: [ABSOLUTE, MULTIPLIER] }
+                timeStart: { type: integer, description: "Unix seconds, on a 15-minute boundary (:00, :15, :30, :45)." }
+                timeEnd: { type: integer, description: "Unix seconds, on a 15-minute boundary and after timeStart." }
+                recurrenceType: { type: string, enum: [ONE_TIME, WEEKLY, MONTHLY] }
+                currency: { type: string, description: "Ad account currency, for the ABSOLUTE minor-unit conversion. Ignored for MULTIPLIER." }
+      responses:
+        '201':
+          description: Budget schedule created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  objectId: { type: string, description: "The campaign / ad set the schedule was attached to." }
+                  id: { type: string, description: "Meta budget schedule id." }
+        '400': { description: "Invalid input, or Meta rejected the schedule" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { description: Only supported on Meta (facebook/instagram) }
 
   /v1/ads/creatives:
     get:
@@ -39182,6 +39464,10 @@ paths:
                   type: object
                   additionalProperties: { type: string, enum: [OPT_IN, OPT_OUT] }
                   description: 'Advantage+ creative enhancements: partial map of Meta creative feature keys (snake_case) to enroll status, forwarded as degrees_of_freedom_spec.creative_features_spec. Unspecified features default to OPT_OUT.'
+                multiAdvertiser:
+                  type: string
+                  enum: [OPT_IN, OPT_OUT]
+                  description: "Meta only. Multi-advertiser ads: whether Meta may show this ad alongside other advertisers' in one unit. Meta auto-enrols since Aug 2024, so send OPT_OUT to leave. It is a top-level creative field, NOT a `creativeFeatures` key — Meta rejects it there."
       responses:
         '201':
           description: Creative created
@@ -39935,18 +40221,27 @@ paths:
                     as `targeting_automation`.
                 bidStrategy:
                   allOf: [{ $ref: '#/components/schemas/BidStrategy' }]
+                  deprecated: true
                   description: |
+                    Deprecated: send it inside `platformSpecificData` instead (Meta today; TikTok's nested shape is planned). The flat field keeps working during the deprecation window; sending both shapes returns a 400.
+
                     Meta bid strategy applied to the ad set. On TikTok, mapped to
                     `bid_type` / `bid_price` / `deep_bid_type` automatically.
                 bidAmount:
                   type: number
+                  deprecated: true
                   description: |
+                    Deprecated: send it inside `platformSpecificData` instead (Meta today; TikTok's nested shape is planned). The flat field keeps working during the deprecation window; sending both shapes returns a 400.
+
                     Bid cap in WHOLE currency units (USD: 5 = $5.00; JPY: 100 = ¥100). Required when
                     `bidStrategy` is `LOWEST_COST_WITH_BID_CAP` or `COST_CAP`. Backward-compat: providing
                     `bidAmount` without `bidStrategy` is treated as `LOWEST_COST_WITH_BID_CAP`.
                 roasAverageFloor:
                   type: number
+                  deprecated: true
                   description: |
+                    Deprecated: send it inside `platformSpecificData` instead (Meta today; TikTok's nested shape is planned). The flat field keeps working during the deprecation window; sending both shapes returns a 400.
+
                     Minimum ROAS as a decimal multiplier (e.g. 2.0 = 2.0x ROAS). Required when
                     `bidStrategy` is `LOWEST_COST_WITH_MIN_ROAS`. Sent to Meta as
                     `bid_constraints.roas_average_floor` × 10000 (Meta uses fixed-point integers).
@@ -39954,10 +40249,16 @@ paths:
                   description: |
                     Platform-specific options. The platform is derived from `accountId`;
                     sending options for a different platform returns a 400. LinkedIn
-                    (campaign bidding and delivery controls) is the only platform with
-                    options today.
+                    (campaign bidding and delivery controls) and Meta (the bid trio)
+                    have options today.
+
+                    **Meta**: `bidStrategy`, `bidAmount` and `roasAverageFloor` may be
+                    sent here instead of at the root — the preferred home going forward.
+                    Sending the bid fields in BOTH places returns a 400
+                    (`mutually_exclusive_fields`).
                   oneOf:
                     - $ref: '#/components/schemas/LinkedInAdsPlatformData'
+                    - $ref: '#/components/schemas/MetaAdsPlatformData'
                 tracking:
                   type: object
                   description: "Meta only. Tracking specs (pixel, URL tags)."
@@ -40165,6 +40466,10 @@ paths:
                   type: object
                   additionalProperties: { type: string, enum: [OPT_IN, OPT_OUT] }
                   description: 'Meta only. Advantage+ creative enhancements: a partial map of Meta creative feature keys (snake_case, e.g. enhance_cta, image_brightness_and_contrast, text_optimizations) to enroll status, forwarded as degrees_of_freedom_spec.creative_features_spec. Meta validates the keys; unspecified features default to OPT_OUT. The legacy standard_enhancements bundle is deprecated by Meta and rejected.'
+                multiAdvertiser:
+                  type: string
+                  enum: [OPT_IN, OPT_OUT]
+                  description: "Meta only. Multi-advertiser ads: whether Meta may show this ad alongside other advertisers' in one unit. Meta auto-enrols since Aug 2024, so send OPT_OUT to leave. It is a top-level creative field, NOT a `creativeFeatures` key — Meta rejects it there."
                 validateOnly:
                   type: boolean
                   description: 'Meta only, single standalone shape only (no creatives[], adSetId, or RESERVED). Dry-run: each node runs Meta''s execution_options validate_only and NOTHING is created or persisted. Children need real parents, so a fresh tree validates the campaign + creative (the ad set needs its campaign to exist — pass existingCampaignId to validate it too; the ad itself is never validatable pre-create). A Meta validation failure returns the 400 verbatim; success returns 200 with per-node results instead of an ad.'
@@ -40722,18 +41027,38 @@ paths:
                 gender: { type: string, enum: [all, male, female], default: all, description: "Restrict the audience by gender. 'male' targets men only, 'female' targets women only, 'all' (default) targets everyone. Applied on Meta, TikTok and Pinterest. Ignored on Google, LinkedIn and X." }
                 bidStrategy:
                   allOf: [{ $ref: '#/components/schemas/BidStrategy' }]
-                  description: "Meta bid strategy applied to the ad set."
+                  deprecated: true
+                  description: |
+                    Deprecated: send it inside `platformSpecificData` instead (Meta today; TikTok's nested shape is planned). The flat field keeps working during the deprecation window; sending both shapes returns a 400.
+
+                    Meta bid strategy applied to the ad set.
                 bidAmount:
                   type: number
+                  deprecated: true
                   description: |
+                    Deprecated: send it inside `platformSpecificData` instead (Meta today; TikTok's nested shape is planned). The flat field keeps working during the deprecation window; sending both shapes returns a 400.
+
                     Bid cap in WHOLE currency units (USD: 5 = $5.00; JPY: 100 = ¥100). Required when
-                    `bidStrategy` is `LOWEST_COST_WITH_BID_CAP` or `COST_CAP`.
+                    `bidStrategy` is `LOWEST_COST_WITH_BID_CAP` or `COST_CAP`. Meta only: sending
+                    `bidAmount` WITHOUT `bidStrategy` requires `existingCampaignId` (400 otherwise),
+                    and sets the new ad set's cap under the joined campaign's COST_CAP /
+                    LOWEST_COST_WITH_BID_CAP parent. The strategy itself is inherited from the
+                    campaign. Restating bidStrategy here is accepted but has no effect on the ad set.
+
+                    Rejected with 400 in `adSetId` attach mode: that shape inherits its cap from
+                    the platform. Use `PUT /v1/ads/ad-sets/{adSetId}` there instead.
                 roasAverageFloor:
                   type: number
+                  deprecated: true
                   description: |
+                    Deprecated: send it inside `platformSpecificData` instead (Meta today; TikTok's nested shape is planned). The flat field keeps working during the deprecation window; sending both shapes returns a 400.
+
                     Minimum ROAS as a decimal multiplier (e.g. 2.0 = 2.0x ROAS). Required when
-                    `bidStrategy` is `LOWEST_COST_WITH_MIN_ROAS`. Sent to Meta as
-                    `bid_constraints.roas_average_floor` × 10000.
+                    `bidStrategy` is `LOWEST_COST_WITH_MIN_ROAS`. Sending it without `bidStrategy`
+                    is a 400. Sent to Meta as
+                    `bid_constraints.roas_average_floor` × 10000. Known gap: a CBO campaign's
+                    ROAS floor lives on the campaign only (set via `POST /v1/ads/campaigns`);
+                    there is no supported way to set it while joining a CBO campaign here.
                 valueRuleSetId:
                   type: string
                   pattern: '^\d+$'
@@ -40763,10 +41088,17 @@ paths:
                   description: |
                     Platform-specific options. The platform is derived from `accountId`;
                     sending options for a different platform returns a 400. LinkedIn
-                    (campaign bidding and delivery controls) is the only platform with
-                    options today.
+                    (campaign bidding and delivery controls) and Meta (the bid trio)
+                    have options today.
+
+                    **Meta**: `bidStrategy`, `bidAmount` and `roasAverageFloor` may be
+                    sent here instead of at the root — the preferred home going forward.
+                    Sending the bid fields in BOTH places returns a 400
+                    (`mutually_exclusive_fields`), and sending any of them in
+                    `adSetId` attach mode is a 400 too (the ad set already has its bid).
                   oneOf:
                     - $ref: '#/components/schemas/LinkedInAdsPlatformData'
+                    - $ref: '#/components/schemas/MetaAdsPlatformData'
                 dsaBeneficiary:
                   type: string
                   maxLength: 100
@@ -43459,6 +43791,85 @@ paths:
           description: |
             Meta rejected the request (e.g. WABA business verification
             missing). Inspect `platformError` for the upstream Meta payload.
+
+  /v1/accounts/{accountId}/custom-conversions:
+    get:
+      x-resource-group: "accounts"
+      operationId: listCustomConversions
+      tags: ["Ad Accounts"]
+      x-platforms: ["meta"]
+      summary: List custom conversions
+      description: The ad account's Meta custom conversions, including archived ones (`isArchived`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: "Meta ads SocialAccount id." }
+        - { name: adAccountId, in: query, required: true, schema: { type: string }, description: "Meta ad account id (act_<n>)." }
+      responses:
+        '200':
+          description: Custom conversions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adAccountId: { type: string }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/CustomConversion' }
+        '400': { description: "Invalid input, or Meta rejected the query" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: "Ads access required, or the token lacks the ads permissions." }
+    post:
+      x-resource-group: "accounts"
+      operationId: createCustomConversion
+      tags: ["Ad Accounts"]
+      x-platforms: ["meta"]
+      summary: Create or reuse a custom conversion
+      description: |-
+        Provision the Meta custom conversion an ads flow optimises toward, and hand back the
+        `customConversionId` for `promotedObject.customConversionId` on POST /v1/ads/create.
+        Removes the manual "create it in Ads Manager first" step.
+
+        **Reuse is ours, not Meta's.** Meta's create is not idempotent, so a retried request
+        would otherwise mint a duplicate carrying none of the original's optimisation history.
+        A non-archived conversion with the same `name` on the same `pixelId` is returned
+        instead of created, with `reused: true` and a 200 rather than a 201.
+
+        `rule` is forwarded verbatim in Meta's own grammar (e.g.
+        `{"url": {"i_contains": "thank-you"}}`); Meta validates it and rejects a malformed one
+        with "A conversion rule is required at creation time".
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: "Meta ads SocialAccount id." }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [adAccountId, name, pixelId, customEventType, rule]
+              properties:
+                adAccountId: { type: string, description: "Meta ad account id (act_<n>)." }
+                name: { type: string, maxLength: 255, description: "Also the reuse key, together with pixelId." }
+                pixelId: { type: string, description: "Meta pixel id (event_source_id). From GET /v1/accounts/{accountId}/tracking-tags." }
+                customEventType: { type: string, description: "Meta custom_event_type, e.g. LEAD, PURCHASE, OTHER." }
+                rule: { type: object, description: "Meta conversion rule, forwarded verbatim." }
+      responses:
+        '200':
+          description: An existing custom conversion was reused
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomConversionResult' }
+        '201':
+          description: Custom conversion created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomConversionResult' }
+        '400': { description: "Invalid input, or Meta rejected the conversion (bad rule, per-account cap reached)" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: "Ads access required, or the token lacks the ads permissions." }
 
   /v1/accounts/{accountId}/tracking-tags:
     get:

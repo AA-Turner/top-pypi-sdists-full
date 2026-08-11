@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: httpx-socks
-Version: 0.11.0
+Version: 0.12.0
 Summary: Proxy (HTTP, SOCKS) transports for httpx
 Author-email: Roman Snegirev <snegiryev@gmail.com>
 License: Apache-2.0

@@ -16,8 +16,9 @@ from __future__ import annotations
 
 import enum
 import posixpath
+import re
 from dataclasses import dataclass
-from urllib.parse import unquote, urlsplit, urlunsplit
+from urllib.parse import unquote, urlsplit
 
 from nab_index.vcs import FULL_GIT_SHA_RE
 
@@ -113,29 +114,56 @@ def split_vcs_scheme(url: str) -> tuple[str | None, str]:
     return (None, url)
 
 
+# The authority ends at the first "/", "?" or "#"; its userinfo ends at
+# the last "@" before that.
+_AUTHORITY_USERINFO_RE = re.compile(r"^([^/?#]*//)[^/?#]*@")
+
+
 def _without_userinfo(url: str) -> str:
     """Drop any authority ``user[:pass]@`` / SSH ``git@`` from ``url``.
 
     An ``allowed-repos`` prefix names a repo by scheme + host + path, not
     by credentials, so both the candidate URL and the prefix are stripped
     before the match. A URL with no userinfo is returned unchanged.
+
+    The cut is made on the raw string, since
+    :func:`urllib.parse.urlsplit` deletes every tab, CR and LF and does
+    not record an empty ``?``: a URL rebuilt from the parse is not the
+    one git is handed.
     """
-    parts = urlsplit(url)
-    if "@" not in parts.netloc:
+    if "@" not in urlsplit(url).netloc:
         return url
-    host = parts.netloc.rsplit("@", 1)[1]
-    return urlunsplit(parts._replace(netloc=host))
+    return _AUTHORITY_USERINFO_RE.sub(r"\1", url)
+
+
+def _drop_ref(remainder: str) -> str:
+    """Return ``remainder`` without a trailing ``@<ref>``, split on the last ``@``."""
+    return remainder.rpartition("@")[0] if "@" in remainder else remainder
 
 
 def _repo_path(inner_url: str) -> str:
     """Return the path of ``inner_url`` with any trailing ``@<ref>`` dropped.
 
-    The ref is whatever follows the last ``@`` of the path component, the
-    same split :class:`nab_index.vcs.VcsRequest` makes at clone time.  An
-    empty result means the URL names no repo.
+    An empty result means the URL names no repo.
     """
-    path = urlsplit(inner_url).path
-    return path.rpartition("@")[0] if "@" in path else path
+    return _drop_ref(urlsplit(inner_url).path)
+
+
+def _rewritten_by_git(path: str) -> bool:
+    r"""Return True if git would rewrite ``path`` before it fetches.
+
+    Git applies RFC 3986 dot-segment removal at fetch time.  ``path`` is
+    decoded once so an encoded ``%2e%2e`` cannot slip past, and ``\`` is
+    folded to ``/`` because Windows resolves it as a separator.  A trailing
+    ``/`` is put back: RFC 3986 keeps it and :func:`posixpath.normpath`
+    does not.
+    """
+    decoded = unquote(path).replace("\\", "/")
+    normalised = posixpath.normpath(decoded)
+    if decoded.endswith("/") and not normalised.endswith("/"):
+        normalised += "/"
+
+    return bool(decoded) and normalised != decoded
 
 
 _REPO_BOUNDARY_CHARS: frozenset[str] = frozenset({"/", "@", "#"})
@@ -155,20 +183,21 @@ def _repo_prefix_matches(inner_url: str, prefix: str) -> bool:
     Both URLs have their authority ``user[:pass]@`` / ``git@`` stripped
     by the caller.
 
-    A path git would rewrite is refused first: git applies RFC 3986
-    dot-segment removal at fetch time, so a raw ``..`` path could pass the
-    string match while git fetches a repo outside the prefix.  That check
-    reads the whole post-authority remainder, query included since
-    :meth:`nab_index.vcs.VcsRequest.parse` keeps it, decoded once so an
-    encoded ``%2e%2e`` cannot slip past, and with ``\`` folded to ``/``
-    because Windows resolves it as a separator.  The prefix comparison
-    below is on the raw URL.
+    A path git would rewrite is refused first, since a ``..`` could pass
+    the string match while git fetches a repo outside the prefix.  The ref
+    is dropped before that check, off the whole post-authority remainder
+    rather than the path alone, matching the split :mod:`nab_index.vcs`
+    makes at clone time; otherwise a ``..`` in the final segment hides as
+    the ordinary name ``..@<ref>``.  The prefix comparison below is on the
+    raw URL.
     """
     parts = urlsplit(inner_url)
     remainder = f"{parts.path}?{parts.query}" if parts.query else parts.path
-    path = unquote(remainder).replace("\\", "/")
+    repo = _drop_ref(remainder)
 
-    if path and posixpath.normpath(path) != path:
+    # An http URL ends its path at the "?"; a file URL keeps it as a path
+    # character, and either way the query reaches git.
+    if any(_rewritten_by_git(part) for part in (repo, repo.partition("?")[0])):
         return False
 
     prefix = prefix.removesuffix(".git")

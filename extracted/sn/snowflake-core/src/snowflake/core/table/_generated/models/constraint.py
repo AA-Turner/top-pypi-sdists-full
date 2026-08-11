@@ -53,6 +53,7 @@ class Constraint(BaseModel):
 
     # discriminator mappings
     __discriminator_value_class_map: ClassVar[Dict[str, str]] = {
+        "CHECK": "CheckConstraint",
         "FOREIGN KEY": "ForeignKey",
         "PRIMARY KEY": "PrimaryKey",
         "UNIQUE": "UniqueKey",
@@ -68,6 +69,7 @@ class Constraint(BaseModel):
             return None
 
     __discriminator_value_to_type: ClassVar[Dict[str, str]] = {
+        "CheckConstraint": "CHECK",
         "ForeignKey": "FOREIGN KEY",
         "PrimaryKey": "PRIMARY KEY",
         "UniqueKey": "UNIQUE",
@@ -86,7 +88,7 @@ class Constraint(BaseModel):
         return json.dumps(self.to_dict())
 
     @classmethod
-    def from_json(cls, json_str: str) -> Union[ForeignKey, PrimaryKey, UniqueKey]:
+    def from_json(cls, json_str: str) -> Union[CheckConstraint, ForeignKey, PrimaryKey, UniqueKey]:
         """Create an instance of Constraint from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
@@ -109,7 +111,7 @@ class Constraint(BaseModel):
         return self.to_dict(hide_readonly_properties=True)
 
     @classmethod
-    def from_dict(cls, obj: dict) -> Union[ForeignKey, PrimaryKey, UniqueKey]:
+    def from_dict(cls, obj: dict) -> Union[CheckConstraint, ForeignKey, PrimaryKey, UniqueKey]:
         """Create an instance of Constraint from a dict."""
         # look up the object type based on discriminator mapping
         object_type = cls.get_discriminator_value(obj)
@@ -174,7 +176,7 @@ class ConstraintModel:
         return self._to_model().to_dict()
 
     @classmethod
-    def from_dict(cls, obj: dict) -> Union[ForeignKeyModel, PrimaryKeyModel, UniqueKeyModel]:
+    def from_dict(cls, obj: dict) -> Union[CheckConstraintModel, ForeignKeyModel, PrimaryKeyModel, UniqueKeyModel]:
         """Create an instance of Constraint from a dict.
 
         This method constructs a Constraint object from a dictionary with the key-value pairs of its properties.

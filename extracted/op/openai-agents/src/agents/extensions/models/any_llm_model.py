@@ -6,7 +6,7 @@ import importlib
 import inspect
 import json
 import time
-from collections.abc import AsyncGenerator, AsyncIterator, Iterable
+from collections.abc import AsyncGenerator, AsyncIterator, Iterable, Mapping
 from copy import copy
 from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
@@ -52,7 +52,16 @@ from ...tool import Tool
 from ...tracing import generation_span, response_span
 from ...tracing.span_data import GenerationSpanData
 from ...tracing.spans import Span
-from ...usage import Usage
+from ...usage import (
+    Usage,
+    _attach_raw_usage_snapshot,
+    _extract_raw_usage_snapshot,
+    _mark_request_completed_without_usage,
+    _raw_usage_snapshot,
+    _requests_for_response_without_usage,
+    _response_usage_to_usage,
+    model_usage_to_span_usage,
+)
 from ...util._error_tracing import model_span_errors, record_model_error_on_span
 from ...util._json import _to_dump_compatible
 
@@ -73,6 +82,12 @@ class InternalChatCompletionMessage(ChatCompletionMessage):
     """Internal wrapper used to carry normalized reasoning content."""
 
     reasoning_content: str = ""
+
+
+def _usage_payload(response: Any) -> Any | None:
+    if isinstance(response, Mapping):
+        return response.get("usage")
+    return getattr(response, "usage", None)
 
 
 class _AnyLLMResponsesParamsShim:
@@ -404,9 +419,12 @@ class AnyLLMModel(Model):
                     input_tokens_details=response.usage.input_tokens_details,
                     output_tokens_details=response.usage.output_tokens_details,
                 )
-                if response.usage
-                else Usage()
+                if response.usage is not None
+                # The request completed, so it counts even when the provider omits usage.
+                else Usage(requests=1)
             )
+
+            span_response.span_data.usage = model_usage_to_span_usage(usage)
 
             if tracing.include_data():
                 span_response.span_data.response = response
@@ -417,6 +435,11 @@ class AnyLLMModel(Model):
                 usage=usage,
                 response_id=response.id,
                 request_id=getattr(response, "_request_id", None),
+                raw_usage=(
+                    _extract_raw_usage_snapshot(response, fallback=response.usage)
+                    if model_settings.preserve_raw_usage is True
+                    else None
+                ),
             )
 
     async def _stream_response_via_responses(
@@ -463,6 +486,13 @@ class AnyLLMModel(Model):
                     chunk_type = getattr(chunk, "type", None)
                     if isinstance(chunk, ResponseCompletedEvent):
                         final_response = chunk.response
+                        if model_settings.preserve_raw_usage is True:
+                            _attach_raw_usage_snapshot(chunk.response, chunk.response.usage)
+                        if final_response.usage is None:
+                            # Match the non-streaming path: the request happened even though
+                            # the provider reported no usage. Recorded without synthesizing a
+                            # usage payload, so tokens are not reported as real zeros.
+                            _mark_request_completed_without_usage(final_response)
                     elif chunk_type in {"response.failed", "response.incomplete"}:
                         terminal_response = getattr(chunk, "response", None)
                         terminal_failure_error = response_terminal_failure_error(
@@ -484,7 +514,15 @@ class AnyLLMModel(Model):
                         yielded_terminal_event = True
                         # Populate the span before yielding the terminal event so a consumer
                         # that stops there still leaves a fully recorded span.
-                        if tracing.include_data() and final_response:
+                        if final_response is not None:
+                            span_response.span_data.usage = model_usage_to_span_usage(
+                                _response_usage_to_usage(final_response.usage)
+                                if final_response.usage is not None
+                                else Usage(
+                                    requests=_requests_for_response_without_usage(final_response)
+                                )
+                            )
+                        if tracing.include_data() and final_response is not None:
                             span_response.span_data.response = final_response
                             span_response.span_data.input = input
                         if terminal_failure_error is not None:
@@ -576,7 +614,7 @@ class AnyLLMModel(Model):
                         json.dumps(message.model_dump(), indent=2, ensure_ascii=False),
                     )
                 else:
-                    finish_reason = first_choice.finish_reason if first_choice else "-"
+                    finish_reason = first_choice.finish_reason if first_choice is not None else "-"
                     logger.debug("LLM resp had no message. finish_reason: %s", finish_reason)
 
             usage = (
@@ -588,9 +626,23 @@ class AnyLLMModel(Model):
                     input_tokens_details=response.usage.prompt_tokens_details,  # type: ignore[arg-type]
                     output_tokens_details=response.usage.completion_tokens_details,  # type: ignore[arg-type]
                 )
-                if response.usage
-                else Usage()
+                if response.usage is not None
+                # The request completed, so it counts even when the provider omits usage.
+                else Usage(requests=1)
             )
+
+            # Some providers signal a filtered non-streaming completion only through
+            # finish_reason="content_filter" and an otherwise empty message. Preserve
+            # that terminal signal as a refusal instead of returning an empty output.
+            if (
+                message is not None
+                and first_choice is not None
+                and first_choice.finish_reason == "content_filter"
+                and not message.content
+                and not message.refusal
+                and not message.tool_calls
+            ):
+                message.refusal = "Response withheld by the provider's content filter."
 
             if tracing.include_data():
                 span_generation.span_data.output = (
@@ -619,7 +671,11 @@ class AnyLLMModel(Model):
             )
 
             logprob_models = None
-            if first_choice and first_choice.logprobs and first_choice.logprobs.content:
+            if (
+                first_choice is not None
+                and first_choice.logprobs is not None
+                and first_choice.logprobs.content
+            ):
                 logprob_models = ChatCmplHelpers.convert_logprobs_for_output_text(
                     first_choice.logprobs.content
                 )
@@ -627,7 +683,16 @@ class AnyLLMModel(Model):
             if logprob_models:
                 self._attach_logprobs_to_output(items, logprob_models)
 
-            return ModelResponse(output=items, usage=usage, response_id=None)
+            return ModelResponse(
+                output=items,
+                usage=usage,
+                response_id=None,
+                raw_usage=(
+                    _extract_raw_usage_snapshot(response, fallback=response.usage)
+                    if model_settings.preserve_raw_usage is True
+                    else None
+                ),
+            )
 
     async def _stream_response_via_chat(
         self,
@@ -673,11 +738,21 @@ class AnyLLMModel(Model):
             final_response: Response | None = None
             yielded_terminal_event = False
             close_stream_in_background = False
+            raw_usage_options: dict[str, Any] = (
+                {"preserve_raw_usage": True} if model_settings.preserve_raw_usage is True else {}
+            )
             try:
                 async for chunk in ChatCmplStreamHandler.handle_stream(
                     response,
-                    cast(Any, self._normalize_chat_stream(stream)),
+                    cast(
+                        Any,
+                        self._normalize_chat_stream(
+                            stream,
+                            preserve_raw_usage=model_settings.preserve_raw_usage is True,
+                        ),
+                    ),
                     model=self.model,
+                    **raw_usage_options,
                 ):
                     # Record terminal state and populate the span before yielding so a consumer
                     # that stops at the completed event still leaves a fully recorded span.
@@ -716,7 +791,7 @@ class AnyLLMModel(Model):
         if tracing.include_data():
             span_generation.span_data.output = [final_response.model_dump()]
 
-        if final_response.usage:
+        if final_response.usage is not None:
             span_generation.span_data.usage = {
                 "requests": 1,
                 "input_tokens": final_response.usage.input_tokens,
@@ -724,15 +799,19 @@ class AnyLLMModel(Model):
                 "total_tokens": final_response.usage.total_tokens,
                 "input_tokens_details": (
                     final_response.usage.input_tokens_details.model_dump()
-                    if final_response.usage.input_tokens_details
+                    if final_response.usage.input_tokens_details is not None
                     else {"cached_tokens": 0, "cache_write_tokens": 0}
                 ),
                 "output_tokens_details": (
                     final_response.usage.output_tokens_details.model_dump()
-                    if final_response.usage.output_tokens_details
+                    if final_response.usage.output_tokens_details is not None
                     else {"reasoning_tokens": 0}
                 ),
             }
+        elif _requests_for_response_without_usage(final_response):
+            # Keep streamed tracing aligned with the non-streaming path, which records the
+            # request even when the provider reports no usage.
+            span_generation.span_data.usage = model_usage_to_span_usage(Usage(requests=1))
 
     @overload
     async def _fetch_chat_response(
@@ -830,7 +909,9 @@ class AnyLLMModel(Model):
                 response_format,
             )
 
-        reasoning_effort = model_settings.reasoning.effort if model_settings.reasoning else None
+        reasoning_effort = (
+            model_settings.reasoning.effort if model_settings.reasoning is not None else None
+        )
         if reasoning_effort is None and model_settings.extra_args:
             reasoning_effort = cast(Any, model_settings.extra_args.get("reasoning_effort"))
 
@@ -886,7 +967,18 @@ class AnyLLMModel(Model):
         )
 
         if not stream:
-            return self._normalize_chat_completion_response(ret)
+            raw_usage = (
+                _raw_usage_snapshot(_usage_payload(ret))
+                if model_settings.preserve_raw_usage is True
+                else None
+            )
+            normalized_response = self._normalize_chat_completion_response(ret)
+            if model_settings.preserve_raw_usage is True:
+                _attach_raw_usage_snapshot(
+                    normalized_response,
+                    raw_usage,
+                )
+            return normalized_response
 
         responses_tool_choice = OpenAIResponsesConverter.convert_tool_choice(
             model_settings.tool_choice
@@ -1014,6 +1106,7 @@ class AnyLLMModel(Model):
             "stream": stream,
             "truncation": model_settings.truncation,
             "store": model_settings.store,
+            "prompt_cache_retention": model_settings.prompt_cache_retention,
             "previous_response_id": previous_response_id,
             "conversation": conversation_id,
             "include": include,
@@ -1037,7 +1130,18 @@ class AnyLLMModel(Model):
         if stream:
             return cast(AsyncIterator[ResponseStreamEvent], response)
 
-        return self._normalize_response(response)
+        raw_usage = (
+            _raw_usage_snapshot(_usage_payload(response))
+            if model_settings.preserve_raw_usage is True
+            else None
+        )
+        normalized_response = self._normalize_response(response)
+        if model_settings.preserve_raw_usage is True:
+            _attach_raw_usage_snapshot(
+                normalized_response,
+                raw_usage,
+            )
+        return normalized_response
 
     @staticmethod
     def _split_model_name(model: str) -> tuple[str, str]:
@@ -1169,10 +1273,20 @@ class AnyLLMModel(Model):
         return ChatCompletion.model_validate(response)
 
     async def _normalize_chat_stream(
-        self, stream: AsyncIterator[ChatCompletionChunk]
+        self,
+        stream: AsyncIterator[ChatCompletionChunk],
+        *,
+        preserve_raw_usage: bool = False,
     ) -> AsyncIterator[ChatCompletionChunk]:
         async for chunk in stream:
-            yield self._normalize_chat_chunk(chunk)
+            raw_usage = _raw_usage_snapshot(_usage_payload(chunk)) if preserve_raw_usage else None
+            normalized_chunk = self._normalize_chat_chunk(chunk)
+            if preserve_raw_usage:
+                _attach_raw_usage_snapshot(
+                    normalized_chunk,
+                    raw_usage,
+                )
+            yield normalized_chunk
 
     def _normalize_chat_chunk(self, chunk: Any) -> ChatCompletionChunk:
         normalized_chunk = chunk

@@ -1108,7 +1108,9 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             response = self.client._internal_api_client.list_workspaces_api_v2_experimental_workspaces_get(  # noqa: SLF001
                 project_id=project_id,
                 cloud_id=cloud_id,
-                name=name,
+                # `--name` is documented as a substring filter, so route it to the
+                # backend `name_contains` (ILIKE) param, not the exact `name` param.
+                name_contains=name,
                 creator_id=creator_id,
                 state_filter=normalized_states,
                 tag_filter=tag_filter_list,

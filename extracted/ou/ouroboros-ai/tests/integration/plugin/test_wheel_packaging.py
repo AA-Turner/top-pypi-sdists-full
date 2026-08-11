@@ -11,6 +11,7 @@ shipped archive.
 from __future__ import annotations
 
 from email.parser import Parser
+import json
 import os
 from pathlib import Path
 import shutil
@@ -21,11 +22,22 @@ import zipfile
 
 import pytest
 
-from ouroboros.package_profiles import UNSUPPORTED_CLAUDE_SDK_MCP_MESSAGE
+from ouroboros.package_profiles import SDK_RUNTIME_IN_MCP_SERVER_MESSAGE
 from ouroboros.plugin.manifest import SUPPORTED_SCHEMA_VERSIONS
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 BUILTIN_GLOSSARY_PACKS = ("ui_ux_basics.yaml",)
+PYTHON_RESOLVER_START = "<!-- ouroboros-python-resolver:start -->"
+PYTHON_RESOLVER_END = "<!-- ouroboros-python-resolver:end -->"
+
+
+def _extract_python_resolver(contents: str) -> str:
+    """Extract the executable resolver contract from one skill artifact."""
+    start = contents.index(PYTHON_RESOLVER_START) + len(PYTHON_RESOLVER_START)
+    end = contents.index(PYTHON_RESOLVER_END, start)
+    fenced = contents[start:end].strip()
+    assert fenced.startswith("```bash\n") and fenced.endswith("\n```")
+    return fenced.removeprefix("```bash\n").removesuffix("\n```")
 
 
 @pytest.mark.skipif(
@@ -89,6 +101,21 @@ def test_built_wheel_preserves_packaging_contracts(tmp_path: Path) -> None:
         metadata = Parser().parsestr(archive.read(metadata_paths[0]).decode("utf-8"))
         requires_dist = metadata.get_all("Requires-Dist") or []
         provided_extras = set(metadata.get_all("Provides-Extra") or [])
+
+        wheel_skill_paths = {
+            skill: f"ouroboros/skills/{skill}/SKILL.md" for skill in ("welcome", "setup", "seed")
+        }
+        wheel_resolvers: dict[str, str] = {}
+        for skill, path in wheel_skill_paths.items():
+            assert names.count(path) == 1, (
+                f"built wheel must ship {path} exactly once; found {names.count(path)} entries"
+            )
+            wheel_resolvers[skill] = _extract_python_resolver(archive.read(path).decode("utf-8"))
+
+        source_resolver = _extract_python_resolver(
+            (PROJECT_ROOT / "skills" / "welcome" / "SKILL.md").read_text(encoding="utf-8")
+        )
+        assert set(wheel_resolvers.values()) == {source_resolver}, wheel_resolvers
 
     assert {"claude", "claude-cli", "claude-sdk", "mcp", "all"} <= provided_extras
     sdk_requirements = [
@@ -223,11 +250,55 @@ def test_built_wheel_preserves_packaging_contracts(tmp_path: Path) -> None:
     )
     assert bare_probe.returncode == 1
     rendered_probe = " ".join((bare_probe.stdout + bare_probe.stderr).split())
-    assert " ".join(UNSUPPORTED_CLAUDE_SDK_MCP_MESSAGE.split()) in rendered_probe
+    assert " ".join(SDK_RUNTIME_IN_MCP_SERVER_MESSAGE.split()) in rendered_probe
+    assert "--runtime claude-cli" in rendered_probe
+    assert "ouroboros-ai[mcp]" not in rendered_probe
     state_dir = probe_home / ".ouroboros"
     assert not (state_dir / "ouroboros.db").exists()
     assert not (state_dir / "config.yaml").exists()
     assert not (state_dir / "sessions").exists()
+
+    # The actionable replacements named by the diagnostic must both cross the
+    # real wheel/console-script/MCP-v2 boundary, not only a mocked unit dispatch.
+    initialize_request = json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2026-07-28",
+                "capabilities": {},
+                "clientInfo": {"name": "wheel-probe", "version": "1.0"},
+            },
+        }
+    )
+    for executable_runtime in ("claude-cli", "codex"):
+        runtime_home = tmp_path / f"{executable_runtime}-probe-home"
+        runtime_home.mkdir()
+        runtime_env = probe_env.copy()
+        runtime_env["HOME"] = str(runtime_home)
+        runtime_env["USERPROFILE"] = str(runtime_home)
+        runtime_probe = subprocess.run(
+            [str(probe_cli), "mcp", "serve", "--runtime", executable_runtime],
+            input=f"{initialize_request}\n",
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+            env=runtime_env,
+        )
+        assert runtime_probe.returncode == 0, (
+            f"wheel runtime {executable_runtime!r} failed its MCP initialize handshake: "
+            f"stdout={runtime_probe.stdout!r} stderr={runtime_probe.stderr!r}"
+        )
+        responses = [
+            json.loads(line)
+            for line in runtime_probe.stdout.splitlines()
+            if line.lstrip().startswith("{")
+        ]
+        assert any(response.get("id") == 1 and "result" in response for response in responses), (
+            responses
+        )
 
 
 @pytest.mark.skipif(

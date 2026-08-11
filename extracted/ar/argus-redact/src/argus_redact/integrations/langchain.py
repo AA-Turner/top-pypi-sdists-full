@@ -38,6 +38,7 @@ from argus_redact import redact
 from argus_redact.compose import make_anchor, prompt_anchor
 from argus_redact.exceptions import SessionStateError
 from argus_redact.glue.guarded_restore import guarded_restore
+from argus_redact.glue.redact import _effective_lang
 
 
 class RedactRunnable:
@@ -90,9 +91,7 @@ class RedactRunnable:
             anchor = self.last_anchor
         if not key or anchor is None:
             return ""
-        effective_lang = (
-            lang if lang is not None else (self._lang if isinstance(self._lang, str) else "zh")
-        )
+        effective_lang = lang if lang is not None else _effective_lang(self._lang)
         return prompt_anchor(key, effective_lang, anchor=anchor)
 
     def reset(self) -> None:
@@ -118,11 +117,24 @@ class RestoreRunnable:
     Wire make_prompt_addendum() into the system prompt to enable guarded restore.
     Pass strict=True to the constructor to raise RestoreGuardError instead of
     warning on either the deterministic guard or a suspected injection.
+
+    Pass aliases={fake: (alternate, ...)} (and optionally display_marker=) to
+    map cross-language alias forms the LLM emitted back to the original — the
+    session-level analogue of restore(text, key, aliases=...).
     """
 
-    def __init__(self, redact_runnable: RedactRunnable, *, strict: bool = False):
+    def __init__(
+        self,
+        redact_runnable: RedactRunnable,
+        *,
+        strict: bool = False,
+        aliases: dict[str, tuple[str, ...]] | None = None,
+        display_marker: str | None = None,
+    ):
         self._redact = redact_runnable
         self._strict = strict
+        self._aliases = aliases
+        self._display_marker = display_marker
 
     def invoke(self, text: str) -> str:
         key = self._redact.last_key
@@ -140,6 +152,8 @@ class RestoreRunnable:
             anchor=self._redact.last_anchor,
             guard=True,
             strict=self._strict,
+            aliases=self._aliases,
+            display_marker=self._display_marker,
         )
 
     async def ainvoke(self, text: str) -> str:

@@ -9,7 +9,7 @@ import pytest
 from snowflake.core._common import CreateMode
 from snowflake.core._internal.utils import normalize_name
 from snowflake.core.exceptions import APIError
-from snowflake.core.task import StoredProcedureCall
+from snowflake.core.task import OverlapPolicy, StoredProcedureCall
 from snowflake.core.task.context import TaskContext
 from snowflake.core.task.dagv1 import DAG, DAGOperation, DAGTask, DAGTaskBranch, _use_func_return_value
 from snowflake.core.warehouse import Warehouse
@@ -34,6 +34,40 @@ def test_deploy_dag(schema):
         assert fetched[1].name.lower() == f"{test_dag}$task1"
         assert fetched[2].name.lower() == f"{test_dag}$task2"
         assert fetched[3].name.lower() == f"{test_dag}$task3"
+    finally:
+        op.drop(dag)
+
+
+@pytest.mark.use_accountadmin
+def test_deploy_dag_overlap_policy_and_execute_as_user(schema, test_user_name: str, grant_test_user_impersonation):
+    test_dag = random_object_name()
+    with DAG(test_dag, schedule=timedelta(minutes=10), overlap_policy=OverlapPolicy.NO_OVERLAP) as dag:
+        task1 = DAGTask("task1", "select 1", execute_as_user=test_user_name)
+        task2 = DAGTask("task2", "select 2")
+        task2 << task1
+    op = DAGOperation(schema)
+    op.deploy(dag, mode=CreateMode.or_replace)
+    try:
+        root = schema.tasks[test_dag].fetch()
+        assert root.overlap_policy is OverlapPolicy.NO_OVERLAP
+        child = schema.tasks[f"{test_dag}$task1"].fetch()
+        assert child.execute_as_user.upper() == test_user_name.upper()
+    finally:
+        op.drop(dag)
+
+
+@pytest.mark.usefixtures("my_integration_exists")
+def test_deploy_dag_child_success_integration(schema):
+    test_dag = random_object_name()
+    with DAG(test_dag, schedule=timedelta(minutes=10)) as dag:
+        task1 = DAGTask("task1", "select 1", success_integration="my_integration")
+        task2 = DAGTask("task2", "select 2")
+        task2 << task1
+    op = DAGOperation(schema)
+    op.deploy(dag, mode=CreateMode.or_replace)
+    try:
+        child = schema.tasks[f"{test_dag}$task1"].fetch()
+        assert child.success_integration == "my_integration"
     finally:
         op.drop(dag)
 
@@ -258,7 +292,7 @@ def test_deploy_dag_with_branch(schema, db_parameters, reverse):
             test_dag,
             schedule=timedelta(minutes=10),
             stage_location=test_stage,
-            packages=["snowflake-snowpark-python"],
+            packages=["snowflake-snowpark-python", "snowflake.core"],
             warehouse=db_parameters["warehouse"],
         ) as dag:
             task1 = DAGTask("task1", task_handler, warehouse=db_parameters["warehouse"])
@@ -334,7 +368,7 @@ def test_dag_use_function_return_value(schema, db_parameters):
             time_limit = 120
             task_name = task1.full_name
             while True:
-                result = get_task_history(schema.root.session, task_name)
+                result = get_task_history(schema.root.session, task_name=task_name)
                 if len(result) == 0 or (state := result[0]["STATE"]) in ["SCHEDULED", "EXECUTING"]:
                     if time_count > time_limit:  # run for 2 min
                         raise ValueError(f"Running more than {time_limit} seconds. task: {task_name}, result: {result}")
@@ -412,21 +446,37 @@ def test_drop_dag_without_remaining_task(schema):
     op.drop(dag)
 
 
+@pytest.mark.flaky
 def test_run_dag(schema):
     test_dag = random_object_name()
     with DAG(test_dag, schedule=timedelta(minutes=10)) as dag:
-        task1 = DAGTask("task1", "select 1")
+        task1 = DAGTask(
+            "task1", "select system$wait(5, 'minutes')"
+        )  # Use a wait so that the task graph doesn't complete before the assertions run
         task2 = DAGTask("task2", "select 2")
         task3 = DAGTask("task3", "select 3")
         task2 >> task1 << task3
     op = DAGOperation(schema)
     op.deploy(dag, mode=CreateMode.or_replace)
     try:
-        current_run1 = op.get_current_dag_runs(dag)
+        for _ in range(40):
+            current_run1 = op.get_current_dag_runs(dag)
+            if len(current_run1) > 0:
+                break
+            time.sleep(5)
+        else:
+            raise RuntimeError("timed out waiting for the dag to be scheduled")
         assert len(current_run1) == 1
         assert current_run1[0].state == "SCHEDULED"
         op.run(dag)
-        current_run2 = op.get_current_dag_runs(dag)
+        for _ in range(40):
+            current_run2 = op.get_current_dag_runs(dag)
+            assert len(current_run2) > 0
+            if current_run2[0].run_id != current_run1[0].run_id:  # Check that this is actually the next run.
+                break
+            time.sleep(5)
+        else:
+            raise RuntimeError("timed out waiting for the dag to be scheduled")
         assert len(current_run2) == 1
         assert current_run2[0].scheduled_time < current_run1[0].scheduled_time
         op.get_complete_dag_runs(

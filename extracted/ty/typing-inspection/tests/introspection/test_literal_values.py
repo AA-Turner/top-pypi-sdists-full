@@ -31,7 +31,7 @@ def test_literal_values_skip_aliases_type_check() -> None:
 
 
 def test_literal_values_type_check() -> None:
-    literal = t.Literal[1, True, False, b'', '', None, typing_objects.NoneType]
+    literal = t.Literal[1, True, False, b'', '', None, typing_objects.NoneType]  # noqa: PYI061
     expected = [1, True, False, b'', '', None]
     assert list(get_literal_values(literal, type_check=True, unpack_type_aliases='skip')) == expected
     assert list(get_literal_values(literal, type_check=True, unpack_type_aliases='eager')) == expected
@@ -76,4 +76,12 @@ def test_literal_values_unpack_type_aliases_undefined(create_module) -> None:
 
 
 def test_literal_values_unhashable_type() -> None:
+    assert list(get_literal_values(t_e.Literal[[1, 'a']])) == [[1, 'a']]
+
+
+@pytest.mark.skipif(
+    sys.version_info >= (3, 13, 15),
+    reason='Unashable arguments are deduplicated (https://github.com/python/cpython/pull/153914)',
+)
+def test_duplicate_literal_values_unhashable_type() -> None:
     assert list(get_literal_values(t_e.Literal[[1, 'a'], [1, 'a']])) == [[1, 'a'], [1, 'a']]  # noqa: PYI062

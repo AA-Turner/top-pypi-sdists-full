@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 
@@ -68,6 +69,23 @@ def _string_list(value: object | None) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value if isinstance(item, str) and item.strip()]
+
+
+def _observed_action_detail(
+    command_text: str | None,
+    *,
+    action_envelope: GuardActionEnvelope | None,
+    home_dir: Path | None,
+) -> str | None:
+    command_detail = _command_detail(command_text, home_dir=home_dir)
+    if command_detail is not None or action_envelope is None:
+        return command_detail
+    tool_name = action_envelope.tool_name
+    if not isinstance(tool_name, str) or not tool_name.strip():
+        return None
+    target_summary = " ".join(action_envelope.target_paths)
+    detail = f"{tool_name.strip()} {target_summary}" if target_summary else tool_name.strip()
+    return _command_detail(detail, home_dir=home_dir)
 
 
 if TYPE_CHECKING:
@@ -138,6 +156,7 @@ from ..trusted_local_tools import (
 )
 from ._commands_shared import *
 from .commands_parser_helpers import *
+from .commands_support_apply_patch_policy import verified_non_sensitive_codex_apply_patch
 from .commands_support_codex_paths import _codex_prompt_credential_file_artifact
 from .commands_support_codex_prompt_attachments import _codex_prompt_attachment_artifact
 from .commands_support_command_activity import (
@@ -148,10 +167,11 @@ from .commands_support_command_activity import (
     record_post_hook_command_activity_best_effort,
     record_pre_hook_command_activity_best_effort,
 )
+from .commands_support_observe_queue import queue_observe_mode_request
 from .commands_support_runtime_policy import _runtime_hook_effective_policy_config
 
 # Bump when generic-hook classification or action-composition semantics change.
-_GENERIC_HOOK_EVALUATOR_POLICY_VERSION = "generic-hook-evaluation-v2"
+_GENERIC_HOOK_EVALUATOR_POLICY_VERSION = "generic-hook-evaluation-v3"
 
 _GENERIC_HOOK_EXPLICIT_POSIX_SHELL_TOOLS = frozenset({"ash", "bash", "dash", "sh", "zsh"})
 
@@ -579,6 +599,15 @@ def _should_relax_configured_default(
             cwd=runtime_workspace,
             home_dir=home_dir,
         )
+    if verified_non_sensitive_codex_apply_patch(
+        canonical_harness=_canonical_harness_name(harness),
+        event_name=event_name,
+        home_dir=home_dir,
+        payload=payload,
+        runtime_artifact_checked=runtime_artifact_checked,
+        runtime_workspace=runtime_workspace,
+    ):
+        return True
     return event_name == "PreToolUse" and is_explicitly_benign_tool_action_request(
         payload.get("tool_name"),
         payload.get("tool_input", payload.get("arguments")),
@@ -1055,6 +1084,41 @@ def _run_hook_generic_payload(
             output_stream=output_stream,
         )
         return 0
+    if config.mode == "observe" and hook_is_pre_event(hook_event_name):
+        inbox_policy_action = observed_policy_action or policy_action
+        observed_artifact = GuardArtifact(
+            artifact_id=artifact_id,
+            name=artifact_name,
+            harness=args.harness,
+            artifact_type="tool_action_request",
+            source_scope="project",
+            config_path=str(runtime_workspace) if runtime_workspace is not None else "",
+            command=_observed_action_detail(
+                command_text,
+                action_envelope=action_envelope,
+                home_dir=home_dir,
+            ),
+            metadata={
+                "action_class": "observed tool action",
+                "request_summary": "Guard recorded what watch-only mode would have stopped.",
+            },
+        )
+        queue_observe_mode_request(
+            action_envelope=action_envelope,
+            artifact=observed_artifact,
+            artifact_hash=runtime_artifact_hash,
+            changed_fields=changed_capabilities or ["tool_action"],
+            executable_action=policy_action,
+            observed_policy_action=inbox_policy_action,
+            redaction_level=config.receipt_redaction_level,
+            risk_summary=(
+                "Watch-only mode allowed an action that current policy would stop."
+                if observed_policy_action is not None
+                else "Watch-only mode recorded this action without blocking it."
+            ),
+            scanner_evidence=scanner_evidence,
+            store=store,
+        )
     if (
         hook_is_pre_event(hook_event_name)
         and policy_action in {"review", "require-reapproval"}

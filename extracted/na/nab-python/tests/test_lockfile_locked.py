@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING
 
 import pytest
@@ -9,6 +10,7 @@ import pytest
 from nab_python._vendor.packaging.requirements import Requirement
 from nab_python._vendor.packaging.version import Version
 from nab_python.lockfile import (
+    BASE_MEMBER,
     IndexPin,
     InvalidLockfileError,
     LockfileSyntaxError,
@@ -16,8 +18,10 @@ from nab_python.lockfile import (
     RootRequirement,
     TargetLock,
     WheelArtifact,
+    build_pylock,
     check_locked,
     drop_workspace_pins,
+    read_lockfile_packages,
     render_lock,
     summarize_lock,
 )
@@ -27,15 +31,6 @@ from nab_python.target import ResolveTarget
 if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
-
-LINUX_ENV = {
-    "python_version": "3.11",
-    "sys_platform": "linux",
-    "os_name": "posix",
-    "platform_machine": "x86_64",
-    "platform_system": "Linux",
-    "implementation_name": "cpython",
-}
 
 TARGET = ResolveTarget.for_declared(
     python_version="3.11", spec=PlatformSpec("linux_x86_64")
@@ -63,6 +58,8 @@ def _lock_input(
     *,
     dependencies: Mapping[str, tuple[str, ...]] | None = None,
     base_dependencies: Mapping[str, tuple[str, ...]] | None = None,
+    package_gates: Mapping[str, tuple[tuple[str, str], ...]] | None = None,
+    base_group: str | None = None,
 ) -> LockInput:
     return LockInput(
         targets={
@@ -71,8 +68,10 @@ def _lock_input(
                 pins=dict(pins),
                 dependencies=dict(dependencies or {}),
                 base_dependencies=dict(base_dependencies or {}),
+                package_gates=dict(package_gates or {}),
             )
-        }
+        },
+        base_group=base_group,
     )
 
 
@@ -81,8 +80,34 @@ def _write_lock(path: Path, pins: Mapping[str, IndexPin]) -> Path:
     return path
 
 
+def _write_foreign_lock(path: Path, packages: str) -> Path:
+    """Write a lock from raw TOML, as another tool would have produced it."""
+    path.write_text(
+        "lock-version = '1.0'\n"
+        "created-by = 'other-tool'\n"
+        "requires-python = '>=3.10'\n" + packages,
+        encoding="utf-8",
+    )
+    return path
+
+
+_AT_LIMIT = "9" * sys.get_int_max_str_digits()
+_OVERSIZED = _AT_LIMIT + "9"
+
+
+def _write_requires_python_lock(path: Path, requires_python: str) -> Path:
+    path.write_text(
+        "lock-version = '1.0'\n"
+        "created-by = 'other-tool'\n"
+        f"requires-python = '{requires_python}'\n"
+        "packages = []\n",
+        encoding="utf-8",
+    )
+    return path
+
+
 class TestReadErrors:
-    """A committed lock that cannot be parsed raises a typed error."""
+    """A committed lock that cannot be parsed or used raises a typed error."""
 
     def test_not_toml_raises_syntax_error(self, tmp_path: Path) -> None:
         target = tmp_path / "pylock.toml"
@@ -119,6 +144,154 @@ class TestReadErrors:
                 default_groups=(),
             )
 
+    def test_oversized_requires_python_raises_invalid(self, tmp_path: Path) -> None:
+        """A digit run past int()'s limit parses as a specifier but never converts."""
+        target = _write_requires_python_lock(
+            tmp_path / "pylock.toml", f">={_OVERSIZED}"
+        )
+        with pytest.raises(InvalidLockfileError, match="requires-python"):
+            check_locked(
+                target,
+                requires_python=">=3.10",
+                extras=(),
+                dependency_groups=(),
+                default_groups=(),
+            )
+
+    def test_at_limit_requires_python_is_compared(self, tmp_path: Path) -> None:
+        target = _write_requires_python_lock(tmp_path / "pylock.toml", f">={_AT_LIMIT}")
+        result = check_locked(
+            target,
+            requires_python=">=3.10",
+            extras=(),
+            dependency_groups=(),
+            default_groups=(),
+        )
+        assert result is not None
+        assert "requires-python" in result.reason
+
+
+class TestArtifactUrlFilenames:
+    """With ``name`` omitted, the file name comes from the percent-decoded URL."""
+
+    def test_encoded_wheel_url_is_accepted(self, tmp_path: Path) -> None:
+        target = _write_foreign_lock(
+            tmp_path / "pylock.toml",
+            "[[packages]]\n"
+            "name = 'torch'\n"
+            "version = '2.0.0+cu118'\n"
+            "[[packages.wheels]]\n"
+            "url = 'https://example.com/cu118/"
+            "torch-2.0.0%2Bcu118-cp310-cp310-linux_x86_64.whl'\n"
+            "[packages.wheels.hashes]\n"
+            f"sha256 = '{'0' * 64}'\n",
+        )
+
+        assert (
+            check_locked(
+                target,
+                requires_python=">=3.10",
+                extras=(),
+                dependency_groups=(),
+                default_groups=(),
+                roots=[RootRequirement(Requirement("torch"), "[project].dependencies")],
+                resolve_target=TARGET,
+            )
+            is None
+        )
+
+    def test_encoded_sdist_url_is_accepted(self, tmp_path: Path) -> None:
+        target = _write_foreign_lock(
+            tmp_path / "pylock.toml",
+            "[[packages]]\n"
+            "name = 'spam'\n"
+            "version = '1.0+cpu'\n"
+            "[packages.sdist]\n"
+            "url = 'https://example.com/files/spam-1.0%2Bcpu.tar.gz'\n"
+            "[packages.sdist.hashes]\n"
+            f"sha256 = '{'0' * 64}'\n",
+        )
+
+        assert (
+            check_locked(
+                target,
+                requires_python=">=3.10",
+                extras=(),
+                dependency_groups=(),
+                default_groups=(),
+                roots=[RootRequirement(Requirement("spam"), "[project].dependencies")],
+                resolve_target=TARGET,
+            )
+            is None
+        )
+
+    def test_decoded_wheel_version_is_still_checked(self, tmp_path: Path) -> None:
+        target = _write_foreign_lock(
+            tmp_path / "pylock.toml",
+            "[[packages]]\n"
+            "name = 'torch'\n"
+            "version = '2.0.0+cu118'\n"
+            "[[packages.wheels]]\n"
+            "url = 'https://example.com/cu117/"
+            "torch-2.0.0%2Bcu117-cp310-cp310-linux_x86_64.whl'\n"
+            "[packages.wheels.hashes]\n"
+            f"sha256 = '{'0' * 64}'\n",
+        )
+
+        with pytest.raises(InvalidLockfileError) as caught:
+            check_locked(
+                target,
+                requires_python=None,
+                extras=(),
+                dependency_groups=(),
+                default_groups=(),
+            )
+
+        assert "torch-2.0.0+cu117-cp310-cp310-linux_x86_64.whl" in str(caught.value)
+        assert "not consistent" in str(caught.value)
+
+    def test_literal_plus_in_the_url_path_is_left_alone(self, tmp_path: Path) -> None:
+        """A ``+`` in a URL path is a plus, not a space."""
+        target = _write_foreign_lock(
+            tmp_path / "pylock.toml",
+            "[[packages]]\n"
+            "name = 'torch'\n"
+            "version = '2.0.0+cu118'\n"
+            "[[packages.wheels]]\n"
+            "url = 'https://example.com/cu118/"
+            "torch-2.0.0+cu118-cp310-cp310-linux_x86_64.whl'\n"
+            "[packages.wheels.hashes]\n"
+            f"sha256 = '{'0' * 64}'\n",
+        )
+
+        assert (
+            check_locked(
+                target,
+                requires_python=">=3.10",
+                extras=(),
+                dependency_groups=(),
+                default_groups=(),
+                roots=[RootRequirement(Requirement("torch"), "[project].dependencies")],
+                resolve_target=TARGET,
+            )
+            is None
+        )
+
+    def test_prior_pins_survive_an_encoded_url(self, tmp_path: Path) -> None:
+        target = _write_foreign_lock(
+            tmp_path / "pylock.toml",
+            "[[packages]]\n"
+            "name = 'torch'\n"
+            "version = '2.0.0+cu118'\n"
+            "[[packages.wheels]]\n"
+            "url = 'https://example.com/cu118/"
+            "torch-2.0.0%2Bcu118-cp310-cp310-linux_x86_64.whl'\n"
+            "[packages.wheels.hashes]\n"
+            f"sha256 = '{'0' * 64}'\n",
+        )
+
+        assert read_lockfile_packages(target) == {"torch": Version("2.0.0+cu118")}
+
 
 class TestCheckLocked:
     """The envelope runs first, then the direct requirements and constraints."""
@@ -133,7 +306,7 @@ class TestCheckLocked:
                 dependency_groups=(),
                 default_groups=(),
                 roots=[RootRequirement(Requirement("foo"), "[project].dependencies")],
-                marker_env=LINUX_ENV,
+                resolve_target=TARGET,
             )
             is None
         )
@@ -160,12 +333,12 @@ class TestCheckLocked:
                 dependency_groups=(),
                 default_groups=(),
                 roots=None,
-                marker_env=LINUX_ENV,
+                resolve_target=TARGET,
             )
             is None
         )
 
-    def test_marker_env_none_runs_envelope_only(self, tmp_path: Path) -> None:
+    def test_resolve_target_none_runs_envelope_only(self, tmp_path: Path) -> None:
         target = _write_lock(tmp_path / "pylock.toml", {"foo": _pin("foo", "1.0")})
         assert (
             check_locked(
@@ -175,7 +348,7 @@ class TestCheckLocked:
                 dependency_groups=(),
                 default_groups=(),
                 roots=[RootRequirement(Requirement("bar"), "[project].dependencies")],
-                marker_env=None,
+                resolve_target=None,
             )
             is None
         )
@@ -189,7 +362,7 @@ class TestCheckLocked:
             dependency_groups=(),
             default_groups=(),
             roots=[RootRequirement(Requirement("bar"), "[project].dependencies")],
-            marker_env=LINUX_ENV,
+            resolve_target=TARGET,
         )
         assert result is not None
         assert "no bar pin" in result.reason
@@ -204,7 +377,7 @@ class TestCheckLocked:
                 dependency_groups=(),
                 default_groups=(),
                 roots=[RootRequirement(Requirement("Bar"), "[project].dependencies")],
-                marker_env=LINUX_ENV,
+                resolve_target=TARGET,
                 exclude=frozenset({"bar"}),
             )
             is None
@@ -220,7 +393,7 @@ class TestCheckLocked:
             default_groups=(),
             roots=[],
             constraints=["foo>=2"],
-            marker_env=LINUX_ENV,
+            resolve_target=TARGET,
         )
         assert result is not None
         assert "constraint foo>=2" in result.reason
@@ -253,6 +426,34 @@ class TestDropWorkspacePins:
 
         dropped = drop_workspace_pins(lock_input, frozenset({"alpha"}))
         assert dropped.targets[TARGET.label].base_dependencies == edges
+
+    def test_a_surviving_package_keeps_its_whole_gate(self) -> None:
+        """Dropping a member cannot narrow what still installs.
+
+        A gate names install contexts, never packages, so nothing a
+        dropped member reached can leave a gate behind that no longer
+        resolves.
+        """
+        lock_input = _lock_input(
+            {"foo": _pin("foo", "1.0"), "alpha": _pin("alpha", "2.0")},
+            dependencies={"alpha": ("foo",)},
+            package_gates={
+                "foo": (BASE_MEMBER, ("group", "dev")),
+                "alpha": (BASE_MEMBER,),
+            },
+            base_group="default",
+        )
+
+        dropped = drop_workspace_pins(lock_input, frozenset({"alpha"}))
+
+        assert dropped.targets[TARGET.label].package_gates == {
+            "foo": (BASE_MEMBER, ("group", "dev"))
+        }
+        marker = next(p.marker for p in build_pylock(dropped).packages)
+        assert marker is not None
+        assert str(marker) == (
+            '"default" in dependency_groups or "dev" in dependency_groups'
+        )
 
 
 class TestSummarizeLock:

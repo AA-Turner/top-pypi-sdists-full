@@ -59,7 +59,6 @@ from nox.virtualenv import (
 )
 
 if typing.TYPE_CHECKING:
-    import argparse
     from collections.abc import (
         Callable,
         Generator,
@@ -77,6 +76,7 @@ if typing.TYPE_CHECKING:
     )
 
     from nox._decorators import Func
+    from nox._options import NoxConfig
     from nox.command import ExternalType
     from nox.manifest import Manifest
 
@@ -130,32 +130,6 @@ def _normalize_path(envdir: str, path: str) -> str:
             )
 
     return full_path
-
-
-def _dblquote_pkg_install_args(args: Iterable[str]) -> tuple[str, ...]:
-    """Double-quote package install arguments in case they contain '>' or '<' symbols"""
-
-    # routine used to handle a single arg
-    def _dblquote_pkg_install_arg(pkg_req_str: str) -> str:
-        # sanity check: we need an even number of double-quotes
-        if pkg_req_str.count('"') % 2 != 0:
-            msg = f"ill-formatted argument with odd number of quotes: {pkg_req_str}"
-            raise ValueError(msg)
-
-        if "<" in pkg_req_str or ">" in pkg_req_str:
-            if pkg_req_str[0] == pkg_req_str[-1] == '"':
-                # already double-quoted string
-                return pkg_req_str
-            # need to double-quote string
-            if '"' in pkg_req_str:
-                msg = f"Cannot escape requirement string: {pkg_req_str}"
-                raise ValueError(msg)
-            return f'"{pkg_req_str}"'
-        # no dangerous char: no need to double-quote string
-        return pkg_req_str
-
-    # double-quote all args that need to be and return the result
-    return tuple(_dblquote_pkg_install_arg(a) for a in args)
 
 
 class _SessionQuit(Exception):
@@ -333,7 +307,7 @@ class Session:
         to the Noxfile's directory before running any sessions. This gives
         you the original working directory that Nox was invoked form.
         """
-        return self._runner.global_config.invoked_from  # type: ignore[no-any-return]
+        return self._runner.global_config.invoked_from
 
     def chdir(self, dir: str | os.PathLike[str]) -> _WorkingDirContext:
         """Change the current working directory.
@@ -801,10 +775,6 @@ class Session:
         ):
             return
 
-        # Escape args that should be (conda-specific; pip install does not need this)
-        if sys.platform.startswith("win"):
-            args = _dblquote_pkg_install_args(args)
-
         if silent is None:
             silent = not self._runner.global_config.verbose
 
@@ -969,7 +939,20 @@ class Session:
                 arguments *only* for the queued session. Otherwise, the
                 standard globally available positional arguments will be
                 used instead.
+
+        Raises:
+            ValueError: If called under ``--no-dependencies`` (which includes
+                every session run by ``--parallel``): the notified session
+                would run here *in addition to* anywhere else it is scheduled,
+                racing on its virtualenv. Use ``requires=`` instead.
         """
+        if self._runner.global_config.no_dependencies:
+            msg = (
+                "session.notify() is not supported with --no-dependencies (which"
+                " --parallel uses to run each session); declare the ordering with"
+                " requires= instead."
+            )
+            raise ValueError(msg)
         if posargs is not None:
             posargs = list(posargs)
         self._runner.manifest.notify(target, posargs)
@@ -995,13 +978,80 @@ class Session:
         raise _SessionSkip(*args)
 
 
+def resolve_venv_backends(global_config: NoxConfig, func: Func) -> list[str]:
+    """The venv backends to try for a session: forced, session-declared, or default."""
+    backends = (
+        global_config.force_venv_backend
+        or func.venv_backend
+        or global_config.default_venv_backend
+    )
+    return backends.split("|")
+
+
+def resolve_allow_parallel(global_config: NoxConfig, func: Func) -> bool:
+    """Whether a session may run concurrently under ``--parallel``.
+
+    A session's own ``allow_parallel=`` wins; unset sessions fall back to the
+    global ``--allow-parallel`` / ``nox.options.allow_parallel`` default.
+    """
+    if func.allow_parallel is None:
+        return bool(global_config.allow_parallel)
+    return func.allow_parallel
+
+
+def resolve_download_python(
+    global_config: NoxConfig, func: Func
+) -> Literal["auto", "never", "always"]:
+    """Whether to download missing interpreters for a session."""
+    return global_config.download_python or func.download_python or "auto"
+
+
+def resolve_reuse_existing_venv(global_config: NoxConfig, func: Func) -> bool:
+    """Determines whether to reuse an existing virtual environment.
+
+    The decision matrix is as follows:
+
+    +--------------------------+-----------------+-------------+
+    | global_config.reuse_venv | func.reuse_venv | Reuse venv? |
+    +==========================+=================+=============+
+    | "always"                 | N/A             | Yes         |
+    +--------------------------+-----------------+-------------+
+    | "never"                  | N/A             | No          |
+    +--------------------------+-----------------+-------------+
+    | "yes"                    | True|None       | Yes         |
+    +--------------------------+-----------------+-------------+
+    | "yes"                    | False           | No          |
+    +--------------------------+-----------------+-------------+
+    | "no"                     | True            | Yes         |
+    +--------------------------+-----------------+-------------+
+    | "no"                     | False|None      | No          |
+    +--------------------------+-----------------+-------------+
+
+    Summary
+    ~~~~~~~
+    - "always" forces reuse regardless of `func.reuse_venv`.
+    - "never" forces recreation regardless of `func.reuse_venv`.
+    - "yes" and "no" respect `func.reuse_venv` being ``False`` or ``True`` respectively.
+    """
+    return any(
+        (
+            # "always" forces reuse regardless of func.reuse_venv
+            global_config.reuse_venv == "always",
+            # Respect func.reuse_venv when it's explicitly True, unless global_config is "never"
+            func.reuse_venv is True and global_config.reuse_venv != "never",
+            # Delegate to reuse ("yes") when func.reuse_venv is not explicitly False
+            func.reuse_venv is not False and global_config.reuse_venv == "yes",
+        )
+    )
+
+
 class SessionRunner:
     def __init__(
         self,
         name: str,
         signatures: Sequence[str],
         func: Func,
-        global_config: argparse.Namespace,
+        global_config: NoxConfig,
         manifest: Manifest,
         *,
         multi: bool = False,
@@ -1052,7 +1102,7 @@ class SessionRunner:
 
     @property
     def envdir(self) -> str:
-        return _normalize_path(self.global_config.envdir, self.friendly_name)
+        return _normalize_path(os.fspath(self.global_config.envdir), self.friendly_name)
 
     def get_direct_dependencies(
         self, sessions_by_id: Mapping[str, SessionRunner] | None = None
@@ -1093,24 +1143,11 @@ class SessionRunner:
             raise KeyError(msg) from exc
 
     def _create_venv(self) -> None:
-        reuse_existing = self.reuse_existing_venv()
-
-        backends = (
-            self.global_config.force_venv_backend
-            or self.func.venv_backend
-            or self.global_config.default_venv_backend
-            or "virtualenv"
-        ).split("|")
-
-        download_python = (
-            self.global_config.download_python or self.func.download_python or "auto"
-        )
-
         self.venv = get_virtualenv(
-            *backends,
-            download_python=download_python,
+            *resolve_venv_backends(self.global_config, self.func),
+            download_python=resolve_download_python(self.global_config, self.func),
             envdir=self.envdir,
-            reuse_existing=reuse_existing,
+            reuse_existing=self.reuse_existing_venv(),
             interpreter=self.func.python,
             venv_params=self.func.venv_params,
         )
@@ -1121,68 +1158,23 @@ class SessionRunner:
         """
         Determines whether to reuse an existing virtual environment.
 
-        The decision matrix is as follows:
-
-        +--------------------------+-----------------+-------------+
-        | global_config.reuse_venv | func.reuse_venv | Reuse venv? |
-        +==========================+=================+=============+
-        | "always"                 | N/A             | Yes         |
-        +--------------------------+-----------------+-------------+
-        | "never"                  | N/A             | No          |
-        +--------------------------+-----------------+-------------+
-        | "yes"                    | True|None       | Yes         |
-        +--------------------------+-----------------+-------------+
-        | "yes"                    | False           | No          |
-        +--------------------------+-----------------+-------------+
-        | "no"                     | True            | Yes         |
-        +--------------------------+-----------------+-------------+
-        | "no"                     | False|None      | No          |
-        +--------------------------+-----------------+-------------+
-
-        Summary
-        ~~~~~~~
-        - "always" forces reuse regardless of `func.reuse_venv`.
-        - "never" forces recreation regardless of `func.reuse_venv`.
-        - "yes" and "no" respect `func.reuse_venv` being ``False`` or ``True`` respectively.
+        See :func:`resolve_reuse_existing_venv` for the decision matrix.
 
         Returns:
             bool: True if the existing virtual environment should be reused, False otherwise.
         """
-        if self.global_config.reuse_venv not in {"always", "never", "no", "yes", None}:
-            msg = (
-                "nox.options.reuse_venv must be set to 'always', 'never', 'no', or 'yes',"
-                f" got {self.global_config.reuse_venv!r}!"
-            )
-            raise AttributeError(msg)
-
-        return any(
-            (
-                # "always" forces reuse regardless of func.reuse_venv
-                self.global_config.reuse_venv == "always",
-                # Respect func.reuse_venv when it's explicitly True, unless global_config is "never"
-                self.func.reuse_venv is True
-                and self.global_config.reuse_venv != "never",
-                # Delegate to reuse ("yes") when func.reuse_venv is not explicitly False
-                self.func.reuse_venv is not False
-                and self.global_config.reuse_venv == "yes",
-            )
-        )
+        return resolve_reuse_existing_venv(self.global_config, self.func)
 
     def execute(self) -> Result:
         logger.session_info(f"Running session {self.friendly_name}")
 
-        for dependency in self.get_direct_dependencies():
-            if not dependency.result:
-                self.result = Result(
-                    self,
-                    Status.ABORTED,
-                    reason=(
-                        f"Prerequisite session {dependency.friendly_name} was not"
-                        " successful"
-                    ),
-                    duration=0,
-                )
-                return self.result
+        # With --no-dependencies, prerequisites aren't queued (and may not have
+        # run in this process), so skip the dependency-result check entirely.
+        if not self.global_config.no_dependencies:
+            for dependency in self.get_direct_dependencies():
+                if not dependency.result:
+                    self.result = Result.aborted_prerequisite(self, dependency)
+                    return self.result
 
         start = time.perf_counter()
         try:
@@ -1290,6 +1282,20 @@ class Result:
     def __bool__(self) -> bool:
         return self.status.value > 0
 
+    @classmethod
+    def aborted_prerequisite(
+        cls, session: SessionRunner, dependency: SessionRunner
+    ) -> Result:
+        """Return the result for a session whose prerequisite did not succeed."""
+        return cls(
+            session,
+            Status.ABORTED,
+            reason=(
+                f"Prerequisite session {dependency.friendly_name} was not successful"
+            ),
+            duration=0,
+        )
+
     @property
     def imperfect(self) -> str:
         """Return the English imperfect tense for the status.
@@ -1333,6 +1339,17 @@ class Result:
             "name": self.session.name,
             "result": self.status.name.lower(),
             "result_code": self.status.value,
+            "reason": self.reason,
             "signatures": self.session.signatures,
             "duration": self.duration,
         }
+
+    @classmethod
+    def from_dict(cls, session: SessionRunner, entry: dict[str, Any]) -> Result:
+        """Rebuild a result from a :meth:`serialize` entry."""
+        return cls(
+            session,
+            Status[entry["result"].upper()],
+            entry.get("reason"),
+            duration=entry.get("duration", 0.0),
+        )

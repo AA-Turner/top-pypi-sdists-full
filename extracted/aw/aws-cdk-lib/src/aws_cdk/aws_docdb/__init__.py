@@ -3435,6 +3435,41 @@ class CfnEventSubscription(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForEventSubscription")
+    @builtins.classmethod
+    def arn_for_event_subscription(
+        cls,
+        resource: "_aws_docdb_31f231dc.IEventSubscriptionRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__47f735a5151be5b7c5e2e7792386649f1cba34d7bf10ad12a301f13e14e98499)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEventSubscription", [resource]))
+
+    @jsii.member(jsii_name="fromSubscriptionName")
+    @builtins.classmethod
+    def from_subscription_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        subscription_name: builtins.str,
+    ) -> "_aws_docdb_31f231dc.IEventSubscriptionRef":
+        '''Creates a new IEventSubscriptionRef from a subscriptionName.
+
+        :param scope: -
+        :param id: -
+        :param subscription_name: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3a1093fa25cea32336ceccc1da80775ca5c00d7d27bc6f01aa8ad06c8c76dc19)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument subscription_name", value=subscription_name, expected_type=type_hints["subscription_name"])
+        return typing.cast("_aws_docdb_31f231dc.IEventSubscriptionRef", jsii.sinvoke(cls, "fromSubscriptionName", [scope, id, subscription_name]))
+
     @jsii.member(jsii_name="isCfnEventSubscription")
     @builtins.classmethod
     def is_cfn_event_subscription(cls, x: typing.Any) -> builtins.bool:
@@ -3476,14 +3511,6 @@ class CfnEventSubscription(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -7317,6 +7344,20 @@ def _typecheckingstub__40f8dfdc0873c60465b0acfa4f2aa03b6140bfeab2b2555ea12d442d9
     source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     source_type: typing.Optional[builtins.str] = None,
     subscription_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__47f735a5151be5b7c5e2e7792386649f1cba34d7bf10ad12a301f13e14e98499(
+    resource: _aws_docdb_31f231dc.IEventSubscriptionRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a1093fa25cea32336ceccc1da80775ca5c00d7d27bc6f01aa8ad06c8c76dc19(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    subscription_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
