@@ -67,7 +67,6 @@ import google.protobuf.message
 import orjson
 import pyarrow
 import pyarrow as pa
-import requests
 from google.protobuf import message_factory
 from google.protobuf.descriptor import Descriptor
 from pydantic import BaseModel
@@ -1584,12 +1583,16 @@ def parse_common_module(
         or mod is os
         or mod is random
         or mod is difflib
-        or mod is requests
         or mod is collections
         or mod is statistics
     ):
         return FunctionCapturedGlobalModule(name=module_name)
 
+    elif module_name == "requests":
+        import requests
+
+        if mod is requests:
+            return FunctionCapturedGlobalModule(name=module_name)
     elif mod.__name__ == "pytz":
         try:
             import pytz

@@ -45,6 +45,7 @@ Route53ProfilesServiceName = Literal["route53profiles"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

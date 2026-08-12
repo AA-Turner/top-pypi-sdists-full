@@ -109,6 +109,20 @@ workspace_job:
   # write: can create, update, delete jobs
   org_id: wildcard
   ws_id: wildcard
+jobs:
+  # read: can view job definitions
+  # write: can create and update jobs
+  # delete: can delete jobs
+  org_id: wildcard
+  ws_id: wildcard
+  flow_folder_id: wildcard
+job_run:
+  # read: can view job runs
+  # write: can start a job run
+  org_id: wildcard
+  ws_id: wildcard
+  flow_folder_id: wildcard
+  env: wildcard
 workspace_connection:
   # read: can view which providers are configured
   # write: can configure new providers. This includes updating secrets for this provider

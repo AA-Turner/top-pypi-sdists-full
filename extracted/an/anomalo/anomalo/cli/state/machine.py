@@ -10,6 +10,7 @@ from ...client import Client
 from .api import APIDriver
 from .errors import ConflictingTableFilters, handle_state_errors
 from .file import FileDriver
+from .filters import TableFilters
 from .models import (
     Action,
     CheckAction,
@@ -18,6 +19,7 @@ from .models import (
     State,
     TableConfigAction,
 )
+from .plan import Plan, ResourceKey, build_plan
 
 
 class StateMachine:
@@ -38,18 +40,13 @@ class StateMachine:
         filename: str,
         table_refs: Sequence[str],
         exclude_labels: Sequence[str] | None = None,
-        warehouse_id: int | None = None,
-        configured_only: bool = False,
+        filters: TableFilters = TableFilters(),
     ) -> None:
-        if table_refs and (warehouse_id is not None or configured_only):
-            raise ConflictingTableFilters()
+        if table_refs and filters.applied_flags:
+            raise ConflictingTableFilters(filters.applied_flags)
         api_state = APIDriver(self.client)
         if not table_refs:
-            table_refs = sorted(
-                api_state.pull_table_refs(
-                    warehouse_id=warehouse_id, configured_only=configured_only
-                )
-            )
+            table_refs = sorted(api_state.pull_table_refs(filters))
         for table_ref in table_refs:
             api_state.load_table(table_ref)
             api_state.load_non_system_checks(table_ref)
@@ -113,25 +110,41 @@ class StateMachine:
         if not actions:
             print("No changes detected")
             return
+        plan = build_plan(actions)
         diff_format = "shacl" if filename.endswith(".ttl") else "yaml"
-        self._display_diff(actions, diff_format)
-        print(f"Total changes count: {len(actions)}")
+        self._display_diff(plan.actions, diff_format)
+        print(f"Total changes count: {len(plan)}")
         if dryrun:
             return
         if not noninteractive:
             self._prompt_continue()
+        self._apply_plan(plan, api_state)
+
+    def _apply_plan(self, plan: Plan, api_state: APIDriver) -> None:
         errors = 0
-        for i, action in enumerate(actions):
-            print(f"({i + 1}/{len(actions)}) {action} ... ", end="", flush=True)
+        skipped: dict[ResourceKey, str] = {}
+        for i, node in enumerate(plan):
+            print(f"({i + 1}/{len(plan)}) {node.action} ... ", end="", flush=True)
+            if blocker := skipped.get(node.key):
+                print(f"Skipped ({blocker})")
+                continue
             try:
-                api_state.apply_action(action)
+                api_state.apply_action(node.action)
                 print("Success")
             except RuntimeError as e:
                 errors += 1
                 print(f"Error ({e})")
+                # Everything downstream needs state this action was supposed to
+                # write, so attempting it would only repeat the same failure in a
+                # less recognisable form.
+                blocked_by = f"{node.action} failed"
+                for dependent in plan.dependents_of(node.key):
+                    skipped.setdefault(dependent, blocked_by)
         if errors:
             print()
             print(f"Total errors count: {errors}")
+        if skipped:
+            print(f"Total skipped count: {len(skipped)}")
 
     def _prompt_continue(self) -> None:
         print()
@@ -325,6 +338,7 @@ class StateMachine:
                             table_ref=table_ref,
                             check_ref=check_ref,
                             check_id=check_id,
+                            is_system_check=True,
                         )
                     )
 

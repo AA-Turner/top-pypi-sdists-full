@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from tako.aio.models.agent_answer_citation import AgentAnswerCitation
 from tako.aio.models.answer_agent_metadata import AnswerAgentMetadata
@@ -34,8 +34,9 @@ class AnswerAgentResult(BaseModel):
     cards: Optional[List[TakoCard]] = None
     citations: Optional[List[AgentAnswerCitation]] = None
     metadata: Optional[AnswerAgentMetadata] = None
+    refusal_code: Optional[StrictStr] = Field(default=None, description="Set when Tako rejected the query before the agent ran. Null on normal runs. Tako can add new codes, so accept a code you do not recognize. The current code is 'rejected_input_classifier'.")
     request_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["answer", "cards", "citations", "metadata", "request_id"]
+    __properties: ClassVar[List[str]] = ["answer", "cards", "citations", "metadata", "refusal_code", "request_id"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -103,6 +104,11 @@ class AnswerAgentResult(BaseModel):
         if self.metadata is None and "metadata" in self.model_fields_set:
             _dict['metadata'] = None
 
+        # set to None if refusal_code (nullable) is None
+        # and model_fields_set contains the field
+        if self.refusal_code is None and "refusal_code" in self.model_fields_set:
+            _dict['refusal_code'] = None
+
         # set to None if request_id (nullable) is None
         # and model_fields_set contains the field
         if self.request_id is None and "request_id" in self.model_fields_set:
@@ -124,6 +130,7 @@ class AnswerAgentResult(BaseModel):
             "cards": [TakoCard.from_dict(_item) for _item in obj["cards"]] if obj.get("cards") is not None else None,
             "citations": [AgentAnswerCitation.from_dict(_item) for _item in obj["citations"]] if obj.get("citations") is not None else None,
             "metadata": AnswerAgentMetadata.from_dict(obj["metadata"]) if obj.get("metadata") is not None else None,
+            "refusal_code": obj.get("refusal_code"),
             "request_id": obj.get("request_id")
         })
         return _obj

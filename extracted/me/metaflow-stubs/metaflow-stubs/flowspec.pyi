@@ -1,21 +1,21 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.36                                                                                #
-# Generated on 2026-08-05T18:17:36.271717                                                            #
+# MF version: 2.19.37                                                                                #
+# Generated on 2026-08-11T17:17:32.688186                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
-import metaflow
 import enum
+import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import metaflow.exception
-    import metaflow.unbounded_foreach
-    import typing
-    import metaflow.flowspec
     import metaflow.datastore.inputs
     import enum
+    import metaflow.unbounded_foreach
+    import typing
+    import metaflow.exception
+    import metaflow.flowspec
 
 from . import parameters as parameters
 from .parameters import DelayedEvaluationParameter as DelayedEvaluationParameter

@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Test 1
-  set_fact:
+  ansible.builtin.set_fact:
     loop_result: >-
       {{
         query('community.general.dependent',
@@ -14,7 +14,7 @@
       }}
 
 - name: Check result of Test 1
-  assert:
+  ansible.builtin.assert:
     that:
       - loop_result == expected_result
   vars:
@@ -33,7 +33,7 @@
         key3: 82
 
 - name: Test 2
-  set_fact:
+  ansible.builtin.set_fact:
     loop_result: >-
       {{ query('community.general.dependent',
                dict([['a', [1, 2, 3]]]),
@@ -41,7 +41,7 @@
     # The last expression could have been `range(item.a, 5)`, but that's not supported by all Jinja2 versions used in CI
 
 - name: Check result of Test 2
-  assert:
+  ansible.builtin.assert:
     that:
       - loop_result == expected_result
   vars:
@@ -66,7 +66,7 @@
         b: 4
 
 - name: Test 3
-  debug:
+  ansible.builtin.debug:
     var: item
   with_community.general.dependent:
     - var1:
@@ -96,7 +96,7 @@
         - G
 
 - name: Check result of Test 3
-  assert:
+  ansible.builtin.assert:
     that:
       - (dependent.results | length) == 7
       - dependent.results[0].item.var1.key == "a"
@@ -122,7 +122,7 @@
       - dependent.results[6].item.var3 == "G"
 
 - name: "Test 4: template failure"
-  debug:
+  ansible.builtin.debug:
     msg: "{{ item }}"
   with_community.general.dependent:
     - a:
@@ -133,14 +133,14 @@
   register: eval_error
 
 - name: Check result of Test 4
-  assert:
+  ansible.builtin.assert:
     that:
       - eval_error is failed
       - >-
         "Caught \"'foo' is undefined" in eval_error.msg
 
 - name: "Test 5: same variable name reused"
-  debug:
+  ansible.builtin.debug:
     msg: "{{ item }}"
   with_community.general.dependent:
     - a: x
@@ -149,14 +149,14 @@
   register: eval_error
 
 - name: Check result of Test 5
-  assert:
+  ansible.builtin.assert:
     that:
       - eval_error is failed
       - >-
         "Caught \"'x' is undefined" in eval_error.msg
 
 - name: "Test 6: multi-value dict"
-  debug:
+  ansible.builtin.debug:
     msg: "{{ item }}"
   with_community.general.dependent:
     - a: x
@@ -165,14 +165,14 @@
   register: eval_error
 
 - name: Check result of Test 6
-  assert:
+  ansible.builtin.assert:
     that:
       - eval_error is failed
       - >-
         'Parameter 0 must be a one-element dictionary, got 2 elements' in eval_error.msg
 
 - name: "Test 7: empty dict"
-  debug:
+  ansible.builtin.debug:
     msg: "{{ item }}"
   with_community.general.dependent:
     - {}
@@ -180,7 +180,7 @@
   register: eval_error
 
 - name: Check result of Test 7
-  assert:
+  ansible.builtin.assert:
     that:
       - eval_error is failed
       - >-

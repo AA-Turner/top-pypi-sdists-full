@@ -43,6 +43,10 @@ class SummariseError(Exception):
     """Raised when summarise_workflow fails after exhausting retries."""
 
 
+class _MalformedResponseError(Exception):
+    """LLM response was structurally invalid (non-object JSON, all entries malformed)."""
+
+
 @dataclass(frozen=True, slots=True)
 class SummaryResult:
     status: SummaryStatus
@@ -90,6 +94,12 @@ def _system_prompt(tag: str) -> str:
         'naturally with those answers. BAD: "Check For Empty Package List". '
         'GOOD: "Are there any packages?". For inline code '
         '(type="ellipsis"), describe the step\'s role in the workflow.\n'
+        '- Other types (e.g. "human_input", "wait_condition", "sleep", "memory_op", '
+        '"continue_as_new", "agent") are ordinary steps: describe what the step does in the '
+        "workflow, the same as an activity.\n"
+        "- The type attribute is only a hint about the region's role. Never return it as the "
+        'summary: every value must be an object with "short" and "long" fields, never a bare '
+        'string such as "human_input".\n'
         "- Before finalizing, verify that every noun phrase in your summary appears in "
         "or directly maps to a code construct in the tagged region.\n\n"
         "Respond with a single JSON object whose keys are the id values from "
@@ -166,8 +176,25 @@ class NodeSummary(BaseModel):
         return {"short": self.short, "long": self.long}
 
 
+# Kept for griffe public-API compatibility; no longer used at runtime.
 class WorkflowSummaries(RootModel[dict[str, NodeSummary]]):
     pass
+
+
+def _parse_summaries(raw: dict[str, object]) -> tuple[dict[str, NodeSummary], list[str]]:
+    """Validate each node summary independently, returning ``(valid, invalid_keys)``.
+
+    A single malformed entry (e.g. a bare type string instead of a summary object) no
+    longer discards the entire batch.
+    """
+    valid: dict[str, NodeSummary] = {}
+    invalid: list[str] = []
+    for key, value in raw.items():
+        try:
+            valid[key] = NodeSummary.model_validate(value)
+        except (ValidationError, TypeError):
+            invalid.append(key)
+    return valid, invalid
 
 
 def _bottom_up_order(nodes: list[FlatNode]) -> list[FlatNode]:
@@ -487,6 +514,9 @@ async def summarise_workflow(
     extra_msgs: list[ChatCompletionRequestMessage] = []
     last_exc: Exception | None = None
     last_valid_summaries: dict[str, NodeSummary] | None = None
+    # Track which node IDs were accepted from an attempt that also had structural
+    # failures — those summaries came from a degraded response.
+    from_degraded: set[str] = set()
 
     for attempt in range(_MAX_VALIDATION_RETRIES):
         try:
@@ -506,22 +536,47 @@ async def summarise_workflow(
             if not isinstance(content, str):
                 raise ValueError("Unexpected non-string content from LLM response")
             raw = json.loads(content)
-            syn_summaries = WorkflowSummaries.model_validate(raw).root
-            summaries = {id_map[k]: v for k, v in syn_summaries.items() if k in id_map}
+            if not isinstance(raw, dict):
+                raise _MalformedResponseError(f"Expected a JSON object of summaries, got {type(raw).__name__}")
+            syn_valid, syn_invalid = _parse_summaries(raw)
+            if syn_invalid:
+                real_invalid = [id_map.get(k, k) for k in syn_invalid]
+                logger.warning(
+                    "Malformed summary entries",
+                    invalid_keys=real_invalid,
+                    valid_count=len(syn_valid),
+                )
+                if not syn_valid:
+                    raise _MalformedResponseError("All summary entries were malformed")
+            summaries = {id_map[k]: v for k, v in syn_valid.items() if k in id_map}
             # Merge rather than replace: a corrective retry may return only the
             # fixed nodes, so we keep prior valid summaries for nodes it omitted.
             if last_valid_summaries is not None:
                 last_valid_summaries = {**last_valid_summaries, **summaries}
             else:
                 last_valid_summaries = summaries
+            if syn_invalid:
+                from_degraded.update(summaries)
+            else:
+                from_degraded -= set(summaries)
 
+            # Collect all reasons to retry: domain violations + structurally invalid
+            # entries that correspond to requested nodes (extra hallucinated keys are
+            # ignored — they match no node and should not burn a retry).
             violations = _validate_domain_rules(summaries, node_by_id)
+            if syn_invalid:
+                for syn_key in syn_invalid:
+                    if syn_key not in id_map:
+                        continue
+                    violations.setdefault(id_map[syn_key], []).append(
+                        'value must be an object with "short" and "long" fields'
+                    )
             if violations:
                 if attempt < _MAX_VALIDATION_RETRIES - 1:
                     extra_msgs.append(AssistantMessage(content=content))
                     extra_msgs.append(UserMessage(content=_corrective_message(violations, real_to_syn)))
                     logger.warning(
-                        "LLM summary domain validation failed, retrying",
+                        "LLM summary validation failed, retrying",
                         attempt=attempt + 1,
                         max_attempts=_MAX_VALIDATION_RETRIES,
                         violation_count=sum(len(v) for v in violations.values()),
@@ -529,11 +584,17 @@ async def summarise_workflow(
                     continue
                 # Retries exhausted — soft-fail with best-effort results
                 logger.warning(
-                    "LLM summary domain violations remain after all retries, using best-effort",
+                    "LLM summary violations remain after all retries, using best-effort",
                     violation_count=sum(len(v) for v in violations.values()),
                     violations={real_to_syn.get(k, k): v for k, v in violations.items()},
                 )
 
+            stale = from_degraded & set(last_valid_summaries)
+            if stale:
+                logger.warning(
+                    "Final summaries include nodes from a structurally degraded attempt",
+                    degraded_node_count=len(stale),
+                )
             logger.info(
                 "Workflow node summaries ready",
                 workflow_name=wire.workflow_name,
@@ -545,10 +606,9 @@ async def summarise_workflow(
                 system_prompt=sys_prompt,
                 user_prompt=user_msg,
             )
-        except (ValidationError, json.JSONDecodeError) as exc:
-            # Do not append to extra_msgs here — it carries domain corrections
-            # that the LLM needs on the next attempt. Mixing schema error feedback
-            # with domain corrections confuses the model.
+        except (ValidationError, json.JSONDecodeError, _MalformedResponseError) as exc:
+            # No corrective prompt here — extra_msgs carries domain corrections;
+            # mixing schema feedback degrades retries.
             last_exc = exc
             logger.warning(
                 "LLM summary validation failed, retrying",

@@ -1,6 +1,6 @@
 [project]
 name = "nextcloud-mcp-server"
-version = "0.169.0"
+version = "0.170.2"
 description = "Model Context Protocol (MCP) server for Nextcloud integration - enables AI assistants to interact with Nextcloud data"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -18,6 +18,13 @@ keywords = [
 dependencies = [
     "mcp[cli] (>=1.29,<1.30)",
     "httpx (>=0.28.1,<0.29.0)",
+    "anyio>=4.0",
+    "uvicorn>=0.30",
+    "cryptography>=42.0",
+    "lxml>=5.0",
+    "botocore>=1.35.0",
+    "numpy>=1.26",
+    "packaging>=24.0",
     "pillow (>=10.3.0,<12.0.0)",
     "icalendar (>=7.2.0,<7.3.0)",
     "pythonvcard4>=0.2.0",
@@ -44,8 +51,8 @@ dependencies = [
     "jinja2>=3.1.6",
     "langchain-text-splitters>=1.0.0",
     "markdownify>=0.14.1",
-    "pymupdf==1.28.0",
-    "pymupdf4llm==1.28.0",
+    "pymupdf==1.28.2",
+    "pymupdf4llm==1.28.2",
     "openai>=2.8.1",
     "dynaconf>=3.2.13,<4.0",
     "mistralai>=2.4.5",
@@ -129,6 +136,15 @@ extend-select = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["PLC0415"]
 
+[tool.deptry]
+ignore = [
+    "DEP002",
+    "DEP004",
+]
+
+[tool.deptry.per_rule_ignores]
+DEP001 = ["pytesseract"]
+
 [tool.uv.build-backend]
 module-name = "nextcloud_mcp_server"
 module-root = ""
@@ -146,6 +162,7 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "commitizen>=4.8.2",
+    "deptry>=0.20.0",
     "ipython>=9.2.0",
     "playwright>=1.49.1",
     "pytest>=8.3.5",
@@ -156,7 +173,7 @@ dev = [
     "pytest-xdist>=3.6.1",
     "ruff>=0.11.13",
     "reportlab>=4.0.0",
-    "ty>=0.0.69,<0.0.70",
+    "ty>=0.0.70,<0.0.71",
     "pytest-otel>=2.0.1",
     "procrastinate>=3.8",
     "psycopg[binary,pool]>=3.2",

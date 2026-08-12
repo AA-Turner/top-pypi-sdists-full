@@ -9,6 +9,10 @@
 "community.internal_test_tools" = "git+https://github.com/ansible-collections/community.internal_test_tools.git,main"
 "community.library_inventory_filtering_v1" = "git+https://github.com/ansible-collections/community.library_inventory_filtering.git,stable-1"
 
+[collection_sources_per_ansible.'2.17']
+# community.general's main branch needs ansible-core >= 2.18
+"community.general" = "git+https://github.com/ansible-collections/community.general.git,stable-12"
+
 [vcs]
 vcs = "git"
 development_branch = "main"
@@ -99,12 +103,27 @@ include_devel = true
 
 [sessions.ansible_test_integration]
 session_name_template = "ansible-test-integration-{ansible_core}{dash_docker_short}{dash_remote}{dash_python_version}{dash_target_dashized}"
-display_name_template = "Ⓐ{ansible_core}{plus_docker_short}{plus_remote}{plus_py_python_version}{plus_target}{plus_force_docker_sdk_for_python_dev}{plus_force_docker_sdk_for_python_pypi}"
-description_template = "Run integration tests with ansible-core {ansible_core}{comma_docker_short}{comma_remote}{comma_py_python_version}{comma_target}{comma_force_docker_sdk_for_python_dev}{comma_force_docker_sdk_for_python_pypi}"
+display_name_template = "Ⓐ{ansible_core}{plus_docker_nice}{plus_remote_nice}{plus_py_python_version}{plus_target_nice}{plus_force_docker_sdk_for_python_dev}{plus_force_docker_sdk_for_python_pypi}"
+description_template = "Run integration tests with ansible-core {ansible_core}{comma_docker_nice}{comma_remote_nice}{comma_py_python_version}{comma_target_nice}{comma_force_docker_sdk_for_python_dev}{comma_force_docker_sdk_for_python_pypi}"
+retry_on_error = "in-ci"
 
 [sessions.ansible_test_integration.ansible_vars]
 force_docker_sdk_for_python_dev = { type = "value", value = false, template_value = "" }
 force_docker_sdk_for_python_pypi = { type = "value", value = false, template_value = "" }
+
+[sessions.ansible_test_integration.nice_target_names]
+"azp/1/" = "group 1"
+"azp/2/" = "group 2"
+"azp/3/" = "group 3"
+"azp/4/" = "group 4"
+"azp/5/" = "group 5"
+
+[sessions.ansible_test_integration.nice_docker_names]
+"quay.io/ansible-community/test-image:debian-bullseye" = "Debian 11"
+"quay.io/ansible-community/test-image:debian-bookworm" = "Debian 12"
+"quay.io/ansible-community/test-image:debian-13-trixie" = "Debian 13"
+"quay.io/ansible-community/test-image:archlinux" = "Arch Linux"
+"quay.io/ansible-community/test-image:opensuse-tumbleweed" = "OpenSuSE Tumbleweed"
 
 ##################################################################################################
 
@@ -181,7 +200,7 @@ description = "Meta session for running all ansible-test-integration-2.21-* sess
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "2.21"
 target = [ "azp/4/", "azp/5/" ]
-docker = [ "fedora43", "ubuntu2204", "ubuntu2404" ]
+docker = [ "fedora43", "ubuntu2204", "ubuntu2404", "alpine323" ]
 
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "2.21"
@@ -197,7 +216,7 @@ description = "Meta session for running all ansible-test-integration-devel-* ses
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"
 target = [ "azp/4/", "azp/5/" ]
-docker = [ "fedora44", "ubuntu2404", "ubuntu2604", "alpine323" ]
+docker = [ "fedora44", "ubuntu2404", "ubuntu2604", "alpine324" ]
 
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"
@@ -220,20 +239,26 @@ docker = "quay.io/ansible-community/test-image:debian-13-trixie"
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"
 target = [ "azp/4/", "azp/5/" ]
+python_version = "3.13"
+docker = "quay.io/ansible-community/test-image:opensuse-tumbleweed"
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+target = [ "azp/4/", "azp/5/" ]
 python_version = "3.14"
 docker = "quay.io/ansible-community/test-image:archlinux"
 
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"
 target = [ "azp/1/", "azp/2/", "azp/3/", "azp/4/", "azp/5/" ]
-remote = [ "rhel/10.1" ]
+remote = [ "rhel/10.2" ]
 ansible_vars = { force_docker_sdk_for_python_dev = { type = "value", value = true, template_value = "sdk-dev-latest" } }
 
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"
 target = [ "azp/1/", "azp/2/", "azp/3/", "azp/4/", "azp/5/" ]
 remote = [
-    "rhel/9.7",
+    "rhel/9.8",
     # For some reason, Ubuntu 24.04 is *extremely* slower than RHEL 9.6
     # "ubuntu/24.04",
 ]
@@ -243,14 +268,14 @@ remote = [
 [sessions.ansible_lint]
 
 [[sessions.ee_check.execution_environments]]
-name = "devel-ubi-9"
-description = "ansible-core devel @ RHEL UBI 9"
+name = "devel-ubi-10"
+description = "ansible-core devel @ RHEL UBI 10"
 test_playbooks = ["tests/ee/all.yml"]
-config.images.base_image.name = "docker.io/redhat/ubi9:latest"
+config.images.base_image.name = "docker.io/redhat/ubi10:latest"
 config.dependencies.ansible_core.package_pip = "https://github.com/ansible/ansible/archive/devel.tar.gz"
 config.dependencies.ansible_runner.package_pip = "ansible-runner"
-config.dependencies.python_interpreter.package_system = "python3.12 python3.12-pip python3.12-wheel python3.12-cryptography"
-config.dependencies.python_interpreter.python_path = "/usr/bin/python3.12"
+config.dependencies.python_interpreter.package_system = "python3.14 python3.14-pip python3.14-cryptography"
+config.dependencies.python_interpreter.python_path = "/usr/bin/python3.14"
 runtime_environment = {"ANSIBLE_PRIVATE_ROLE_VARS" = "true"}
 runtime_container_options = [
     # Mount Docker socket into the container so we can talk to Docker outside the container

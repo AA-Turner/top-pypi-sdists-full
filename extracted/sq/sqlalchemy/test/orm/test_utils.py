@@ -583,6 +583,22 @@ class AliasedClassTest(fixtures.MappedTest, AssertsCompiledSQL):
             inspect(Point),
         )
 
+    def test_aliased_select_subquery(self):
+        """test for #6274"""
+
+        class Point:
+            pass
+
+        self._fixture(Point)
+
+        subq = select(Point.x).filter(Point.id == 1).subquery()
+        q1 = aliased(subq, name="point_alias")
+        self.assert_compile(
+            select(q1),
+            "SELECT point_alias.x FROM (SELECT point.x AS x "
+            "FROM point WHERE point.id = :id_1) AS point_alias",
+        )
+
 
 class IdentityKeyTest(_fixtures.FixtureTest):
     run_inserts = None
@@ -736,12 +752,12 @@ class PathRegistryTest(_fixtures.FixtureTest):
                 umapper,
                 umapper.attrs.addresses,
                 amapper,
-                PathToken.intern(":*"),
+                PathToken._intern["relationship:*"],
             )
         )
         is_true(path.is_token)
         eq_(path[1], umapper.attrs.addresses)
-        eq_(path[3], ":*")
+        eq_(path[3], "relationship:*")
 
         with expect_raises(IndexError):
             path[amapper]
@@ -754,7 +770,7 @@ class PathRegistryTest(_fixtures.FixtureTest):
                 umapper,
                 umapper.attrs.addresses,
                 amapper,
-                PathToken.intern(":*"),
+                PathToken._intern["relationship:*"],
             )
         )
         is_true(path.is_token)
@@ -874,7 +890,7 @@ class PathRegistryTest(_fixtures.FixtureTest):
         p2 = PathRegistry.coerce((umapper, umapper.attrs.addresses))
         p3 = PathRegistry.coerce((u_alias, umapper.attrs.addresses))
         p4 = PathRegistry.coerce((u_alias, umapper.attrs.addresses, amapper))
-        p5 = PathRegistry.coerce((u_alias,)).token(":*")
+        p5 = PathRegistry.coerce((u_alias,)).token("relationship:*")
 
         non_object = 54.1432
 

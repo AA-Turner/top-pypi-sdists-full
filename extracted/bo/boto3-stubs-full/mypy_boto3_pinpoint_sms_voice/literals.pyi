@@ -30,6 +30,7 @@ PinpointSMSVoiceServiceName = Literal["pinpoint-sms-voice"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

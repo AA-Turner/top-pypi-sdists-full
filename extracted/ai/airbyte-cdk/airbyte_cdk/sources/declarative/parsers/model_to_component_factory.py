@@ -467,6 +467,9 @@ from airbyte_cdk.sources.declarative.models.declarative_component_schema import 
     TypesMap as TypesMapModel,
 )
 from airbyte_cdk.sources.declarative.models.declarative_component_schema import (
+    UnionPartitionRouter as UnionPartitionRouterModel,
+)
+from airbyte_cdk.sources.declarative.models.declarative_component_schema import (
     UnlimitedCallRatePolicy as UnlimitedCallRatePolicyModel,
 )
 from airbyte_cdk.sources.declarative.models.declarative_component_schema import (
@@ -497,6 +500,7 @@ from airbyte_cdk.sources.declarative.partition_routers import (
     PartitionRouter,
     SinglePartitionRouter,
     SubstreamPartitionRouter,
+    UnionPartitionRouter,
 )
 from airbyte_cdk.sources.declarative.partition_routers.async_job_partition_router import (
     AsyncJobPartitionRouter,
@@ -850,6 +854,7 @@ class ModelToComponentFactory:
             HttpRequestRegexMatcherModel: self.create_http_request_matcher,
             RateLimitedMultipleTokenAuthenticatorModel: self.create_rate_limited_multiple_token_authenticator,
             GroupingPartitionRouterModel: self.create_grouping_partition_router,
+            UnionPartitionRouterModel: self.create_union_partition_router,
         }
 
         # Needed for the case where we need to perform a second parse on the fields of a custom component
@@ -1159,12 +1164,19 @@ class ModelToComponentFactory:
             )
         partition_router = retriever.partition_router
         if not isinstance(
-            partition_router, (SubstreamPartitionRouterModel, CustomPartitionRouterModel)
+            partition_router,
+            (
+                SubstreamPartitionRouterModel,
+                CustomPartitionRouterModel,
+                UnionPartitionRouterModel,
+            ),
         ):
             raise ValueError(
-                f"LegacyToPerPartitionStateMigrations can only be applied on a SimpleRetriever with a Substream partition router. Got {type(partition_router)}"
+                f"LegacyToPerPartitionStateMigrations can only be applied on a SimpleRetriever with a SubstreamPartitionRouter, UnionPartitionRouter or CustomPartitionRouter. Got {type(partition_router)}"
             )
-        if not hasattr(partition_router, "parent_stream_configs"):
+        if not isinstance(partition_router, UnionPartitionRouterModel) and not hasattr(
+            partition_router, "parent_stream_configs"
+        ):
             raise ValueError(
                 "LegacyToPerPartitionStateMigrations can only be applied with a parent stream configuration."
             )
@@ -2050,6 +2062,7 @@ class ModelToComponentFactory:
     ) -> AbstractStream:
         primary_key = model.primary_key.__root__ if model.primary_key else None
         self._migrate_state(model, config)
+        self._warn_on_ineffective_incremental_dependency(model)
 
         partition_router = self._build_stream_slicer_from_partition_router(
             model.retriever,
@@ -2205,6 +2218,36 @@ class ModelToComponentFactory:
             cursor=concurrent_cursor,
             supports_file_transfer=hasattr(model, "file_uploader") and bool(model.file_uploader),
         )
+
+    def _warn_on_ineffective_incremental_dependency(self, model: DeclarativeStreamModel) -> None:
+        """
+        `incremental_dependency: true` only takes effect when the substream defines its own
+        `incremental_sync`: the parent cursor is persisted under the `parent_state` key of the
+        substream's state, which is only emitted by incremental substreams. On a stream without
+        `incremental_sync`, the setting is silently ignored and all parent records are re-read on
+        every sync, so we warn about the misconfiguration instead.
+        """
+        if model.incremental_sync:
+            return
+
+        partition_router = getattr(model.retriever, "partition_router", None)
+        if not partition_router:
+            return
+
+        routers = partition_router if isinstance(partition_router, list) else [partition_router]
+        for router in routers:
+            if isinstance(router, GroupingPartitionRouterModel):
+                router = router.underlying_partition_router
+            if isinstance(router, SubstreamPartitionRouterModel) and any(
+                parent_stream_config.incremental_dependency
+                for parent_stream_config in router.parent_stream_configs
+            ):
+                LOGGER.warning(
+                    f"Stream `{model.name}` has `incremental_dependency: true` in its parent stream configuration but does not define `incremental_sync`. "
+                    "The parent stream's cursor is only persisted in the state of an incremental substream, so this setting has no effect and all parent records will be re-read on every sync. "
+                    "Define `incremental_sync` on this stream or remove `incremental_dependency`."
+                )
+                return
 
     def _migrate_state(self, model: DeclarativeStreamModel, config: Config) -> None:
         stream_name = model.name or ""
@@ -3287,6 +3330,7 @@ class ModelToComponentFactory:
         transformations: List[RecordTransformation] | None = None,
         decoder: Decoder | None = None,
         client_side_incremental_sync_cursor: Optional[Cursor] = None,
+        is_client_side_incremental_sync: bool = False,
         file_uploader: Optional[DefaultFileUploader] = None,
         **kwargs: Any,
     ) -> RecordSelector:
@@ -3299,8 +3343,16 @@ class ModelToComponentFactory:
             else None
         )
 
+        # A client-side incremental stream transforms before filtering by default. That default belongs to the flag,
+        # not to the component that ends up doing the cursor comparison: a data feed does it in the retriever and
+        # receives no cursor here, but its `record_filter` condition must keep running after the transformations.
+        default_transform_before_filtering = bool(
+            client_side_incremental_sync_cursor or is_client_side_incremental_sync
+        )
         transform_before_filtering = (
-            False if model.transform_before_filtering is None else model.transform_before_filtering
+            default_transform_before_filtering
+            if model.transform_before_filtering is None
+            else model.transform_before_filtering
         )
         if client_side_incremental_sync_cursor:
             record_filter = ClientSideIncrementalRecordFilterDecorator(
@@ -3310,11 +3362,6 @@ class ModelToComponentFactory:
                 if (model.record_filter and hasattr(model.record_filter, "condition"))
                 else None,
                 cursor=client_side_incremental_sync_cursor,
-            )
-            transform_before_filtering = (
-                True
-                if model.transform_before_filtering is None
-                else model.transform_before_filtering
             )
 
         if model.schema_normalization is None:
@@ -3422,6 +3469,33 @@ class ModelToComponentFactory:
         if cursor is None:
             cursor = FinalStateCursor(name, None, self._message_repository)
 
+        # A data feed drops the records the cursor considers already synced in the retriever, which sits downstream of
+        # the paginator. Letting the record selector drop them as well would be redundant and would hide them from the
+        # pagination stop condition, so a data feed never delegates that filtering to the record selector, whether
+        # `is_client_side_incremental` is set or not. The `condition` from `record_filter` is intentionally left out of
+        # the post-pagination filter and stays in the record selector, which preserves the existing behaviour: the
+        # selector runs inside the page loop, so the records the condition rejects never reach the paginator's
+        # accounting. Moving it downstream would start counting them.
+        post_pagination_filter = (
+            ClientSideIncrementalRecordFilterDecorator(
+                config=config,
+                parameters=model.parameters or {},
+                condition=None,
+                cursor=cursor,
+            )
+            if has_stop_condition_cursor
+            else None
+        )
+        client_side_incremental_cursor = (
+            cursor if is_client_side_incremental_sync and not post_pagination_filter else None
+        )
+        if post_pagination_filter and is_client_side_incremental_sync:
+            LOGGER.warning(
+                f"Stream {name}: `is_client_side_incremental` adds no record filtering when `is_data_feed` is set, "
+                "as a data feed already filters on the cursor value. It still makes the record selector apply the "
+                "transformations before the `record_filter` condition."
+            )
+
         decoder = (
             self._create_component_from_model(model=model.decoder, config=config)
             if model.decoder
@@ -3433,7 +3507,8 @@ class ModelToComponentFactory:
             config=config,
             decoder=decoder,
             transformations=transformations,
-            client_side_incremental_sync_cursor=cursor if is_client_side_incremental_sync else None,
+            client_side_incremental_sync_cursor=client_side_incremental_cursor,
+            is_client_side_incremental_sync=is_client_side_incremental_sync,
             file_uploader=file_uploader,
         )
 
@@ -3568,6 +3643,7 @@ class ModelToComponentFactory:
                 request_option_provider=request_options_provider,
                 config=config,
                 ignore_stream_slicer_parameters_on_paginated_requests=ignore_stream_slicer_parameters_on_paginated_requests,
+                post_pagination_filter=post_pagination_filter,
                 parameters=model.parameters or {},
             )
 
@@ -3593,6 +3669,7 @@ class ModelToComponentFactory:
             pagination_tracker_factory=self._create_pagination_tracker_factory(
                 model.pagination_reset, cursor
             ),
+            post_pagination_filter=post_pagination_filter,
             parameters=model.parameters or {},
         )
 
@@ -4722,6 +4799,93 @@ class ModelToComponentFactory:
             underlying_partition_router=underlying_router,
             deduplicate=model.deduplicate if model.deduplicate is not None else True,
             config=config,
+        )
+
+    def create_union_partition_router(
+        self,
+        model: UnionPartitionRouterModel,
+        config: Config,
+        *,
+        stream_name: str,
+        **kwargs: Any,
+    ) -> UnionPartitionRouter:
+        # The schema enforces minItems: 2 for manifests; this guard covers construction paths
+        # that bypass JSON-schema validation (the generated model carries no min_items constraint).
+        if len(model.partition_routers) < 2:
+            raise ValueError(
+                f"UnionPartitionRouter for stream {stream_name} needs at least 2 child partition routers"
+            )
+
+        partition_routers = [
+            self._create_component_from_model(
+                model=child,
+                config=config,
+                stream_name=stream_name,
+                **kwargs,
+            )
+            for child in model.partition_routers
+        ]
+
+        # partition_field depends only on config/parameters, so it is evaluated once at build
+        # time; the runtime component always receives a plain string.
+        partition_field = InterpolatedString.create(
+            model.partition_field, parameters=model.parameters or {}
+        ).eval(config)
+
+        # Fail fast at build time when a built-in child router is statically known to emit a
+        # partition field different from the union's. CustomPartitionRouter children are opaque
+        # and can only be validated at runtime.
+        for child_model in model.partition_routers:
+            child_partition_fields: List[str] = []
+            if isinstance(child_model, ListPartitionRouterModel):
+                child_partition_fields.append(
+                    InterpolatedString.create(
+                        child_model.cursor_field, parameters=child_model.parameters or {}
+                    ).eval(config)
+                )
+            elif isinstance(child_model, SubstreamPartitionRouterModel):
+                for parent_stream_config in child_model.parent_stream_configs:
+                    child_partition_fields.append(
+                        InterpolatedString.create(
+                            parent_stream_config.partition_field,
+                            parameters=parent_stream_config.parameters
+                            or child_model.parameters
+                            or {},
+                        ).eval(config)
+                    )
+            elif isinstance(child_model, UnionPartitionRouterModel):
+                child_partition_fields.append(
+                    InterpolatedString.create(
+                        child_model.partition_field, parameters=child_model.parameters or {}
+                    ).eval(config)
+                )
+            for child_partition_field in child_partition_fields:
+                if child_partition_field != partition_field:
+                    raise ValueError(
+                        f"UnionPartitionRouter expects all child partition routers to emit the "
+                        f"partition field '{partition_field}', but a "
+                        f"{child_model.type} child emits '{child_partition_field}'."
+                    )
+
+        # A union slice comes from exactly one child partition router, so request options
+        # declared on children cannot be applied consistently to requests built from the
+        # normalized union slices. Partition values should be consumed via interpolation
+        # (e.g. stream_partition) instead. Note that this validation only covers built-in
+        # router types; CustomPartitionRouter children are opaque, so any request options
+        # they implement internally cannot be detected or rejected here.
+        for router in partition_routers:
+            if isinstance(router, SubstreamPartitionRouter):
+                if any(
+                    parent_config.request_option for parent_config in router.parent_stream_configs
+                ):
+                    raise ValueError("Request options are not supported for UnionPartitionRouter.")
+            if isinstance(router, ListPartitionRouter) and router.request_option:
+                raise ValueError("Request options are not supported for UnionPartitionRouter.")
+
+        return UnionPartitionRouter(
+            partition_routers=partition_routers,
+            partition_field=partition_field,
+            parameters=model.parameters or {},
         )
 
     def _ensure_query_properties_to_model(

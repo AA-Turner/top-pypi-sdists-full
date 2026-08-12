@@ -113,6 +113,7 @@ AppConfigServiceName = Literal["appconfig"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

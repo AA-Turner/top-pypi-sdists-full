@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistralai
-Version: 2.9.1
+Version: 2.9.2
 Summary: Python Client SDK for the Mistral AI API.
 Project-URL: Repository, https://github.com/mistralai/client-python.git
 Author: Mistral
@@ -10,7 +10,7 @@ Requires-Dist: eval-type-backport>=0.2.0
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: jsonpath-python>=1.0.6
 Requires-Dist: opentelemetry-api<2.0.0,>=1.33.1
-Requires-Dist: opentelemetry-semantic-conventions<0.61,>=0.60b1
+Requires-Dist: opentelemetry-semantic-conventions>=0.60b1
 Requires-Dist: pydantic>=2.11.2
 Requires-Dist: python-dateutil>=2.8.2
 Requires-Dist: typing-inspection>=0.4.0

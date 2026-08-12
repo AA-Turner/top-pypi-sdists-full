@@ -17,7 +17,7 @@ from pathlib import Path
 
 import lief
 
-from smda.common.SmdaReport import SmdaReport
+from smda.common.SmdaReport import MAX_ADDRESS_VALUE, SmdaReport
 from smda.Disassembler import Disassembler
 from smda.SmdaConfig import SmdaConfig
 from smda.synthesis import FORMAT_ELF, FORMAT_MACHO, FORMAT_PE, sniffBinaryFormat
@@ -36,7 +36,7 @@ def _load_xored_fixture(fixture_name):
 
 
 def _load_macho_fixture(fixture_id):
-    manifest = json.loads((CORPUS_DIR / "manifest.json").read_text())
+    manifest = json.loads((CORPUS_DIR / "manifest.json").read_text(encoding="utf-8"))
     fixture = next(entry for entry in manifest["fixtures"] if entry["id"] == fixture_id)
     raw = (CORPUS_DIR / fixture["path"]).read_bytes()
     return bytes(byte ^ (index % 256) for index, byte in enumerate(raw))
@@ -107,6 +107,96 @@ class SmdaSynthesisTestSuite(unittest.TestCase):
         report.architecture = "cil"
         with self.assertRaises(NotImplementedError):
             report.synthesizeBinary(output_format=FORMAT_PE)
+
+    def testReportWithoutLayoutRaisesInsteadOfFailingInArithmetic(self):
+        report = SmdaReport.fromDict(self.pe_report.toDict())
+        report.base_addr = None
+        with self.assertRaises(ValueError) as ctx:
+            report.synthesizeBinary(output_format=FORMAT_PE)
+        assert "base_addr" in str(ctx.exception)
+
+    def testNegativeFunctionAddressIsRejectedOnImport(self):
+        # the xcfg key becomes the function offset and the synthesizers pack it unsigned;
+        # a negative one survived the image-span bound because max - min still measured sane
+        report_dict = json.loads(json.dumps(self.pe_report.toDict()))
+        offsets = sorted(int(offset) for offset in report_dict["xcfg"])
+        report_dict["xcfg"][str(-0xD8A680)] = report_dict["xcfg"].pop(str(offsets[0]))
+
+        with self.assertRaises(ValueError) as ctx:
+            SmdaReport.fromDict(report_dict)
+        assert "64-bit space" in str(ctx.exception)
+
+    def testNegativeBlockAddressIsRejectedOnImport(self):
+        report_dict = json.loads(json.dumps(self.pe_report.toDict()))
+        offsets = sorted(int(offset) for offset in report_dict["xcfg"])
+        function = report_dict["xcfg"][str(offsets[0])]
+        block_address = next(iter(function["blocks"]))
+        function["blocks"][str(-0x1000)] = function["blocks"].pop(block_address)
+
+        with self.assertRaises(ValueError) as ctx:
+            SmdaReport.fromDict(report_dict)
+        assert "64-bit space" in str(ctx.exception)
+
+    def testDerivedEntryPointOverflowIsRejected(self):
+        # base_addr and oep are each inside the address space, but their sum is not, so the
+        # deserialization bound cannot catch this - only the synthesizer that derives it can
+        report_dict = json.loads(json.dumps(self.elf_report.toDict()))
+        report_dict["base_addr"] = MAX_ADDRESS_VALUE - 1
+        report_dict["oep"] = 1
+
+        with self.assertRaises(ValueError) as ctx:
+            SmdaReport.fromDict(report_dict).synthesizeBinary(output_format=FORMAT_ELF)
+        assert "entry point" in str(ctx.exception)
+
+    def testOversizedImageSpanIsRejected(self):
+        report_dict = json.loads(json.dumps(self.pe_report.toDict()))
+        offsets = sorted(int(offset) for offset in report_dict["xcfg"])
+        template = report_dict["xcfg"][str(offsets[0])]
+        far_offset = offsets[0] + SmdaConfig.MAX_IMAGE_SIZE * 4
+
+        moved = copy.deepcopy(template)
+        moved["offset"] = far_offset
+        moved["blocks"] = {str(far_offset): next(iter(template["blocks"].values()))}
+        report_dict["xcfg"][str(far_offset)] = moved
+
+        for output_format in (FORMAT_PE, FORMAT_ELF, FORMAT_MACHO):
+            with self.subTest(output_format=output_format):
+                report = SmdaReport.fromDict(copy.deepcopy(report_dict))
+                with self.assertRaises(ValueError) as ctx:
+                    report.synthesizeBinary(output_format=output_format)
+                assert "MAX_IMAGE_SIZE" in str(ctx.exception)
+
+    def testAddressFieldsBeyond64BitsAreRejectedOnImport(self):
+        for field in ("base_addr", "binary_size", "bitness", "identified_alignment", "oep"):
+            for value in (-1, 2**64, 2**96):
+                with self.subTest(field=field, value=value):
+                    report_dict = copy.deepcopy(self.pe_report.toDict())
+                    report_dict[field] = value
+                    with self.assertRaises(ValueError):
+                        SmdaReport.fromDict(report_dict)
+
+    def testNonNumericScalarsAreRejectedOnImport(self):
+        for field in ("base_addr", "binary_size", "bitness", "oep", "execution_time"):
+            for value in ("x", [], {}, True):
+                with self.subTest(field=field, value=value):
+                    report_dict = copy.deepcopy(self.pe_report.toDict())
+                    report_dict[field] = value
+                    with self.assertRaises(ValueError):
+                        SmdaReport.fromDict(report_dict)
+
+    def testFractionalAddressFieldsAreRejectedOnImport(self):
+        for field in ("base_addr", "binary_size", "bitness", "identified_alignment", "oep"):
+            with self.subTest(field=field):
+                report_dict = copy.deepcopy(self.pe_report.toDict())
+                report_dict[field] = 1.5
+                with self.assertRaises(ValueError):
+                    SmdaReport.fromDict(report_dict)
+
+        for field in ("execution_time", "confidence_threshold"):
+            with self.subTest(field=field):
+                report_dict = copy.deepcopy(self.pe_report.toDict())
+                report_dict[field] = 1.5
+                assert SmdaReport.fromDict(report_dict) is not None
 
     def testHeaderlessReportRequiresExplicitFormat(self):
         report = SmdaReport.fromDict(self.pe_report.toDict())
@@ -197,6 +287,21 @@ class SmdaSynthesisTestSuite(unittest.TestCase):
         assert relocations[slot_a].symbol.name == "system"
         assert relocations[slot_b].symbol.name == "strdup"
 
+    def testFunctionsOutsideEverySectionGetASyntheticSection(self):
+        # keeps the header (so the full path runs, not the minimal one) but moves every
+        # section clear of the functions, which is the branch that builds the synthetic
+        # span - the one that used to invert and reach struct.pack with a negative size
+        for output_format, report in ((FORMAT_ELF, self.elf_report), (FORMAT_MACHO, self.macho_report)):
+            with self.subTest(output_format=output_format):
+                rebuilt = SmdaReport.fromDict(report.toDict())
+                rebuilt.code_sections = [(name, 0x10, 0x20) for name, _, _ in rebuilt.code_sections]
+
+                synthesized = rebuilt.synthesizeBinary(output_format=output_format)
+
+                parsed = lief.parse(synthesized)
+                assert parsed is not None
+                assert parsed.sections
+
     def testElfSynthesisMinimal(self):
         report = SmdaReport.fromDict(self.elf_report.toDict())
         report.code_sections = []
@@ -248,6 +353,255 @@ class SmdaSynthesisTestSuite(unittest.TestCase):
         synthesized = report.synthesizeBinary(output_format=FORMAT_MACHO)
         parsed = lief.parse(synthesized)
         assert parsed is not None
+        sections = [(s.virtual_address, bytes(s.content)) for s in parsed.sections]
+        assert _verify_planted_blocks(report, sections) == []
+
+
+class SynthesisRobustnessTestSuite(unittest.TestCase):
+    def test_a_function_with_no_blocks_is_skipped_instead_of_raising(self):
+        from smda.synthesis.BinarySynthesizer import BinarySynthesizer
+
+        report = Disassembler(SmdaConfig()).disassembleUnmappedBuffer(_load_xored_fixture("cutwail_xored"))
+        offsets = sorted(report.xcfg)
+        blockless = report.xcfg[offsets[0]]
+        blockless.blocks = {}
+
+        synthesizer = BinarySynthesizer.__new__(BinarySynthesizer)
+        synthesizer.report = report
+        synthesizer.warnings = []
+
+        resolved = synthesizer._resolveFunctionOffsets(None)
+
+        self.assertNotIn(offsets[0], resolved)
+        self.assertEqual(len(resolved), len(offsets) - 1)
+
+    def test_scattered_import_slots_do_not_pad_the_whole_gap(self):
+        from smda.synthesis.PeSynthesizer import MAX_IAT_PADDING_SPAN, PeSynthesizer
+
+        synthesizer = PeSynthesizer.__new__(PeSynthesizer)
+        synthesizer.warnings = []
+        written = []
+
+        def _record(regions, rva, thunk_value, ptr_size, data_only=False):
+            written.append(rva)
+            return True
+
+        synthesizer._writeThunkAt = _record
+        synthesizer._parseOrdinal = lambda func: 1
+        # two slots of one DLL a megabyte apart: only the real slots may be written
+        far = 0x1000 + 0x100000
+        synthesizer._writeThunks(
+            [],
+            {0x1000: ("kernel32.dll", "a"), far: ("kernel32.dll", "b")},
+            [("kernel32.dll", [(0x1000, "a"), (far, "b")])],
+            0,
+            0,
+            {},
+            4,
+        )
+
+        self.assertEqual(sorted(written), [0x1000, far])
+        self.assertGreater(far - 0x1000, MAX_IAT_PADDING_SPAN)
+
+    def test_adjacent_import_slots_still_pad_their_gap(self):
+        from smda.synthesis.PeSynthesizer import PeSynthesizer
+
+        synthesizer = PeSynthesizer.__new__(PeSynthesizer)
+        synthesizer.warnings = []
+        written = []
+
+        def _record(regions, rva, thunk_value, ptr_size, data_only=False):
+            written.append(rva)
+            return True
+
+        synthesizer._writeThunkAt = _record
+        synthesizer._parseOrdinal = lambda func: 1
+        synthesizer._writeThunks(
+            [],
+            {0x1000: ("kernel32.dll", "a"), 0x100C: ("kernel32.dll", "b")},
+            [("kernel32.dll", [(0x1000, "a"), (0x100C, "b")])],
+            0,
+            0,
+            {},
+            4,
+        )
+
+        self.assertIn(0x1004, written)
+        self.assertIn(0x1008, written)
+
+    def test_an_executable_section_is_mapped_executable_wherever_it_lands(self):
+        from smda.synthesis.MachoSynthesizer import VM_PROT_EXECUTE, VM_PROT_WRITE, MachoSynthesizer
+
+        synthesizer = MachoSynthesizer.__new__(MachoSynthesizer)
+        synthesizer.warnings = []
+        sections = [
+            {
+                "name": "__text",
+                "segment": "__SOMETHINGELSE",
+                "executable": True,
+                "va_start": 0x1000,
+                "va_end": 0x2000,
+            },
+            {
+                "name": "__data",
+                "segment": "__DATA",
+                "executable": False,
+                "va_start": 0x4000,
+                "va_end": 0x5000,
+            },
+        ]
+
+        segments = synthesizer._buildSegmentsHeuristic(sections)
+
+        by_name = {segment["sections"][0]["name"]: segment for segment in segments}
+        self.assertTrue(by_name["__text"]["perms"] & VM_PROT_EXECUTE)
+        self.assertFalse(by_name["__text"]["perms"] & VM_PROT_WRITE)
+        self.assertTrue(by_name["__data"]["perms"] & VM_PROT_WRITE)
+        self.assertFalse(by_name["__data"]["perms"] & VM_PROT_EXECUTE)
+
+
+class SynthesisLayoutTestSuite(unittest.TestCase):
+    """Layout properties a re-loading disassembler depends on."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        string_config = SmdaConfig()
+        string_config.WITH_STRINGS = True
+        disasm = Disassembler(string_config, backend="intel")
+        cls.pe_report = disasm.disassembleUnmappedBuffer(_load_xored_fixture("cutwail_xored"))
+        cls.elf_report = disasm.disassembleUnmappedBuffer(_load_xored_fixture("mirai_x64_xored"))
+        aarch64_disasm = Disassembler(string_config, backend="aarch64")
+        cls.macho_report = aarch64_disasm.disassembleUnmappedBuffer(_load_macho_fixture("malpedia/osx.hloader"))
+
+    def test_import_slots_inside_code_are_relocated_instead_of_overwriting_it(self):
+        report = copy.deepcopy(self.pe_report)
+        base = report.base_addr
+        report.xmetadata["imported_functions"] = {
+            base + 0x1000: ("kernel32.dll", "CreateFileA"),
+            base + 0x2000: ("kernel32.dll", "ExitProcess"),
+        }
+        synthesized = report.synthesizeBinary(output_format=FORMAT_PE, with_strings=False)
+        parsed = lief.parse(synthesized)
+        sections = [(base + s.virtual_address, bytes(s.content)) for s in parsed.sections]
+        assert _verify_planted_blocks(report, sections) == []
+        names = {entry.name for imported in parsed.imports for entry in imported.entries if entry.name}
+        assert {"CreateFileA", "ExitProcess"} <= names
+        bspack = next(s for s in parsed.sections if s.name.startswith(".bspack"))
+        assert parsed.data_directory(lief.PE.DataDirectory.TYPES.IMPORT_TABLE).rva > bspack.virtual_address
+
+    def test_recorded_import_slots_in_data_keep_their_address(self):
+        report = self.pe_report
+        slots = sorted(int(key) for key in report.xmetadata["imported_functions"])
+        synthesized = report.synthesizeBinary()
+        parsed = lief.parse(synthesized)
+        thunk_rvas = {entry.iat_address for imported in parsed.imports for entry in imported.entries}
+        assert {slot - report.base_addr for slot in slots} <= thunk_rvas
+
+    def test_an_import_slot_below_the_image_base_places_no_negative_section(self):
+        report = copy.deepcopy(self.pe_report)
+        report.xheader = None
+        report.xmetadata["imported_functions"] = {report.base_addr - 0x1000: ("kernel32.dll", "ExitProcess")}
+        synthesized = report.synthesizeBinary(output_format=FORMAT_PE, with_strings=False)
+        parsed = lief.parse(synthesized)
+        assert parsed is not None
+        assert all(section.virtual_address > 0 for section in parsed.sections)
+        assert ".smdaIAT" not in [section.name for section in parsed.sections]
+
+    def test_a_low_string_ref_does_not_produce_a_section_at_rva_zero(self):
+        report = copy.deepcopy(self.pe_report)
+        report.xheader = None
+        base = report.base_addr
+        function = next(iter(report.xcfg.values()))
+        function.stringrefs = [
+            {"data_addr": base + 0x200, "string": "low"},
+            {"data_addr": base + 0x50000, "string": "high"},
+        ]
+        synthesized = report.synthesizeBinary(output_format=FORMAT_PE)
+        parsed = lief.parse(synthesized)
+        assert all(section.virtual_address >= parsed.optional_header.sizeof_headers for section in parsed.sections)
+        for index, first in enumerate(parsed.sections):
+            for second in list(parsed.sections)[index + 1 :]:
+                assert not (
+                    first.virtual_address < second.virtual_address + second.virtual_size
+                    and second.virtual_address < first.virtual_address + first.virtual_size
+                )
+
+    def test_a_string_section_is_still_added_when_it_fits(self):
+        report = copy.deepcopy(self.pe_report)
+        report.xheader = None
+        base = report.base_addr
+        function = next(iter(report.xcfg.values()))
+        function.stringrefs = [{"data_addr": base + 0x80000, "string": "far away"}]
+        synthesized = report.synthesizeBinary(output_format=FORMAT_PE)
+        parsed = lief.parse(synthesized)
+        covering = [s for s in parsed.sections if s.virtual_address <= 0x80000 < s.virtual_address + s.virtual_size]
+        assert covering
+        assert bytes(covering[0].content).find(b"far away\x00") >= 0
+
+    def test_unnamed_sections_still_reach_the_elf_section_header_table(self):
+        report = copy.deepcopy(self.elf_report)
+        report.code_sections = [("", start, end) for _, start, end in report.code_sections]
+        synthesized = report.synthesizeBinary(output_format=FORMAT_ELF, with_strings=False)
+        parsed = lief.parse(synthesized)
+        named = [section for section in parsed.sections if section.virtual_address]
+        assert len(named) == len([entry for entry in report.code_sections if entry[1] and entry[1] < entry[2]])
+        assert all(section.name.startswith(".smda") for section in named)
+        assert min(section.virtual_address - section.file_offset for section in named) == report.base_addr
+
+    def test_a_fabricated_section_name_does_not_collide_with_a_real_one(self):
+        report = copy.deepcopy(self.elf_report)
+        report.code_sections = [
+            (".smda0" if index == 0 else "", start, end) for index, (_, start, end) in enumerate(report.code_sections)
+        ]
+        synthesized = report.synthesizeBinary(output_format=FORMAT_ELF, with_strings=False)
+        parsed = lief.parse(synthesized)
+        names = [section.name for section in parsed.sections if section.virtual_address]
+        assert len(names) == len(set(names))
+        assert ".smda1" in names
+
+    def test_elf_sections_stay_congruent_with_the_image_base(self):
+        report = self.elf_report
+        synthesized = report.synthesizeBinary(with_strings=False)
+        parsed = lief.parse(synthesized)
+        mapped = [section for section in parsed.sections if section.virtual_address and section.file_offset]
+        assert min(section.virtual_address - section.file_offset for section in mapped) == report.base_addr
+        loads = [segment for segment in parsed.segments if segment.type == lief.ELF.Segment.TYPE.LOAD]
+        assert min(segment.virtual_address - segment.file_offset for segment in loads) == report.base_addr
+        sections = [(s.virtual_address, bytes(s.content)) for s in parsed.sections]
+        assert _verify_planted_blocks(report, sections) == []
+
+    def test_a_32bit_elf_with_imports_stays_congruent(self):
+        data_va = next(start for name, start, _ in self.elf_report.code_sections if name == ".data")
+        report = copy.deepcopy(self.elf_report)
+        report.bitness = 32
+        report.xheader = None
+        report.xmetadata["imported_functions"] = {data_va + 0x8: ("libc.so.6", "system")}
+        synthesized = report.synthesizeBinary(output_format=FORMAT_ELF, with_strings=False)
+        parsed = lief.parse(synthesized)
+        assert parsed.header.identity_class == lief.ELF.Header.CLASS.ELF32
+        assert any(segment.type == lief.ELF.Segment.TYPE.DYNAMIC for segment in parsed.segments)
+        mapped = [section for section in parsed.sections if section.virtual_address and section.file_offset]
+        assert min(section.virtual_address - section.file_offset for section in mapped) == report.base_addr
+
+    def test_macho_text_maps_from_file_offset_zero(self):
+        report = self.macho_report
+        synthesized = report.synthesizeBinary(with_strings=False)
+        parsed = lief.parse(synthesized)
+        text = next(segment for segment in parsed.segments if segment.name == "__TEXT")
+        assert text.file_offset == 0
+        assert min(segment.virtual_address - segment.file_offset for segment in parsed.segments) == report.base_addr
+        sections = [(s.virtual_address, bytes(s.content)) for s in parsed.sections]
+        assert _verify_planted_blocks(report, sections) == []
+
+    def test_macho_minimal_keeps_the_header_off_the_planted_bytes(self):
+        report = SmdaReport.fromDict(self.macho_report.toDict())
+        report.code_sections = []
+        report.xheader = None
+        synthesized = report.synthesizeBinary(output_format=FORMAT_MACHO)
+        parsed = lief.parse(synthesized)
+        text = next(segment for segment in parsed.segments if segment.sections)
+        assert text.file_offset > 0
         sections = [(s.virtual_address, bytes(s.content)) for s in parsed.sections]
         assert _verify_planted_blocks(report, sections) == []
 

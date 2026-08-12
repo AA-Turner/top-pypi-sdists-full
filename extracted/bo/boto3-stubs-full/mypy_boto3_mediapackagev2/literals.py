@@ -145,6 +145,7 @@ Mediapackagev2ServiceName = Literal["mediapackagev2"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

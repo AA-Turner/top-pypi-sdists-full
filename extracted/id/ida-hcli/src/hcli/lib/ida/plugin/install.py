@@ -49,8 +49,8 @@ from hcli.lib.ida.python import (
     PIP_OPTIONS_DEFAULT,
     CantInstallPackagesError,
     PipOptions,
-    does_current_ida_have_pip,
     find_current_python_executable,
+    has_pip,
     pip_install_packages,
     resolve_current_python,
     verify_pip_can_install_packages,
@@ -300,8 +300,8 @@ def get_installed_plugin_records() -> list[InstalledPluginRecord]:
     """Enumerate installed plugins with their on-disk metadata.
 
     This is the canonical source of truth for "what is installed". Other
-    helpers (``get_installed_plugins``, ``is_plugin_installed``, etc.) are
-    implemented on top of this list so they agree on what counts as
+    helpers (``get_installed_plugin_paths``, ``is_plugin_installed``, etc.)
+    are implemented on top of this list so they agree on what counts as
     installed.
     """
     plugins_dir = get_plugins_directory()
@@ -393,11 +393,6 @@ def get_installed_plugin_paths() -> list[Path]:
     return [r.path for r in get_installed_plugin_records()]
 
 
-def get_installed_plugins() -> list[tuple[str, str]]:
-    """fetch (name, version) pairs for currently installed plugins"""
-    return [(r.name, r.version) for r in get_installed_plugin_records()]
-
-
 def get_installed_minimal_plugins() -> list[tuple[Path, MinimalIDAPluginMetadata]]:
     """fetch (name, path) pairs for currently installed minimal (likely legacy) plugins"""
     plugins_dir = get_plugins_directory()
@@ -459,7 +454,6 @@ def validate_can_install_python_dependencies(
     metadata: IDAMetadataDescriptor,
     excluded_plugins: list[str] | None = None,
     python_exe: Path | None = None,
-    no_build_isolation: bool = False,
     pip_options: PipOptions = PIP_OPTIONS_DEFAULT,
 ) -> Path | None:
     """Verify Python dependencies can be installed.
@@ -485,21 +479,20 @@ def validate_can_install_python_dependencies(
         all_python_dependencies.extend(python_dependencies)
 
         if python_exe is None:
-            python_exe, python_info = resolve_current_python()
+            resolved = resolve_current_python()
+            python_exe = resolved.exe
             # These packages are about to be installed for a Python version that
             # IDA may not actually run, in which case IDA won't be able to import
             # them. Say so before spending time on the install.
-            warn_on_python_version_mismatch(python_info, python_exe)
+            warn_on_python_version_mismatch(resolved.probe, python_exe)
         logger.debug(f"python: {python_exe}")
 
-        if not does_current_ida_have_pip(python_exe):
+        if not has_pip(python_exe):
             logger.debug("pip not available")
             raise PipNotAvailableError(python_exe)
 
         try:
-            verify_pip_can_install_packages(
-                python_exe, all_python_dependencies, pip_options=pip_options, no_build_isolation=no_build_isolation
-            )
+            verify_pip_can_install_packages(python_exe, all_python_dependencies, pip_options=pip_options)
         except CantInstallPackagesError as e:
             logger.debug("can't install dependencies: %s", e)
             raise DependencyInstallationError(python_dependencies, str(e)) from e
@@ -514,7 +507,6 @@ def validate_can_install_plugin(
     metadata: IDAMetadataDescriptor,
     current_platform: str,
     current_version: str,
-    no_build_isolation: bool = False,
     pip_options: PipOptions = PIP_OPTIONS_DEFAULT,
 ) -> Path | None:
     """Verify plugin can be installed.
@@ -562,9 +554,7 @@ def validate_can_install_plugin(
         logger.warning(f"Current IDA version not supported: {current_version}")
         raise IDAVersionIncompatibleError(current_version, metadata.plugin.ida_versions)
 
-    return validate_can_install_python_dependencies(
-        zip_data, metadata, no_build_isolation=no_build_isolation, pip_options=pip_options
-    )
+    return validate_can_install_python_dependencies(zip_data, metadata, pip_options=pip_options)
 
 
 def validate_archive_entry(file_info: zipfile.ZipInfo, relative_path: pathlib.PurePosixPath) -> None:
@@ -682,7 +672,6 @@ def extract_zip_subdirectory_to(zip_data: bytes, subdirectory: Path, destination
 def _install_plugin_archive(
     zip_data: bytes,
     name: str,
-    no_build_isolation: bool = False,
     pip_options: PipOptions = PIP_OPTIONS_DEFAULT,
 ):
     path, metadata = get_metadata_from_plugin_archive(zip_data, name)
@@ -699,7 +688,6 @@ def _install_plugin_archive(
         metadata,
         current_platform,
         current_version,
-        no_build_isolation=no_build_isolation,
         pip_options=pip_options,
     )
 
@@ -727,9 +715,7 @@ def _install_plugin_archive(
         ):
             assert python_exe is not None
             try:
-                pip_install_packages(
-                    python_exe, all_python_dependencies, pip_options=pip_options, no_build_isolation=no_build_isolation
-                )
+                pip_install_packages(python_exe, all_python_dependencies, pip_options=pip_options)
             except CantInstallPackagesError:
                 logger.debug("can't install dependencies")
                 raise
@@ -742,27 +728,11 @@ def _install_plugin_archive(
     extract_zip_subdirectory_to(zip_data, plugin_subdirectory, destination_path)
 
 
-def install_source_plugin_archive(
-    zip_data: bytes, name: str, no_build_isolation: bool = False, pip_options: PipOptions = PIP_OPTIONS_DEFAULT
-):
-    return _install_plugin_archive(zip_data, name, no_build_isolation=no_build_isolation, pip_options=pip_options)
-
-
-def install_binary_plugin_archive(
-    zip_data: bytes, name: str, no_build_isolation: bool = False, pip_options: PipOptions = PIP_OPTIONS_DEFAULT
-):
-    return _install_plugin_archive(zip_data, name, no_build_isolation=no_build_isolation, pip_options=pip_options)
-
-
-def install_plugin_archive(
-    zip_data: bytes, name: str, no_build_isolation: bool = False, pip_options: PipOptions = PIP_OPTIONS_DEFAULT
-):
-    if is_source_plugin_archive(zip_data, name):
-        install_source_plugin_archive(zip_data, name, no_build_isolation=no_build_isolation, pip_options=pip_options)
-    elif is_binary_plugin_archive(zip_data, name):
-        install_binary_plugin_archive(zip_data, name, no_build_isolation=no_build_isolation, pip_options=pip_options)
-    else:
+def install_plugin_archive(zip_data: bytes, name: str, pip_options: PipOptions = PIP_OPTIONS_DEFAULT):
+    if not is_source_plugin_archive(zip_data, name) and not is_binary_plugin_archive(zip_data, name):
         raise ValueError("Invalid plugin archive")
+
+    _install_plugin_archive(zip_data, name, pip_options=pip_options)
 
 
 # Files/directories under a plugin source tree we never want to ship into a
@@ -791,7 +761,7 @@ def pack_plugin_directory_to_zip(source_dir: Path) -> bytes:
     return buf.getvalue()
 
 
-def install_plugin_directory_editable(source_dir: Path, name: str, no_build_isolation: bool = False):
+def install_plugin_directory_editable(source_dir: Path, name: str, pip_options: PipOptions = PIP_OPTIONS_DEFAULT):
     """Install a plugin from a local source directory by symlinking it into
     $IDAUSR/plugins/<name>.
 
@@ -853,14 +823,15 @@ def install_plugin_directory_editable(source_dir: Path, name: str, no_build_isol
                 all_python_dependencies.extend(existing_deps)
             all_python_dependencies.extend(python_dependencies)
 
-        python_exe, python_info = resolve_current_python()
-        warn_on_python_version_mismatch(python_info, python_exe)
+        resolved = resolve_current_python()
+        python_exe = resolved.exe
+        warn_on_python_version_mismatch(resolved.probe, python_exe)
 
-        if not does_current_ida_have_pip(python_exe):
+        if not has_pip(python_exe):
             raise PipNotAvailableError(python_exe)
 
         try:
-            verify_pip_can_install_packages(python_exe, all_python_dependencies, no_build_isolation=no_build_isolation)
+            verify_pip_can_install_packages(python_exe, all_python_dependencies, pip_options=pip_options)
         except CantInstallPackagesError as e:
             raise DependencyInstallationError(python_dependencies, str(e)) from e
 
@@ -868,7 +839,7 @@ def install_plugin_directory_editable(source_dir: Path, name: str, no_build_isol
             f"installing Python dependencies: {', '.join(python_dependencies)}", console=stderr_console
         ):
             try:
-                pip_install_packages(python_exe, all_python_dependencies, no_build_isolation=no_build_isolation)
+                pip_install_packages(python_exe, all_python_dependencies, pip_options=pip_options)
             except CantInstallPackagesError:
                 logger.debug("can't install dependencies")
                 raise
@@ -945,17 +916,6 @@ def _remove_editable_pth_file(plugin_name: str) -> None:
     if pth_path.exists():
         pth_path.unlink()
         logger.info("removed editable .pth file: %s", pth_path)
-
-
-def validate_can_uninstall_plugin(name: str) -> None:
-    """Verify plugin can be uninstalled.
-
-    Raises:
-        PluginNotInstalledError: If plugin is not installed
-    """
-    # find_installed_plugin raises PluginNotInstalledError when no match; name
-    # matching is case-insensitive.
-    find_installed_plugin(name)
 
 
 def _uninstall_broken_plugin_directory(name: str) -> None:
@@ -1040,7 +1000,6 @@ def validate_can_upgrade_plugin(
     metadata: IDAMetadataDescriptor,
     current_platform: str,
     current_version: str,
-    no_build_isolation: bool = False,
     pip_options: PipOptions = PIP_OPTIONS_DEFAULT,
 ) -> None:
     """Verify plugin can be upgraded.
@@ -1073,14 +1032,10 @@ def validate_can_upgrade_plugin(
         logger.warning(f"Current IDA version not supported: {current_version}")
         raise IDAVersionIncompatibleError(current_version, metadata.plugin.ida_versions)
 
-    validate_can_install_python_dependencies(
-        zip_data, metadata, excluded_plugins=[name], no_build_isolation=no_build_isolation, pip_options=pip_options
-    )
+    validate_can_install_python_dependencies(zip_data, metadata, excluded_plugins=[name], pip_options=pip_options)
 
 
-def upgrade_plugin_archive(
-    zip_data: bytes, name: str, no_build_isolation: bool = False, pip_options: PipOptions = PIP_OPTIONS_DEFAULT
-):
+def upgrade_plugin_archive(zip_data: bytes, name: str, pip_options: PipOptions = PIP_OPTIONS_DEFAULT):
     path, metadata = get_metadata_from_plugin_archive(zip_data, name)
     validate_metadata_in_plugin_archive(zip_data, path, metadata)
 
@@ -1095,7 +1050,6 @@ def upgrade_plugin_archive(
         metadata,
         current_platform,
         current_version,
-        no_build_isolation=no_build_isolation,
         pip_options=pip_options,
     )
 
@@ -1121,7 +1075,7 @@ def upgrade_plugin_archive(
     rollback_path = move_plugin_directory_to_trash(plugin_path, label=".rollback")
 
     try:
-        install_plugin_archive(zip_data, name, no_build_isolation=no_build_isolation, pip_options=pip_options)
+        install_plugin_archive(zip_data, name, pip_options=pip_options)
     except Exception as e:
         # note that Python dependencies installed before the failure aren't
         # rolled back; they're upgraded in place and left as-is.

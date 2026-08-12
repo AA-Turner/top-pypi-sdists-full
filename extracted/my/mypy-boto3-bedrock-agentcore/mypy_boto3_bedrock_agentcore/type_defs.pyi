@@ -381,6 +381,8 @@ __all__ = (
     "OAuthCredentialProviderTypeDef",
     "OnlineEvaluationConfigSourceOutputTypeDef",
     "OnlineEvaluationConfigSourceTypeDef",
+    "OnlineEvaluationTraceConfigOutputTypeDef",
+    "OnlineEvaluationTraceConfigTypeDef",
     "OutputConfigTypeDef",
     "PaginatorConfigTypeDef",
     "PayloadTypeOutputTypeDef",
@@ -547,6 +549,11 @@ class SkillMdDefinitionTypeDef(TypedDict):
 
 class BatchEvaluationTraceConfigTypeDef(TypedDict):
     batchEvaluationArn: str
+
+class OnlineEvaluationTraceConfigOutputTypeDef(TypedDict):
+    onlineEvaluationConfigArn: str
+    startTime: datetime
+    endTime: datetime
 
 class AmountTypeDef(TypedDict):
     value: str
@@ -1635,6 +1642,11 @@ class MemoryRecordMetadataValueTypeDef(TypedDict):
     numberValue: NotRequired[float]
     dateTimeValue: NotRequired[TimestampTypeDef]
 
+class OnlineEvaluationTraceConfigTypeDef(TypedDict):
+    onlineEvaluationConfigArn: str
+    startTime: TimestampTypeDef
+    endTime: TimestampTypeDef
+
 class SessionFilterConfigTypeDef(TypedDict):
     startTime: NotRequired[TimestampTypeDef]
     endTime: NotRequired[TimestampTypeDef]
@@ -2548,11 +2560,13 @@ class AgentTracesConfigOutputTypeDef(TypedDict):
     sessionSpans: NotRequired[list[dict[str, Any]]]
     cloudwatchLogs: NotRequired[CloudWatchLogsTraceConfigOutputTypeDef]
     batchEvaluation: NotRequired[BatchEvaluationTraceConfigTypeDef]
+    onlineEvaluation: NotRequired[OnlineEvaluationTraceConfigOutputTypeDef]
 
 class AgentTracesConfigTypeDef(TypedDict):
     sessionSpans: NotRequired[Sequence[Mapping[str, Any]]]
     cloudwatchLogs: NotRequired[CloudWatchLogsTraceConfigTypeDef]
     batchEvaluation: NotRequired[BatchEvaluationTraceConfigTypeDef]
+    onlineEvaluation: NotRequired[OnlineEvaluationTraceConfigTypeDef]
 
 class BatchCreateMemoryRecordsInputTypeDef(TypedDict):
     memoryId: str

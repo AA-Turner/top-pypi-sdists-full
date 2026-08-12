@@ -9,14 +9,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Install required libs
-  pip:
+  ansible.builtin.pip:
     name: prettytable
     state: present
   delegate_to: localhost
   become: false
 
 - name: Set test data
-  set_fact:
+  ansible.builtin.set_fact:
     test_data:
       - name: Alice
         age: 25
@@ -31,7 +31,7 @@
 
 # Test basic functionality
 - name: Test basic table creation
-  set_fact:
+  ansible.builtin.set_fact:
     basic_table: '{{ test_data | community.general.to_prettytable }}'
     expected_basic_table: |-
       +-------+-----+-------+
@@ -42,13 +42,13 @@
       +-------+-----+-------+
 
 - name: Verify basic table output
-  assert:
+  ansible.builtin.assert:
     that:
       - basic_table == expected_basic_table
 
 # Test column ordering
 - name: Test column ordering
-  set_fact:
+  ansible.builtin.set_fact:
     ordered_table: "{{ test_data | community.general.to_prettytable(column_order=['role', 'name', 'age']) }}"
     expected_ordered_table: |-
       +-------+-------+-----+
@@ -59,13 +59,13 @@
       +-------+-------+-----+
 
 - name: Verify ordered table output
-  assert:
+  ansible.builtin.assert:
     that:
       - ordered_table == expected_ordered_table
 
 # Test selective column ordering (subset of keys)
 - name: Test selective column ordering
-  set_fact:
+  ansible.builtin.set_fact:
     selective_ordered_table: "{{ test_data | community.general.to_prettytable(column_order=['name', 'role']) }}"
     expected_selective_table: |-
       +-------+-------+
@@ -76,13 +76,13 @@
       +-------+-------+
 
 - name: Verify selective column ordering
-  assert:
+  ansible.builtin.assert:
     that:
       - selective_ordered_table == expected_selective_table
 
 # Test custom headers
 - name: Test custom headers
-  set_fact:
+  ansible.builtin.set_fact:
     headers_table: "{{ test_data | community.general.to_prettytable(header_names=['User Name', 'User Age', 'User Role']) }}"
     expected_headers_table: |-
       +-----------+----------+-----------+
@@ -93,13 +93,13 @@
       +-----------+----------+-----------+
 
 - name: Verify custom headers output
-  assert:
+  ansible.builtin.assert:
     that:
       - headers_table == expected_headers_table
 
 # Test selective column ordering with custom headers (subset of keys)
 - name: Test selective column ordering with custom headers
-  set_fact:
+  ansible.builtin.set_fact:
     selective_ordered_headers_table: "{{ test_data | community.general.to_prettytable(column_order=['name', 'role'], header_names=['User Name', 'User Role']) }}"
     expected_selective_headers_table: |-
       +-----------+-----------+
@@ -110,13 +110,13 @@
       +-----------+-----------+
 
 - name: Verify selective column ordering with custom headers
-  assert:
+  ansible.builtin.assert:
     that:
       - selective_ordered_headers_table == expected_selective_headers_table
 
 # Test alignments
 - name: Test column alignments
-  set_fact:
+  ansible.builtin.set_fact:
     aligned_table: "{{ data_for_align | community.general.to_prettytable(column_alignments={'amount': 'right', 'description': 'left', 'date': 'center'}) }}"
     expected_aligned_table: |-
       +------------+-----------------+--------+
@@ -126,13 +126,13 @@
       +------------+-----------------+--------+
 
 - name: Verify aligned table output
-  assert:
+  ansible.builtin.assert:
     that:
       - aligned_table == expected_aligned_table
 
 # Test combined options
 - name: Test combined options
-  set_fact:
+  ansible.builtin.set_fact:
     combined_table: "{{ test_data | community.general.to_prettytable(
         column_order=['role', 'name', 'age'],
         header_names=['Position', 'Full Name', 'Years'],
@@ -146,26 +146,26 @@
       +----------+-----------+-------+
 
 - name: Verify combined table output
-  assert:
+  ansible.builtin.assert:
     that:
       - combined_table == expected_combined_table
 
 # Test empty data
 - name: Test empty data list with no parameters
-  set_fact:
+  ansible.builtin.set_fact:
     empty_table: "{{ [] | community.general.to_prettytable }}"
     expected_empty_table: |-
       ++
       ++
 
 - name: Verify empty table output
-  assert:
+  ansible.builtin.assert:
     that:
       - empty_table == expected_empty_table
 
 # Test empty data with column_order
 - name: Test empty data list with column_order
-  set_fact:
+  ansible.builtin.set_fact:
     empty_with_columns: "{{ [] | community.general.to_prettytable(column_order=['name', 'age', 'role']) }}"
     expected_empty_with_columns: |-
       +------+-----+------+
@@ -174,13 +174,13 @@
       +------+-----+------+
 
 - name: Verify empty table with column_order
-  assert:
+  ansible.builtin.assert:
     that:
       - empty_with_columns == expected_empty_with_columns
 
 # Test empty data with header_names
 - name: Test empty data list with header_names
-  set_fact:
+  ansible.builtin.set_fact:
     empty_with_headers: "{{ [] | community.general.to_prettytable(header_names=['User Name', 'User Age', 'User Role']) }}"
     expected_empty_with_headers: |-
       +-----------+----------+-----------+
@@ -189,13 +189,13 @@
       +-----------+----------+-----------+
 
 - name: Verify empty table with header_names
-  assert:
+  ansible.builtin.assert:
     that:
       - empty_with_headers == expected_empty_with_headers
 
 # Test empty data with combined parameters
 - name: Test empty data with combined parameters
-  set_fact:
+  ansible.builtin.set_fact:
     empty_combined: "{{ [] | community.general.to_prettytable(
       column_order=['role', 'name', 'age'],
       header_names=['Position', 'Full Name', 'Years'],
@@ -207,19 +207,19 @@
       +----------+-----------+-------+
 
 - name: Verify empty table with combined parameters
-  assert:
+  ansible.builtin.assert:
     that:
       - empty_combined == expected_empty_combined
 
 # Test validation with empty data
 - name: Test empty data with non-list column_order (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ [] | community.general.to_prettytable(column_order=123) }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for empty data with invalid column_order
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -227,12 +227,12 @@
 
 - name: Test empty data with non-list header_names (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ [] | community.general.to_prettytable(header_names='invalid_headers') }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for empty data with invalid header_names
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -240,12 +240,12 @@
 
 - name: Test empty data with non-dictionary column_alignments (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ [] | community.general.to_prettytable(column_alignments='invalid') }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for empty data with invalid column_alignments
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -253,12 +253,12 @@
 
 - name: Test empty data with non-string values in column_alignments (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ [] | community.general.to_prettytable(column_alignments={'name': 123}) }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for empty data with non-string values in column_alignments
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -266,12 +266,12 @@
 
 - name: Test empty data with invalid alignment value in column_alignments (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ [] | community.general.to_prettytable(column_alignments={'name': 'invalid'}) }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for empty data with invalid alignment value
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -281,12 +281,12 @@
 
 - name: Test empty data with mismatched column_order and header_names (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ [] | community.general.to_prettytable(column_order=['a', 'b', 'c'], header_names=['X', 'Y']) }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for empty data with mismatched lengths
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -295,12 +295,12 @@
 # Test error conditions
 - name: Test non-list input (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ 'not_a_list' | community.general.to_prettytable }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for non-list input
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -308,12 +308,12 @@
 
 - name: Test list with non-dictionary items (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ ['not_a_dict', 'also_not_a_dict'] | community.general.to_prettytable }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for non-dictionary items
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -321,12 +321,12 @@
 
 - name: Test non-list column_order (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ test_data | community.general.to_prettytable(column_order=123) }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for non-list column_order
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -334,12 +334,12 @@
 
 - name: Test non-list header_names (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ test_data | community.general.to_prettytable(header_names='invalid_headers') }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for non-list header_names
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -347,12 +347,12 @@
 
 - name: Test unknown parameters (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ test_data | community.general.to_prettytable(unknown_param='value') }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for unknown parameters
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -360,12 +360,12 @@
 
 - name: Test both positional args and column_order (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ test_data | community.general.to_prettytable('role', 'name', column_order=['name', 'age', 'role']) }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for using both positional args and column_order
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -373,12 +373,12 @@
 
 - name: Test non-string values in positional args (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ test_data | community.general.to_prettytable('name', 123, 'role') }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for non-string values in positional args
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -386,12 +386,12 @@
 
 - name: Test non-string values in column_order (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ test_data | community.general.to_prettytable(column_order=['name', 123, 'role']) }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for non-string values in column_order
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -399,12 +399,12 @@
 
 - name: Test non-string values in header_names (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ test_data | community.general.to_prettytable(header_names=['User Name', 456, 'User Role']) }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for non-string values in header_names
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -412,12 +412,12 @@
 
 - name: Test mismatched sizes of column_order and header_names (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ test_data | community.general.to_prettytable(column_order=['name', 'age', 'role'], header_names=['User Name', 'User Age']) }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for mismatched sizes
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -425,12 +425,12 @@
 
 - name: Test column_order with more elements than available fields (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ test_data | community.general.to_prettytable(column_order=['name', 'age', 'role', 'extra_field', 'another_extra']) }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for column_order with too many elements
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -438,12 +438,12 @@
 
 - name: Test header_names with more elements than available fields (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ test_data | community.general.to_prettytable(header_names=['User Name', 'User Age', 'User Role', 'Extra Field', 'Another Extra']) }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for header_names with too many elements
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -451,12 +451,12 @@
 
 - name: Test column_alignments with more elements than available fields (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ test_data | community.general.to_prettytable(column_alignments={'name': 'center', 'age': 'right', 'role': 'left', 'extra': 'center', 'another': 'left'}) }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for column_alignments with too many elements
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -464,12 +464,12 @@
 
 - name: Test non-dictionary column_alignments (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ test_data | community.general.to_prettytable(column_alignments='invalid') }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for non-dictionary column_alignments
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -477,12 +477,12 @@
 
 - name: Test non-string keys in column_alignments (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ test_data | community.general.to_prettytable(column_alignments={123: 'center'}) }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for non-string keys in column_alignments
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -490,12 +490,12 @@
 
 - name: Test non-string values in column_alignments (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ test_data | community.general.to_prettytable(column_alignments={'name': 123}) }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for non-string values in column_alignments
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -503,12 +503,12 @@
 
 - name: Test invalid alignment value in column_alignments (expect failure)
   block:
-    - set_fact:
+    - ansible.builtin.set_fact:
         invalid_table: "{{ test_data | community.general.to_prettytable(column_alignments={'name': 'invalid'}) }}"
       register: failure_result
       ignore_errors: true
     - name: Verify error message for invalid alignment value in column_alignments
-      assert:
+      ansible.builtin.assert:
         that:
           - failure_result is failed
           - >
@@ -518,7 +518,7 @@
 
 # Test using explicit python script to create dictionary with mixed key types
 - name: Create test data with numeric keys
-  set_fact:
+  ansible.builtin.set_fact:
     mixed_key_data:
       - name: Alice
         role: admin
@@ -528,7 +528,7 @@
         1: ID002
 
 - name: Test prettytable with mixed key types
-  set_fact:
+  ansible.builtin.set_fact:
     mixed_key_table: "{{ mixed_key_data | community.general.to_prettytable }}"
     expected_mixed_key_table: |-
       +-------+-------+-------+
@@ -539,13 +539,13 @@
       +-------+-------+-------+
 
 - name: Verify mixed key types were handled correctly
-  assert:
+  ansible.builtin.assert:
     that:
       - mixed_key_table == expected_mixed_key_table
 
 # Test column ordering with numeric keys
 - name: Test column ordering with numeric keys
-  set_fact:
+  ansible.builtin.set_fact:
     mixed_ordered_table: "{{ mixed_key_data | community.general.to_prettytable(column_order=['1', 'name', 'role']) }}"
     expected_ordered_numeric_table: |-
       +-------+-------+-------+
@@ -556,13 +556,13 @@
       +-------+-------+-------+
 
 - name: Verify column ordering with numeric keys
-  assert:
+  ansible.builtin.assert:
     that:
       - mixed_ordered_table == expected_ordered_numeric_table
 
 # Test custom headers with numeric keys
 - name: Test custom headers with numeric keys
-  set_fact:
+  ansible.builtin.set_fact:
     mixed_headers_table: "{{ mixed_key_data | community.general.to_prettytable(header_names=['Name', 'Role', 'ID']) }}"
     expected_headers_numeric_table: |-
       +-------+-------+-------+
@@ -573,13 +573,13 @@
       +-------+-------+-------+
 
 - name: Verify custom headers with numeric keys
-  assert:
+  ansible.builtin.assert:
     that:
       - mixed_headers_table == expected_headers_numeric_table
 
 # Test column alignments with numeric keys
 - name: Test column alignments with numeric keys
-  set_fact:
+  ansible.builtin.set_fact:
     mixed_aligned_table: "{{ mixed_key_data | community.general.to_prettytable(column_alignments={'1': 'right', 'name': 'left', 'role': 'center'}) }}"
     expected_aligned_numeric_table: |-
       +-------+-------+-------+
@@ -590,13 +590,13 @@
       +-------+-------+-------+
 
 - name: Verify column alignments with numeric keys
-  assert:
+  ansible.builtin.assert:
     that:
       - mixed_aligned_table == expected_aligned_numeric_table
 
 # Test with boolean-like string keys
 - name: Create test data with boolean-like string keys
-  set_fact:
+  ansible.builtin.set_fact:
     boolean_data:
       - name: Alice
         role: admin
@@ -608,7 +608,7 @@
         false: 'Yes'
 
 - name: Test prettytable with boolean-like string keys
-  set_fact:
+  ansible.builtin.set_fact:
     bool_table: "{{ boolean_data | community.general.to_prettytable }}"
     expected_bool_table: |-
       +-------+-------+------+-------+
@@ -619,13 +619,13 @@
       +-------+-------+------+-------+
 
 - name: Verify boolean-like keys were handled correctly
-  assert:
+  ansible.builtin.assert:
     that:
       - bool_table == expected_bool_table
 
 # Test that column_order with capitalized boolean names works via case-insensitive matching
 - name: Test column ordering with capitalized boolean names
-  set_fact:
+  ansible.builtin.set_fact:
     bool_ordered_table: "{{ boolean_data | community.general.to_prettytable(column_order=['True', 'False', 'name', 'role']) }}"
     expected_bool_ordered_table: |-
       +------+-------+-------+-------+
@@ -636,13 +636,13 @@
       +------+-------+-------+-------+
 
 - name: Verify that 'True' in column_order works with 'true' keys
-  assert:
+  ansible.builtin.assert:
     that:
       - bool_ordered_table == expected_bool_ordered_table
 
 # Test column alignments with boolean-like string keys
 - name: Test column alignments with boolean-like string keys
-  set_fact:
+  ansible.builtin.set_fact:
     bool_aligned_table: "{{ boolean_data | community.general.to_prettytable(column_alignments={'true': 'right', 'false': 'center', 'name': 'left'}) }}"
     expected_bool_aligned_table: |-
       +-------+-------+------+-------+
@@ -653,6 +653,6 @@
       +-------+-------+------+-------+
 
 - name: Verify column alignments with boolean-like string keys
-  assert:
+  ansible.builtin.assert:
     that:
       - bool_aligned_table == expected_bool_aligned_table

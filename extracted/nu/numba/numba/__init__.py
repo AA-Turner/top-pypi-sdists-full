@@ -39,8 +39,8 @@ def _ensure_critical_deps():
                f"{numpy_version[0]}.{numpy_version[1]}.")
         raise ImportError(msg)
 
-    if numpy_version > (2, 4):
-        msg = (f"Numba needs NumPy 2.4 or less. Got NumPy "
+    if numpy_version > (2, 5):
+        msg = (f"Numba needs NumPy 2.5 or less. Got NumPy "
                f"{numpy_version[0]}.{numpy_version[1]}.")
         raise ImportError(msg)
 
@@ -149,7 +149,7 @@ __all__ += types.__all__
 __all__ += errors.__all__
 
 
-_min_llvmlite_version = (0, 48, 0)
+_min_llvmlite_version = (0, 49, 0)
 _min_llvm_version = (14, 0, 0)
 
 def _ensure_llvm():

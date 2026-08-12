@@ -2,6 +2,7 @@ import uuid
 from datetime import timedelta
 from typing import Any, TypeVar, Union
 
+import structlog
 import temporalio.workflow
 from pydantic import BaseModel, ValidationError
 from temporalio.exceptions import ApplicationError
@@ -11,9 +12,16 @@ from mistralai.workflows.core._events.event_activities import (
     _emit_waiting_for_input_failed,
     _emit_waiting_for_input_started,
 )
+from mistralai.workflows.core._registration.search_key_ingestion import ingest_search_keys
 from mistralai.workflows.core.workflow import workflow
 
+logger = structlog.get_logger(__name__)
+
 T = TypeVar("T", bound=BaseModel)
+
+WAITING_FOR_INPUT_SEARCH_KEY = "internal.execution.state"
+WAITING_FOR_INPUT_STATE = "waiting_for_input"
+RUNNING_STATE = "running"
 
 
 class _SubmitInputParams(BaseModel):
@@ -73,6 +81,8 @@ class InteractiveWorkflow:
         super().__init__()
         # In-memory storage: tracks which tasks are waiting for input
         self._pending_inputs: dict[str, _PendingInputRequest] = {}
+        # Outstanding wait_for_input calls
+        self._pending_wait_count = 0
 
     async def wait_for_input(
         self, schema: type[T], label: str | None = None, timeout: Union[timedelta, float, None] = None
@@ -161,18 +171,19 @@ class InteractiveWorkflow:
         )
 
         self._pending_inputs[task_id] = pending_request
-
-        # Emit CUSTOM_TASK_STARTED event via activity to notify stream consumers
-        await temporalio.workflow.execute_local_activity(
-            _emit_waiting_for_input_started,
-            args=[task_id, schema_dict, label],
-            start_to_close_timeout=timedelta(seconds=10),
-        )
+        self._pending_wait_count += 1
 
         def check_received() -> bool:
             return self._pending_inputs.get(task_id, pending_request).has_received_input
 
         try:
+            # Emit CUSTOM_TASK_STARTED event via activity to notify stream consumers
+            await temporalio.workflow.execute_local_activity(
+                _emit_waiting_for_input_started,
+                args=[task_id, schema_dict, label],
+                start_to_close_timeout=timedelta(seconds=10),
+            )
+            await self._write_waiting_state(WAITING_FOR_INPUT_STATE)
             await temporalio.workflow.wait_condition(check_received, timeout=timeout)
             validated_input = schema.model_validate(pending_request.input)
         except BaseException as e:
@@ -184,6 +195,9 @@ class InteractiveWorkflow:
             raise
         finally:
             self._pending_inputs.pop(task_id, None)
+            self._pending_wait_count -= 1
+            if self._pending_wait_count == 0:
+                await self._write_waiting_state(RUNNING_STATE)
 
         await temporalio.workflow.execute_local_activity(
             _emit_waiting_for_input_completed,
@@ -192,6 +206,16 @@ class InteractiveWorkflow:
         )
 
         return validated_input
+
+    async def _write_waiting_state(self, state: str) -> None:
+        try:
+            await ingest_search_keys({WAITING_FOR_INPUT_SEARCH_KEY: state}, _allow_reserved=True)
+        except Exception as e:
+            logger.warning(
+                "Could not write the wait-state search key; the execution continues without it",
+                state=state,
+                error=str(e),
+            )
 
     @workflow.update(name="__submit_input", _internal=True)
     async def _handle_input_submission(self, params: _SubmitInputParams) -> _SubmitInputResult:

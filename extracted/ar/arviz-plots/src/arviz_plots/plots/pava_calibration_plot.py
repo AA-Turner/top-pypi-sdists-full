@@ -126,6 +126,10 @@ def plot_ppc_pava(
     -------
     PlotCollection
 
+    See Also
+    --------
+    plot_loo_pava : PAV-adjusted calibration plot using leave-one-out cross-validation
+
     Examples
     --------
     Plot the PAVA calibration plot for the rugby dataset.
@@ -158,6 +162,15 @@ def plot_ppc_pava(
     else:
         warnings.warn(
             "'sample_dims' is currently not supported in plot_ppc_pava and will be ignored"
+        )
+    if coords is not None:
+        warnings.warn(
+            "'coords' is currently not supported in plot_ppc_pava and will be ignored. "
+            "Use dt.sel(coords) instead before passing the data to plot_ppc_pava."
+        )
+    if filter_vars is not None:
+        warnings.warn(
+            "'filter_vars' is currently not supported in plot_ppc_pava and will be ignored"
         )
 
     if backend is None:

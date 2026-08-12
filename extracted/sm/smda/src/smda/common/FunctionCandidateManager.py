@@ -152,7 +152,14 @@ class FunctionCandidateManager:
             if not (candidate.isFinished() or candidate.getScore() == 0):
                 if self.language_candidates_only and candidate.lang_spec is None:
                     continue
-                if self.identified_alignment and candidate.alignment < self.identified_alignment:
+                if (
+                    self.identified_alignment
+                    and candidate.alignment < self.identified_alignment
+                    and not candidate.is_exception_handler
+                ):
+                    # The floor is inferred from call-referenced candidates, so it only bounds
+                    # a guess; an exception record is the image's own declaration. Exempting
+                    # symbols as well was measured to cost true positives -- do not widen this.
                     continue
                 yield candidate
 
@@ -409,7 +416,7 @@ class FunctionCandidateManager:
             LOGGER.debug("Knowledge Base Objects parsed.")
             # apply relocations with imaginary base_addr at 0x400000 (provided by file loader)
             relocations = self.lang_analyzer.delphi_kb_resolver.getRelocations()
-            image_base_as_bytes = struct.pack("I", self.disassembly.binary_info.base_addr)
+            image_base_as_bytes = struct.pack("<I", self.disassembly.binary_info.base_addr)
             LOGGER.debug("Iterating relocations.")
             binary_as_array = bytearray(self.disassembly.binary_info.binary)
             for relocation_offset in relocations:

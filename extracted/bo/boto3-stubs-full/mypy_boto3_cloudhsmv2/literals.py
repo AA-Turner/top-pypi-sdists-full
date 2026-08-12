@@ -67,6 +67,7 @@ CloudHSMV2ServiceName = Literal["cloudhsmv2"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

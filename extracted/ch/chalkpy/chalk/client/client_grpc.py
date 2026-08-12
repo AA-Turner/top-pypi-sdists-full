@@ -7,6 +7,8 @@ import enum
 import json
 import os
 import random
+import shutil
+import tempfile
 import types
 import typing
 import warnings
@@ -23,7 +25,13 @@ from rich.style import Style
 from rich.text import Text
 
 from chalk import DataFrame, EnvironmentId, chalk_logger
-from chalk._gen.chalk.aggregate.v1.service_pb2 import CreateAggregateBackfillJobResponse, PlanAggregateBackfillResponse
+from chalk._gen.chalk.aggregate.v1.service_pb2 import (
+    AGGREGATE_BACKFILL_MODE_CREATE,
+    AGGREGATE_BACKFILL_MODE_PLAN,
+    CreateAggregateBackfillJobResponse,
+    CreateAggregateBackfillV2Request,
+    CreateAggregateBackfillV2Response,
+)
 from chalk._gen.chalk.aggregate.v1.service_pb2_grpc import AggregateServiceStub
 from chalk._gen.chalk.auth.v1.agent_pb2 import CustomClaim
 from chalk._gen.chalk.auth.v1.permissions_pb2 import Permission
@@ -171,6 +179,7 @@ from chalk.client.model_image import (
     upload_chalk_handler_artifacts,
 )
 from chalk.client.models import (
+    AggregateBackfillResponse,
     BulkOnlineQueryResponse,
     BulkOnlineQueryResult,
     BulkUploadFeaturesResult,
@@ -207,7 +216,12 @@ from chalk.client.models import (
     resolve_multi_query_query_name,
 )
 from chalk.client.serialization.model_serialization import ModelSerializer
-from chalk.client.serialization.protos import ChalkErrorConverter, OnlineQueryConverter, UploadFeaturesBulkConverter
+from chalk.client.serialization.protos import (
+    AggregateBackfillConverter,
+    ChalkErrorConverter,
+    OnlineQueryConverter,
+    UploadFeaturesBulkConverter,
+)
 from chalk.config.auth_config import TokenConfig, load_token
 from chalk.features import live_updates
 from chalk.features._encoding.inputs import (
@@ -251,7 +265,11 @@ if TYPE_CHECKING:
     from pyarrow import RecordBatch, Table
     from pydantic import BaseModel
 
-    from chalk._gen.chalk.aggregate.v1.service_pb2 import CreateAggregateBackfillJobResponse
+    from chalk._gen.chalk.aggregate.v1.service_pb2 import (
+        CreateAggregateBackfillJobResponse,
+        CreateAggregateBackfillV2Request,
+        CreateAggregateBackfillV2Response,
+    )
     from chalk._gen.chalk.aggregate.v1.service_pb2_grpc import AggregateServiceStub
     from chalk._gen.chalk.dataframe.v1.dataframe_pb2 import DataFramePlan
     from chalk._gen.chalk.server.v1.builder_pb2 import StartBranchResponse
@@ -3303,7 +3321,9 @@ class ChalkGRPCClient:
             Unique name for the model.
         model_image
             Docker image for model serving. Can be a string URI (e.g. ``"ghcr.io/org/image:tag"``)
-            or a ``chalkcompute.Image`` object, which will be built to obtain the image URI.
+            or a ``chalkcompute.Image`` object (built at deploy time). May be combined with
+            ``model=`` or ``model_paths=``: the image serves, and the model is serialized onto a
+            volume mounted at ``CHALK_HANDLER_ARTIFACT_PATH`` for the image's handler to load.
             If provided, the model can be deployed to a scaling group via deploy_scaling_group().
         aliases
             List of version aliases (e.g., `["v1.0", "latest"]`).
@@ -3470,7 +3490,7 @@ class ChalkGRPCClient:
                         model_artifact_volume_name(name, presigned_s3_response.model_artifact_id),
                         artifact_uploads,
                     )
-                response = self._register_model_with_image(
+                response = self._submit_model_version(
                     name=name,
                     model_image=None,
                     input_schema=input_schema,
@@ -3494,10 +3514,20 @@ class ChalkGRPCClient:
         image_additional_files: List[_model_artifact_pb2.ModelFile] = []
         image_artifact_id: Optional[str] = None
         if model_image is not None and not isinstance(model_image, str):
-            if model is not None or model_paths is not None:
-                raise ValueError(
-                    "`model_image=<chalkcompute Image>` cannot be combined with `model=` or `model_paths=` — "
-                    + "pass an Image to build and serve, or a model/paths to serialize, not both."
+            if model is not None or model_paths:
+                return self._register_image_and_model(
+                    name=name,
+                    image=model_image,
+                    model=model,
+                    model_paths=model_paths,
+                    model_type=model_type,
+                    model_encoding=model_encoding,
+                    input_schema=input_schema,
+                    output_schema=output_schema,
+                    aliases=aliases,
+                    metadata=metadata,
+                    source_config=source_config,
+                    skip_volume_upload=skip_volume_upload,
                 )
             image_spec = serialize_image_spec(model_image)
             image_additional_files, image_artifact_id = self._upload_image_local_files(model_image)
@@ -3505,7 +3535,7 @@ class ChalkGRPCClient:
 
         if (model_image is not None or image_spec is not None) and model is None and model_paths is None:
             # Image-only registration (for scaling group deployment)
-            return self._register_model_with_image(
+            return self._submit_model_version(
                 name=name,
                 model_image=model_image,
                 input_schema=input_schema,
@@ -3611,7 +3641,6 @@ class ChalkGRPCClient:
         Fetches the additional-file URLs directly rather than via download_model_artifact, which
         assumes a serialized model (its model_type conversion fails on a chalkcompute image artifact).
         """
-        import tempfile
 
         resp: DownloadModelArtifactResponse = self._stub_refresher.call_model_stub(
             lambda x: x.DownloadModelArtifact(
@@ -3643,7 +3672,115 @@ class ChalkGRPCClient:
             out.append((local, f.mount_path, f.mode if f.HasField("mode") else None))
         return out
 
-    def _register_model_with_image(
+    def _register_image_and_model(
+        self,
+        name: str,
+        image: Any,
+        model: Optional[Any],
+        model_paths: Optional[List[str]],
+        model_type: Optional[ModelType],
+        model_encoding: Optional[ModelEncoding],
+        input_schema: Optional[Any],
+        output_schema: Optional[Any],
+        aliases: Optional[List[str]],
+        metadata: Optional[Mapping[str, Any]],
+        source_config: Optional[SourceConfig],
+        skip_volume_upload: bool,
+    ) -> RegisterModelVersionResponse:
+        """Register a deferred-build custom ``Image`` together with a serialized model.
+
+        Image and model files share one ``model_artifact_id`` so the image files stay
+        reachable via ``DownloadModelArtifact`` at deploy.
+        """
+        from chalk.client.serialization.model_serialization import ModelSerializer
+        from chalk.ml.model_file_transfer import ModelFileUploader
+
+        image_spec = serialize_image_spec(image)
+        image_triples = image_local_files(image)  # (src, dest, mode)
+
+        owned_dirs: List[str] = []
+        resolved_type: Optional[ModelType] = model_type
+        resolved_encoding: Optional[ModelEncoding] = model_encoding
+        try:
+            if model is not None:
+                if model_paths:
+                    raise ValueError("Pass either `model=` or `model_paths=` with a model_image, not both.")
+                with ModelSerializer.from_model(model, model_type) as ser:
+                    resolved_type = model_type if model_type is not None else ser.model_type
+                    if resolved_type is None:
+                        raise ValueError("Could not determine the model type; pass model_type= explicitly.")
+                    if input_schema is None or output_schema is None:
+                        inferred_in, inferred_out = ser.infer_input_output_schemas(model, resolved_type)
+                        input_schema = input_schema if input_schema is not None else inferred_in
+                        output_schema = output_schema if output_schema is not None else inferred_out
+                    serialized, resolved_encoding = ser.serialize_model(model, resolved_type)
+                    # ModelSerializer deletes its temp dir on __exit__; copy the artifact into
+                    # a dir we own (cleaned up in finally) before the context closes.
+                    stage_dir = tempfile.mkdtemp(prefix="chalk-img-model-")
+                    tmp_path = os.path.join(stage_dir, os.path.basename(serialized))
+                    shutil.copyfile(serialized, tmp_path)
+                owned_dirs.append(stage_dir)
+                model_file_paths = [tmp_path]
+            else:
+                model_file_paths = list(model_paths or [])
+
+            # One presigned batch so image files + model files share one artifact id.
+            image_names = [f"{i}_{os.path.basename(dest)}" for i, (_s, dest, _m) in enumerate(image_triples)]
+            model_names = [os.path.basename(p) for p in model_file_paths]
+            presigned = self._get_model_artifact_presigned(model_paths=image_names + model_names)
+
+            file_paths: Dict[str, str] = {}
+            for upload_name, (src, _dest, _mode) in zip(image_names, image_triples):
+                file_paths[upload_name] = src
+            for upload_name, path in zip(model_names, model_file_paths):
+                file_paths[upload_name] = path
+
+            model_infos, additional_infos = ModelFileUploader(source_config).upload_files(
+                file_paths,
+                model_file_names=model_names,
+                presigned_urls=presigned.upload_urls,
+                dir_allowlist=list(file_paths.values()),
+            )
+
+            model_files = [ModelSerializer.fileinfo_to_protobuf(info) for info in model_infos]
+            dest_by_name = {nm: (dest, mode) for nm, (_s, dest, mode) in zip(image_names, image_triples)}
+            additional_files: List[_model_artifact_pb2.ModelFile] = []
+            for info in additional_infos:
+                mf = ModelSerializer.fileinfo_to_protobuf(info)
+                dest, mode = dest_by_name[mf.name]
+                mf.mount_path = dest
+                if mode is not None:
+                    mf.mode = mode
+                additional_files.append(mf)
+
+            model_volume: Optional[str] = None
+            if not skip_volume_upload:
+                model_uploads = [(path, os.path.basename(path)) for path in model_file_paths]
+                model_volume = self._try_upload_to_volume(
+                    model_artifact_volume_name(name, presigned.model_artifact_id),
+                    model_uploads,
+                )
+
+            return self._submit_model_version(
+                name=name,
+                model_image=None,
+                input_schema=input_schema,
+                output_schema=output_schema,
+                aliases=aliases,
+                metadata=metadata,
+                model_artifact_id=presigned.model_artifact_id,
+                model_volume=model_volume,
+                model_files=model_files,
+                additional_files=additional_files,
+                image_spec=image_spec,
+                model_type=resolved_type,
+                model_encoding=resolved_encoding,
+            )
+        finally:
+            for d in owned_dirs:
+                shutil.rmtree(d, ignore_errors=True)
+
+    def _submit_model_version(
         self,
         name: str,
         model_image: Optional[str],
@@ -3656,6 +3793,8 @@ class ChalkGRPCClient:
         model_files: Optional[List[_model_artifact_pb2.ModelFile]] = None,
         image_spec: Optional[bytes] = None,
         additional_files: Optional[List[_model_artifact_pb2.ModelFile]] = None,
+        model_type: Optional[ModelType] = None,
+        model_encoding: Optional[ModelEncoding] = None,
     ) -> RegisterModelVersionResponse:
         """Register a model with a serving image (prebuilt ``model_image`` URI or deferred ``image_spec``)."""
         if input_schema is None:
@@ -3697,6 +3836,8 @@ class ChalkGRPCClient:
                     outputs=output_model_schema,
                 ),
                 model_volume=model_volume,
+                model_type=model_type,
+                model_encoding=model_encoding,
             )
             if model_image:
                 artifact_spec.model_image = model_image
@@ -4569,7 +4710,7 @@ class ChalkGRPCClient:
         resource_group: str | None = None,
         input_sql: str | None = None,
         plan_only: bool = False,
-    ) -> list[CreateAggregateBackfillJobResponse] | PlanAggregateBackfillResponse:
+    ) -> AggregateBackfillResponse:
         """Trigger one or more aggregate backfill jobs.
 
         Parameters
@@ -4589,7 +4730,8 @@ class ChalkGRPCClient:
             Requires both `lower_bound` and `upper_bound`.
         allow_empty_tiles : bool, optional
             If `True`, empty tile spans are silently skipped instead of raising an error.
-            Defaults to `True`. Set to `False` to raise an error when a backfill produces no tile files.
+            Defaults to `True`, but is only meaningful together with `store_offline=True`:
+            without an offline target it is always sent as `False`.
         exact : bool, optional
             If `True`, execute the underlying SQL source to determine the exact
             number of rows that need to migrate.
@@ -4600,16 +4742,138 @@ class ChalkGRPCClient:
         input_sql : str, optional
             Chalk SQL query to use to resolve event data. Mutually exclusive with `resolver`.
         plan_only : bool, optional
-            If `True`, return the aggregate backfill plan without creating jobs.
+            If `True`, validate the request and return the planner's split with cost
+            estimates without creating anything. The response's `job` is absent, and
+            there is no backfill id to poll. The same validation runs as for a real
+            backfill, so a request that plans cleanly will also create cleanly.
+            Requires a Chalk server that supports `CreateAggregateBackfillV2`.
+
+        Returns
+        -------
+        AggregateBackfillResponse
+            `job` is the single aggregate backfill row covering every job this request
+            launched -- `job.id` is the aggregate backfill id -- and is `None` when
+            `plan_only=True`. `sub_backfills` is the planner's split of the request, each
+            entry pairing the features it covers with its cost estimate.
         """
+        if store_offline is True and (lower_bound is None or upper_bound is None):
+            raise ValueError("When `store_offline=True`, both `lower_bound` and `upper_bound` must be specified.")
+
+        request = CreateAggregateBackfillV2Request(
+            features=features,
+            lower_bound=datetime_to_proto_timestamp(lower_bound) if lower_bound else None,
+            upper_bound=datetime_to_proto_timestamp(upper_bound) if upper_bound else None,
+            resolver=resolver,
+            exact=exact,
+            tags=query_tags or [],
+            input_sql=input_sql,
+            enable_profiling=enable_profiling,
+            mode=AGGREGATE_BACKFILL_MODE_PLAN if plan_only else AGGREGATE_BACKFILL_MODE_CREATE,
+        )
+        if store_offline is not None:
+            request.store_offline = store_offline
+        if resource_group is not None:
+            request.resource_group = resource_group
+        # The server rejects allow_empty_tiles without an offline target, and this argument
+        # defaults to True, so every default call would fail validation if it were sent
+        # verbatim. The flag has no effect off the offline path anyway.
+        request.allow_empty_tiles = bool(allow_empty_tiles) if store_offline else False
+
+        response = self._create_aggregate_backfill_v2(request)
+        if response is not None:
+            return AggregateBackfillConverter.response_decode(response)
+
+        # The server predates CreateAggregateBackfillV2. Plan mode has no behavior to
+        # preserve on such servers, so it fails rather than degrading.
+        if plan_only:
+            raise ChalkCustomException(
+                "This Chalk server does not support plan-only aggregate backfills. Upgrade your "
+                + "Chalk server, or omit `plan_only` to run the backfill.",
+            )
+        warnings.warn(
+            "This Chalk server does not support server-side aggregate backfill planning. "
+            + "Falling back to client-side planning.",
+            stacklevel=3,
+        )
+        return self._trigger_aggregate_backfill_legacy(
+            features=features,
+            lower_bound=lower_bound,
+            upper_bound=upper_bound,
+            resolver=resolver,
+            query_tags=query_tags,
+            store_offline=store_offline,
+            allow_empty_tiles=request.allow_empty_tiles,
+            exact=exact,
+            enable_profiling=enable_profiling,
+            resource_group=resource_group,
+            input_sql=input_sql,
+        )
+
+    def _create_aggregate_backfill_v2(
+        self,
+        request: CreateAggregateBackfillV2Request,
+    ) -> CreateAggregateBackfillV2Response | None:
+        """Call CreateAggregateBackfillV2, returning `None` if the server predates it.
+
+        Only the RPC itself is guarded, so an `UNIMPLEMENTED` raised by anything else
+        is never mistaken for version skew.
+        """
+        try:
+            return self._stub_refresher.call_aggregate_stub(
+                lambda stub: stub.CreateAggregateBackfillV2(request, timeout=None)
+            )
+        except grpc.RpcError as e:
+            code = e.code()
+            if code == grpc.StatusCode.UNIMPLEMENTED:
+                return None
+            if code == grpc.StatusCode.INVALID_ARGUMENT:
+                # Both modes run the same validation and neither creates anything when it
+                # fails, so name the operation the caller actually asked for.
+                raise ChalkCustomException(
+                    (
+                        "Failed to plan aggregate backfill."
+                        if request.mode == AGGREGATE_BACKFILL_MODE_PLAN
+                        else "Failed to create aggregate backfill. No jobs were created."
+                    ),
+                    detail=e.details(),
+                ) from e
+            if code == grpc.StatusCode.INTERNAL:
+                # Includes the partial-launch case, where some jobs did start. The server's
+                # detail says how many, so it has to reach the caller.
+                raise ChalkCustomException(
+                    "Failed to create aggregate backfill jobs.",
+                    detail=e.details(),
+                ) from e
+            raise
+
+    def _trigger_aggregate_backfill_legacy(
+        self,
+        features: list[str],
+        lower_bound: dt.datetime | None,
+        upper_bound: dt.datetime | None,
+        resolver: str | None,
+        query_tags: list[str] | None,
+        store_offline: bool | None,
+        allow_empty_tiles: bool,
+        exact: bool,
+        enable_profiling: bool,
+        resource_group: str | None,
+        input_sql: str | None,
+    ) -> AggregateBackfillResponse:
+        """Plan and create one job per sub-backfill, for servers without V2.
+
+        Returns the same `AggregateBackfillResponse` the V2 path does, so callers see one
+        type regardless of server version. The per-sub-backfill responses are used only to
+        check for errors and to reconstruct the job row if it cannot be read back.
+        """
+        from chalk._gen.chalk.aggregate.v1.backfill_pb2 import AGGREGATE_BACKFILL_STATUS_QUEUED
+        from chalk._gen.chalk.aggregate.v1.backfill_pb2 import AggregateBackfillJob as AggregateBackfillJobProto
         from chalk._gen.chalk.aggregate.v1.backfill_pb2 import AggregateBackfillUserParams
         from chalk._gen.chalk.aggregate.v1.service_pb2 import (
             CreateAggregateBackfillJobRequest,
+            GetAggregateBackfillJobRequest,
             PlanAggregateBackfillRequest,
         )
-
-        if store_offline is True and (lower_bound is None or upper_bound is None):
-            raise ValueError("When `store_offline=True`, both `lower_bound` and `upper_bound` must be specified.")
 
         plan_request = PlanAggregateBackfillRequest(
             params=AggregateBackfillUserParams(
@@ -4631,8 +4895,6 @@ class ChalkGRPCClient:
                 "Failed to plan aggregate backfill.",
                 detail="\n".join(plan_response.errors),
             )
-        if plan_only:
-            return plan_response
 
         create_responses: list[CreateAggregateBackfillJobResponse] = []
         for backfill_with_estimate in plan_response.backfills:
@@ -4658,12 +4920,6 @@ class ChalkGRPCClient:
                 create_request.store_offline = store_offline
 
             create_request.allow_empty_tiles = allow_empty_tiles
-            if not store_offline:
-                # the if is added because older servers (pre 2026-05-28) were failing validation on
-                # store_offline=False and allow_empty_tiles=True combination
-                # (and now allow_empty_tiles=True is the default)
-                # TODO remove this after a reasonable grace period
-                create_request.allow_empty_tiles = False
 
             if resource_group is not None:
                 create_request.resource_group = resource_group
@@ -4678,7 +4934,59 @@ class ChalkGRPCClient:
                 )
             create_responses.append(create_response)
 
-        return create_responses
+        aggregate_backfill_id = plan_response.aggregate_backfill_id
+        job_proto: AggregateBackfillJobProto | None = None
+        try:
+            get_request = GetAggregateBackfillJobRequest(aggregate_backfill_id=aggregate_backfill_id)
+            get_response = self._stub_refresher.call_aggregate_stub(
+                lambda stub: stub.GetAggregateBackfillJob(get_request, timeout=None)
+            )
+            # An unset `job` reads back as an empty message rather than None, which would
+            # otherwise be returned as a job with no id.
+            if get_response.HasField("job"):
+                job_proto = get_response.job
+        except grpc.RpcError as e:
+            # The jobs are already running, so a failed read must not fail the call.
+            chalk_logger.warning(
+                "Could not read back aggregate backfill %s: %s", aggregate_backfill_id, e, exc_info=True
+            )
+
+        if job_proto is None:
+            # The jobs did launch, so describe them rather than returning nothing. Only the
+            # fields this path can know are set; the rest stay unset and decode to None.
+            job_proto = AggregateBackfillJobProto(
+                id=aggregate_backfill_id,
+                status=AGGREGATE_BACKFILL_STATUS_QUEUED,
+                features=[f for response in create_responses for f in response.features],
+                resolvers=[b.backfill.resolver for b in plan_response.backfills if b.backfill.resolver],
+                query_tags=query_tags or [],
+            )
+
+        # Decoding both branches through the converter is what makes the two server paths
+        # agree: it is the single place features and resolvers are deduplicated.
+        return AggregateBackfillResponse(
+            job=AggregateBackfillConverter.job_decode(job_proto),
+            sub_backfills=[AggregateBackfillConverter.plan_decode(backfill) for backfill in plan_response.backfills],
+        )
+
+    def _resolve_model_volume_mount(self, model_name: str, model_version: int, spec: Any) -> Optional[Dict[str, str]]:
+        """Mount dict for a version's persisted ``model_volume``, or None if it has none.
+
+        Model volumes are always ``versioned_chalkfs``. We verify the volume still exists
+        with a dedicated existence check (not a type lookup) so a volume deleted between
+        registration and deploy fails with a clear error rather than an opaque pod mount failure.
+        """
+        if not (spec.HasField("model_volume") and spec.model_volume):
+            return None
+        volume_name = spec.model_volume
+        from chalkcompute import ConnectClient, VersionedVolumeClient  # pyright: ignore[reportMissingImports]
+
+        if not VersionedVolumeClient.from_connect(ConnectClient(chalk_client=self)).exists(volume_name):
+            raise ValueError(
+                f"Model '{model_name}' v{model_version} references volume '{volume_name}', which no longer "
+                + "exists. Restore the volume or re-register the model version before deploying."
+            )
+        return {"name": volume_name, "mount_path": CHALK_HANDLER_ARTIFACT_PATH, "type": "versioned_chalkfs"}
 
     def _ensure_model_image(
         self, model_name: str, model_version: int, validate: bool = True
@@ -4714,13 +5022,14 @@ class ChalkGRPCClient:
                         spec.image_spec, local_files, chalk_client=self
                     )
                 finally:
-                    import shutil
-                    import tempfile
-
                     tmp_root = tempfile.gettempdir()
                     for d in {os.path.dirname(p) for p, _, _ in local_files}:
                         if d.startswith(tmp_root):
                             shutil.rmtree(d, ignore_errors=True)
+                # Also mount the model_volume, if any, instead of returning image mounts only.
+                model_mount = self._resolve_model_volume_mount(model_name, model_version, spec)
+                if model_mount is not None:
+                    volume_mounts.append(model_mount)
                 return model_version, volume_mounts, deploy_image, serving_handler
         if has_model_image or has_build_spec:
             deploy_image = (
@@ -4729,29 +5038,9 @@ class ChalkGRPCClient:
                 else None
             )
             # New path: model_volume is persisted on the spec at registration time.
-            if spec.HasField("model_volume") and spec.model_volume:
-                volume_name = spec.model_volume
-                from chalkcompute import (  # pyright: ignore[reportMissingImports]
-                    ConnectClient,
-                    VolumeError,
-                    resolve_referenced_volume_type,
-                )
-
-                try:
-                    vol_type = resolve_referenced_volume_type(ConnectClient(chalk_client=self), volume_name)
-                except VolumeError as e:
-                    raise ValueError(
-                        f"Model '{model_name}' v{model_version} references volume '{volume_name}', which no longer "
-                        + "exists. Restore the volume or re-register the model version before deploying."
-                    ) from e
-                volume_mounts: List[Dict[str, str]] = [
-                    {
-                        "name": volume_name,
-                        "mount_path": CHALK_HANDLER_ARTIFACT_PATH,
-                        "type": vol_type,
-                    }
-                ]
-                return model_version, volume_mounts, deploy_image, serving_handler
+            model_mount = self._resolve_model_volume_mount(model_name, model_version, spec)
+            if model_mount is not None:
+                return model_version, [model_mount], deploy_image, serving_handler
 
             # Legacy path: model_volume not set, derive volume name from (name, version).
             volume_name = chalk_handler_volume_name(model_name, model_version)
@@ -4790,8 +5079,6 @@ class ChalkGRPCClient:
                             }
                         ]
                     finally:
-                        import shutil
-
                         download_dir = os.path.dirname(model_files[0])
                         if download_dir and os.path.exists(download_dir):
                             shutil.rmtree(download_dir)
@@ -4831,8 +5118,6 @@ class ChalkGRPCClient:
                 chalk_client=self,
             )
         finally:
-            import shutil
-
             download_dir = os.path.dirname(model_files[0])
             if download_dir and os.path.exists(download_dir):
                 shutil.rmtree(download_dir)

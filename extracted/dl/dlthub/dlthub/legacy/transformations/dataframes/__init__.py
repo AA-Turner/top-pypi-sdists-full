@@ -3,8 +3,6 @@ from functools import partial
 from typing import Dict, cast, List, Generator
 import importlib
 
-from dlt.destinations.impl.filesystem.sql_client import FilesystemSqlClient
-
 from dlthub.legacy.transformations.base_transformation import Transformation
 
 from dlt.destinations.exceptions import DatabaseUndefinedRelation
@@ -117,10 +115,6 @@ class DataframeTransformation(Transformation):
 
         # execute transformations
         with cache_dataset.sql_client as client:
-            # TODO: move logic elsewhere and make conditional on existence of `iceberg_scan` views
-            # TODO: please fix soon!
-            FilesystemSqlClient._setup_iceberg(client._conn)
-
             transformation_utils = TransformationUtils(
                 make_qualified_input_table_name,
                 make_qualified_output_table_name,

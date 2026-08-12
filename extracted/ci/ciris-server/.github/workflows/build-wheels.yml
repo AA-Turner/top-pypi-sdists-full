@@ -224,6 +224,58 @@ jobs:
       # a wheel that grows ~1 MB a release forever. The right answer to this
       # gate firing is to find the growth (v0.5.157: 19.8 MB of Skiko nobody
       # loads), never to raise the number.
+      # ── The credential is IN THE ARTIFACT, not merely in the YAML (#387) ───
+      #
+      # 0.5.165 and 0.5.166 both shipped nine wheels with no built-in Google.
+      # The injection was present in this file the whole time; publish-pypi.yml
+      # called this workflow WITHOUT `secrets: inherit`, so every
+      # `${{ secrets.* }}` here resolved to the empty string — no warning, no
+      # failure, just a blank. option_env! then baked nothing, and
+      # ProviderConfigStore's both-halves-or-nothing rule left the store empty.
+      #
+      # The gate that was supposed to prevent this asserted the YAML instead:
+      # it read a HARDCODED list of the two files already known to be fixed and
+      # confirmed they were still fixed. It could not discover a caller that
+      # dropped the secrets, because it never asked about callers at all.
+      #
+      # So this asks the only question that cannot be answered by intent: is the
+      # client id actually inside the binary we are about to publish. On tags
+      # only, because that is the path where the secrets MUST be present — on a
+      # fork PR they legitimately are not, and failing there would be noise.
+      - name: Built-in OAuth credential is present in the wheel (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          set -euo pipefail
+          WHL=$(ls dist/*.whl | head -1)
+          TMP=$(mktemp -d)
+          unzip -q "$WHL" -d "$TMP"
+          LIB=$(find "$TMP" \( -name '_native*.so' -o -name '_native*.pyd' -o -name '_native*.dylib' \) | head -1)
+          test -n "$LIB" || { echo "::error::no _native lib inside $WHL"; exit 1; }
+          # Match the SHAPE, never the value: a Google desktop client id ends in
+          # .apps.googleusercontent.com. Grepping for the literal id would put a
+          # credential in a public workflow file and in every log line.
+          # NO PIPE INTO `grep -q`. This is the EPIPE trap the #232 step above
+          # documents, and it bit here on the very first tag: `grep -q` exits
+          # the moment it matches, closing the pipe while `strings` is still
+          # writing; `strings` dies with EPIPE; and under `set -o pipefail` the
+          # PIPELINE reports failure — so a wheel that DOES carry the credential
+          # is reported as missing it. macOS's strings is strict about the
+          # flush, GNU's is not, so it false-failed macOS only while linux
+          # passed: a per-platform lie from a gate written to catch a
+          # per-platform lie. Dump to a file, then grep the file.
+          SFILE=$(mktemp)
+          strings "$LIB" > "$SFILE" 2>/dev/null || true
+          if [ ! -s "$SFILE" ]; then
+            echo "::error::strings produced no output for $LIB — INSTRUMENT failure, not evidence about the wheel."
+            exit 1
+          fi
+          if grep -q 'apps\.googleusercontent\.com' "$SFILE"; then
+            echo "  OK - a built-in Google client id is compiled into $(basename "$WHL")"
+          else
+            echo "::error::$(basename "$WHL") has NO built-in Google client id. The secrets did not reach the build — check that every caller of build-wheels.yml passes 'secrets: inherit' (CIRISServer#387). This wheel would offer a Google button that cannot work."
+            exit 1
+          fi
       - name: Wheel size gate
         shell: bash
         run: |
@@ -288,6 +340,94 @@ jobs:
             if [ -n "$MISSING" ]; then echo "verify FFI symbols MISSING from _native (--gc-sections stripped the fold):$MISSING"; exit 1; fi
             echo "OK (nm) - verify FFI folded: all symbols present in the cross-built wheel"
           fi
+      # ── FFI symbol INVENTORY, not a spot-check (CIRISServer#378) ────────────
+      #
+      # The step above names ten symbols. That was sufficient against
+      # --gc-sections, which is all-or-nothing on a section. It is NOT sufficient
+      # against LTO (`lto = "thin"` since 0.5.166), whose unit of work is the
+      # call graph: the realistic failure is PARTIAL — a dozen symbols dropped,
+      # the ten famous ones kept, and the gate green.
+      #
+      # So this asserts the COUNT and every module entry point. Counting is the
+      # whole point: it is the only form a partial strip cannot slip past.
+      #
+      # Runs on EVERY target, cross-built included, because which platform
+      # inlines hardest is exactly what you cannot predict — and a symbol that
+      # survives on linux tells you nothing about windows.
+      - name: FFI symbol inventory (LTO must not drop what only ctypes calls)
+        shell: bash
+        env:
+          MIN_VERIFY_SYMBOLS: 88
+          NEED_PYINIT: >-
+            PyInit__native PyInit_ciris_edge PyInit_ciris_lens_core
+            PyInit_ciris_persist PyInit_pyo3_async_runtimes
+        run: |
+          set -euo pipefail
+          WHL=$(ls dist/*.whl | head -1)
+          TMP=$(mktemp -d)
+          unzip -q "$WHL" -d "$TMP"
+          LIB=$(find "$TMP" \( -name '_native*.so' -o -name '_native*.pyd' -o -name '_native*.dylib' \) | head -1)
+          test -n "$LIB" || { echo "::error::no _native lib inside $WHL"; exit 1; }
+          SYMFILE=$(mktemp)
+          # READ THE DYNAMIC TABLE. `nm -g` reads the STATIC symtab, which the
+          # release build strips away — on a stripped ELF it prints "no symbols"
+          # and every symbol looks missing. `.dynsym` (nm -D) is what survives a
+          # strip AND is the table the dynamic linker and ctypes actually resolve
+          # against, so it is both the durable and the CORRECT one to ask.
+          #
+          # This gate's first version asked `nm -g` and failed the linux wheel at
+          # 0 symbols on a wheel that had all 88. Same shape as the source-scan
+          # draft before it: a discrepancy invented by the instrument. Twice is a
+          # pattern worth naming — when a check reports catastrophe, suspect the
+          # check before the code.
+          #
+          # No pipe into `grep -q` anywhere below: see the EPIPE note on the step
+          # above, which false-FAILED a PRESENT symbol on v0.5.108.
+          nm -D --defined-only "$LIB" > "$SYMFILE" 2>/dev/null || true
+          if [ ! -s "$SYMFILE" ]; then nm -g "$LIB" > "$SYMFILE" 2>/dev/null || true; fi
+          if [ ! -s "$SYMFILE" ]; then llvm-nm "$LIB" > "$SYMFILE" 2>/dev/null || true; fi
+          TOTAL=$(wc -l < "$SYMFILE" | tr -d ' ')
+          # "Could not read the table" and "the table is missing symbols" are
+          # DIFFERENT answers and must not share an exit path — the first is a
+          # broken instrument, the second is a broken wheel. Collapsing them is
+          # how a tooling gap gets shipped as a code defect (and vice versa).
+          if [ "$TOTAL" -eq 0 ]; then
+            case "$LIB" in
+              *.pyd)
+                # PE/COFF keeps its exports in the PE export directory, which
+                # `nm` cannot read at all — it is not a stripped ELF, it is a
+                # format these tools do not parse. Reporting it as a strip would
+                # be the instrument inventing a defect again, and failing the
+                # build on it would block a wheel that is fine.
+                #
+                # So this leg is NOT COVERED by the count, and says so out loud
+                # rather than printing a green tick. Windows still gets the #232
+                # ctypes check in the step above (ten named symbols, really
+                # loaded through CPython) — that is real coverage, just not
+                # exhaustive. Enumerating PE exports needs dumpbin or objdump,
+                # neither reliably on PATH in this step: CIRISServer#388.
+                echo "::warning::NOT COVERED on this leg — $(basename "$LIB") is PE/COFF and nm cannot enumerate its exports. The inventory count was SKIPPED here (the #232 ctypes spot-check above still ran). See CIRISServer#388."
+                exit 0
+                ;;
+              *)
+                echo "::error::no symbol table could be read from $LIB (tried nm -D, nm -g, llvm-nm). This is an INSTRUMENT failure, not evidence about the wheel — do not read it as a strip."
+                exit 1
+                ;;
+            esac
+          fi
+          N=$(grep -c 'ciris_verify_' "$SYMFILE" || true)
+          echo "  symbol table entries: $TOTAL; ciris_verify_*: $N (floor $MIN_VERIFY_SYMBOLS)"
+          if [ "$N" -lt "$MIN_VERIFY_SYMBOLS" ]; then
+            echo "::error::$(basename "$WHL") exports $N ciris_verify_* symbols out of a readable $TOTAL-entry table, under the $MIN_VERIFY_SYMBOLS floor. LTO dropped FFI symbols nothing in Rust calls (CIRISServer#232/#378). This wheel imports fine and fails at a ctypes call site — do NOT lower the floor to go green."
+            exit 1
+          fi
+          MISSING=""
+          for s in $NEED_PYINIT; do grep -q "$s" "$SYMFILE" || MISSING="$MISSING $s"; done
+          if [ -n "$MISSING" ]; then
+            echo "::error::module entry point(s) missing from $(basename "$WHL"):$MISSING — CPython resolves these by name at import, and all must live in THIS cdylib for the one-wheel type identity (CIRISServer#4)."
+            exit 1
+          fi
+          echo "  OK - inventory intact: $N verify symbols + all $(echo $NEED_PYINIT | wc -w) module entry points"
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ matrix.plat.name }}
@@ -451,6 +591,22 @@ jobs:
             ${{ steps.cachekey.outputs.key-any }}*
       - name: Build wheel (maturin)
         uses: PyO3/maturin-action@v1
+        # THE SAME INJECTION THE run:-STYLE LEGS HAVE (CIRISServer#387). These legs
+        # build their wheel through the ACTION rather than a `maturin build` run
+        # step, and that difference alone is why they never received the
+        # credential: the original fix, and the gate written to enforce it, both
+        # keyed on the literal string `maturin build --release`. Two spellings of
+        # "build a wheel", one of them invisible to every check — so macOS and
+        # Windows shipped with no built-in Google even on direct runs, while linux
+        # and android were fine. A per-platform difference nobody would look for.
+        #
+        # option_env! reads the COMPILE-TIME environment, so these belong on the
+        # step that compiles — not the job, not a later step.
+        env:
+          CIRIS_DESKTOP_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.CIRIS_DESKTOP_GOOGLE_OAUTH_CLIENT_ID }}
+          CIRIS_DESKTOP_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.CIRIS_DESKTOP_GOOGLE_OAUTH_CLIENT_SECRET }}
+          CIRIS_MOBILE_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.CIRIS_MOBILE_GOOGLE_OAUTH_CLIENT_ID }}
+          CIRIS_MOBILE_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.CIRIS_MOBILE_GOOGLE_OAUTH_CLIENT_SECRET }}
         with:
           target: ${{ matrix.target }}
           rust-toolchain: "1.97.0"
@@ -489,6 +645,58 @@ jobs:
       # a wheel that grows ~1 MB a release forever. The right answer to this
       # gate firing is to find the growth (v0.5.157: 19.8 MB of Skiko nobody
       # loads), never to raise the number.
+      # ── The credential is IN THE ARTIFACT, not merely in the YAML (#387) ───
+      #
+      # 0.5.165 and 0.5.166 both shipped nine wheels with no built-in Google.
+      # The injection was present in this file the whole time; publish-pypi.yml
+      # called this workflow WITHOUT `secrets: inherit`, so every
+      # `${{ secrets.* }}` here resolved to the empty string — no warning, no
+      # failure, just a blank. option_env! then baked nothing, and
+      # ProviderConfigStore's both-halves-or-nothing rule left the store empty.
+      #
+      # The gate that was supposed to prevent this asserted the YAML instead:
+      # it read a HARDCODED list of the two files already known to be fixed and
+      # confirmed they were still fixed. It could not discover a caller that
+      # dropped the secrets, because it never asked about callers at all.
+      #
+      # So this asks the only question that cannot be answered by intent: is the
+      # client id actually inside the binary we are about to publish. On tags
+      # only, because that is the path where the secrets MUST be present — on a
+      # fork PR they legitimately are not, and failing there would be noise.
+      - name: Built-in OAuth credential is present in the wheel (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          set -euo pipefail
+          WHL=$(ls dist/*.whl | head -1)
+          TMP=$(mktemp -d)
+          unzip -q "$WHL" -d "$TMP"
+          LIB=$(find "$TMP" \( -name '_native*.so' -o -name '_native*.pyd' -o -name '_native*.dylib' \) | head -1)
+          test -n "$LIB" || { echo "::error::no _native lib inside $WHL"; exit 1; }
+          # Match the SHAPE, never the value: a Google desktop client id ends in
+          # .apps.googleusercontent.com. Grepping for the literal id would put a
+          # credential in a public workflow file and in every log line.
+          # NO PIPE INTO `grep -q`. This is the EPIPE trap the #232 step above
+          # documents, and it bit here on the very first tag: `grep -q` exits
+          # the moment it matches, closing the pipe while `strings` is still
+          # writing; `strings` dies with EPIPE; and under `set -o pipefail` the
+          # PIPELINE reports failure — so a wheel that DOES carry the credential
+          # is reported as missing it. macOS's strings is strict about the
+          # flush, GNU's is not, so it false-failed macOS only while linux
+          # passed: a per-platform lie from a gate written to catch a
+          # per-platform lie. Dump to a file, then grep the file.
+          SFILE=$(mktemp)
+          strings "$LIB" > "$SFILE" 2>/dev/null || true
+          if [ ! -s "$SFILE" ]; then
+            echo "::error::strings produced no output for $LIB — INSTRUMENT failure, not evidence about the wheel."
+            exit 1
+          fi
+          if grep -q 'apps\.googleusercontent\.com' "$SFILE"; then
+            echo "  OK - a built-in Google client id is compiled into $(basename "$WHL")"
+          else
+            echo "::error::$(basename "$WHL") has NO built-in Google client id. The secrets did not reach the build — check that every caller of build-wheels.yml passes 'secrets: inherit' (CIRISServer#387). This wheel would offer a Google button that cannot work."
+            exit 1
+          fi
       - name: Wheel size gate
         shell: bash
         run: |
@@ -553,6 +761,94 @@ jobs:
             if [ -n "$MISSING" ]; then echo "verify FFI symbols MISSING from _native (--gc-sections stripped the fold):$MISSING"; exit 1; fi
             echo "OK (nm) - verify FFI folded: all symbols present in the cross-built wheel"
           fi
+      # ── FFI symbol INVENTORY, not a spot-check (CIRISServer#378) ────────────
+      #
+      # The step above names ten symbols. That was sufficient against
+      # --gc-sections, which is all-or-nothing on a section. It is NOT sufficient
+      # against LTO (`lto = "thin"` since 0.5.166), whose unit of work is the
+      # call graph: the realistic failure is PARTIAL — a dozen symbols dropped,
+      # the ten famous ones kept, and the gate green.
+      #
+      # So this asserts the COUNT and every module entry point. Counting is the
+      # whole point: it is the only form a partial strip cannot slip past.
+      #
+      # Runs on EVERY target, cross-built included, because which platform
+      # inlines hardest is exactly what you cannot predict — and a symbol that
+      # survives on linux tells you nothing about windows.
+      - name: FFI symbol inventory (LTO must not drop what only ctypes calls)
+        shell: bash
+        env:
+          MIN_VERIFY_SYMBOLS: 88
+          NEED_PYINIT: >-
+            PyInit__native PyInit_ciris_edge PyInit_ciris_lens_core
+            PyInit_ciris_persist PyInit_pyo3_async_runtimes
+        run: |
+          set -euo pipefail
+          WHL=$(ls dist/*.whl | head -1)
+          TMP=$(mktemp -d)
+          unzip -q "$WHL" -d "$TMP"
+          LIB=$(find "$TMP" \( -name '_native*.so' -o -name '_native*.pyd' -o -name '_native*.dylib' \) | head -1)
+          test -n "$LIB" || { echo "::error::no _native lib inside $WHL"; exit 1; }
+          SYMFILE=$(mktemp)
+          # READ THE DYNAMIC TABLE. `nm -g` reads the STATIC symtab, which the
+          # release build strips away — on a stripped ELF it prints "no symbols"
+          # and every symbol looks missing. `.dynsym` (nm -D) is what survives a
+          # strip AND is the table the dynamic linker and ctypes actually resolve
+          # against, so it is both the durable and the CORRECT one to ask.
+          #
+          # This gate's first version asked `nm -g` and failed the linux wheel at
+          # 0 symbols on a wheel that had all 88. Same shape as the source-scan
+          # draft before it: a discrepancy invented by the instrument. Twice is a
+          # pattern worth naming — when a check reports catastrophe, suspect the
+          # check before the code.
+          #
+          # No pipe into `grep -q` anywhere below: see the EPIPE note on the step
+          # above, which false-FAILED a PRESENT symbol on v0.5.108.
+          nm -D --defined-only "$LIB" > "$SYMFILE" 2>/dev/null || true
+          if [ ! -s "$SYMFILE" ]; then nm -g "$LIB" > "$SYMFILE" 2>/dev/null || true; fi
+          if [ ! -s "$SYMFILE" ]; then llvm-nm "$LIB" > "$SYMFILE" 2>/dev/null || true; fi
+          TOTAL=$(wc -l < "$SYMFILE" | tr -d ' ')
+          # "Could not read the table" and "the table is missing symbols" are
+          # DIFFERENT answers and must not share an exit path — the first is a
+          # broken instrument, the second is a broken wheel. Collapsing them is
+          # how a tooling gap gets shipped as a code defect (and vice versa).
+          if [ "$TOTAL" -eq 0 ]; then
+            case "$LIB" in
+              *.pyd)
+                # PE/COFF keeps its exports in the PE export directory, which
+                # `nm` cannot read at all — it is not a stripped ELF, it is a
+                # format these tools do not parse. Reporting it as a strip would
+                # be the instrument inventing a defect again, and failing the
+                # build on it would block a wheel that is fine.
+                #
+                # So this leg is NOT COVERED by the count, and says so out loud
+                # rather than printing a green tick. Windows still gets the #232
+                # ctypes check in the step above (ten named symbols, really
+                # loaded through CPython) — that is real coverage, just not
+                # exhaustive. Enumerating PE exports needs dumpbin or objdump,
+                # neither reliably on PATH in this step: CIRISServer#388.
+                echo "::warning::NOT COVERED on this leg — $(basename "$LIB") is PE/COFF and nm cannot enumerate its exports. The inventory count was SKIPPED here (the #232 ctypes spot-check above still ran). See CIRISServer#388."
+                exit 0
+                ;;
+              *)
+                echo "::error::no symbol table could be read from $LIB (tried nm -D, nm -g, llvm-nm). This is an INSTRUMENT failure, not evidence about the wheel — do not read it as a strip."
+                exit 1
+                ;;
+            esac
+          fi
+          N=$(grep -c 'ciris_verify_' "$SYMFILE" || true)
+          echo "  symbol table entries: $TOTAL; ciris_verify_*: $N (floor $MIN_VERIFY_SYMBOLS)"
+          if [ "$N" -lt "$MIN_VERIFY_SYMBOLS" ]; then
+            echo "::error::$(basename "$WHL") exports $N ciris_verify_* symbols out of a readable $TOTAL-entry table, under the $MIN_VERIFY_SYMBOLS floor. LTO dropped FFI symbols nothing in Rust calls (CIRISServer#232/#378). This wheel imports fine and fails at a ctypes call site — do NOT lower the floor to go green."
+            exit 1
+          fi
+          MISSING=""
+          for s in $NEED_PYINIT; do grep -q "$s" "$SYMFILE" || MISSING="$MISSING $s"; done
+          if [ -n "$MISSING" ]; then
+            echo "::error::module entry point(s) missing from $(basename "$WHL"):$MISSING — CPython resolves these by name at import, and all must live in THIS cdylib for the one-wheel type identity (CIRISServer#4)."
+            exit 1
+          fi
+          echo "  OK - inventory intact: $N verify symbols + all $(echo $NEED_PYINIT | wc -w) module entry points"
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-macos-${{ matrix.target }}
@@ -656,6 +952,22 @@ jobs:
             ${{ steps.cachekey.outputs.key-any }}*
       - name: Build wheel (maturin)
         uses: PyO3/maturin-action@v1
+        # THE SAME INJECTION THE run:-STYLE LEGS HAVE (CIRISServer#387). These legs
+        # build their wheel through the ACTION rather than a `maturin build` run
+        # step, and that difference alone is why they never received the
+        # credential: the original fix, and the gate written to enforce it, both
+        # keyed on the literal string `maturin build --release`. Two spellings of
+        # "build a wheel", one of them invisible to every check — so macOS and
+        # Windows shipped with no built-in Google even on direct runs, while linux
+        # and android were fine. A per-platform difference nobody would look for.
+        #
+        # option_env! reads the COMPILE-TIME environment, so these belong on the
+        # step that compiles — not the job, not a later step.
+        env:
+          CIRIS_DESKTOP_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.CIRIS_DESKTOP_GOOGLE_OAUTH_CLIENT_ID }}
+          CIRIS_DESKTOP_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.CIRIS_DESKTOP_GOOGLE_OAUTH_CLIENT_SECRET }}
+          CIRIS_MOBILE_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.CIRIS_MOBILE_GOOGLE_OAUTH_CLIENT_ID }}
+          CIRIS_MOBILE_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.CIRIS_MOBILE_GOOGLE_OAUTH_CLIENT_SECRET }}
         with:
           target: x64
           rust-toolchain: "1.97.0"
@@ -693,6 +1005,58 @@ jobs:
       # a wheel that grows ~1 MB a release forever. The right answer to this
       # gate firing is to find the growth (v0.5.157: 19.8 MB of Skiko nobody
       # loads), never to raise the number.
+      # ── The credential is IN THE ARTIFACT, not merely in the YAML (#387) ───
+      #
+      # 0.5.165 and 0.5.166 both shipped nine wheels with no built-in Google.
+      # The injection was present in this file the whole time; publish-pypi.yml
+      # called this workflow WITHOUT `secrets: inherit`, so every
+      # `${{ secrets.* }}` here resolved to the empty string — no warning, no
+      # failure, just a blank. option_env! then baked nothing, and
+      # ProviderConfigStore's both-halves-or-nothing rule left the store empty.
+      #
+      # The gate that was supposed to prevent this asserted the YAML instead:
+      # it read a HARDCODED list of the two files already known to be fixed and
+      # confirmed they were still fixed. It could not discover a caller that
+      # dropped the secrets, because it never asked about callers at all.
+      #
+      # So this asks the only question that cannot be answered by intent: is the
+      # client id actually inside the binary we are about to publish. On tags
+      # only, because that is the path where the secrets MUST be present — on a
+      # fork PR they legitimately are not, and failing there would be noise.
+      - name: Built-in OAuth credential is present in the wheel (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          set -euo pipefail
+          WHL=$(ls dist/*.whl | head -1)
+          TMP=$(mktemp -d)
+          unzip -q "$WHL" -d "$TMP"
+          LIB=$(find "$TMP" \( -name '_native*.so' -o -name '_native*.pyd' -o -name '_native*.dylib' \) | head -1)
+          test -n "$LIB" || { echo "::error::no _native lib inside $WHL"; exit 1; }
+          # Match the SHAPE, never the value: a Google desktop client id ends in
+          # .apps.googleusercontent.com. Grepping for the literal id would put a
+          # credential in a public workflow file and in every log line.
+          # NO PIPE INTO `grep -q`. This is the EPIPE trap the #232 step above
+          # documents, and it bit here on the very first tag: `grep -q` exits
+          # the moment it matches, closing the pipe while `strings` is still
+          # writing; `strings` dies with EPIPE; and under `set -o pipefail` the
+          # PIPELINE reports failure — so a wheel that DOES carry the credential
+          # is reported as missing it. macOS's strings is strict about the
+          # flush, GNU's is not, so it false-failed macOS only while linux
+          # passed: a per-platform lie from a gate written to catch a
+          # per-platform lie. Dump to a file, then grep the file.
+          SFILE=$(mktemp)
+          strings "$LIB" > "$SFILE" 2>/dev/null || true
+          if [ ! -s "$SFILE" ]; then
+            echo "::error::strings produced no output for $LIB — INSTRUMENT failure, not evidence about the wheel."
+            exit 1
+          fi
+          if grep -q 'apps\.googleusercontent\.com' "$SFILE"; then
+            echo "  OK - a built-in Google client id is compiled into $(basename "$WHL")"
+          else
+            echo "::error::$(basename "$WHL") has NO built-in Google client id. The secrets did not reach the build — check that every caller of build-wheels.yml passes 'secrets: inherit' (CIRISServer#387). This wheel would offer a Google button that cannot work."
+            exit 1
+          fi
       - name: Wheel size gate
         shell: bash
         run: |
@@ -757,6 +1121,94 @@ jobs:
             if [ -n "$MISSING" ]; then echo "verify FFI symbols MISSING from _native (--gc-sections stripped the fold):$MISSING"; exit 1; fi
             echo "OK (nm) - verify FFI folded: all symbols present in the cross-built wheel"
           fi
+      # ── FFI symbol INVENTORY, not a spot-check (CIRISServer#378) ────────────
+      #
+      # The step above names ten symbols. That was sufficient against
+      # --gc-sections, which is all-or-nothing on a section. It is NOT sufficient
+      # against LTO (`lto = "thin"` since 0.5.166), whose unit of work is the
+      # call graph: the realistic failure is PARTIAL — a dozen symbols dropped,
+      # the ten famous ones kept, and the gate green.
+      #
+      # So this asserts the COUNT and every module entry point. Counting is the
+      # whole point: it is the only form a partial strip cannot slip past.
+      #
+      # Runs on EVERY target, cross-built included, because which platform
+      # inlines hardest is exactly what you cannot predict — and a symbol that
+      # survives on linux tells you nothing about windows.
+      - name: FFI symbol inventory (LTO must not drop what only ctypes calls)
+        shell: bash
+        env:
+          MIN_VERIFY_SYMBOLS: 88
+          NEED_PYINIT: >-
+            PyInit__native PyInit_ciris_edge PyInit_ciris_lens_core
+            PyInit_ciris_persist PyInit_pyo3_async_runtimes
+        run: |
+          set -euo pipefail
+          WHL=$(ls dist/*.whl | head -1)
+          TMP=$(mktemp -d)
+          unzip -q "$WHL" -d "$TMP"
+          LIB=$(find "$TMP" \( -name '_native*.so' -o -name '_native*.pyd' -o -name '_native*.dylib' \) | head -1)
+          test -n "$LIB" || { echo "::error::no _native lib inside $WHL"; exit 1; }
+          SYMFILE=$(mktemp)
+          # READ THE DYNAMIC TABLE. `nm -g` reads the STATIC symtab, which the
+          # release build strips away — on a stripped ELF it prints "no symbols"
+          # and every symbol looks missing. `.dynsym` (nm -D) is what survives a
+          # strip AND is the table the dynamic linker and ctypes actually resolve
+          # against, so it is both the durable and the CORRECT one to ask.
+          #
+          # This gate's first version asked `nm -g` and failed the linux wheel at
+          # 0 symbols on a wheel that had all 88. Same shape as the source-scan
+          # draft before it: a discrepancy invented by the instrument. Twice is a
+          # pattern worth naming — when a check reports catastrophe, suspect the
+          # check before the code.
+          #
+          # No pipe into `grep -q` anywhere below: see the EPIPE note on the step
+          # above, which false-FAILED a PRESENT symbol on v0.5.108.
+          nm -D --defined-only "$LIB" > "$SYMFILE" 2>/dev/null || true
+          if [ ! -s "$SYMFILE" ]; then nm -g "$LIB" > "$SYMFILE" 2>/dev/null || true; fi
+          if [ ! -s "$SYMFILE" ]; then llvm-nm "$LIB" > "$SYMFILE" 2>/dev/null || true; fi
+          TOTAL=$(wc -l < "$SYMFILE" | tr -d ' ')
+          # "Could not read the table" and "the table is missing symbols" are
+          # DIFFERENT answers and must not share an exit path — the first is a
+          # broken instrument, the second is a broken wheel. Collapsing them is
+          # how a tooling gap gets shipped as a code defect (and vice versa).
+          if [ "$TOTAL" -eq 0 ]; then
+            case "$LIB" in
+              *.pyd)
+                # PE/COFF keeps its exports in the PE export directory, which
+                # `nm` cannot read at all — it is not a stripped ELF, it is a
+                # format these tools do not parse. Reporting it as a strip would
+                # be the instrument inventing a defect again, and failing the
+                # build on it would block a wheel that is fine.
+                #
+                # So this leg is NOT COVERED by the count, and says so out loud
+                # rather than printing a green tick. Windows still gets the #232
+                # ctypes check in the step above (ten named symbols, really
+                # loaded through CPython) — that is real coverage, just not
+                # exhaustive. Enumerating PE exports needs dumpbin or objdump,
+                # neither reliably on PATH in this step: CIRISServer#388.
+                echo "::warning::NOT COVERED on this leg — $(basename "$LIB") is PE/COFF and nm cannot enumerate its exports. The inventory count was SKIPPED here (the #232 ctypes spot-check above still ran). See CIRISServer#388."
+                exit 0
+                ;;
+              *)
+                echo "::error::no symbol table could be read from $LIB (tried nm -D, nm -g, llvm-nm). This is an INSTRUMENT failure, not evidence about the wheel — do not read it as a strip."
+                exit 1
+                ;;
+            esac
+          fi
+          N=$(grep -c 'ciris_verify_' "$SYMFILE" || true)
+          echo "  symbol table entries: $TOTAL; ciris_verify_*: $N (floor $MIN_VERIFY_SYMBOLS)"
+          if [ "$N" -lt "$MIN_VERIFY_SYMBOLS" ]; then
+            echo "::error::$(basename "$WHL") exports $N ciris_verify_* symbols out of a readable $TOTAL-entry table, under the $MIN_VERIFY_SYMBOLS floor. LTO dropped FFI symbols nothing in Rust calls (CIRISServer#232/#378). This wheel imports fine and fails at a ctypes call site — do NOT lower the floor to go green."
+            exit 1
+          fi
+          MISSING=""
+          for s in $NEED_PYINIT; do grep -q "$s" "$SYMFILE" || MISSING="$MISSING $s"; done
+          if [ -n "$MISSING" ]; then
+            echo "::error::module entry point(s) missing from $(basename "$WHL"):$MISSING — CPython resolves these by name at import, and all must live in THIS cdylib for the one-wheel type identity (CIRISServer#4)."
+            exit 1
+          fi
+          echo "  OK - inventory intact: $N verify symbols + all $(echo $NEED_PYINIT | wc -w) module entry points"
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-windows-x64

@@ -12,6 +12,7 @@ Usage::
     from mypy_boto3_cleanrooms import (
         CleanRoomsServiceClient,
         Client,
+        ListAnalysisLogExportsPaginator,
         ListAnalysisTemplatesPaginator,
         ListCollaborationAnalysisTemplatesPaginator,
         ListCollaborationChangeRequestsPaginator,
@@ -39,6 +40,7 @@ Usage::
     session = Session()
     client: CleanRoomsServiceClient = session.client("cleanrooms")
 
+    list_analysis_log_exports_paginator: ListAnalysisLogExportsPaginator = client.get_paginator("list_analysis_log_exports")
     list_analysis_templates_paginator: ListAnalysisTemplatesPaginator = client.get_paginator("list_analysis_templates")
     list_collaboration_analysis_templates_paginator: ListCollaborationAnalysisTemplatesPaginator = client.get_paginator("list_collaboration_analysis_templates")
     list_collaboration_change_requests_paginator: ListCollaborationChangeRequestsPaginator = client.get_paginator("list_collaboration_change_requests")
@@ -66,6 +68,7 @@ Usage::
 
 from .client import CleanRoomsServiceClient
 from .paginator import (
+    ListAnalysisLogExportsPaginator,
     ListAnalysisTemplatesPaginator,
     ListCollaborationAnalysisTemplatesPaginator,
     ListCollaborationChangeRequestsPaginator,
@@ -95,6 +98,7 @@ Client = CleanRoomsServiceClient
 __all__ = (
     "CleanRoomsServiceClient",
     "Client",
+    "ListAnalysisLogExportsPaginator",
     "ListAnalysisTemplatesPaginator",
     "ListCollaborationAnalysisTemplatesPaginator",
     "ListCollaborationChangeRequestsPaginator",

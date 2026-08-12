@@ -61,11 +61,11 @@
   register: result
 
 - name: Debug
-  debug:
+  ansible.builtin.debug:
     var: result
 
 - name: Assert identity provider created
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
       - result.existing == {}
@@ -111,11 +111,11 @@
   register: result
 
 - name: Debug
-  debug:
+  ansible.builtin.debug:
     var: result
 
 - name: Assert identity provider unchanged
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
 
@@ -132,11 +132,11 @@
   register: result
 
 - name: Debug
-  debug:
+  ansible.builtin.debug:
     var: result
 
 - name: Assert identity provider updated
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
       - result.existing.enabled == true
@@ -162,11 +162,11 @@
   register: result
 
 - name: Debug
-  debug:
+  ansible.builtin.debug:
     var: result
 
 - name: Assert identity provider updated
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
       - result.existing.mappers | length == 2
@@ -200,11 +200,11 @@
   register: result
 
 - name: Debug
-  debug:
+  ansible.builtin.debug:
     var: result
 
 - name: Assert identity provider updated
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
       - result.existing.mappers | length == 1
@@ -237,11 +237,11 @@
   register: result
 
 - name: Debug
-  debug:
+  ansible.builtin.debug:
     var: result
 
 - name: Assert identity provider updated
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
 
@@ -257,11 +257,11 @@
   register: result
 
 - name: Debug
-  debug:
+  ansible.builtin.debug:
     var: result
 
 - name: Assert identity provider deleted
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
       - result.end_state == {}
@@ -278,11 +278,11 @@
   register: result
 
 - name: Debug
-  debug:
+  ansible.builtin.debug:
     var: result
 
 - name: Assert identity provider unchanged
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
       - result.end_state == {}
@@ -318,11 +318,11 @@
   register: result
 
 - name: Debug
-  debug:
+  ansible.builtin.debug:
     var: result
 
 - name: Assert identity provider created with IDP endpoints
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
       - result.end_state.config.authorizationUrl == "{{ url }}/realms/{{ idp_realm }}/protocol/openid-connect/auth"
@@ -357,7 +357,7 @@
   ignore_errors: true
 
 - name: Check failure of identity provider creation with fromUrl and userInfoUrl
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
       - result is failed

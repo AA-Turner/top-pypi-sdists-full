@@ -1529,9 +1529,33 @@ class UnIgnoreUpdateResponse(BaseModel):
     patterns: list[UnIgnoreEntry] | None = None
 
 
-class UnIgnoreCandidateList(BaseModel):
-    candidates: list[str]
-    include_master: bool | None = None
+class UnIgnoreReason(StrEnum):
+    operation_mode = "operation_mode"
+    week_profile = "week_profile"
+    master_gate = "master_gate"
+    device_specific = "device_specific"
+    ignore_list = "ignore_list"
+    wildcard_prefix = "wildcard_prefix"
+    wildcard_suffix = "wildcard_suffix"
+    hidden = "hidden"
+    channel_restricted = "channel_restricted"
+    event_suppressed = "event_suppressed"
+    internal_flag = "internal_flag"
+    read_only = "read_only"
+    unknown = "unknown"
+
+
+class Paramset(StrEnum):
+    VALUES = "VALUES"
+    MASTER = "MASTER"
+
+
+class UnIgnoreCandidateChannel(BaseModel):
+    channel: int
+    pattern: str = Field(
+        ...,
+        description="Pattern re-enabling the parameter on exactly this model and channel.",
+    )
 
 
 class Kind1(StrEnum):
@@ -2573,7 +2597,12 @@ class ClimateProfile(BaseModel):
 
 
 class SimpleScheduleEntry(BaseModel):
-    slot_no: int
+    slot_no: int = Field(
+        ...,
+        description="Slot this entry occupies, preserved so a partial update leaves unrelated slots intact. A given channel declares fewer slots (69 or 75 in the field) and that is the real bound — a slot the channel's MASTER paramset does not contain cannot be written.\n",
+        ge=1,
+        le=75,
+    )
     weekdays: list[str]
     time: str
     condition: str | None = None
@@ -2582,8 +2611,14 @@ class SimpleScheduleEntry(BaseModel):
     target_channels: list[str] | None = None
     level: float
     level_2: float | None = None
-    duration: str | None = None
-    ramp_time: str | None = None
+    duration: str | None = Field(
+        None,
+        description='Auto-revert time, as a whole number and a unit — "500ms", "10s", "65s", "5min", "1h". The value is exact: the CCU stores a (time base, factor) pair, and the string carries the factor multiplied out in that base\'s own unit rather than rounded to a larger one, so a 65-second slot reads "65s" and not "1min". Empty when the slot carries no duration.\n',
+    )
+    ramp_time: str | None = Field(
+        None,
+        description="Dimmer ramp time, same format and exactness rule as `duration`.\n",
+    )
     lock_mode: str | None = None
     lock_action: str | None = None
     permission: str | None = None
@@ -3413,6 +3448,28 @@ class AlarmIncident(BaseModel):
     open: bool
 
 
+class AlarmTriggeredMotionSensor(BaseModel):
+    sensor_id: str
+    zone_id: str
+    name: str | None = None
+    channel_address: str = Field(
+        ...,
+        description="The sensor's own channel — the reset writes RESET_MOTION there.",
+    )
+    parameter: str = Field(
+        ..., description="The sensor's own parameter (e.g. MOTION), not RESET_MOTION."
+    )
+
+
+class AlarmMotionResetResult(BaseModel):
+    reset: int = Field(..., description="detectors whose write succeeded")
+    failed: int = Field(
+        ...,
+        description="Detectors whose write failed. Reported here rather than as an HTTP error: the verb ran, and a partial result is actionable.",
+    )
+    sensors: list[AlarmTriggeredMotionSensor]
+
+
 class Class10(StrEnum):
     arm = "arm"
     disarm = "disarm"
@@ -3586,6 +3643,16 @@ class Snapshot(BaseModel):
         None,
         description="Present only when the request set `?include=channels` (or\n`data_points`). Nests each device's channels — and, with\n`data_points`, their data points — keyed by device address.\nParallel to `devices`, which stays unchanged.\n",
     )
+
+
+class UnIgnoreCandidateModel(BaseModel):
+    model: str = Field(..., description="device model, e.g. HmIP-eTRV-2")
+    wildcard_pattern: str | None = Field(
+        None,
+        description='Pattern covering every channel of the model ("LOW_BAT:VALUES@HmIP-eTRV-2:all"). Absent for MASTER.',
+    )
+    channels: list[UnIgnoreCandidateChannel]
+    device_count: int
 
 
 class AlarmReadinessChangedPayload(BaseModel):
@@ -3872,6 +3939,33 @@ class GroupCentralEntry(BaseModel):
     groups: list[GroupEntry]
 
 
+class UnIgnoreCandidateGroup(BaseModel):
+    parameter: str = Field(..., description="bare parameter name, e.g. LOW_BAT")
+    label: str | None = Field(
+        None,
+        description="Localised parameter name; absent when the catalogue has no entry.",
+    )
+    paramset: Paramset
+    reason: UnIgnoreReason
+    reason_detail: str | None = Field(
+        None,
+        description='Concrete rule text behind `reason` — the matched name prefix or suffix, e.g. "STATUS_FLAG_" or "_STATUS" — so a badge can name the rule rather than its category. Absent for reasons whose rule is a membership list rather than a pattern.',
+    )
+    reasons: list[UnIgnoreReason] = Field(
+        ...,
+        description="Every rule that matched anywhere in the fleet, in precedence order.",
+    )
+    simple_pattern: str | None = Field(
+        None,
+        description="Pattern that re-enables the parameter on every device and channel. Absent for MASTER, which has no short pattern form.",
+    )
+    models: list[UnIgnoreCandidateModel]
+    device_count: int = Field(
+        ..., description="distinct devices carrying the parameter"
+    )
+    channel_count: int = Field(..., description="distinct (model, channel) pairs")
+
+
 class SecuritySnapshot(BaseModel):
     severity: Severity = Field(..., description="The folded overall state.")
     classes: list[SecurityClassState] = Field(
@@ -3888,3 +3982,16 @@ class SecuritySnapshot(BaseModel):
     )
     last_alarm: SecurityNotification | None = None
     last_fault: SecurityNotification | None = None
+
+
+class UnIgnoreCandidateList(BaseModel):
+    candidates: list[str]
+    include_master: bool | None = None
+    groups: list[UnIgnoreCandidateGroup] | None = Field(
+        None,
+        description="One entry per (parameter, paramset), with the models and channels it occurs on. The flat `candidates` list is the cross-product of parameter x model x channel in three pattern formats — a 399-device fleet yields ~2800 strings out of ~45 parameters — so clients that render a picker should use this instead. Both paramsets are always present here, each group tagged with its own; `include_master` governs only `candidates`.",
+    )
+    reasons: list[UnIgnoreReason] | None = Field(
+        None,
+        description="Every suppression category the groups can carry, in display order.",
+    )

@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
+import temporalio.activity
 from pydantic import SecretStr
 
 from mistralai.workflows._version import __version__
@@ -244,6 +245,29 @@ class TestMetadataHeader:
         metadata = json.loads(request.headers["x-metadata"])
         assert metadata["execution_id"] == "exec-abc-123"
         assert metadata["call_type"] == "workflows"
+
+    @pytest.mark.asyncio
+    async def test_sets_activity_metadata_inside_activity_context(self, get_client, expected_hook):
+        request = httpx.Request("GET", "http://example.com")
+        activity_info = type(
+            "ActivityInfo",
+            (),
+            {"workflow_id": "exec-abc-123", "workflow_run_id": "run-1", "activity_id": "task-1", "attempt": 2},
+        )()
+        with (
+            patch.object(temporalio.activity, "in_activity", return_value=True),
+            patch.object(temporalio.activity, "info", return_value=activity_info),
+        ):
+            await _maybe_await(expected_hook(request))
+
+        metadata = json.loads(request.headers["x-metadata"])
+        assert metadata == {
+            "call_type": "workflows",
+            "execution_id": "exec-abc-123",
+            "run_id": "run-1",
+            "task_id": "task-1",
+            "attempt": "2",
+        }
 
 
 _WORKER_KEY = "worker-api-key"

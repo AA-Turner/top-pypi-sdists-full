@@ -10,7 +10,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Check if name is required for present
-  osx_defaults:
+  community.general.osx_defaults:
     domain: NSGlobalDomain
     key: AppleMeasurementUnits
     type: string
@@ -19,12 +19,12 @@
   ignore_errors: true
 
 - name: Test if state and value are required together
-  assert:
+  ansible.builtin.assert:
     that:
       - "'following are missing: value' in missing_value['msg']"
 
 - name: Change value of AppleMeasurementUnits to centimeter in check_mode
-  osx_defaults:
+  community.general.osx_defaults:
     domain: NSGlobalDomain
     key: AppleMeasurementUnits
     type: string
@@ -34,30 +34,30 @@
   check_mode: true
 
 - name: Test if AppleMeasurementUnits value is changed to Centimeters in check_mode
-  assert:
+  ansible.builtin.assert:
     that:
       - measure_task_check_mode.changed
 
 - name: Find the current value of AppleMeasurementUnits
-  osx_defaults:
+  community.general.osx_defaults:
     domain: NSGlobalDomain
     key: AppleMeasurementUnits
     state: list
   register: apple_measure_value
 
-- debug:
+- ansible.builtin.debug:
     msg: "{{ apple_measure_value['value'] }}"
 
-- set_fact:
+- ansible.builtin.set_fact:
     new_value: "Centimeters"
   when: apple_measure_value['value'] == 'Inches' or apple_measure_value['value'] == None
 
-- set_fact:
+- ansible.builtin.set_fact:
     new_value: "Inches"
   when: apple_measure_value['value'] == 'Centimeters'
 
 - name: Change value of AppleMeasurementUnits to {{ new_value }}
-  osx_defaults:
+  community.general.osx_defaults:
     domain: NSGlobalDomain
     key: AppleMeasurementUnits
     type: string
@@ -66,12 +66,12 @@
   register: change_value
 
 - name: Test if AppleMeasurementUnits value is changed to {{ new_value }}
-  assert:
+  ansible.builtin.assert:
     that:
       - change_value.changed
 
 - name: Again change value of AppleMeasurementUnits to {{ new_value }}
-  osx_defaults:
+  community.general.osx_defaults:
     domain: NSGlobalDomain
     key: AppleMeasurementUnits
     type: string
@@ -80,102 +80,102 @@
   register: change_value
 
 - name: Again test if AppleMeasurementUnits value is not changed to {{ new_value }}
-  assert:
+  ansible.builtin.assert:
     that:
       - not change_value.changed
 
 - name: Check a fake setting for delete operation
-  osx_defaults:
+  community.general.osx_defaults:
     domain: com.ansible.fake_value
     key: ExampleKeyToRemove
     state: list
   register: list_fake_value
 
-- debug:
+- ansible.builtin.debug:
     msg: "{{ list_fake_value }}"
 
 - name: Check if fake value is listed
-  assert:
+  ansible.builtin.assert:
     that:
       - not list_fake_value.changed
 
 - name: Create a fake setting for delete operation
-  osx_defaults:
+  community.general.osx_defaults:
     domain: com.ansible.fake_value
     key: ExampleKeyToRemove
     state: present
     value: sample
   register: present_fake_value
 
-- debug:
+- ansible.builtin.debug:
     msg: "{{ present_fake_value }}"
 
 - name: Check if fake is created
-  assert:
+  ansible.builtin.assert:
     that:
       - present_fake_value.changed
   when: present_fake_value.changed
 
 - name: List a fake setting
-  osx_defaults:
+  community.general.osx_defaults:
     domain: com.ansible.fake_value
     key: ExampleKeyToRemove
     state: list
   register: list_fake
 
-- debug:
+- ansible.builtin.debug:
     msg: "{{ list_fake }}"
 
 - name: Delete a fake setting
-  osx_defaults:
+  community.general.osx_defaults:
     domain: com.ansible.fake_value
     key: ExampleKeyToRemove
     state: absent
   register: absent_task
 
-- debug:
+- ansible.builtin.debug:
     msg: "{{ absent_task }}"
 
 - name: Check if fake setting is deleted
-  assert:
+  ansible.builtin.assert:
     that:
       - absent_task.changed
   when: present_fake_value.changed
 
 - name: Try deleting a fake setting again
-  osx_defaults:
+  community.general.osx_defaults:
     domain: com.ansible.fake_value
     key: ExampleKeyToRemove
     state: absent
   register: absent_task
 
-- debug:
+- ansible.builtin.debug:
     msg: "{{ absent_task }}"
 
 - name: Check if fake setting is not deleted
-  assert:
+  ansible.builtin.assert:
     that:
       - not absent_task.changed
 
 - name: Delete operation in check_mode
-  osx_defaults:
+  community.general.osx_defaults:
     domain: com.ansible.fake_value
     key: ExampleKeyToRemove
     state: absent
   register: absent_check_mode_task
   check_mode: true
 
-- debug:
+- ansible.builtin.debug:
     msg: "{{ absent_check_mode_task }}"
 
 - name: Check delete operation with check mode
-  assert:
+  ansible.builtin.assert:
     that:
       - not absent_check_mode_task.changed
 
 
 - name: Use different data types and check if it works with them
-  osx_defaults:
+  community.general.osx_defaults:
     domain: com.ansible.fake_values
     key: "{{ item.key }}"
     type: "{{ item.type }}"
@@ -193,12 +193,12 @@
     - { type: 'array', value: ['1', '2'], key: 'sample_array'}
   register: test_data_types
 
-- assert:
+- ansible.builtin.assert:
     that: "item is changed"
   with_items: "{{ test_data_types.results }}"
 
 - name: Use different data types and delete them
-  osx_defaults:
+  community.general.osx_defaults:
     domain: com.ansible.fake_values
     key: "{{ item.key }}"
     value: "{{ item.value }}"
@@ -207,19 +207,19 @@
   with_items: *data_type
   register: test_data_types
 
-- assert:
+- ansible.builtin.assert:
     that: "item is changed"
   with_items: "{{ test_data_types.results }}"
 
 
 - name: Ensure test key does not exist
-  osx_defaults:
+  community.general.osx_defaults:
     domain: com.ansible.fake_array_value
     key: ExampleArrayKey
     state: absent
 
 - name: add array value for the first time
-  osx_defaults:
+  community.general.osx_defaults:
     domain: com.ansible.fake_array_value
     key: ExampleArrayKey
     value:
@@ -228,11 +228,11 @@
     array_add: true
   register: test_array_add
 
-- assert:
+- ansible.builtin.assert:
     that: test_array_add.changed
 
 - name: add for the second time, should be skipped
-  osx_defaults:
+  community.general.osx_defaults:
     domain: com.ansible.fake_array_value
     key: ExampleArrayKey
     value:
@@ -241,28 +241,28 @@
     array_add: true
   register: test_array_add
 
-- assert:
+- ansible.builtin.assert:
     that: not test_array_add.changed
 
 - name: Clean up test key
-  osx_defaults:
+  community.general.osx_defaults:
     domain: com.ansible.fake_array_value
     key: ExampleArrayKey
     state: absent
   register: test_array_add
 
-- assert:
+- ansible.builtin.assert:
     that: test_array_add.changed
 
 
 - name: Ensure dict test key does not exist
-  osx_defaults:
+  community.general.osx_defaults:
     domain: com.ansible.fake_dict_value
     key: ExampleDictKey
     state: absent
 
 - name: Write dict value for the first time
-  osx_defaults:
+  community.general.osx_defaults:
     domain: com.ansible.fake_dict_value
     key: ExampleDictKey
     type: dict
@@ -271,11 +271,11 @@
       OpenWith: true
   register: test_dict_write
 
-- assert:
+- ansible.builtin.assert:
     that: test_dict_write.changed
 
 - name: Write same dict value again, should not change
-  osx_defaults:
+  community.general.osx_defaults:
     domain: com.ansible.fake_dict_value
     key: ExampleDictKey
     type: dict
@@ -284,11 +284,11 @@
       OpenWith: true
   register: test_dict_write
 
-- assert:
+- ansible.builtin.assert:
     that: not test_dict_write.changed
 
 - name: Write different dict value, should change
-  osx_defaults:
+  community.general.osx_defaults:
     domain: com.ansible.fake_dict_value
     key: ExampleDictKey
     type: dict
@@ -297,11 +297,11 @@
       OpenWith: false
   register: test_dict_write
 
-- assert:
+- ansible.builtin.assert:
     that: test_dict_write.changed
 
 - name: Add new key via dict_add
-  osx_defaults:
+  community.general.osx_defaults:
     domain: com.ansible.fake_dict_value
     key: ExampleDictKey
     type: dict
@@ -310,11 +310,11 @@
       Privileges: true
   register: test_dict_add
 
-- assert:
+- ansible.builtin.assert:
     that: test_dict_add.changed
 
 - name: Add same key via dict_add again, should not change
-  osx_defaults:
+  community.general.osx_defaults:
     domain: com.ansible.fake_dict_value
     key: ExampleDictKey
     type: dict
@@ -323,11 +323,11 @@
       Privileges: true
   register: test_dict_add
 
-- assert:
+- ansible.builtin.assert:
     that: not test_dict_add.changed
 
 - name: Use dict_add on non-existent key, should create it
-  osx_defaults:
+  community.general.osx_defaults:
     domain: com.ansible.fake_dict_value
     key: ExampleDictKeyNew
     type: dict
@@ -336,11 +336,11 @@
       Alpha: true
   register: test_dict_add_new
 
-- assert:
+- ansible.builtin.assert:
     that: test_dict_add_new.changed
 
 - name: Clean up dict test keys
-  osx_defaults:
+  community.general.osx_defaults:
     domain: com.ansible.fake_dict_value
     key: "{{ item }}"
     state: absent

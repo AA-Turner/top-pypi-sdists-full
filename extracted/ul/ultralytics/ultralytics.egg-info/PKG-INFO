@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ultralytics
-Version: 8.4.117
+Version: 8.4.118
 Summary: Ultralytics YOLO 🚀 for SOTA object detection, multi-object tracking, instance segmentation, pose estimation, classification, and oriented object detection.
 Author-email: Glenn Jocher <glenn.jocher@ultralytics.com>, Jing Qiu <jing.qiu@ultralytics.com>
 Maintainer-email: Ultralytics <hello@ultralytics.com>
@@ -53,8 +53,7 @@ Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pytest-xdist>=3.0.0; extra == "dev"
 Requires-Dist: coverage[toml]; extra == "dev"
-Requires-Dist: zensical>=0.0.15; python_version >= "3.10" and extra == "dev"
-Requires-Dist: mkdocs-ultralytics-plugin>=0.2.5; extra == "dev"
+Requires-Dist: zensical>=0.0.53; python_version >= "3.10" and extra == "dev"
 Requires-Dist: minijinja>=2.0.0; extra == "dev"
 Provides-Extra: export-base
 Requires-Dist: onnx>=1.12.0; platform_system != "Darwin" and extra == "export-base"
@@ -104,6 +103,8 @@ Requires-Dist: lap>=0.5.12; extra == "solutions"
 Requires-Dist: streamlit>=1.51.0; python_version >= "3.10" and extra == "solutions"
 Requires-Dist: streamlit<1.51.0,>=1.29.0; (python_version < "3.10" and (platform_machine != "aarch64" or platform_system != "Linux")) and extra == "solutions"
 Requires-Dist: flask>=3.0.1; extra == "solutions"
+Provides-Extra: llm
+Requires-Dist: openai>=2.0.0; extra == "llm"
 Provides-Extra: logging
 Requires-Dist: wandb; extra == "logging"
 Requires-Dist: tensorboard; extra == "logging"

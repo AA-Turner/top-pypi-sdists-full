@@ -149,7 +149,15 @@ HUB = {
 ID = {
     "name": _d("Tlg="),
     "builder": _d("TmV4cGxvcmE="),
-    "version": _d("MC4xNS4yMjE="),
+    # MUST track setup.py's version. This is the FALLBACK literal nx_cli uses when package
+    # metadata is unavailable (running from source rather than an installed wheel), so it cannot
+    # be derived at runtime — setup.py is not shipped inside the wheel.
+    #
+    # It had drifted to 0.15.221 while setup.py said 0.15.261 — forty releases apart. The guard for
+    # this exists and works (test_textual_cli.py asserts ID["version"] == nx_cli.VERSION); it had
+    # simply been failing unnoticed inside a suite whose whole-directory collection was broken by
+    # two modules calling sys.exit() at import time. Fixing collection is what surfaced it.
+    "version": _d("MC4xNS4yNjM="),  # 0.15.263
 }
 
 # Freeze the constant tables: any in-process attempt to mutate a model id,

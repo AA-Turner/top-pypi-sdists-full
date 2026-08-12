@@ -1,0 +1,1 @@
+import{zr as e}from"./lucide-D-OVt9JJ.js";function t(t){return{activeSource:e(()=>{let e=typeof t==`object`&&`value`in t?t.value:t;if(!e?.source_list)return;let n=e.active_source||e.player_id;return e.source_list.find(e=>e.id===n)})}}export{t};

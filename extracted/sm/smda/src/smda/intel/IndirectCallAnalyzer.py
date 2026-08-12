@@ -15,13 +15,17 @@ class IndirectCallAnalyzer:
     RE_MOV_REG_REG = re.compile(r"(?P<reg1>[a-z0-9]{2,4}), (?P<reg2>[a-z0-9]{2,4})$")
     RE_MOV_REG_CONST = re.compile(r"(?P<reg>[a-z0-9]{2,4}), (?P<val>0x[0-9a-f]{1,16})$")
     RE_REG_DWORD_PTR_ADDR = re.compile(r"(?P<reg>[a-z0-9]{2,4}), dword ptr \[(?P<addr>0x[0-9a-f]{1,16})\]$")
-    RE_REG_QWORD_PTR_RIP_ADDR = re.compile(r"(?P<reg>[a-z0-9]{2,4}), qword ptr \[rip \+ (?P<addr>0x[0-9a-f]{1,16})\]$")
+    # a rip-relative slot behind the instruction is as ordinary as one ahead of it
+    RE_REG_QWORD_PTR_RIP_ADDR = re.compile(
+        r"(?P<reg>[a-z0-9]{2,4}), qword ptr \[rip (?P<sign>[+-]) (?P<addr>0x[0-9a-f]{1,16})\]$"
+    )
     RE_REG_ADDR = re.compile(r"(?P<reg>[a-z0-9]{2,4}), \[(?P<addr>0x[0-9a-f]{1,16})\]$")
 
     def __init__(self, disassembler):
         self.disassembler = disassembler
         self.disassembly = self.disassembler.disassembly
         self.current_calling_addr = 0
+        self.current_slot = None
         self.state = None
 
     def searchBlock(self, analysis_state, address):
@@ -56,13 +60,54 @@ class IndirectCallAnalyzer:
         raw_bytes = self.disassembly.getBytes(addr, 4)
         if raw_bytes is None or len(raw_bytes) < 4:
             return None
-        return struct.unpack("I", raw_bytes)[0]
+        return struct.unpack("<I", raw_bytes)[0]
 
     def _resolveDwordPointerValue(self, addr):
         dll, api = self.disassembler.resolveApi(addr, addr)
         if dll or api:
             return addr, dll, api
         return self.getDword(addr), dll, api
+
+    def _recordComputedImportSlot(self, base_value, displacement, ptr_size):
+        slot = base_value + displacement
+        dereferenced = (
+            self.disassembly.dereferenceQword(slot) if ptr_size == 8 else self.disassembly.dereferenceDword(slot)
+        )
+        if dereferenced is None:
+            return
+        dll, api = self.disassembler.resolveApi(slot, dereferenced)
+        if dll or api:
+            LOGGER.debug("resolved computed import slot 0x%08x: %s %s", slot, dll, api)
+            self.disassembly.addApiReference(dereferenced, self.current_calling_addr, dll, api)
+            self.disassembly.addImportSlot(slot, dll, api)
+
+    def resolveComputedImportSlots(self, analysis_state, block_depth=3):
+        """Resolve "call/jmp dword ptr [<reg> + <disp>]", the shape a runtime-built IAT is used through.
+
+        Records the API and the slot it lives in without booking a code ref or a function
+        candidate, so a heuristic base-register value cannot move CFG recovery.
+        """
+        # same backward walk as resolveRegisterCalls, so it takes the same per-block cap.
+        # That one was forced by a Go sample with 130k register calls; this shape -
+        # call through a register plus displacement - is C++ virtual dispatch, which packs
+        # denser per block than "call <reg>" ever did, so it needs the backstop more.
+        max_calls = getattr(self.disassembler.config, "MAX_INDIRECT_CALLS_PER_BASIC_BLOCK", 50)
+        calls_per_block = {}
+        for calling_addr, register_name, displacement, ptr_size in analysis_state.call_memreg_ins:
+            self.current_calling_addr = calling_addr
+            self.current_slot = (displacement, ptr_size)
+            self.state = analysis_state
+            start_block = [ins for ins in self.searchBlock(analysis_state, calling_addr) if ins[0] <= calling_addr]
+            if not start_block:
+                continue
+            # keyed on the block's start address rather than its first instruction: the
+            # instruction is a sequence, and only happens to be a hashable one
+            block_addr = start_block[0][0]
+            calls_per_block[block_addr] = calls_per_block.get(block_addr, 0) + 1
+            if calls_per_block[block_addr] > max_calls:
+                continue
+            self.processBlock(analysis_state, start_block, {}, register_name, [], block_depth)
+        self.current_slot = None
 
     def processBlock(self, analysis_state, block, registers, register_name, processed, depth):
         if not block:
@@ -129,43 +174,35 @@ class IndirectCallAnalyzer:
                 # mov <reg>, qword ptr [reg + <addr>]
                 match4 = self.RE_REG_QWORD_PTR_RIP_ADDR.match(ins[3])
                 if match4:
+                    # rip-relative addressing already resolves the slot; the register then
+                    # receives the whole qword stored there, not rip plus its low half
                     rip = ins[0] + ins[1]
-                    dword = self.getDword(rip + int(match4.group("addr"), 16))
-                    if dword:
-                        registers[match4.group("reg")] = rip + dword
+                    displacement = int(match4.group("addr"), 16)
+                    slot = rip + (-displacement if match4.group("sign") == "-" else displacement)
+                    qword = self.disassembly.dereferenceQword(slot)
+                    if qword:
+                        registers[match4.group("reg")] = qword
                         LOGGER.debug(
-                            "**moved value 0x%08x + 0x%08x == 0x%08x to register %s",
-                            rip,
-                            dword,
-                            rip + dword,
+                            "**moved value 0x%08x from slot 0x%08x to register %s",
+                            qword,
+                            slot,
                             match4.group("reg"),
                         )
                         if match4.group("reg") == register_name:
                             abs_value_found = True
             elif ins[2] == "lea":
                 LOGGER.debug("*checking %s %s", ins[2], ins[3])
-                # lea <reg>, dword ptr [<addr>]
-                match1 = self.RE_REG_DWORD_PTR_ADDR.match(ins[3])
-                if match1:
-                    dword = self.getDword(int(match1.group("addr"), 16))
-                    if dword:
-                        registers[match1.group("reg")] = dword
+                # lea <reg>, dword ptr [<addr>] and lea <reg>, [<addr>]
+                # lea computes an address; the register receives the address itself, so
+                # dereferencing it here would resolve the call against the wrong target
+                for pattern in (self.RE_REG_DWORD_PTR_ADDR, self.RE_REG_ADDR):
+                    match1 = pattern.match(ins[3])
+                    if match1:
+                        address = int(match1.group("addr"), 16)
+                        registers[match1.group("reg")] = address
                         LOGGER.debug(
-                            "**moved value 0x%08x to register %s",
-                            dword,
-                            match1.group("reg"),
-                        )
-                        if match1.group("reg") == register_name:
-                            abs_value_found = True
-                # lea <reg>, [<addr>]
-                match1 = self.RE_REG_ADDR.match(ins[3])
-                if match1:
-                    dword = self.getDword(int(match1.group("addr"), 16))
-                    if dword:
-                        registers[match1.group("reg")] = dword
-                        LOGGER.debug(
-                            "**moved value 0x%08x to register %s",
-                            dword,
+                            "**moved address 0x%08x to register %s",
+                            address,
                             match1.group("reg"),
                         )
                         if match1.group("reg") == register_name:
@@ -175,6 +212,11 @@ class IndirectCallAnalyzer:
             # if the absolute value was found for the call <reg> instruction, detect API
             if abs_value_found:
                 candidate = registers.get(register_name, None)
+                if self.current_slot is not None:
+                    # annotation only: leave leaf state and the CFG to the regular analysis
+                    if candidate:
+                        self._recordComputedImportSlot(candidate, *self.current_slot)
+                    return True
                 self.state.setLeaf(False)
                 if candidate:
                     LOGGER.debug(
@@ -187,6 +229,10 @@ class IndirectCallAnalyzer:
                     if dll or api:
                         LOGGER.debug("successfully resolved: %s %s", dll, api)
                         self.disassembly.addApiReference(candidate, self.current_calling_addr, dll, api)
+                        # _resolveDwordPointerValue keeps a known import slot instead of
+                        # dereferencing it, so an in-image candidate is that slot
+                        if self.disassembly.isAddrWithinMemoryImage(candidate):
+                            self.disassembly.addImportSlot(candidate, dll, api)
                     elif self.disassembly.isAddrWithinMemoryImage(candidate):
                         LOGGER.debug("successfully resolved: 0x%x", candidate)
                         self.disassembler.fc_manager.addCandidate(candidate, reference_source=self.current_calling_addr)

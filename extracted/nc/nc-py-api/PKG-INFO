@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: nc-py-api
-Version: 0.30.2
+Version: 0.30.3
 Summary: Nextcloud Python Framework
 Project-URL: Changelog, https://github.com/cloud-py-api/nc_py_api/blob/main/CHANGELOG.md
 Project-URL: Source, https://github.com/cloud-py-api/nc_py_api
@@ -32,7 +32,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: fastapi>=0.133
 Requires-Dist: filelock<4,>=3.20.3
-Requires-Dist: niquests<4,>=3
+Requires-Dist: niquests<4,>=3.4.2
 Requires-Dist: pydantic>=2.1.1
 Requires-Dist: python-dotenv>=1
 Requires-Dist: starlette>=1.0.1

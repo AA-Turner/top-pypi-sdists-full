@@ -34,6 +34,7 @@ from .literals import (
     ArtifactStatusType,
     AttachmentScopeType,
     AutoEvaluationStatusType,
+    AvailableFilterTypeType,
     BehaviorType,
     BehaviorTypeType,
     BooleanComparisonTypeType,
@@ -106,6 +107,13 @@ from .literals import (
     MediaStreamTypeType,
     MediaTypeType,
     MeetingFeatureStatusType,
+    MetricCreationMethodType,
+    MetricFilterBooleanConditionComparisonType,
+    MetricFilterNumberConditionComparisonType,
+    MetricFilterStringConditionComparisonType,
+    MetricStatusType,
+    MetricTypeType,
+    MetricUnitType,
     MonitorCapabilityType,
     MultiSelectQuestionRuleCategoryAutomationConditionType,
     NotificationPriorityType,
@@ -166,6 +174,7 @@ from .literals import (
     TimerEligibleParticipantRolesType,
     TrafficDistributionGroupStatusType,
     TrafficTypeType,
+    TrendIndicatorType,
     UnitType,
     UseCaseTypeType,
     ViewStatusType,
@@ -272,6 +281,7 @@ __all__ = (
     "AutoEvaluationConfigurationTypeDef",
     "AutoEvaluationDetailsTypeDef",
     "AutomaticFailConfigurationTypeDef",
+    "AvailableFilterTypeDef",
     "AvailableNumberSummaryTypeDef",
     "BatchAssociateAnalyticsDataSetRequestTypeDef",
     "BatchAssociateAnalyticsDataSetResponseTypeDef",
@@ -300,6 +310,8 @@ __all__ = (
     "BatchUpdateDataTableValueResponseTypeDef",
     "BatchUpdateDataTableValueSuccessResultTypeDef",
     "BooleanConditionTypeDef",
+    "CalculationComponentOutputTypeDef",
+    "CalculationComponentTypeDef",
     "CampaignTypeDef",
     "CaseSlaConfigurationOutputTypeDef",
     "CaseSlaConfigurationTypeDef",
@@ -397,6 +409,8 @@ __all__ = (
     "CreateInstanceResponseTypeDef",
     "CreateIntegrationAssociationRequestTypeDef",
     "CreateIntegrationAssociationResponseTypeDef",
+    "CreateMetricRequestTypeDef",
+    "CreateMetricResponseTypeDef",
     "CreateNotificationRequestTypeDef",
     "CreateNotificationResponseTypeDef",
     "CreateParticipantRequestTypeDef",
@@ -488,6 +502,7 @@ __all__ = (
     "DeleteHoursOfOperationRequestTypeDef",
     "DeleteInstanceRequestTypeDef",
     "DeleteIntegrationAssociationRequestTypeDef",
+    "DeleteMetricRequestTypeDef",
     "DeleteNotificationRequestTypeDef",
     "DeletePredefinedAttributeRequestTypeDef",
     "DeletePromptRequestTypeDef",
@@ -545,6 +560,8 @@ __all__ = (
     "DescribeInstanceResponseTypeDef",
     "DescribeInstanceStorageConfigRequestTypeDef",
     "DescribeInstanceStorageConfigResponseTypeDef",
+    "DescribeMetricRequestTypeDef",
+    "DescribeMetricResponseTypeDef",
     "DescribeNotificationRequestTypeDef",
     "DescribeNotificationResponseTypeDef",
     "DescribePhoneNumberRequestTypeDef",
@@ -934,6 +951,9 @@ __all__ = (
     "ListLexBotsRequestPaginateTypeDef",
     "ListLexBotsRequestTypeDef",
     "ListLexBotsResponseTypeDef",
+    "ListMetricsRequestPaginateTypeDef",
+    "ListMetricsRequestTypeDef",
+    "ListMetricsResponseTypeDef",
     "ListNotificationsRequestTypeDef",
     "ListNotificationsResponseTypeDef",
     "ListPhoneNumbersRequestPaginateTypeDef",
@@ -1043,12 +1063,27 @@ __all__ = (
     "MediaPlacementTypeDef",
     "MeetingFeaturesConfigurationTypeDef",
     "MeetingTypeDef",
+    "MetricCalculationOutputTypeDef",
+    "MetricCalculationTypeDef",
+    "MetricCalculationUnionTypeDef",
     "MetricDataV2TypeDef",
+    "MetricDefinitionTypeDef",
+    "MetricFilterBooleanConditionTypeDef",
+    "MetricFilterNumberConditionOutputTypeDef",
+    "MetricFilterNumberConditionTypeDef",
+    "MetricFilterOutputTypeDef",
+    "MetricFilterStringConditionOutputTypeDef",
+    "MetricFilterStringConditionTypeDef",
+    "MetricFilterTypeDef",
     "MetricFilterV2OutputTypeDef",
     "MetricFilterV2TypeDef",
     "MetricFilterV2UnionTypeDef",
     "MetricIntervalTypeDef",
     "MetricResultV2TypeDef",
+    "MetricSearchCriteriaPaginatorTypeDef",
+    "MetricSearchCriteriaTypeDef",
+    "MetricSearchFilterTypeDef",
+    "MetricSummaryTypeDef",
     "MetricV2OutputTypeDef",
     "MetricV2TypeDef",
     "MetricV2UnionTypeDef",
@@ -1256,6 +1291,9 @@ __all__ = (
     "SearchHoursOfOperationsRequestPaginateTypeDef",
     "SearchHoursOfOperationsRequestTypeDef",
     "SearchHoursOfOperationsResponseTypeDef",
+    "SearchMetricsRequestPaginateTypeDef",
+    "SearchMetricsRequestTypeDef",
+    "SearchMetricsResponseTypeDef",
     "SearchNotificationsRequestTypeDef",
     "SearchNotificationsResponseTypeDef",
     "SearchPredefinedAttributesRequestPaginateTypeDef",
@@ -1463,6 +1501,8 @@ __all__ = (
     "UpdateHoursOfOperationRequestTypeDef",
     "UpdateInstanceAttributeRequestTypeDef",
     "UpdateInstanceStorageConfigRequestTypeDef",
+    "UpdateMetricContentRequestTypeDef",
+    "UpdateMetricMetadataRequestTypeDef",
     "UpdateNotificationContentRequestTypeDef",
     "UpdateParticipantAuthenticationRequestTypeDef",
     "UpdateParticipantRoleConfigChannelInfoTypeDef",
@@ -1925,6 +1965,14 @@ class AutoEvaluationDetailsTypeDef(TypedDict):
 
 class AutomaticFailConfigurationTypeDef(TypedDict):
     TargetSection: NotRequired[str]
+
+AvailableFilterTypeDef = TypedDict(
+    "AvailableFilterTypeDef",
+    {
+        "Id": NotRequired[str],
+        "Type": NotRequired[AvailableFilterTypeType],
+    },
+)
 
 class AvailableNumberSummaryTypeDef(TypedDict):
     PhoneNumber: NotRequired[str]
@@ -2606,6 +2654,10 @@ class DeleteIntegrationAssociationRequestTypeDef(TypedDict):
     InstanceId: str
     IntegrationAssociationId: str
 
+class DeleteMetricRequestTypeDef(TypedDict):
+    InstanceId: str
+    MetricId: str
+
 class DeleteNotificationRequestTypeDef(TypedDict):
     InstanceId: str
     NotificationId: str
@@ -2769,6 +2821,10 @@ class DescribeInstanceStorageConfigRequestTypeDef(TypedDict):
     InstanceId: str
     AssociationId: str
     ResourceType: InstanceStorageResourceTypeType
+
+class DescribeMetricRequestTypeDef(TypedDict):
+    InstanceId: str
+    MetricId: str
 
 class DescribeNotificationRequestTypeDef(TypedDict):
     InstanceId: str
@@ -3543,6 +3599,28 @@ class ListLexBotsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+ListMetricsRequestTypeDef = TypedDict(
+    "ListMetricsRequestTypeDef",
+    {
+        "InstanceId": str,
+        "Type": NotRequired[MetricTypeType],
+        "MaxResults": NotRequired[int],
+        "NextToken": NotRequired[str],
+    },
+)
+MetricSummaryTypeDef = TypedDict(
+    "MetricSummaryTypeDef",
+    {
+        "Arn": str,
+        "Id": str,
+        "Name": str,
+        "Status": MetricStatusType,
+        "Type": MetricTypeType,
+        "LastModifiedRegion": NotRequired[str],
+        "LastModifiedTime": NotRequired[datetime],
+    },
+)
+
 class ListNotificationsRequestTypeDef(TypedDict):
     InstanceId: str
     NextToken: NotRequired[str]
@@ -3948,6 +4026,25 @@ class MediaPlacementTypeDef(TypedDict):
     SignalingUrl: NotRequired[str]
     TurnControlUrl: NotRequired[str]
     EventIngestionUrl: NotRequired[str]
+
+class MetricFilterBooleanConditionTypeDef(TypedDict):
+    Comparison: MetricFilterBooleanConditionComparisonType
+
+class MetricFilterNumberConditionOutputTypeDef(TypedDict):
+    Comparison: MetricFilterNumberConditionComparisonType
+    Values: list[float]
+
+class MetricFilterNumberConditionTypeDef(TypedDict):
+    Comparison: MetricFilterNumberConditionComparisonType
+    Values: Sequence[float]
+
+class MetricFilterStringConditionOutputTypeDef(TypedDict):
+    Comparison: MetricFilterStringConditionComparisonType
+    Values: list[str]
+
+class MetricFilterStringConditionTypeDef(TypedDict):
+    Comparison: MetricFilterStringConditionComparisonType
+    Values: Sequence[str]
 
 class MetricFilterV2OutputTypeDef(TypedDict):
     MetricFilterKey: NotRequired[str]
@@ -4482,6 +4579,12 @@ class UpdateInstanceAttributeRequestTypeDef(TypedDict):
     Value: str
     ClientToken: NotRequired[str]
 
+class UpdateMetricMetadataRequestTypeDef(TypedDict):
+    InstanceId: str
+    MetricId: str
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+
 class UpdateNotificationContentRequestTypeDef(TypedDict):
     InstanceId: str
     NotificationId: str
@@ -4737,6 +4840,11 @@ class CreateInstanceResponseTypeDef(TypedDict):
 class CreateIntegrationAssociationResponseTypeDef(TypedDict):
     IntegrationAssociationId: str
     IntegrationAssociationArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateMetricResponseTypeDef(TypedDict):
+    MetricArn: str
+    MetricId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateNotificationResponseTypeDef(TypedDict):
@@ -5654,6 +5762,18 @@ class BatchPutContactResponseTypeDef(TypedDict):
     FailedRequestList: list[FailedRequestTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class MetricSearchCriteriaPaginatorTypeDef(TypedDict):
+    OrConditions: NotRequired[Sequence[Mapping[str, Any]]]
+    AndConditions: NotRequired[Sequence[Mapping[str, Any]]]
+    StringCondition: NotRequired[StringConditionTypeDef]
+    BooleanCondition: NotRequired[BooleanConditionTypeDef]
+
+class MetricSearchCriteriaTypeDef(TypedDict):
+    OrConditions: NotRequired[Sequence[Mapping[str, Any]]]
+    AndConditions: NotRequired[Sequence[Mapping[str, Any]]]
+    StringCondition: NotRequired[StringConditionTypeDef]
+    BooleanCondition: NotRequired[BooleanConditionTypeDef]
+
 CaseSlaConfigurationOutputTypeDef = TypedDict(
     "CaseSlaConfigurationOutputTypeDef",
     {
@@ -6436,6 +6556,15 @@ class ListLexBotsRequestPaginateTypeDef(TypedDict):
     InstanceId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+ListMetricsRequestPaginateTypeDef = TypedDict(
+    "ListMetricsRequestPaginateTypeDef",
+    {
+        "InstanceId": str,
+        "Type": NotRequired[MetricTypeType],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+
 class ListPhoneNumbersRequestPaginateTypeDef(TypedDict):
     InstanceId: str
     PhoneNumberTypes: NotRequired[Sequence[PhoneNumberTypeType]]
@@ -6761,6 +6890,11 @@ class ListDataTableValuesRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class ListMetricsResponseTypeDef(TypedDict):
+    MetricSummaryList: list[MetricSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class ListPhoneNumbersResponseTypeDef(TypedDict):
     PhoneNumberSummaryList: list[PhoneNumberSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6892,6 +7026,20 @@ class ListWorkspacesResponseTypeDef(TypedDict):
     WorkspaceSummaryList: list[WorkspaceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class MetricFilterOutputTypeDef(TypedDict):
+    MetricFilterKey: str
+    Negate: NotRequired[bool]
+    NumberCondition: NotRequired[MetricFilterNumberConditionOutputTypeDef]
+    StringCondition: NotRequired[MetricFilterStringConditionOutputTypeDef]
+    BooleanCondition: NotRequired[MetricFilterBooleanConditionTypeDef]
+
+class MetricFilterTypeDef(TypedDict):
+    MetricFilterKey: str
+    Negate: NotRequired[bool]
+    NumberCondition: NotRequired[MetricFilterNumberConditionTypeDef]
+    StringCondition: NotRequired[MetricFilterStringConditionTypeDef]
+    BooleanCondition: NotRequired[MetricFilterBooleanConditionTypeDef]
 
 MetricFilterV2UnionTypeDef = Union[MetricFilterV2TypeDef, MetricFilterV2OutputTypeDef]
 
@@ -7356,6 +7504,9 @@ class EmailAddressSearchFilterTypeDef(TypedDict):
     TagFilter: NotRequired[ControlPlaneTagFilterTypeDef]
 
 class HoursOfOperationSearchFilterTypeDef(TypedDict):
+    TagFilter: NotRequired[ControlPlaneTagFilterTypeDef]
+
+class MetricSearchFilterTypeDef(TypedDict):
     TagFilter: NotRequired[ControlPlaneTagFilterTypeDef]
 
 class PromptSearchFilterTypeDef(TypedDict):
@@ -7830,6 +7981,18 @@ class TaskTemplateDefaultsTypeDef(TypedDict):
 
 TaskTemplateFieldUnionTypeDef = Union[TaskTemplateFieldTypeDef, TaskTemplateFieldOutputTypeDef]
 
+class CalculationComponentOutputTypeDef(TypedDict):
+    Alias: str
+    MetricName: NotRequired[str]
+    MetricId: NotRequired[str]
+    MetricFilters: NotRequired[list[MetricFilterOutputTypeDef]]
+
+class CalculationComponentTypeDef(TypedDict):
+    Alias: str
+    MetricName: NotRequired[str]
+    MetricId: NotRequired[str]
+    MetricFilters: NotRequired[Sequence[MetricFilterTypeDef]]
+
 class MetricV2TypeDef(TypedDict):
     Name: NotRequired[str]
     Threshold: NotRequired[Sequence[ThresholdV2TypeDef]]
@@ -8293,6 +8456,19 @@ class SearchHoursOfOperationsRequestTypeDef(TypedDict):
     SearchFilter: NotRequired[HoursOfOperationSearchFilterTypeDef]
     SearchCriteria: NotRequired[HoursOfOperationSearchCriteriaTypeDef]
 
+class SearchMetricsRequestPaginateTypeDef(TypedDict):
+    InstanceId: str
+    SearchFilter: NotRequired[MetricSearchFilterTypeDef]
+    SearchCriteria: NotRequired[MetricSearchCriteriaPaginatorTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class SearchMetricsRequestTypeDef(TypedDict):
+    InstanceId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    SearchFilter: NotRequired[MetricSearchFilterTypeDef]
+    SearchCriteria: NotRequired[MetricSearchCriteriaTypeDef]
+
 class SearchPromptsRequestPaginateTypeDef(TypedDict):
     InstanceId: str
     SearchFilter: NotRequired[PromptSearchFilterTypeDef]
@@ -8596,6 +8772,15 @@ class UpdateTaskTemplateResponseTypeDef(TypedDict):
 TaskTemplateDefaultsUnionTypeDef = Union[
     TaskTemplateDefaultsTypeDef, TaskTemplateDefaultsOutputTypeDef
 ]
+
+class MetricCalculationOutputTypeDef(TypedDict):
+    CalculationComponents: list[CalculationComponentOutputTypeDef]
+    Calculation: str
+
+class MetricCalculationTypeDef(TypedDict):
+    CalculationComponents: Sequence[CalculationComponentTypeDef]
+    Calculation: str
+
 MetricV2UnionTypeDef = Union[MetricV2TypeDef, MetricV2OutputTypeDef]
 
 class MetricResultV2TypeDef(TypedDict):
@@ -9009,6 +9194,40 @@ class UpdateTaskTemplateRequestTypeDef(TypedDict):
     Status: NotRequired[TaskTemplateStatusType]
     Fields: NotRequired[Sequence[TaskTemplateFieldUnionTypeDef]]
 
+MetricDefinitionTypeDef = TypedDict(
+    "MetricDefinitionTypeDef",
+    {
+        "Arn": str,
+        "Id": str,
+        "Name": str,
+        "Type": MetricTypeType,
+        "Unit": MetricUnitType,
+        "Groupings": list[str],
+        "Filters": list[AvailableFilterTypeDef],
+        "Category": str,
+        "SupportsPreaggregateCalculation": bool,
+        "SupportsCustomCalculation": bool,
+        "Description": NotRequired[str],
+        "MetricCalculation": NotRequired[MetricCalculationOutputTypeDef],
+        "CreationMethod": NotRequired[MetricCreationMethodType],
+        "Status": NotRequired[MetricStatusType],
+        "PositiveTrendIndicator": NotRequired[TrendIndicatorType],
+        "EffectiveTime": NotRequired[datetime],
+        "RefreshRate": NotRequired[int],
+        "SupportedStats": NotRequired[list[str]],
+        "DefaultStat": NotRequired[str],
+        "PrimaryEventSource": NotRequired[str],
+        "PrimaryEventSourceEffectiveTimestampType": NotRequired[str],
+        "CreatedTime": NotRequired[datetime],
+        "CreatedUser": NotRequired[CreatedByInfoTypeDef],
+        "LastModifiedRegion": NotRequired[str],
+        "LastModifiedTime": NotRequired[datetime],
+        "LastModifiedUser": NotRequired[CreatedByInfoTypeDef],
+        "Tags": NotRequired[dict[str, str]],
+    },
+)
+MetricCalculationUnionTypeDef = Union[MetricCalculationTypeDef, MetricCalculationOutputTypeDef]
+
 class GetMetricDataV2RequestTypeDef(TypedDict):
     ResourceArn: str
     StartTime: TimestampTypeDef
@@ -9165,6 +9384,35 @@ CreateCaseActionDefinitionUnionTypeDef = Union[
 UpdateCaseActionDefinitionUnionTypeDef = Union[
     UpdateCaseActionDefinitionTypeDef, UpdateCaseActionDefinitionOutputTypeDef
 ]
+
+class DescribeMetricResponseTypeDef(TypedDict):
+    Metric: MetricDefinitionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class SearchMetricsResponseTypeDef(TypedDict):
+    Metrics: list[MetricDefinitionTypeDef]
+    ApproximateTotalCount: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class CreateMetricRequestTypeDef(TypedDict):
+    InstanceId: str
+    Name: str
+    MetricCalculation: MetricCalculationUnionTypeDef
+    Unit: MetricUnitType
+    Status: NotRequired[MetricStatusType]
+    ClientToken: NotRequired[str]
+    Description: NotRequired[str]
+    PositiveTrendIndicator: NotRequired[TrendIndicatorType]
+    Tags: NotRequired[Mapping[str, str]]
+
+class UpdateMetricContentRequestTypeDef(TypedDict):
+    InstanceId: str
+    MetricId: str
+    MetricCalculation: NotRequired[MetricCalculationUnionTypeDef]
+    Unit: NotRequired[MetricUnitType]
+    PositiveTrendIndicator: NotRequired[TrendIndicatorType]
+
 EvaluationFormMultiSelectQuestionAutomationUnionTypeDef = Union[
     EvaluationFormMultiSelectQuestionAutomationTypeDef,
     EvaluationFormMultiSelectQuestionAutomationOutputTypeDef,

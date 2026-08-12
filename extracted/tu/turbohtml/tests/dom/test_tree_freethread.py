@@ -14,10 +14,14 @@ runs each test in one thread per core at once, multiplying the contention.
 from __future__ import annotations
 
 import threading
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import turbohtml
 from turbohtml.query import Query
+from turbohtml.transform import Transform
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _doc(divs: int) -> turbohtml.Document:
@@ -31,6 +35,36 @@ def _run(*targets: object) -> None:
         thread.start()
     for thread in threads:
         thread.join()
+
+
+def test_concurrent_transform_import_resolution_and_mutation_is_memory_safe(tmp_path: Path) -> None:
+    namespace = 'version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"'
+    for name in ("base", "other"):
+        (tmp_path / f"{name}.xsl").write_text(
+            f'<xsl:stylesheet {namespace}><xsl:output method="text"/>'
+            f'<xsl:template match="/">{name}</xsl:template></xsl:stylesheet>',
+            encoding="utf-8",
+        )
+    stylesheet = turbohtml.parse_xml(f'<xsl:stylesheet {namespace}><xsl:import href="base.xsl"/></xsl:stylesheet>')
+    imported = stylesheet.find("xsl:import")
+    assert imported is not None
+    start = threading.Barrier(2)
+
+    def reader() -> None:
+        start.wait()
+        for _ in range(200):
+            Transform(stylesheet, base_url=str(tmp_path / "main.xsl"), import_root=tmp_path)
+
+    def mutator() -> None:
+        start.wait()
+        for index in range(200):
+            imported.attrs["href"] = "base.xsl" if index % 2 == 0 else "other.xsl"
+
+    _run(reader, mutator)
+    result = Transform(stylesheet, base_url=str(tmp_path / "main.xsl"), import_root=tmp_path)(
+        turbohtml.parse_xml("<r/>")
+    )
+    assert result in {"base", "other"}
 
 
 def test_concurrent_find_all_and_extract_is_memory_safe() -> None:
@@ -457,6 +491,53 @@ def test_concurrent_structured_data_and_extract_is_memory_safe() -> None:
     _run(reader, extractor)
     # the tree is still walkable after the concurrent churn
     assert isinstance(doc.structured_data(), turbohtml.StructuredData)
+
+
+def test_concurrent_structured_data_reads_one_tree_snapshot() -> None:
+    def markup(version: str) -> str:
+        return (
+            f'<script type="application/ld+json">{{"version": "{version}"}}</script>'
+            f'<meta property="og:title" content="{version}"><meta name="dc.title" content="{version}">'
+            f'<div itemscope><meta itemprop="version" content="{version}"></div>'
+            f'<div typeof="Thing"><meta property="version" content="{version}"></div>'
+        )
+
+    doc = turbohtml.parse(f"<body>{markup('a')}</body>")
+    body = doc.find("body")
+    assert body is not None
+    start = threading.Barrier(2)
+    snapshots: list[frozenset[str]] = []
+
+    def reader() -> None:
+        start.wait()
+        for _ in range(200):
+            data = doc.structured_data()
+            json_value = data.json_ld[0]
+            assert isinstance(json_value, dict)
+            json_version = json_value["version"]
+            microdata_version = data.microdata[0].properties["version"][0]
+            rdfa_version = data.rdfa[0].properties["version"][0]
+            assert isinstance(json_version, str)
+            assert isinstance(microdata_version, str)
+            assert isinstance(rdfa_version, str)
+            snapshots.append(
+                frozenset({
+                    json_version,
+                    microdata_version,
+                    data.opengraph["og:title"],
+                    rdfa_version,
+                    data.dublin_core["dc.title"],
+                })
+            )
+
+    def mutator() -> None:
+        start.wait()
+        for index in range(200):
+            body.set_inner_html(markup("a" if index % 2 == 0 else "b"))
+
+    _run(reader, mutator)
+    assert len(snapshots) == 200
+    assert all(len(snapshot) == 1 for snapshot in snapshots)
 
 
 def test_concurrent_table_reads_and_mutation_are_memory_safe() -> None:

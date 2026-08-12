@@ -155,6 +155,7 @@ ChimeSDKVoiceServiceName = Literal["chime-sdk-voice"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

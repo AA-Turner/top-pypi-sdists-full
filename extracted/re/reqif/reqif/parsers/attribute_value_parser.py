@@ -115,12 +115,15 @@ class AttributeValueParser:
                     .text
                 )
                 attribute_xml_values = attribute_xml.find("VALUES")
-                assert attribute_xml_values is not None
-                xml_enum_value_refs = attribute_xml_values.getchildren()
                 enum_value_refs: List[str] = []
-                for xml_enum_value_ref in xml_enum_value_refs:
-                    attribute_value = xml_enum_value_ref.text
-                    enum_value_refs.append(attribute_value)
+                # Some ALM tools omit the <VALUES> element entirely to represent
+                # "no enum value selected" instead of emitting an empty <VALUES/>.
+                # Treat a missing <VALUES> as an empty value list.
+                if attribute_xml_values is not None:
+                    xml_enum_value_refs = attribute_xml_values.getchildren()
+                    for xml_enum_value_ref in xml_enum_value_refs:
+                        attribute_value = xml_enum_value_ref.text
+                        enum_value_refs.append(attribute_value)
                 attribute = SpecObjectAttribute(
                     xml_node=attribute_xml,
                     attribute_type=SpecObjectAttributeType.ENUMERATION,
@@ -196,7 +199,7 @@ class AttributeValueParser:
     @staticmethod
     def unparse_attribute_values(
         attribute_values: Optional[List[SpecObjectAttribute]],
-    ):
+    ) -> str:
         if attribute_values is None:
             return ""
         if len(attribute_values) == 0:

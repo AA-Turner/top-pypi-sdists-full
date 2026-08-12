@@ -13,6 +13,11 @@ class ConversationConfigOverrideConfig(UncheckedBaseModel):
     Whether to allow overriding the text_only field.
     """
 
+    max_duration_seconds: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether to allow overriding the max_duration_seconds field.
+    """
+
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
     else:

@@ -36,6 +36,7 @@ Route53RecoveryClusterServiceName = Literal["route53-recovery-cluster"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

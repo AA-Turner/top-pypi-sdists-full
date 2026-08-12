@@ -4,11 +4,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Show Node.js Download URL
-  debug:
+  ansible.builtin.debug:
     var: nodejs_download
 
 - name: Download Node.js
-  unarchive:
+  ansible.builtin.unarchive:
     src: '{{ nodejs_download }}'
     dest: '{{ remote_tmp_dir }}'
     remote_src: true

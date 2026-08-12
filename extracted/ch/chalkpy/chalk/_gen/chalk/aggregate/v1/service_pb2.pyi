@@ -5,6 +5,7 @@ from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import (
@@ -16,6 +17,16 @@ from typing import (
 )
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class AggregateBackfillMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    AGGREGATE_BACKFILL_MODE_UNSPECIFIED: _ClassVar[AggregateBackfillMode]
+    AGGREGATE_BACKFILL_MODE_PLAN: _ClassVar[AggregateBackfillMode]
+    AGGREGATE_BACKFILL_MODE_CREATE: _ClassVar[AggregateBackfillMode]
+
+AGGREGATE_BACKFILL_MODE_UNSPECIFIED: AggregateBackfillMode
+AGGREGATE_BACKFILL_MODE_PLAN: AggregateBackfillMode
+AGGREGATE_BACKFILL_MODE_CREATE: AggregateBackfillMode
 
 class PlanAggregateBackfillRequest(_message.Message):
     __slots__ = ("params",)
@@ -222,4 +233,87 @@ class CreateAggregateBackfillJobResponse(_message.Message):
         job_id: _Optional[str] = ...,
         features: _Optional[_Iterable[str]] = ...,
         errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...,
+    ) -> None: ...
+
+class CreateAggregateBackfillV2Request(_message.Message):
+    __slots__ = (
+        "features",
+        "resolver",
+        "input_sql",
+        "lower_bound",
+        "upper_bound",
+        "tags",
+        "exact",
+        "store_online",
+        "store_offline",
+        "allow_empty_tiles",
+        "enable_profiling",
+        "resource_group",
+        "planner_options",
+        "mode",
+    )
+    class PlannerOptionsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    FEATURES_FIELD_NUMBER: _ClassVar[int]
+    RESOLVER_FIELD_NUMBER: _ClassVar[int]
+    INPUT_SQL_FIELD_NUMBER: _ClassVar[int]
+    LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
+    UPPER_BOUND_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
+    EXACT_FIELD_NUMBER: _ClassVar[int]
+    STORE_ONLINE_FIELD_NUMBER: _ClassVar[int]
+    STORE_OFFLINE_FIELD_NUMBER: _ClassVar[int]
+    ALLOW_EMPTY_TILES_FIELD_NUMBER: _ClassVar[int]
+    ENABLE_PROFILING_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    PLANNER_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    MODE_FIELD_NUMBER: _ClassVar[int]
+    features: _containers.RepeatedScalarFieldContainer[str]
+    resolver: str
+    input_sql: str
+    lower_bound: _timestamp_pb2.Timestamp
+    upper_bound: _timestamp_pb2.Timestamp
+    tags: _containers.RepeatedScalarFieldContainer[str]
+    exact: bool
+    store_online: bool
+    store_offline: bool
+    allow_empty_tiles: bool
+    enable_profiling: bool
+    resource_group: str
+    planner_options: _containers.ScalarMap[str, str]
+    mode: AggregateBackfillMode
+    def __init__(
+        self,
+        features: _Optional[_Iterable[str]] = ...,
+        resolver: _Optional[str] = ...,
+        input_sql: _Optional[str] = ...,
+        lower_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        upper_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        tags: _Optional[_Iterable[str]] = ...,
+        exact: bool = ...,
+        store_online: bool = ...,
+        store_offline: bool = ...,
+        allow_empty_tiles: bool = ...,
+        enable_profiling: bool = ...,
+        resource_group: _Optional[str] = ...,
+        planner_options: _Optional[_Mapping[str, str]] = ...,
+        mode: _Optional[_Union[AggregateBackfillMode, str]] = ...,
+    ) -> None: ...
+
+class CreateAggregateBackfillV2Response(_message.Message):
+    __slots__ = ("job", "sub_backfills")
+    JOB_FIELD_NUMBER: _ClassVar[int]
+    SUB_BACKFILLS_FIELD_NUMBER: _ClassVar[int]
+    job: _backfill_pb2.AggregateBackfillJob
+    sub_backfills: _containers.RepeatedCompositeFieldContainer[_backfill_pb2.AggregateBackfillWithCostEstimate]
+    def __init__(
+        self,
+        job: _Optional[_Union[_backfill_pb2.AggregateBackfillJob, _Mapping]] = ...,
+        sub_backfills: _Optional[_Iterable[_Union[_backfill_pb2.AggregateBackfillWithCostEstimate, _Mapping]]] = ...,
     ) -> None: ...

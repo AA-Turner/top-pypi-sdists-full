@@ -1,1 +1,1 @@
-import("./assets/index-BgYNBSAi.js");
+import("./assets/index-CStR8326.js");

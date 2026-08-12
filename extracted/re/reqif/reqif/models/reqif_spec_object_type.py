@@ -23,9 +23,11 @@ class SpecAttributeDefinition:  # pylint: disable=too-many-instance-attributes
         default_value_definition_ref: Optional[str] = None,
         default_value: Union[None, DefaultValueEmptySelfClosedTag, str] = None,
         multi_valued: Optional[bool] = None,
+        alternative_id: Optional[str] = None,
     ):
         self.attribute_type: SpecObjectAttributeType = attribute_type
         self.identifier: str = identifier
+        self.alternative_id: Optional[str] = alternative_id
         self.datatype_definition: str = datatype_definition
 
         self.xml_node: Optional[Any] = xml_node
@@ -67,8 +69,10 @@ class ReqIFSpecObjectType:
         last_change: Optional[str] = None,
         long_name: Optional[str] = None,
         attribute_definitions: Optional[List[SpecAttributeDefinition]] = None,
+        alternative_id: Optional[str] = None,
     ):
         self.identifier: str = identifier
+        self.alternative_id: Optional[str] = alternative_id
 
         self.description: Optional[str] = description
         self.last_change: Optional[str] = last_change

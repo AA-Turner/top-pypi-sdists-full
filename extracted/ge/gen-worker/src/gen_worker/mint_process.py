@@ -70,7 +70,9 @@ from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
 
 import msgspec
 
-from .api.binding import ModelRef, wire_ref
+from . import cell_key, compile_posture
+from .api.binding import ModelRef, binding_wire_refs, wire_ref
+from .compile_posture import CompilePosture
 from .stall import SilenceWindow
 
 logger = logging.getLogger(__name__)
@@ -210,6 +212,30 @@ class MintSlot(msgspec.Struct, frozen=True, kw_only=True):
                 f"empty path for {wire_ref(self.ref)!r}")
 
 
+def slot_subjects(
+    slots: Mapping[str, MintSlot],
+    digests: Optional[Mapping[str, str]] = None,
+) -> Tuple[cell_key.SlotSubject, ...]:
+    """The resolved SUBJECT of one arm or one boot trace (pgw#1113).
+
+    THE single derivation, so the arm token, the local-store memo and the
+    boot-key memo cannot disagree about which checkpoint a pipeline is bound
+    to. ``path`` is deliberately excluded — where the bytes were materialized
+    is a location on this machine, never an identity — and so is
+    ``component_paths``, whose identity half is already in the ref's
+    ``component_overrides`` (``binding_wire_refs``).
+    """
+    have = dict(digests or {})
+    return tuple(
+        cell_key.SlotSubject(
+            slot=str(name),
+            refs=tuple(binding_wire_refs(slot.ref)),
+            snapshot_digest=str(have.get(str(name), "") or ""),
+        )
+        for name, slot in sorted(slots.items())
+    )
+
+
 class MintRequest(msgspec.Struct, frozen=True, kw_only=True):
     """Everything the child needs, and nothing live."""
 
@@ -272,6 +298,16 @@ class MintRequest(msgspec.Struct, frozen=True, kw_only=True):
     #: different config traces different graphs and the parent's proof misses.
     execution_lane: str = ""
     configs: Dict[str, Dict[str, Any]] = {}
+    #: §4.30 / pgw#1137: WHOSE MACHINE this mint runs on, declared by the
+    #: process entry that knows (``local_serve`` says user-machine; nothing
+    #: else says anything, so every fleet mint gets the ``FLEET`` default).
+    #:
+    #: It has to travel on the request for the same reason ``vram_cap_bytes``
+    #: does — the pool's width is computed INSIDE this child — and it travels
+    #: as a typed value rather than an env because §1.17 says an env may carry
+    #: a VALUE and may not carry a DECISION. Politeness is a decision: it
+    #: changes the nice level of every process in the mint tree and halves K.
+    posture: CompilePosture = compile_posture.FLEET
 
 
 class MintFrame(msgspec.Struct, frozen=True, kw_only=True):

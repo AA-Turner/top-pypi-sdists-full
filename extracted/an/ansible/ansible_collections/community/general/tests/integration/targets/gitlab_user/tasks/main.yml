@@ -9,12 +9,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Install required libs
-  pip:
+  ansible.builtin.pip:
     name: python-gitlab
     state: present
 
 - name: Clean up gitlab user
-  gitlab_user:
+  community.general.gitlab_user:
     api_url: "{{ gitlab_host }}"
     name: ansible_test_user
     username: ansible_test_user
@@ -26,7 +26,7 @@
 
 
 - name: Create gitlab user
-  gitlab_user:
+  community.general.gitlab_user:
     api_url: "{{ gitlab_host }}"
     email: "{{ gitlab_user_email }}"
     name: "{{ gitlab_user }}"
@@ -38,12 +38,12 @@
   register: gitlab_user_state
 
 - name: Check user has been created correctly
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_user_state is changed
 
 - name: Create gitlab user again
-  gitlab_user:
+  community.general.gitlab_user:
     api_url: "{{ gitlab_host }}"
     email: root@localhost
     name: ansible_test_user
@@ -55,14 +55,14 @@
   register: gitlab_user_state_again
 
 - name: Check state is not changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_user_state_again is not changed
       - gitlab_user_state_again.user.is_admin == False
 
 
 - name: Update User Test => Make User Admin
-  gitlab_user:
+  community.general.gitlab_user:
     api_url: "{{ gitlab_host }}"
     email: "{{ gitlab_user_email }}"
     name: "{{ gitlab_user }}"
@@ -74,13 +74,13 @@
   register: gitlab_user_state
 
 - name: Check if user is admin now
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_user_state is changed
       - gitlab_user_state.user.is_admin == True
 
 - name: Update User Test => Make User Admin (Again)
-  gitlab_user:
+  community.general.gitlab_user:
     api_url: "{{ gitlab_host }}"
     email: "{{ gitlab_user_email }}"
     name: "{{ gitlab_user }}"
@@ -92,13 +92,13 @@
   register: gitlab_user_state
 
 - name: Check state is not changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_user_state is not changed
       - gitlab_user_state.user.is_admin == True
 
 - name: Update User Test => Remove Admin Rights
-  gitlab_user:
+  community.general.gitlab_user:
     api_url: "{{ gitlab_host }}"
     email: "{{ gitlab_user_email }}"
     name: "{{ gitlab_user }}"
@@ -110,14 +110,14 @@
   register: gitlab_user_state
 
 - name: Check if user is not admin anymore
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_user_state is changed
       - gitlab_user_state.user.is_admin == False
 
 
 - name: Update User Test => Try Changing Mail without Confirmation Skipping
-  gitlab_user:
+  community.general.gitlab_user:
     api_url: "{{ gitlab_host }}"
     email: foo@bar.baz
     name: "{{ gitlab_user }}"
@@ -129,13 +129,13 @@
   register: gitlab_user_state
 
 - name: Check that eMail is unchanged (Only works with confirmation skipping)
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_user_state is changed
       - gitlab_user_state.user.email == gitlab_user_email
 
 - name: Update User Test => Change Mail with Confirmation Skip
-  gitlab_user:
+  community.general.gitlab_user:
     api_url: "{{ gitlab_host }}"
     email: foo@bar.baz
     name: "{{ gitlab_user }}"
@@ -147,13 +147,13 @@
   register: gitlab_user_state
 
 - name: Check that mail has changed now
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_user_state is changed
       - gitlab_user_state.user.email == 'foo@bar.baz'
 
 - name: Update User Test => Change Mail with Confirmation Skip (Again)
-  gitlab_user:
+  community.general.gitlab_user:
     api_url: "{{ gitlab_host }}"
     email: foo@bar.baz
     name: "{{ gitlab_user }}"
@@ -165,13 +165,13 @@
   register: gitlab_user_state
 
 - name: Check state is not changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_user_state is not changed
       - gitlab_user_state.user.email == 'foo@bar.baz'
 
 - name: Update User Test => Revert to original Mail Address
-  gitlab_user:
+  community.general.gitlab_user:
     api_url: "{{ gitlab_host }}"
     email: "{{ gitlab_user_email }}"
     name: "{{ gitlab_user }}"
@@ -183,14 +183,14 @@
   register: gitlab_user_state
 
 - name: Check that reverting mail back to original has worked
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_user_state is changed
       - gitlab_user_state.user.email == gitlab_user_email
 
 
 - name: Update User Test => Change User Password
-  gitlab_user:
+  community.general.gitlab_user:
     api_url: "{{ gitlab_host }}"
     validate_certs: false
 
@@ -208,7 +208,7 @@
   register: gitlab_user_state
 
 - name: Check PW setting return state
-  assert:
+  ansible.builtin.assert:
     that:
         # note: there is no way to determine if a password has changed or
         #   not, so it can only be always yellow or always green, we
@@ -216,7 +216,7 @@
       - gitlab_user_state is not changed
 
 - name: Update User Test => Reset User Password
-  gitlab_user:
+  community.general.gitlab_user:
     api_url: "{{ gitlab_host }}"
     validate_certs: false
 
@@ -231,12 +231,12 @@
   register: gitlab_user_state
 
 - name: Check PW setting return state (Again)
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_user_state is not changed
 
 - name: Update User Test => Check that password was reset
-  gitlab_user:
+  community.general.gitlab_user:
     api_url: "{{ gitlab_host }}"
     validate_certs: false
 
@@ -250,8 +250,8 @@
   register: gitlab_user_state
 
 - name: Check PW setting return state (Reset)
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_user_state is not changed
 
-- include_tasks: sshkey.yml
+- ansible.builtin.include_tasks: sshkey.yml

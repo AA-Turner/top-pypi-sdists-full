@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: update dummy alternative
-  alternatives:
+  community.general.alternatives:
     name: dummy
     path: '/usr/bin/dummy{{ item }}'
     link: /usr/bin/dummy
@@ -12,23 +12,23 @@
   register: alternative
 
 - name: execute dummy command
-  shell: dummy
+  ansible.builtin.command: dummy
   register: cmd
 
 - name: check if link group is in manual mode
-  shell: 'head -n1 {{ alternatives_dir }}/dummy | grep "^manual$"'
+  ansible.builtin.shell: 'head -n1 {{ alternatives_dir }}/dummy | grep "^manual$"'
 
 - name: check expected command was executed
-  assert:
+  ansible.builtin.assert:
     that:
       - 'alternative is changed'
       - 'cmd.stdout == "dummy" ~ item'
 
 - name: check that alternative has been updated
-  command: "grep -Pzq '/bin/dummy{{ item }}\\n{{ 60 + item|int }}' '{{ alternatives_dir }}/dummy'"
+  ansible.builtin.command: "grep -Pzq '/bin/dummy{{ item }}\\n{{ 60 + item|int }}' '{{ alternatives_dir }}/dummy'"
 
 - name: update dummy priority
-  alternatives:
+  community.general.alternatives:
     name: dummy
     path: '/usr/bin/dummy{{ item }}'
     link: /usr/bin/dummy
@@ -36,19 +36,19 @@
   register: alternative
 
 - name: check that alternative priority has been updated
-  command: "grep -Pzq '/bin/dummy{{ item }}\\n{{ 70 + item|int }}' '{{ alternatives_dir }}/dummy'"
+  ansible.builtin.command: "grep -Pzq '/bin/dummy{{ item }}\\n{{ 70 + item|int }}' '{{ alternatives_dir }}/dummy'"
 
 - name: no change without priority
-  alternatives:
+  community.general.alternatives:
     name: dummy
     path: '/usr/bin/dummy{{ item }}'
     link: /usr/bin/dummy
   register: alternative
 
 - name: check no change was triggered without priority
-  assert:
+  ansible.builtin.assert:
     that:
       - 'alternative is not changed'
 
 - name: check that alternative priority has not been changed
-  command: "grep -Pzq '/bin/dummy{{ item }}\\n{{ 70 + item|int }}' '{{ alternatives_dir }}/dummy'"
+  ansible.builtin.command: "grep -Pzq '/bin/dummy{{ item }}\\n{{ 70 + item|int }}' '{{ alternatives_dir }}/dummy'"

@@ -51,6 +51,7 @@ from metaflow.mflog import (
     tail_logs,
 )
 
+from .kube_utils import KubernetesException
 from .kubernetes_client import KubernetesClient
 
 # Redirect structured logs to $PWD/.logs/
@@ -63,10 +64,6 @@ STDERR_PATH = os.path.join(LOGS_DIR, STDERR_FILE)
 METAFLOW_PARALLEL_STEP_CLI_OPTIONS_TEMPLATE = (
     "{METAFLOW_PARALLEL_STEP_CLI_OPTIONS_TEMPLATE}"
 )
-
-
-class KubernetesException(MetaflowException):
-    headline = "Kubernetes error"
 
 
 class KubernetesKilledException(MetaflowException):
@@ -242,6 +239,7 @@ class Kubernetes(object):
             .environment_variable("METAFLOW_CODE_URL", code_package_url)
             .environment_variable("METAFLOW_CODE_DS", code_package_ds)
             .environment_variable("METAFLOW_USER", user)
+            .environment_variable("METAFLOW_RUN_ID", run_id)
             .environment_variable("METAFLOW_SERVICE_URL", SERVICE_INTERNAL_URL)
             .environment_variable(
                 "METAFLOW_SERVICE_HEADERS",
@@ -570,6 +568,7 @@ class Kubernetes(object):
             .environment_variable("METAFLOW_CODE_URL", code_package_url)
             .environment_variable("METAFLOW_CODE_DS", code_package_ds)
             .environment_variable("METAFLOW_USER", user)
+            .environment_variable("METAFLOW_RUN_ID", run_id)
             .environment_variable("METAFLOW_SERVICE_URL", SERVICE_INTERNAL_URL)
             .environment_variable(
                 "METAFLOW_SERVICE_HEADERS",

@@ -9,7 +9,7 @@
 
 - name: Install docker
   become: true
-  package:
+  ansible.builtin.package:
     name: "{{ item }}"
     state: present
   loop: "{{ docker_packages }}"
@@ -17,5 +17,5 @@
     - Remove Docker packages
 
 - name: Inform that docker is installed
-  set_fact:
+  ansible.builtin.set_fact:
     has_docker: true

@@ -7,13 +7,17 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 from smda.common.BinaryInfo import BinaryInfo
 from smda.common.SmdaFunction import SmdaFunction
 from smda.common.SmdaReport import SmdaReport
 from smda.dalvik.DalvikOpcodeDecoder import (
+    _OPCODE_DECODE,
     OPCODES,
+    _null_resolve,
     decode_instruction,
+    decode_instruction_shallow,
     parse_code_item_header,
     read_sleb128,
     read_uleb128,
@@ -1112,6 +1116,49 @@ class DalvikDisassemblerTestSuite(unittest.TestCase):
         found = disassembler._discoverOrphanCodeItems(bytes(raw), known_code_offsets=set())
         self.assertIn(orphan_header_off + 16, found)
 
+    def testSecondOrphanFoundAfterTheFirstClaimsItsRange(self):
+        """Accepting an orphan re-sorts the claimed intervals; the scan must keep finding later ones."""
+        from smda.dalvik.DalvikDisassembler import DalvikDisassembler
+
+        code_item = build_code_item(bytes.fromhex("0e00"))
+        header = bytearray(build_dex_header(version=b"039", file_size=0x300, data_off=0x100, data_size=0x200))
+        raw = bytearray(0x300)
+        raw[:0x70] = header[:0x70]
+        first_off, second_off = 0x100, 0x120
+        raw[first_off : first_off + len(code_item)] = code_item
+        raw[second_off : second_off + len(code_item)] = code_item
+        struct.pack_into("<I", raw, 0x20, len(raw))
+        struct.pack_into("<I", raw, 0x68, 0x200)
+        struct.pack_into("<I", raw, 0x6C, 0x100)
+
+        disassembler = DalvikDisassembler(config)
+        found = disassembler._discoverOrphanCodeItems(bytes(raw), known_code_offsets=set())
+
+        self.assertIn(first_off + 16, found)
+        self.assertIn(second_off + 16, found)
+
+    def test_orphan_scan_stops_at_the_decode_attempt_cap(self):
+        """The cap bounds work on adversarial data; it must actually cut the scan short."""
+        from smda.dalvik.DalvikDisassembler import DalvikDisassembler
+
+        code_item = build_code_item(bytes.fromhex("0e00"))
+        header = bytearray(build_dex_header(version=b"039", file_size=0x300, data_off=0x100, data_size=0x200))
+        raw = bytearray(0x300)
+        raw[:0x70] = header[:0x70]
+        for offset in (0x100, 0x120):
+            raw[offset : offset + len(code_item)] = code_item
+        struct.pack_into("<I", raw, 0x20, len(raw))
+        struct.pack_into("<I", raw, 0x68, 0x200)
+        struct.pack_into("<I", raw, 0x6C, 0x100)
+
+        disassembler = DalvikDisassembler(config)
+        uncapped = disassembler._discoverOrphanCodeItems(bytes(raw), known_code_offsets=set())
+        disassembler._MAX_ORPHAN_DECODE_ATTEMPTS = 1
+        capped = disassembler._discoverOrphanCodeItems(bytes(raw), known_code_offsets=set())
+
+        self.assertEqual(2, len(uncapped))
+        self.assertEqual(1, len(capped))
+
     def testOrphanWithSwitchPayloadAccepted(self):
         """An orphan body with packed-switch + payload must not be rejected."""
         from smda.dalvik.DalvikDisassembler import DalvikDisassembler
@@ -1231,6 +1278,120 @@ class DalvikDisassemblerTestSuite(unittest.TestCase):
         report = Disassembler(config, backend="dalvik").disassembleUnmappedBuffer(cdex)
         self.assertEqual(report.status, "error")
         self.assertIn("CDEX", report.message or "")
+
+
+class DalvikAuditRegressionTestSuite(unittest.TestCase):
+    def test_five_byte_sleb128_sign_extends(self):
+        from smda.dalvik.DalvikOpcodeDecoder import read_sleb128
+
+        self.assertEqual(read_sleb128(b"\xff\xff\xff\xff\x7f", 0), (-1, 5))
+        self.assertEqual(read_sleb128(b"\xff\xff\xff\xff\x07", 0), (0x7FFFFFFF, 5))
+        self.assertEqual(read_sleb128(b"\x7f", 0), (-1, 1))
+        self.assertEqual(read_sleb128(b"\x01", 0), (1, 1))
+
+    def test_a_brace_inside_a_string_constant_does_not_join_operands(self):
+        from smda.dalvik.DalvikInstructionEscaper import DalvikInstructionEscaper
+
+        class _Instruction:
+            def __init__(self, mnemonic, operands):
+                self.mnemonic = mnemonic
+                self.operands = operands
+
+        self.assertEqual(DalvikInstructionEscaper.escapeOperands(_Instruction("const-string", 'v0, "}"')), "REG, PTR")
+        self.assertEqual(
+            DalvikInstructionEscaper.escapeOperands(_Instruction("invoke-virtual", "{v0, v1}, Lfoo;->m()V")),
+            "{REG, REG}, PTR",
+        )
+
+    def test_an_array_type_descriptor_is_escaped(self):
+        from smda.dalvik.DalvikInstructionEscaper import DalvikInstructionEscaper
+
+        self.assertEqual(DalvikInstructionEscaper.escapeField("[B"), "PTR")
+        self.assertEqual(DalvikInstructionEscaper.escapeField("[[Ljava/lang/String;"), "PTR")
+
+    def test_an_unrenderable_type_yields_a_deterministic_marker(self):
+        from smda.dalvik.DalvikDisassembler import DexReferenceResolver
+
+        resolver = DexReferenceResolver.__new__(DexReferenceResolver)
+
+        class _Opaque:
+            name = None
+
+            def __str__(self):
+                return "<lief._lief.DEX.Type object at 0x10bb30cb0>"
+
+        rendered = resolver._formatTypeUncached(_Opaque())
+
+        self.assertEqual(rendered, "<_Opaque>")
+        self.assertNotIn("0x", rendered)
+
+    def test_a_call_site_that_cannot_be_decoded_degrades(self):
+        from smda.dalvik.DalvikDisassembler import DexReferenceResolver
+
+        disassembler = DexReferenceResolver.__new__(DexReferenceResolver)
+        disassembler.raw_data = b"\x00" * 0x20
+
+        def _explode(raw, offset):
+            raise RecursionError("maximum recursion depth exceeded")
+
+        disassembler._readEncodedArray = _explode
+
+        self.assertEqual(
+            disassembler._parseCallSiteItem(0x10),
+            {"offset": 0x10, "values": [], "display": "call_site@off=16"},
+        )
+        self.assertEqual(
+            disassembler._parseCallSiteItem(-1),
+            {"offset": -1, "values": [], "display": "call_site@off=-1"},
+        )
+
+
+class ShallowDecodeEquivalenceTestSuite(unittest.TestCase):
+    """The start sweep uses a shallow decode; it must accept and size exactly what the full
+    decode does, or recovered instruction starts move."""
+
+    @classmethod
+    def setUpClass(cls):
+        path = os.path.join(os.path.dirname(__file__), "blockblast_classes_xored")
+        with open(path, "rb") as f_binary:
+            raw = f_binary.read()
+        cls.dex = bytes(byte ^ (index % 256) for index, byte in enumerate(raw))
+
+    def test_shallow_matches_full_decode_at_every_offset(self):
+        null_resolve = lambda ref_kind, ref_index: ""  # noqa: E731
+        payload_sites = 0
+        for index in range(len(self.dex)):
+            try:
+                full = decode_instruction(self.dex, index, null_resolve)
+            except ValueError:
+                with self.assertRaises(ValueError, msg=f"offset {index}"):
+                    decode_instruction_shallow(self.dex, index)
+                continue
+            self.assertEqual(
+                (full.size_bytes, full.payload_idx),
+                decode_instruction_shallow(self.dex, index),
+                f"offset {index}",
+            )
+            if full.payload_idx is not None:
+                payload_sites += 1
+        # the payload branch is the one place the shallow path still runs a format decoder
+        self.assertGreater(payload_sites, 0)
+
+
+class ShallowDecodeContractTestSuite(unittest.TestCase):
+    def test_the_sweep_resolver_resolves_nothing(self):
+        self.assertEqual("", _null_resolve("type", 0))
+
+    def test_a_format_without_a_decoder_is_rejected_by_both_decoders(self):
+        opcode, _decoder = _OPCODE_DECODE[0x0E]
+        bytecode = b"\x0e\x00\x00\x00"
+        patched = dict(_OPCODE_DECODE)
+        patched[0x0E] = (opcode, None)
+        with mock.patch.dict(_OPCODE_DECODE, patched, clear=True):
+            with self.assertRaises(ValueError):
+                decode_instruction_shallow(bytecode, 0)
+            with self.assertRaises(ValueError):
+                decode_instruction(bytecode, 0, _null_resolve)
 
 
 if __name__ == "__main__":

@@ -263,6 +263,8 @@ class ElasticsearchCommonSearchBackendTests(BackendTests):
                 "modelsearchtest_searchtests_character",
                 "modelsearchtest_searchtests_advertwithcustomuuidprimarykey",
                 "modelsearchtest_searchtests_meeting",
+                "modelsearchtest_searchtests_mpanimal",
+                "modelsearchtest_searchtests_nsanimal",
             ],
         )
 

@@ -405,6 +405,157 @@ class ResolverRunResponse(BaseModel):
     """The current status of the resolver run."""
 
 
+class AggregateBackfillStatus(str, Enum):
+    """Status of an aggregate backfill."""
+
+    INITIALIZING = "initializing"
+    """The backfill's jobs are being created."""
+
+    INIT_FAILED = "init_failed"
+    """The backfill's jobs could not be created."""
+
+    SKIPPED = "skipped"
+    """The backfill had no work to do."""
+
+    QUEUED = "queued"
+    """The backfill's jobs have been created and are waiting to run."""
+
+    WORKING = "working"
+    """The backfill's jobs are running."""
+
+    COMPLETED = "completed"
+    """Every job in the backfill finished successfully."""
+
+    FAILED = "failed"
+    """At least one job in the backfill failed."""
+
+    CANCELED = "canceled"
+    """The backfill was canceled before finishing."""
+
+    UNKNOWN = "unknown"
+    """The server reported a status this version of `chalkpy` does not recognize."""
+
+
+class AggregateBackfillCostEstimate(BaseModel):
+    """The planner's cost estimate for a single sub-backfill."""
+
+    max_buckets: int
+    """The largest number of tile buckets the sub-backfill could write."""
+
+    expected_buckets: int
+    """The number of tile buckets the sub-backfill is expected to write."""
+
+    expected_bytes: int
+    """The number of bytes the sub-backfill is expected to write."""
+
+    expected_storage_cost: float
+    """The expected storage cost, in dollars, of the data the sub-backfill writes."""
+
+    expected_runtime: Optional[timedelta] = None
+    """How long the sub-backfill is expected to take, if the planner could estimate it."""
+
+
+class AggregateBackfillPlan(BaseModel):
+    """One sub-backfill that the planner split an aggregate backfill request into."""
+
+    features: List[str]
+    """The aggregate features this sub-backfill computes."""
+
+    estimate: AggregateBackfillCostEstimate
+    """The planner's cost estimate for this sub-backfill."""
+
+    resolver: Optional[str] = None
+    """The resolver this sub-backfill runs, if it resolves from a resolver."""
+
+    datetime_feature: Optional[str] = None
+    """The feature this sub-backfill buckets on."""
+
+    lower_bound: Optional[datetime] = None
+    """The start of the time range this sub-backfill covers, if bounded."""
+
+    upper_bound: Optional[datetime] = None
+    """The end of the time range this sub-backfill covers, if bounded."""
+
+    bucket_duration: Optional[timedelta] = None
+    """The width of each tile bucket this sub-backfill writes."""
+
+    max_retention: Optional[timedelta] = None
+    """The longest retention across the aggregations this sub-backfill serves."""
+
+    group_by: List[str] = []
+    """The features this sub-backfill groups by."""
+
+    filters_description: Optional[str] = None
+    """A human-readable description of the filters applied to the source data."""
+
+    input_sql: Optional[str] = None
+    """The SQL this sub-backfill runs to resolve event data, if it resolves from SQL."""
+
+
+class AggregateBackfillJob(BaseModel):
+    """The aggregate backfill row covering every job a single request launched."""
+
+    id: str
+    """The aggregate backfill id. Use this to poll the backfill's status."""
+
+    status: AggregateBackfillStatus
+    """The current status of the backfill."""
+
+    features: List[str] = []
+    """Every aggregate feature this backfill covers."""
+
+    resolvers: List[str] = []
+    """Every resolver this backfill runs."""
+
+    query_tags: List[str] = []
+    """The resolver tags the backfill's jobs run with."""
+
+    environment_id: Optional[str] = None
+    """The environment the backfill runs in."""
+
+    resolver: Optional[str] = None
+    """The resolver the request named, if it named one."""
+
+    agent_id: Optional[str] = None
+    """The id of the user or service token that triggered the backfill."""
+
+    deployment_id: Optional[str] = None
+    """The deployment the backfill's jobs run against."""
+
+    plan_hash: Optional[str] = None
+    """The hash of the plan the backfill was created from."""
+
+    cron_aggregate_backfill_id: Optional[str] = None
+    """The id of the cron aggregate backfill that created this backfill, if any."""
+
+    cron_aggregate_backfill_name: Optional[str] = None
+    """The name of the cron aggregate backfill that created this backfill, if any."""
+
+    created_at: Optional[datetime] = None
+    """When the backfill was created."""
+
+    updated_at: Optional[datetime] = None
+    """When the backfill was last updated."""
+
+
+class AggregateBackfillResponse(BaseModel):
+    """The result of triggering an aggregate backfill."""
+
+    job: Optional[AggregateBackfillJob] = None
+    """The backfill that was created, or `None` when the request was a `plan_only` dry run.
+
+    A dry run creates nothing, so there is no id to poll.
+    """
+
+    sub_backfills: List[AggregateBackfillPlan] = []
+    """The planner's split of the request, one entry per sub-backfill, each with its cost estimate."""
+
+    @property
+    def features(self) -> List[str]:
+        """Every aggregate feature covered by the request, across all sub-backfills."""
+        return list({f: None for sub_backfill in self.sub_backfills for f in sub_backfill.features})
+
+
 class WhoAmIResponse(BaseModel):
     """Response for checking the authenticated user."""
 

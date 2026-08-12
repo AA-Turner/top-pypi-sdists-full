@@ -11,8 +11,8 @@ from pytest import TempPathFactory
 
 import wheel
 from commands.util import run_command
-from wheel._commands.convert import convert_pkg_info, egg_filename_re
-from wheel.wheelfile import WheelFile
+from wheel._commands.convert import convert, convert_pkg_info, egg_filename_re
+from wheel.wheelfile import WheelError, WheelFile
 
 PKG_INFO = """\
 Metadata-Version: 2.1
@@ -42,7 +42,7 @@ six
 """
 
 EXPECTED_METADATA = """\
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: Sampledist
 Version: 1.0.0
 Author: Alex Grönholm
@@ -289,3 +289,38 @@ Description:    My cool package"""
     convert_pkg_info(pkginfo, message)
     assert message.get_all("Name") == ["Sampledist"]
     assert message.get_payload() == "My cool package\n\n\n"
+
+
+def test_convert_pkg_info_uses_lowest_compatible_metadata_version() -> None:
+    pkginfo = """\
+Metadata-Version: 1.1
+Name: Sampledist
+Version: 1.0.0
+Home-page: https://example.com
+"""
+    message = Message()
+    convert_pkg_info(pkginfo, message)
+    assert message["Metadata-Version"] == "1.2"
+
+
+def test_convert_rejects_egginfo_path_traversal(tmp_path: Path) -> None:
+    # A malicious installer whose egg-info name is an absolute path must not be
+    # written as a wheel outside the destination directory.
+    evil = tmp_path / "evil.exe"
+    outside = tmp_path / "outside"
+    entry = f"foo/{outside}/pwned-1.0.egg-info/PKG-INFO"
+    with zipfile.ZipFile(evil, "w") as zf:
+        zf.writestr(
+            entry,
+            b"Metadata-Version: 1.0\nName: pwned\nVersion: 1.0\nSummary: inert\n",
+        )
+        zf.writestr("pkg/__init__.py", b"")
+
+    dest_dir = tmp_path / "dest"
+    dest_dir.mkdir()
+
+    with pytest.raises(WheelError):
+        convert([str(evil)], str(dest_dir), verbose=False)
+
+    assert outside.exists() is False or not any(outside.iterdir())
+    assert dest_dir.is_dir() and not any(dest_dir.iterdir())

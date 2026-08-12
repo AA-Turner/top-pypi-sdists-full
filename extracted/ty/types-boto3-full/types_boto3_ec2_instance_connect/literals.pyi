@@ -27,6 +27,7 @@ EC2InstanceConnectServiceName = Literal["ec2-instance-connect"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

@@ -256,7 +256,10 @@ class MachoSynthesizer(BinarySynthesizer):
         different class are merged into one segment with unioned permissions."""
         segments: List[Dict[str, Any]] = []
         for section in sections:
-            perms = VM_PROT_READ | (VM_PROT_EXECUTE if section["segment"] == "__TEXT" else VM_PROT_WRITE)
+            # a section is executable because it holds recovered function bytes, not because
+            # of the segment name it was grouped under: code placed anywhere else would
+            # otherwise be mapped writable-but-not-executable
+            perms = VM_PROT_READ | (VM_PROT_EXECUTE if section["executable"] else VM_PROT_WRITE)
             if segments and (
                 segments[-1]["segment"] == section["segment"] or section["va_start"] < segments[-1]["page_end"]
             ):
@@ -309,7 +312,7 @@ class MachoSynthesizer(BinarySynthesizer):
                 target = {
                     "name": "__SMDA",
                     "segment": "__SMDA",
-                    "perms": VM_PROT_READ | VM_PROT_WRITE,
+                    "perms": VM_PROT_READ | (VM_PROT_EXECUTE if section["executable"] else VM_PROT_WRITE),
                     "va_start": section["va_start"],
                     "va_end": section["va_end"],
                     "page_end": align_up(section["va_end"], PAGE_SIZE),
@@ -332,8 +335,7 @@ class MachoSynthesizer(BinarySynthesizer):
         ]
         if uncovered:
             self._warn("%d functions are outside all known sections, adding synthetic __smda section", len(uncovered))
-            va_start = align_down(min(uncovered), PAGE_SIZE)
-            va_end = align_up(max(self._functionExtentEnd(self.report.xcfg[offset]) for offset in uncovered), 16)
+            va_start, va_end = self._syntheticSpan(uncovered, PAGE_SIZE)
             sections.append(
                 {
                     "name": "__smda",
@@ -535,14 +537,24 @@ class MachoSynthesizer(BinarySynthesizer):
         if entry_va is not None:
             sizeofcmds += 24
 
-        file_cursor = header_size + sizeofcmds
+        # __TEXT maps from file offset 0, so the mach header and load commands sit at the image
+        # base, ahead of its first section. Readers derive the base from min(vmaddr - fileoff),
+        # which lands a page low for every segment when __TEXT starts past the header instead.
+        prologue = header_size + sizeofcmds
+        first_content = min(
+            (section["va_start"] for section in segments[0]["sections"] if not section["zerofill"]),
+            default=segments[0]["va_end"],
+        )
+        file_cursor = 0 if first_content - segments[0]["va_start"] >= prologue else prologue
         for segment in segments:
-            file_cursor = align_up(file_cursor, PAGE_SIZE) + segment["va_start"] % PAGE_SIZE
-            segment["fileoff"] = file_cursor
+            file_off = align_down(file_cursor, PAGE_SIZE) + segment["va_start"] % PAGE_SIZE
+            if file_off < file_cursor:
+                file_off += PAGE_SIZE
+            segment["fileoff"] = file_off
             segment["filesize"] = segment["va_end"] - segment["va_start"]
             for section in segment["sections"]:
-                section["fileoff"] = file_cursor + (section["va_start"] - segment["va_start"])
-            file_cursor += segment["filesize"]
+                section["fileoff"] = file_off + (section["va_start"] - segment["va_start"])
+            file_cursor = file_off + segment["filesize"]
 
         symoff = stroff = indirectoff = 0
         if import_map:
@@ -676,8 +688,15 @@ class MachoSynthesizer(BinarySynthesizer):
                 if section["zerofill"]:
                     continue
                 start = section["va_start"] - segment["va_start"]
-                segment_raw[start : start + len(section["raw"])] = section["raw"]
-            output += segment_raw
+                # clamp to the segment's own filesize and use the same length on both sides:
+                # a section whose extent runs past it would otherwise grow segment_raw
+                # through the slice assignment and shift every following segment's fileoff
+                raw = section["raw"]
+                copy_length = min(len(raw), max(0, len(segment_raw) - start))
+                segment_raw[start : start + copy_length] = raw[:copy_length]
+            # the header and load commands already cover the front of a segment mapped from
+            # file offset 0; only the bytes past them are the segment's own
+            output += segment_raw[max(0, len(output) - segment["fileoff"]) :]
 
         if import_map:
             output += b"\x00" * (symoff - len(output))
@@ -714,7 +733,6 @@ class MachoSynthesizer(BinarySynthesizer):
         )
 
     def _synthesizeMinimal(self, offsets):
-        va_start = align_down(min(offsets), PAGE_SIZE)
-        va_end = align_up(max(self._functionExtentEnd(self.report.xcfg[offset]) for offset in offsets), 16)
+        va_start, va_end = self._syntheticSpan(offsets, PAGE_SIZE)
         section = {"name": "__text", "va_start": va_start, "va_end": va_end}
         return self._synthesizeFromSections([section], offsets, False, False)

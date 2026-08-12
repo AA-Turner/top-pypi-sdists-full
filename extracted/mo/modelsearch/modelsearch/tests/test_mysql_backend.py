@@ -24,6 +24,10 @@ from modelsearch.tests.test_backends import BackendTests
 class TestMySQLSearchBackend(BackendTests, TransactionTestCase):
     backend_path = "modelsearch.backends.database.mysql.mysql"
 
+    def clear_index_entries(self):
+        cursor = connection.cursor()
+        cursor.execute("TRUNCATE TABLE modelsearch_indexentry")
+
     # Overrides parent method, because there's a slight difference in what the MySQL backend supports/accepts as search queries.
     def test_not(self):
         all_other_titles = {

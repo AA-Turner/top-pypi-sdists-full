@@ -1,6 +1,7 @@
 import struct
 
 from smda.common.ExceptionHandling import reraise_non_operational_exception
+from smda.common.SmdaReport import MAX_ADDRESS_VALUE
 from smda.synthesis.BinarySynthesizer import BinarySynthesizer, align_down, align_up
 
 PT_LOAD = 1
@@ -61,6 +62,10 @@ WRITE_SECTION_NAMES = {
 NOBITS_SECTION_NAMES = {".bss", ".tbss", ".sbss"}
 
 PAGE_SIZE = 0x1000
+# how far above the image base the first segment may sit before we stop reserving the gap
+# for the header. A real header region is a few pages; a report claiming megabytes of empty
+# space below its first section would otherwise pad the file out by that much.
+MAX_BASE_PROLOGUE = 0x100000
 
 
 class ElfSynthesizer(BinarySynthesizer):
@@ -107,10 +112,20 @@ class ElfSynthesizer(BinarySynthesizer):
 
     def _collectSections(self):
         sections = []
+        # only named sections reach the section header table, and a serialized report carries
+        # no section names at all - without a fabricated name the file would describe its
+        # PT_LOADs with no sections, which re-loads with base 0
+        taken = {name for name, _, _ in self.report.code_sections or [] if name}
+        index = 0
         for name, start, end in sorted(self.report.code_sections or [], key=lambda entry: entry[1]):
             if not start or not end or end <= start:
                 continue
-            sections.append({"name": name or "", "va_start": start, "va_end": end})
+            if not name:
+                while f".smda{index}" in taken:
+                    index += 1
+                name = f".smda{index}"
+                taken.add(name)
+            sections.append({"name": name, "va_start": start, "va_end": end})
         return sections
 
     def _classifySection(self, section, function_offsets):
@@ -141,8 +156,7 @@ class ElfSynthesizer(BinarySynthesizer):
         ]
         if uncovered:
             self._warn("%d functions are outside all known sections, adding synthetic .smda section", len(uncovered))
-            va_start = align_down(min(uncovered), PAGE_SIZE)
-            va_end = align_up(max(self._functionExtentEnd(self.report.xcfg[offset]) for offset in uncovered), 16)
+            va_start, va_end = self._syntheticSpan(uncovered, PAGE_SIZE)
             sections.append(
                 {
                     "name": ".smda",
@@ -312,17 +326,38 @@ class ElfSynthesizer(BinarySynthesizer):
         phent_size = 56 if is_64 else 32
         shent_size = 64 if is_64 else 40
         phnum = len(segments) + (1 if dynamic_range else 0)
-        file_cursor = ehdr_size + phnum * phent_size
+        # readers derive the image base from min(sh_addr - sh_offset), so a segment must take
+        # the LOWEST page-congruent file offset that still clears what precedes it. Only the
+        # ELF header does: the program header table goes to the end of the file, where its
+        # size cannot push the first segment a page further down than its own VA allows.
+        file_cursor = ehdr_size
+        # ...and the base the readers should arrive at is the one the report recorded, which
+        # means reserving the gap between it and the first segment rather than anchoring on
+        # that segment's own page. The two agree only when the first content happens to start
+        # a whole number of pages above the base; where it does not - a Mach-O __TEXT at
+        # base + 0x12b0 - anchoring on its page reports a base one page high. Reserving here
+        # puts the header at the base exactly as __TEXT does for the Mach-O path.
+        base_addr = self.report.base_addr or 0
+        if segments and not base_addr % PAGE_SIZE:
+            prologue = segments[0]["va_start"] - base_addr
+            if ehdr_size <= prologue <= MAX_BASE_PROLOGUE:
+                file_cursor = prologue
 
         for segment in segments:
-            file_cursor = align_up(file_cursor, PAGE_SIZE) + segment["va_start"] % PAGE_SIZE
-            segment["file_off"] = file_cursor
+            file_off = align_down(file_cursor, PAGE_SIZE) + segment["va_start"] % PAGE_SIZE
+            if file_off < file_cursor:
+                file_off += PAGE_SIZE
+            segment["file_off"] = file_off
             segment["raw"] = bytearray(segment["va_end"] - segment["va_start"])
             for section in segment["sections"]:
                 start = section["va_start"] - segment["va_start"]
                 segment["raw"][start : start + len(section["raw"])] = section["raw"]
-                section["file_off"] = file_cursor + start
-            file_cursor += len(segment["raw"])
+                section["file_off"] = file_off + start
+            file_cursor = file_off + len(segment["raw"])
+
+        file_cursor = align_up(file_cursor, 8)
+        phoff = file_cursor
+        file_cursor += phnum * phent_size
 
         shstrtab = bytearray(b"\x00")
         shstr_offsets = {}
@@ -356,6 +391,8 @@ class ElfSynthesizer(BinarySynthesizer):
             )
         else:
             entry = min((s["va_start"] for s in sections if s["executable"]), default=0)
+        if not 0 <= entry < MAX_ADDRESS_VALUE:
+            raise ValueError(f"synthesized entry point 0x{entry:x} does not fit a 64-bit address space")
         if is_64:
             struct.pack_into(
                 "<HHIQQQIHHHHHH",
@@ -365,7 +402,7 @@ class ElfSynthesizer(BinarySynthesizer):
                 machine,
                 1,
                 entry,
-                ehdr_size,
+                phoff,
                 shoff,
                 0,
                 ehdr_size,
@@ -384,7 +421,7 @@ class ElfSynthesizer(BinarySynthesizer):
                 machine,
                 1,
                 entry & 0xFFFFFFFF,
-                ehdr_size,
+                phoff,
                 shoff,
                 0,
                 ehdr_size,
@@ -395,7 +432,7 @@ class ElfSynthesizer(BinarySynthesizer):
                 len(named_sections) + 1,
             )
 
-        output = bytearray(ehdr)
+        program_headers = bytearray()
         for segment in segments:
             flags = segment["flags"]
             filesz = len(segment["raw"])
@@ -424,12 +461,12 @@ class ElfSynthesizer(BinarySynthesizer):
                     flags,
                     PAGE_SIZE,
                 )
-            output += phdr
+            program_headers += phdr
         if dynamic_range:
             dynamic_va, dynamic_size = dynamic_range
             dynamic_section = next(s for s in sections if s["name"] == ".dynamic")
             if is_64:
-                output += struct.pack(
+                program_headers += struct.pack(
                     "<IIQQQQQQ",
                     PT_DYNAMIC,
                     6,
@@ -441,7 +478,7 @@ class ElfSynthesizer(BinarySynthesizer):
                     8,
                 )
             else:
-                output += struct.pack(
+                program_headers += struct.pack(
                     "<IIIIIIII",
                     PT_DYNAMIC,
                     dynamic_section["file_off"],
@@ -453,9 +490,12 @@ class ElfSynthesizer(BinarySynthesizer):
                     4,
                 )
 
+        output = bytearray(ehdr)
         for segment in segments:
             output += b"\x00" * (segment["file_off"] - len(output))
             output += segment["raw"]
+        output += b"\x00" * (phoff - len(output))
+        output += program_headers
         output += b"\x00" * (shstrtab_off - len(output))
         output += shstrtab
         output += b"\x00" * (shoff - len(output))
@@ -522,8 +562,7 @@ class ElfSynthesizer(BinarySynthesizer):
 
     def _synthesizeMinimal(self, offsets):
         bitness = self._getBitness()
-        va_start = align_down(min(offsets), PAGE_SIZE)
-        va_end = align_up(max(self._functionExtentEnd(self.report.xcfg[offset]) for offset in offsets), 16)
+        va_start, va_end = self._syntheticSpan(offsets, PAGE_SIZE)
         section = {
             "name": ".text",
             "va_start": va_start,

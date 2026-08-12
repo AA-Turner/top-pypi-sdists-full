@@ -1857,12 +1857,12 @@ class DatetimeBasedCursor(BaseModel):
     )
     is_data_feed: Optional[bool] = Field(
         None,
-        description="A data feed API is an API that does not allow filtering and paginates the content from the most recent to the least recent. Given this, the CDK needs to know when to stop paginating and this field will generate a stop condition for pagination.",
+        description="A data feed API is an API that does not allow filtering and paginates the content from the most recent to the least recent. Given this, the CDK needs to know when to stop paginating and this field will generate a stop condition for pagination. The last page fetched still holds records that fall outside the cursor window, and those are filtered out as well, so Client-side Incremental Filtering does not need to be enabled alongside this field. Records are kept when their cursor value is within the window that starts at the previous sync's cursor value (or the start date) and ends at the end date, defaulting to the current time, so records dated in the future are filtered out too.",
         title="Data Feed API",
     )
     is_client_side_incremental: Optional[bool] = Field(
         None,
-        description="Set to True if the target API endpoint does not take cursor values to filter records and returns all records anyway. This will cause the connector to filter out records locally, and only emit new records from the last sync, hence incremental. This means that all records would be read from the API, but only new records will be emitted to the destination.",
+        description="Set to True if the target API endpoint does not take cursor values to filter records and returns all records anyway. This will cause the connector to filter out records locally, keeping only the ones whose cursor value falls within the window that starts at the previous sync's cursor value (or the start date) and ends at the end date, defaulting to the current time. This means that all records would be read from the API, but only the records within that window will be emitted to the destination. This is not needed when Data Feed API is enabled, as a data feed already filters on the same window.",
         title="Client-side Incremental Filtering",
     )
     is_compare_strictly: Optional[bool] = Field(
@@ -3182,12 +3182,14 @@ class SimpleRetriever(BaseModel):
             SubstreamPartitionRouter,
             ListPartitionRouter,
             GroupingPartitionRouter,
+            UnionPartitionRouter,
             CustomPartitionRouter,
             List[
                 Union[
                     SubstreamPartitionRouter,
                     ListPartitionRouter,
                     GroupingPartitionRouter,
+                    UnionPartitionRouter,
                     CustomPartitionRouter,
                 ]
             ],
@@ -3261,12 +3263,14 @@ class AsyncRetriever(BaseModel):
             ListPartitionRouter,
             SubstreamPartitionRouter,
             GroupingPartitionRouter,
+            UnionPartitionRouter,
             CustomPartitionRouter,
             List[
                 Union[
                     ListPartitionRouter,
                     SubstreamPartitionRouter,
                     GroupingPartitionRouter,
+                    UnionPartitionRouter,
                     CustomPartitionRouter,
                 ]
             ],
@@ -3349,7 +3353,10 @@ class GroupingPartitionRouter(BaseModel):
         title="Group Size",
     )
     underlying_partition_router: Union[
-        ListPartitionRouter, SubstreamPartitionRouter, CustomPartitionRouter
+        ListPartitionRouter,
+        SubstreamPartitionRouter,
+        "UnionPartitionRouter",
+        CustomPartitionRouter,
     ] = Field(
         ...,
         description="The partition router whose output will be grouped. This can be any valid partition router component.",
@@ -3359,6 +3366,29 @@ class GroupingPartitionRouter(BaseModel):
         True,
         description="If true, ensures that partitions are unique within each group by removing duplicates based on the partition key.",
         title="Deduplicate Partitions",
+    )
+    parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
+
+
+class UnionPartitionRouter(BaseModel):
+    type: Literal["UnionPartitionRouter"]
+    partition_field: str = Field(
+        ...,
+        description="The single partition key that all child partition routers' slices are normalized to. Each child router must emit this key in its partitions. Interpolation is evaluated once when the connector is built, using the connector config and $parameters.",
+        examples=["repository", "{{ config['partition_field'] }}"],
+        title="Partition Field",
+    )
+    partition_routers: List[
+        Union[
+            ListPartitionRouter,
+            SubstreamPartitionRouter,
+            UnionPartitionRouter,
+            CustomPartitionRouter,
+        ]
+    ] = Field(
+        ...,
+        description="The child partition routers whose partitions are unioned. Request options are not supported on child partition routers; partition values should be consumed via interpolation (e.g. `stream_partition`).",
+        title="Partition Routers",
     )
     parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
@@ -3412,3 +3442,5 @@ ParentStreamConfig.update_forward_refs()
 PropertiesFromEndpoint.update_forward_refs()
 SimpleRetriever.update_forward_refs()
 AsyncRetriever.update_forward_refs()
+GroupingPartitionRouter.update_forward_refs()
+UnionPartitionRouter.update_forward_refs()

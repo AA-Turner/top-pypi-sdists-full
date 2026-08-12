@@ -9,7 +9,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Include OS-specific variables
-  include_vars: '{{ lookup("first_found", search) }}'
+  ansible.builtin.include_vars: '{{ lookup("first_found", search) }}'
   vars:
     search:
       files:
@@ -23,33 +23,33 @@
 
 - name: Install OpenSSL
   become: true
-  package:
+  ansible.builtin.package:
     name: '{{ openssl_package_name }}'
   when: not ansible_facts.os_family == 'Darwin'
 
 - name: Install cryptography
   become: true
-  package:
+  ansible.builtin.package:
     name: '{{ cryptography_package_name_python3 }}'
   when: not cryptography_from_pip
 
 - name: Install cryptography (pip)
   become: true
-  pip:
+  ansible.builtin.pip:
     name: cryptography>=3.3
     extra_args: "-c {{ remote_constraints }}"
   when: cryptography_from_pip
 
 - name: Install pyOpenSSL
   become: true
-  package:
+  ansible.builtin.package:
     name: '{{ pyopenssl_package_name_python3 }}'
   when: pyopenssl_package_name_python3 is defined
 
 - name: register openssl version
-  shell: "openssl version | cut -d' ' -f2"
+  ansible.builtin.shell: "openssl version | cut -d' ' -f2"
   register: openssl_version
 
 - name: register cryptography version
-  command: "{{ ansible_facts.python.executable }} -c 'import cryptography; print(cryptography.__version__)'"
+  ansible.builtin.command: "{{ ansible_facts.python.executable }} -c 'import cryptography; print(cryptography.__version__)'"
   register: cryptography_version

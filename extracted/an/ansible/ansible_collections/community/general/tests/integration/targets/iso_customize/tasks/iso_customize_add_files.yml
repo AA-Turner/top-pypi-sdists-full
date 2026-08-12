@@ -12,23 +12,24 @@
         dest_file: "preseed/ubuntu.seed"
 
 
-- include_tasks: iso_mount.yml
+- ansible.builtin.include_tasks: iso_mount.yml
   vars:
     iso_name: "{{ dest_iso_name }}"
 
-- debug: var=mount_root_dir
+- ansible.builtin.debug:
+    var: mount_root_dir
 
 - name: Check the file /preseed/ubuntu.seed is added
-  stat:
+  ansible.builtin.stat:
     path: "{{ mount_root_dir }}/preseed/ubuntu.seed"
   register: check_file
 
-- assert:
+- ansible.builtin.assert:
     that:
       - check_file.stat.exists == True
 
 - name: Umount ISO
-  mount:
+  ansible.posix.mount:
     path: "{{ mount_root_dir }}"
     fstab: "{{ test_dir }}/temp.fstab"
     state: unmounted

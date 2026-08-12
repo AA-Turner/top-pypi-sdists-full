@@ -14,6 +14,7 @@ module: mysql_binlog_info
 short_description: Gather MySQL or MariaDB binary log information
 
 description:
+  - "Important: MariaDB support will be dropped in collection version 6.0.0. Use the M(ansible.mariadb.mariadb_binlog_info) instead."
   - Gather binary log information from MySQL or MariaDB servers.
   - Returns the current binary log status, available binary log files, aggregate log totals,
     and selected binary-log-related settings.
@@ -327,7 +328,7 @@ def main():
                 "Exception message: %s" % (config_file, to_native(e))
         )
 
-    server_implementation = get_server_implementation(cursor)
+    server_implementation = get_server_implementation(module, cursor)
     server_version = get_server_version(cursor)
 
     mysql = MySQL_Binlog_Info(module, cursor, server_implementation, server_version)

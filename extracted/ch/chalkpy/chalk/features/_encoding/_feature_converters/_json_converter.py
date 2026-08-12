@@ -22,10 +22,6 @@ from ._base import (
 
 # pyright: reportPrivateUsage=false, reportIncompatibleMethodOverride=false, reportReturnType=false, reportUnnecessaryCast=false, reportUnnecessaryComparison=false
 
-try:
-    import polars as pl
-except ImportError:
-    pl = None
 
 def _to_json_str(value: Any) -> str:
     """Coerce a rich value to a JSON string.
@@ -61,7 +57,7 @@ class JsonFeatureConverter(
     _primitive_type_value: ClassVar[Type[str]] = str
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pyarrow_json_type()
     _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(extension=_JSON_EXTENSION_PB)
-    _polars_dtype_value: ClassVar[Any] = pl.Utf8() if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None
 
     _coerce_fn = staticmethod(_to_json_str)
     _arrow_coerce_fn = staticmethod(_to_json_str)

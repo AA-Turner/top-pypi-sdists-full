@@ -178,6 +178,11 @@ class CheckAction(Action):
     table_ref: str | None = None
     check_ref: str | None = None
     check_id: int | None = None
+    # System checks are created by the server when a table is configured. They can
+    # only be modified, never created or destroyed, so they take a different apply
+    # path. check_id cannot stand in for this flag: it is None at plan time for a
+    # table that is configured during the same apply.
+    is_system_check: bool = False
 
     def __str__(self) -> str:
         return f"{self.verb} {self.check_ref or self.check_id} on {self.table_ref}"
@@ -189,7 +194,6 @@ class CheckAction(Action):
             from .shacl_file import ShaclFileDriver
 
             driver = ShaclFileDriver(validate_shacl=False)
-            is_system_check = self.check_id is not None
 
             def _repr(check: Check | None) -> str:
                 return indent(
@@ -197,7 +201,7 @@ class CheckAction(Action):
                         self.table_ref,
                         self.check_ref,
                         check,
-                        system_check=is_system_check,
+                        system_check=self.is_system_check,
                     ),
                     prefix="    ",
                 )

@@ -4,9 +4,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: "Install {{ ansible_facts.os_family }} Libraries"
-  package:
+  ansible.builtin.package:
     name: "{{ packages[ansible_facts.os_family] }}"
 
 - name: "Install pyodbc"
-  pip:
+  ansible.builtin.pip:
     name: pyodbc

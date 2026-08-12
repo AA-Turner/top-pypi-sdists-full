@@ -123,6 +123,33 @@ class ParsingActivator:
         logger.debug(f"OnlyFans signed {target_path} time={t}")
 
     @staticmethod
+    async def proton(site, logger, **kwargs):
+        # Proton's /api/users/available now requires an anon session: POST
+        # /api/auth/v4/sessions returns UID + AccessToken which must be sent
+        # as x-pm-uid and Authorization: Bearer on the availability call.
+        headers = {
+            k: v for k, v in site.headers.items()
+            if k.lower() not in ("authorization", "x-pm-uid")
+        }
+        async with ClientSession(trust_env=True) as session:
+            async with session.post(
+                site.activation["url"],
+                headers=headers,
+                json={},
+                timeout=kwargs.get("timeout"),
+            ) as response:
+                payload = await response.json(content_type=None)
+        uid, token = payload.get("UID"), payload.get("AccessToken")
+        if uid and token:
+            site.headers["x-pm-uid"] = uid
+            site.headers["Authorization"] = f"Bearer {token}"
+            logger.debug("Proton activation: got session UID + token")
+        else:
+            logger.warning(
+                f"Proton activation failed: no UID/token in {str(payload)[:120]!r}"
+            )
+
+    @staticmethod
     async def weibo(site, logger, **kwargs):
         # Weibo gates its ajax profile API behind an anonymous "Sina Visitor
         # System" cookie. genvisitor2 mints a fresh visitor SUB/SUBP pair and
@@ -160,7 +187,7 @@ def import_aiohttp_cookies(cookiestxt_filename):
 
     cookies_list = []
     for domain in cookies_obj._cookies.values():  # type: ignore[attr-defined]
-        for key, cookie in list(domain.values())[0].items():
+        for key, cookie in next(iter(domain.values())).items():
             c: Morsel = Morsel()
             c.set(key, cookie.value, cookie.value)
             c["domain"] = cookie.domain

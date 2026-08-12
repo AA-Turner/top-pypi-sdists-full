@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.36                                                                                #
-# Generated on 2026-08-05T18:17:36.324419                                                            #
+# MF version: 2.19.37                                                                                #
+# Generated on 2026-08-11T17:17:32.757755                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ if typing.TYPE_CHECKING:
 
 from ...metaflow_current import current as current
 from ...exception import MetaflowException as MetaflowException
+from .kube_utils import KubernetesException as KubernetesException
 from .kubernetes_client import KubernetesClient as KubernetesClient
 
 ARGO_EVENTS_EVENT: None
@@ -96,9 +97,6 @@ STDOUT_PATH: str
 STDERR_PATH: str
 
 METAFLOW_PARALLEL_STEP_CLI_OPTIONS_TEMPLATE: str
-
-class KubernetesException(metaflow.exception.MetaflowException, metaclass=type):
-    ...
 
 class KubernetesKilledException(metaflow.exception.MetaflowException, metaclass=type):
     ...

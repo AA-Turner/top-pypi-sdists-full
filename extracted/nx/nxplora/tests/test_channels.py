@@ -401,15 +401,70 @@ class NewConnectorTests(unittest.TestCase):
         self.assertIsInstance(x, nx_channels._NexploraOAuthBridgedChannel)
         self.assertIsNone(x.redirect_uri)
 
-    def test_x_publish_fails_closed_without_a_server_execution_route(self):
+    def _x_connected(self):
+        return mock.patch.object(
+            nx_channels,
+            "_oauth_vault_connection",
+            return_value={"providerSlug": "x", "status": "connected"})
+
+    def test_x_publish_goes_through_the_server_and_returns_the_post_id(self):
+        # This used to assert the OPPOSITE — that publishing refused with
+        # server_execution_not_available. That refusal was honest while the grant
+        # carried read scopes only and nothing server-side mapped a name onto the
+        # tweet_create tool. Both are fixed, so refusing is now the wrong answer.
         x = nx_channels.get_channel("x")
-        with mock.patch.object(
-                nx_channels,
-                "_oauth_vault_connection",
-                return_value={"providerSlug": "x", "status": "connected"}):
-            out = x.publish_text("hello world")
+        with self._x_connected():
+            with mock.patch.object(
+                    nx_channels, "_social_dispatch",
+                    return_value={"ok": True, "result": {"tweet": {"id": "1799"}}}) as disp:
+                out = x.publish_text("hello world")
+        self.assertTrue(out["ok"])
+        self.assertEqual(out["id"], "1799")
+        self.assertIn("1799", out["url"])
+        # The token must never come near this machine: the CLI holds no X token by
+        # design, so the send has to go through the server with the operator's grant.
+        disp.assert_called_once_with("x_post", {"text": "hello world"})
+
+    def test_x_publish_reports_a_server_failure_rather_than_claiming_success(self):
+        x = nx_channels.get_channel("x")
+        with self._x_connected():
+            with mock.patch.object(
+                    nx_channels, "_social_dispatch",
+                    return_value={"ok": False, "error": "byok_required_but_missing"}):
+                out = x.publish_text("hello world")
         self.assertFalse(out["ok"])
-        self.assertEqual(out["detail"], "server_execution_not_available")
+
+    def test_x_publish_refuses_to_claim_success_without_a_post_id(self):
+        # A 200 with no id is not a send we can vouch for. Reporting ok here would
+        # be this CLI's version of the false green just removed from the web.
+        x = nx_channels.get_channel("x")
+        with self._x_connected():
+            with mock.patch.object(
+                    nx_channels, "_social_dispatch",
+                    return_value={"ok": True, "result": {}}):
+                out = x.publish_text("hello world")
+        self.assertFalse(out["ok"])
+        self.assertEqual(out["detail"], "unconfirmed")
+
+    def test_x_publish_still_fails_closed_when_not_connected(self):
+        x = nx_channels.get_channel("x")
+        with mock.patch.object(nx_channels, "_oauth_vault_connection", return_value=None):
+            with mock.patch.object(nx_channels, "_social_dispatch") as disp:
+                out = x.publish_text("hello world")
+        self.assertFalse(out["ok"])
+        self.assertEqual(out["detail"], "not_connected")
+        # Preflight must run BEFORE the network call, or an unconnected operator
+        # gets a server round-trip and a worse error than the one we already had.
+        disp.assert_not_called()
+
+    def test_x_publish_refuses_empty_text_without_calling_the_server(self):
+        x = nx_channels.get_channel("x")
+        with self._x_connected():
+            with mock.patch.object(nx_channels, "_social_dispatch") as disp:
+                out = x.publish_text("   ")
+        self.assertFalse(out["ok"])
+        self.assertEqual(out["detail"], "empty_message")
+        disp.assert_not_called()
 
     def test_linkedin_publish_fails_closed_without_provider_approval_and_proxy(self):
         li = nx_channels.get_channel("linkedin")
@@ -423,13 +478,24 @@ class NewConnectorTests(unittest.TestCase):
         self.assertEqual(out["detail"], "server_execution_not_available")
 
     def test_publish_capable_channels_flagged_honestly(self):
-        # The 3 that truly post are flagged; Google/Snapchat (publish not wired
-        # through the bos-bridge yet) are connect-only.
+        # The flag is a CLAIM to the operator, so it moves only when the route does.
+        # X moved to True when publish_text started reaching social.x.tweet_create
+        # through /api/worlds/social/dispatch.
         self.assertTrue(nx_channels.get_channel("meta").can_publish)
-        self.assertFalse(nx_channels.get_channel("x").can_publish)
+        self.assertTrue(nx_channels.get_channel("x").can_publish)
+        # LinkedIn stays False for a reason that is not ours: posting needs
+        # w_organization_social via the Community Management API programme, and the
+        # write tool also needs an author URN a channel has no field for.
         self.assertFalse(nx_channels.get_channel("linkedin").can_publish)
         self.assertFalse(nx_channels.get_channel("google").can_publish)
         self.assertFalse(nx_channels.get_channel("snapchat").can_publish)
+
+    def test_x_scopes_include_write_so_the_listed_grant_matches_the_real_one(self):
+        # An operator reads this list. It said read-only long after connects began
+        # requesting tweet.write, which is a wrong claim even though a bridged
+        # channel's real scope set is composed server-side.
+        self.assertIn("tweet.write", nx_channels.get_channel("x").scopes)
+        self.assertIn("offline.access", nx_channels.get_channel("x").scopes)
 
 
 class OAuthEndpointSanityTests(unittest.TestCase):

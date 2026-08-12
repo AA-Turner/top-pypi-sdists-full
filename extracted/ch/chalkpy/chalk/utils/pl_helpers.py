@@ -3,6 +3,8 @@ from __future__ import annotations
 import itertools
 import zoneinfo
 from datetime import timedelta
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as distribution_version
 from typing import TYPE_CHECKING, Any, Iterator, TypeGuard, TypeVar, overload
 
 import pyarrow as pa
@@ -39,22 +41,22 @@ def is_version_gte(version: str, target: str) -> bool:
 
 
 try:
-    import polars as pl
+    polars_version = distribution_version("polars")
 
-    is_new_polars = is_version_gte(pl.__version__, "0.18.0")
-    polars_has_pad_start = is_version_gte(pl.__version__, "0.19.12")
-    polars_array_uses_shape = is_version_gte(pl.__version__, "1.0.0")
-    polars_uses_schema_overrides = is_version_gte(pl.__version__, "0.20.31")
-    polars_join_ignores_nulls = is_version_gte(pl.__version__, "0.20.0")
-    polars_broken_concat_on_nested_list = is_version_gte(pl.__version__, "1.0.0")
-    polars_group_by_instead_of_groupby = is_version_gte(pl.__version__, "1.0.0")
-    polars_name_dot_suffix_instead_of_suffix = is_version_gte(pl.__version__, "1.0.0")
-    polars_lazy_frame_collect_schema = is_version_gte(pl.__version__, "1.0.0")
-    polars_allow_lit_empty_struct = is_version_gte(pl.__version__, "1.0.0")
-    polars_csv_uses_include_header = is_version_gte(pl.__version__, "1.0.0")
-    polars_uses_total_microseconds = is_version_gte(pl.__version__, "1.0.0")
-    polars_hist_column_is_breakpoint = is_version_gte(pl.__version__, "1.0.0")
-except ImportError:
+    is_new_polars = is_version_gte(polars_version, "0.18.0")
+    polars_has_pad_start = is_version_gte(polars_version, "0.19.12")
+    polars_array_uses_shape = is_version_gte(polars_version, "1.0.0")
+    polars_uses_schema_overrides = is_version_gte(polars_version, "0.20.31")
+    polars_join_ignores_nulls = is_version_gte(polars_version, "0.20.0")
+    polars_broken_concat_on_nested_list = is_version_gte(polars_version, "1.0.0")
+    polars_group_by_instead_of_groupby = is_version_gte(polars_version, "1.0.0")
+    polars_name_dot_suffix_instead_of_suffix = is_version_gte(polars_version, "1.0.0")
+    polars_lazy_frame_collect_schema = is_version_gte(polars_version, "1.0.0")
+    polars_allow_lit_empty_struct = is_version_gte(polars_version, "1.0.0")
+    polars_csv_uses_include_header = is_version_gte(polars_version, "1.0.0")
+    polars_uses_total_microseconds = is_version_gte(polars_version, "1.0.0")
+    polars_hist_column_is_breakpoint = is_version_gte(polars_version, "1.0.0")
+except PackageNotFoundError:
     is_new_polars = False
     polars_has_pad_start = False
     polars_array_uses_shape = False
@@ -207,6 +209,8 @@ def pl_time_to_iso_string(expr: pl.Expr) -> pl.Expr:
 
 
 def pl_dtype_swap(dtype: PolarsDataType, _from: PolarsDataType, to: PolarsDataType) -> PolarsDataType:
+    import polars as pl
+
     if isinstance(dtype, _from):  # pyright: ignore[reportArgumentType]
         return to
     if isinstance(dtype, pl.List):
@@ -219,6 +223,8 @@ def pl_dtype_swap(dtype: PolarsDataType, _from: PolarsDataType, to: PolarsDataTy
 
 
 def pl_json_decode(series: pl.Series, dtype: PolarsDataType) -> pl.Series:
+    import polars as pl
+
     if is_new_polars:
         swapped_dtype = pl_dtype_swap(dtype, pl.Binary, pl.Utf8)
         if swapped_dtype == pl.Utf8:
@@ -625,6 +631,8 @@ def str_json_decode_compat(expr: "pl.Expr | pl.Series", dtype: "PolarsDataType")
 
 
 def schema_compat(df: "pl.DataFrame | pl.LazyFrame"):
+    import polars as pl
+
     if polars_lazy_frame_collect_schema and isinstance(df, pl.LazyFrame):
         return df.collect_schema()
     return df.schema

@@ -1,6 +1,8 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: gardena-bluetooth
-Version: 2.10.0
+Version: 2.10.1
+Project-URL: Homepage, https://github.com/elupus/gardena-bluetooth
+Project-URL: Repository, https://github.com/elupus/gardena-bluetooth
 Author-email: Joakim Plate <elupus@ecce.se>
 License: MIT
 License-File: LICENSE.txt

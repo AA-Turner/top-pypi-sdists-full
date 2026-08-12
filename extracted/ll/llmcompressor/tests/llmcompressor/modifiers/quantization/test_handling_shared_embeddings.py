@@ -5,10 +5,11 @@ from transformers import AutoModelForCausalLM
 from llmcompressor.core import State
 from llmcompressor.modifiers.quantization import QuantizationModifier
 from llmcompressor.modifiers.transform import QuIPModifier, SpinQuantModifier
-from tests.testing_utils import requires_gpu
+from tests.testing_utils import get_accelerator_type, requires_gpu
 
 torch.manual_seed(0)
 
+DEVICE = get_accelerator_type()
 _MODEL_DTYPE = torch.float32
 _EXP_MSE = 5e-3
 
@@ -28,7 +29,7 @@ def test_quantization_with_automatic_untie():
     # Test 1: Apply quantization WITHOUT manually untieing first
     # (relies on automatic untieing in start_calibration)
     model = AutoModelForCausalLM.from_pretrained(
-        model_id, device_map="cuda", dtype=_MODEL_DTYPE
+        model_id, device_map=DEVICE, dtype=_MODEL_DTYPE
     )
 
     # Verify embeddings are initially tied
@@ -44,14 +45,14 @@ def test_quantization_with_automatic_untie():
         targets=[r"re:.*q_proj$", r"re:.*k_proj$", r"re:.*lm_head$"],
     )
 
-    input_data = {k: v.to("cuda") for k, v in model.dummy_inputs.items()}
+    input_data = {key: value.to(DEVICE) for key, value in model.dummy_inputs.items()}
 
     with torch.no_grad():
         baseline_output = model(**input_data)
 
     # Initialize and start calibration (should automatically untie if needed)
     modifier.on_initialize(state)
-    modifier.on_start(state, None)
+    modifier.on_calibration_start(state, None)
 
     with torch.no_grad():
         output = model(**input_data)
@@ -78,7 +79,7 @@ def test_quantization_untie_only_when_targeted():
 
     # Test with targets that don't include embeddings
     model = AutoModelForCausalLM.from_pretrained(
-        model_id, device_map="cuda", dtype=_MODEL_DTYPE
+        model_id, device_map=DEVICE, dtype=_MODEL_DTYPE
     )
 
     # Verify embeddings are initially tied
@@ -94,13 +95,13 @@ def test_quantization_untie_only_when_targeted():
         scheme="W8A8", targets=[r"re:.*q_proj$", r"re:.*k_proj$"]
     )
 
-    input_data = {k: v.to("cuda") for k, v in model.dummy_inputs.items()}
+    input_data = {key: value.to(DEVICE) for key, value in model.dummy_inputs.items()}
 
     with torch.no_grad():
         baseline_output = model(**input_data)
 
     modifier.on_initialize(state)
-    modifier.on_start(state, None)
+    modifier.on_calibration_start(state, None)
 
     with torch.no_grad():
         output = model(**input_data)
@@ -128,7 +129,7 @@ def test_spinquant_with_tied_embeddings(rotations):
 
     # Test with R1 rotation (should untie embeddings)
     model = AutoModelForCausalLM.from_pretrained(
-        model_id, device_map="cuda", dtype=_MODEL_DTYPE
+        model_id, device_map=DEVICE, dtype=_MODEL_DTYPE
     )
 
     # Verify embeddings are initially tied
@@ -144,13 +145,13 @@ def test_spinquant_with_tied_embeddings(rotations):
         rotations=rotations, transform_type="random-hadamard"
     )
 
-    input_data = {k: v.to("cuda") for k, v in model.dummy_inputs.items()}
+    input_data = {key: value.to(DEVICE) for key, value in model.dummy_inputs.items()}
 
     with torch.no_grad():
         baseline_output = model(**input_data)
 
     spinquant_modifier.on_initialize(state)
-    spinquant_modifier.on_start(state, None)
+    spinquant_modifier.on_calibration_start(state, None)
 
     # Verify embeddings were untied by SpinQuant
     assert (
@@ -184,7 +185,7 @@ def test_quip_with_tied_embeddings(rotations):
 
     # Test with QuIP rotations
     model = AutoModelForCausalLM.from_pretrained(
-        model_id, device_map="cuda", dtype=_MODEL_DTYPE
+        model_id, device_map=DEVICE, dtype=_MODEL_DTYPE
     )
 
     # Reduce vocab size to avoid runtime for generating large quip matrices
@@ -215,9 +216,9 @@ def test_quip_with_tied_embeddings(rotations):
     ), "Embeddings should still be tied after on_initialize"
 
     # Start QuIP (should untie embeddings if lm_head is targeted)
-    quip_modifier.on_start(state, None)
+    quip_modifier.on_calibration_start(state, None)
 
-    # Verify embeddings were untied by QuIP during on_start
+    # Verify embeddings were untied by QuIP during on_calibration_start
     assert (
         input_embed.weight is not output_embed.weight
     ), "QuIP should have untied embeddings but they are still tied"
@@ -242,7 +243,7 @@ def test_quip_untie_only_when_targeted(rotations):
 
     # Test with QuIP with default ignore (includes lm_head)
     model = AutoModelForCausalLM.from_pretrained(
-        model_id, device_map="cuda", dtype=_MODEL_DTYPE
+        model_id, device_map=DEVICE, dtype=_MODEL_DTYPE
     )
 
     # Verify embeddings are initially tied
@@ -263,7 +264,7 @@ def test_quip_untie_only_when_targeted(rotations):
 
     # Initialize and start QuIP
     quip_modifier.on_initialize(state)
-    quip_modifier.on_start(state, None)
+    quip_modifier.on_calibration_start(state, None)
 
     # Verify embeddings are still tied (since lm_head was ignored)
     assert (

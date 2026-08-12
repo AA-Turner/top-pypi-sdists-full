@@ -46,8 +46,12 @@ SECTIONS = [
             {"cmd": "/channels",     "desc": "Reach NX besides here  Telegram · WhatsApp · Text · Email"},
             {"cmd": "/message",      "desc": "Where NX reports back  Telegram · WhatsApp · Text · Email"},
             {"cmd": "/save",         "desc": "Save last response"},
-            {"cmd": "/resume",       "desc": "Pick up your last conversation"},
-            {"cmd": "/login",        "desc": "Re-authenticate without leaving"},
+            {"cmd": "/resume",       "desc": "Pick up a past conversation"},
+            # /login is deliberately NOT listed. It exists for one narrow repair — a session that
+            # expired mid-REPL, where re-authenticating without leaving is the fix — and it stays a
+            # typed command for exactly that. But you are already signed in whenever you can read
+            # this menu, so offering "sign in" to a signed-in operator is noise in the one place
+            # that should read as a list of things worth doing.
             {"cmd": "/logout",       "desc": "Sign out"},
         ],
     },

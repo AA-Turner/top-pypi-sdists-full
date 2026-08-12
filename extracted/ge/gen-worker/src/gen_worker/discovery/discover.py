@@ -31,6 +31,7 @@ from gen_worker.api.types import (
     VideoAsset,
 )
 from gen_worker.discovery.execution_lanes import (
+    DerivedExecutionLanes,
     derive_execution_lanes,
     execution_lanes_for_function,
     manifest_block,
@@ -451,6 +452,16 @@ def _slot_to_manifest(
             {"name": part, "kind": kind}
             for part, kind in sorted(components.items())
         ]
+    # §1.33 / pgw#1143: the per-component DEMAND. Absent means UNDECLARED —
+    # the hub's gate falls back to the image-wide decoder census for this
+    # slot, and never reads absence as "accepts everything". Handles only:
+    # the hub resolves each to its descriptor DIGEST at ingest, against its
+    # own registry, which is the only moment one wheel and one hub are both
+    # pinned.
+    if slot.layouts:
+        out["layouts"] = {
+            path: list(handles) for path, handles in slot.layouts.items()
+        }
     return out
 
 
@@ -878,6 +889,24 @@ def _extract_entries(obj: Any, module_name: str) -> List[Dict[str, Any]]:
             # SDK v2: declared at the decorator (`@endpoint(lora_bucket=)`).
             if es.lora_bucket:
                 fn["compile"]["lora_bucket"] = int(es.lora_bucket)
+            # pgw#1149 / th#1811 (ie#664 §6): the AUTHOR's declared bar and
+            # refusals, so the hub's publish-time validation session judges a
+            # release against a DECLARATION instead of a number the platform
+            # picked. Absent when undeclared — the hub reports `bar_undeclared`
+            # by name, and a default emitted here would make the SDK the author
+            # of the bar the platform verifies.
+            if es.compile.speed_metric:
+                fn["compile"]["speed_metric"] = es.compile.speed_metric
+            if es.compile.min_speedup is not None:
+                fn["compile"]["min_speedup"] = float(es.compile.min_speedup)
+            # OPEN blockers only (pgw#1115): the hub reads a non-empty list as
+            # "the author refuses to mint" and marks the mint check
+            # blocked-by-declaration, so a RESOLVED id would park the family in
+            # that state forever. Ids, not prose — open-vs-resolved is the
+            # whole of what the hub decides on.
+            open_ids = [b.id for b in es.compile.open_blockers]
+            if open_ids:
+                fn["compile"]["blockers"] = open_ids
         out.append(fn)
 
     return out
@@ -939,6 +968,9 @@ def discover_manifest(root: Optional[Path] = None) -> Dict[str, Any]:
                 {"execution_lane": e.execution_lane, "reason": e.reason}
                 for e in exclusions
             ]
+        unbacked = _census_unbacked_layouts(fn, derived)
+        if unbacked:
+            fn["layouts_census_unbacked"] = list(unbacked)
 
     manifest: Dict[str, Any] = {
         "functions": functions,
@@ -948,6 +980,28 @@ def discover_manifest(root: Optional[Path] = None) -> Dict[str, Any]:
         manifest["aot_preconditions"] = [
             row.manifest_row() for row in preconditions]
     return manifest
+
+
+def _census_unbacked_layouts(
+    fn: Dict[str, Any], derived: DerivedExecutionLanes,
+) -> List[str]:
+    """Declared handles no `@implements_contract` decoder in this image backs.
+
+    **NOT a refusal**, deliberately (§1.33: the census is a LOWER-bound sanity
+    check, and a lower bound that refuses is an upper bound). The ruling's own
+    worked example is decoded natively by `transformers` via
+    `quantization_config` with zero cozy markers, so refusing here would make
+    the design's motivating case illegal. It lands on the manifest and in the
+    build log so an author can see the gap and judge it.
+    """
+    backed = {c.contract for c in derived.contracts}
+    unbacked: List[str] = []
+    for slot in fn.get("slots") or []:
+        for handles in (slot.get("layouts") or {}).values():
+            for handle in handles:
+                if handle not in backed and handle not in unbacked:
+                    unbacked.append(handle)
+    return sorted(unbacked)
 
 
 def _strip_none(obj: Any) -> Any:

@@ -156,6 +156,11 @@ enum state {
     ST_ATTR_VALUE_UNQ,
     ST_AFTER_ATTR_VALUE_QUOTED,
     ST_SELF_CLOSING_START_TAG,
+    ST_PI_OPEN,
+    ST_PI_TARGET,
+    ST_AFTER_PI_TARGET,
+    ST_PI_DATA,
+    ST_PI_QUESTIONABLE,
     ST_BOGUS_COMMENT,
     ST_MARKUP_DECL_OPEN,
     ST_COMMENT_START,
@@ -273,7 +278,7 @@ static void token_reset(th_token *tok) {
     }
     tok->attr_count = 0;
     tok->self_closing = 0;
-    tok->is_pi = 0;
+    tok->self_closing_acknowledged = 0;
     buf_reset(&tok->public_id);
     buf_reset(&tok->system_id);
     tok->has_public_id = 0;
@@ -572,6 +577,14 @@ void th_tok_borrow_input(th_tokenizer *self, int kind, const void *data, Py_ssiz
 const void *th_tok_input_data(const th_tokenizer *self, int *kind) {
     *kind = self->input.kind;
     return self->input.data;
+}
+
+void *th_tok_take_input(th_tokenizer *self, int *kind, Py_ssize_t *length) {
+    *kind = self->input.kind;
+    *length = self->input.len;
+    void *data = self->input.data;
+    buf_init(&self->input);
+    return data;
 }
 
 void th_tok_close(th_tokenizer *self) {
@@ -957,6 +970,34 @@ static void init_markup(th_tokenizer *self, enum th_kind kind) {
     self->tok.line = self->mark_line;
     self->tok.col = self->mark_col;
     begin_markup_source(self);
+}
+
+static int buf_ascii_iequals(const th_buf *buf, const char *text, Py_ssize_t len) {
+    if (buf->len != len) {
+        return 0;
+    }
+    for (Py_ssize_t index = 0; index < len; index++) {
+        if (lower_ascii(buf_read(buf, index)) != (Py_UCS4)(unsigned char)text[index]) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static void pi_from_temp(th_tokenizer *self) {
+    init_markup(self, TH_PI);
+    if (buf_copy(&self->tok.name, &self->temp) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+        self->oom = 1;                                /* GCOVR_EXCL_LINE: allocation-failure path */
+    } /* GCOVR_EXCL_LINE: buffer allocation failure cannot be forced through the public API */
+}
+
+static void pi_temp_to_comment(th_tokenizer *self) {
+    init_markup(self, TH_COMMENT);
+    push(self, &self->tok.text, '?');
+    for (Py_ssize_t index = 0; index < self->temp.len; index++) {
+        push(self, &self->tok.text, buf_read(&self->temp, index));
+    }
+    self->eof_code = NULL;
 }
 
 /* Queue a TH_CHARREF token for an unresolved reference: the resolved code points
@@ -1552,6 +1593,114 @@ static Py_ssize_t scan_stops_ucs4(const th_tokenizer *self, Py_ssize_t index, Py
         index++;
     }
     return index;
+}
+
+/* Keep the rare PI grammar out of all three width-specialized hot loops. */
+static TH_NOINLINE enum run_result run_pi(th_tokenizer *self) {
+    for (;;) {
+        if (self->pos >= self->input.len) {
+            if (!self->eof) {
+                return RUN_NEED_MORE;
+            }
+            if (self->state == ST_BOGUS_COMMENT) {
+                self->state = ST_DATA;
+                emit_tok(self);
+                return RUN_EMITTED;
+            }
+            if (!self->eof_reported) {
+                tok_error(self, self->eof_code);
+                self->eof_reported = 1;
+            }
+            self->building = 0;
+            self->eof_code = NULL;
+            flush_text(self);
+            return RUN_DONE;
+        }
+
+        Py_UCS4 ch = buf_read(&self->input, self->pos);
+        switch (self->state) { /* GCOVR_EXCL_BR_LINE: called only for the PI states and their bogus-comment fallback */
+        case ST_PI_OPEN:
+            if (is_ascii_alpha(ch) || ch == '_') {
+                self->state = ST_PI_TARGET;
+                continue;
+            }
+            tok_error(self, "invalid-first-character-of-processing-instruction-target");
+            pi_temp_to_comment(self);
+            self->state = ST_BOGUS_COMMENT;
+            continue;
+
+        case ST_PI_TARGET:
+            if (is_space(ch) || ch == '?' || ch == '>') {
+                if (buf_ascii_iequals(&self->temp, "xml", 3) || buf_ascii_iequals(&self->temp, "xml-stylesheet", 14)) {
+                    tok_error(self, "disallowed-processing-instruction-target");
+                    pi_temp_to_comment(self);
+                    self->state = ST_BOGUS_COMMENT;
+                    continue;
+                }
+                pi_from_temp(self);
+                self->state = ST_AFTER_PI_TARGET;
+                continue;
+            }
+            if (is_ascii_alpha(ch) || (ch >= '0' && ch <= '9') || ch == '-' || ch == '_') {
+                push(self, &self->temp, ch);
+                goto consume;
+            }
+            tok_error(self, "invalid-processing-instruction-target");
+            pi_temp_to_comment(self);
+            self->state = ST_BOGUS_COMMENT;
+            continue;
+
+        case ST_AFTER_PI_TARGET:
+            if (is_space(ch)) {
+                goto consume;
+            }
+            self->state = ST_PI_DATA;
+            continue;
+
+        case ST_PI_DATA:
+            if (ch == '?') {
+                self->state = ST_PI_QUESTIONABLE;
+                goto consume;
+            }
+            if (ch == '>') {
+                goto emit;
+            }
+            push(self, &self->tok.text, ch);
+            goto consume;
+
+        case ST_PI_QUESTIONABLE:
+            if (ch == '>') {
+                goto emit;
+            }
+            push(self, &self->tok.text, '?');
+            self->state = ST_PI_DATA;
+            continue;
+
+        default: /* ST_BOGUS_COMMENT after a target error */
+            if (ch == '>') {
+                goto emit;
+            }
+            if (ch == 0) {
+                tok_error(self, "unexpected-null-character");
+            }
+            push(self, &self->tok.text, ch == 0 ? REPLACEMENT : ch);
+            goto consume;
+        }
+
+    consume: {
+        Py_ssize_t newline = ch == '\n';
+        self->line += newline;
+        self->col = (self->col + 1) * (1 - newline);
+        self->pos++;
+        continue;
+    }
+    emit:
+        self->pos++;
+        self->col++;
+        self->state = ST_DATA;
+        emit_tok(self);
+        return RUN_EMITTED;
+    }
 }
 
 /* Stamp the tokenizer core once per input storage width. */

@@ -22,11 +22,19 @@ import types
 import typing
 import uuid
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import (
+    TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Tuple,
+)
 
 import msgspec
 
+if TYPE_CHECKING:  # pgw#1127: the arming import stays deferred at runtime —
+    # `gen_worker.local_serve` pulls the whole compile stack, and `cozy run`
+    # on a payload-only endpoint must not pay for it.
+    from .. import local_serve
+
 from ..api.errors import CanceledError
+from .. import serve_posture
 from ..models import provision
 from .local_context import build_local_context
 from ..discovery.project import load_project_config
@@ -94,6 +102,14 @@ def add_subparser(sub: argparse._SubParsersAction[Any]) -> None:
         help=(
             "Use only the local CAS — fail with exit 3 instead of fetching "
             "missing model weights from tensorhub / huggingface."
+        ),
+    )
+    p.add_argument(
+        "--eager-only", dest="eager_only", action="store_true",
+        help=(
+            "Serve EAGER ONLY: never arm a compiled cell and never mint one "
+            "(DESIGN-RULINGS §4.32). One invocation is where a cold machine "
+            "would otherwise spend minutes minting."
         ),
     )
     p.add_argument(
@@ -549,7 +565,8 @@ def run_setup(
     instance: Any, resolved_models: Dict[str, str], *, device: str = "",
     arm_compile: bool = True, return_loaded: bool = False,
     component_paths: Optional[Dict[str, Dict[str, str]]] = None,
-    structure_only: Sequence[str] = (),
+    structure_only: Sequence[str] = (), place: bool = True,
+    selected: Optional["_SelectedFunction"] = None,
 ) -> Optional[Dict[str, Any]]:
     """Call ``instance.setup(...)`` once, passing exactly the resolved model
     slots its signature declares.
@@ -558,6 +575,19 @@ def run_setup(
     (pgw#784): the mint child drives its own cold arm + capture and must not
     have a cell armed under it. ``return_loaded=True`` returns the loaded slot
     objects so a caller can reach the pipeline it just built.
+
+    ``selected`` (pgw#1127) is the routable function these slots belong to. It
+    is what makes ``arm_compile=True`` able to MINT: a delegated child
+    rediscovers the endpoint from its declaring module and re-resolves the
+    parent's slots, so without it this path can only adopt a cell that already
+    exists. Absent, the arm is adopt-only and says so.
+
+    ``place=False`` (pgw#1124) loads the slots without running the worker's
+    serving placement ladder at all, while ``device`` still says which device
+    the virtual structure is BUILT on — the two are one knob only for a load
+    that intends to serve. The boot-trace child sets it: it needs shapes and a
+    graph, never a servable pipeline, and the ladder it was running moved the
+    slot's REAL non-target components onto the card its serving parent owns.
 
     ``structure_only`` (pgw#1080) names the components every slot must build
     from CODE + CONFIG instead of from the checkpoint — the mint child's
@@ -630,12 +660,20 @@ def run_setup(
     except (TypeError, ValueError, NameError):
         hints = {}
     decl = getattr(type(instance), _ENDPOINT_ATTR, None)
+    # pgw#1127: the mint context is built from the WHOLE resolution, once,
+    # before any slot loads — the child re-runs setup, so it needs every slot
+    # this endpoint declares and not just the one whose load happens to reach
+    # the arm. Built even when `arm_compile` is False (it costs a dict) so the
+    # two paths cannot drift into resolving slots differently.
+    mint = _local_mint_context(
+        instance, resolved_models, wanted,
+        component_paths=component_paths, selected=selected)
     loaded = {
         k: _load_injected_model(
             hints.get(k), v, decl=decl, slot=k, device=device,
-            arm_compile=arm_compile,
+            arm_compile=arm_compile, place=place,
             overrides=dict((component_paths or {}).get(k) or {}),
-            structure_only=tuple(structure_only))
+            structure_only=tuple(structure_only), mint=mint)
         for k, v in resolved_models.items()
         if k in wanted
     }
@@ -651,6 +689,44 @@ _INJECTED_CACHE: Dict[Tuple[str, str], Any] = {}
 _ENDPOINT_ATTR = "__gen_worker_endpoint__"
 
 
+def _local_mint_context(
+    instance: Any,
+    resolved_models: Dict[str, str],
+    wanted: Any,
+    *,
+    component_paths: Optional[Dict[str, Dict[str, str]]],
+    selected: Optional[_SelectedFunction],
+) -> Optional["local_serve.LocalMintContext"]:
+    """This run's resolution, in the shape a delegated mint child reads.
+
+    ``None`` when the caller did not name the function (``mint_child`` and
+    ``boot_trace_child`` both call ``run_setup`` without one, and both pass
+    ``arm_compile=False`` — a child that opened its own mint would be the
+    recursion this must not have).
+    """
+    if selected is None:
+        return None
+    from .. import local_serve
+
+    module = str(getattr(selected.spec, "module", "") or "").strip()
+    if not module:
+        # The endpoint was discovered from a file path or an interactive
+        # namespace, so no importable module name exists for a child to
+        # rediscover it in. Adopt-only, honestly.
+        module = str(getattr(selected.cls, "__module__", "") or "").strip()
+        if module in ("", "__main__"):
+            module = ""
+    return local_serve.mint_context(
+        function=selected.fn_name,
+        module=module,
+        slots=local_serve.slot_map(
+            {k: v for k, v in resolved_models.items() if k in wanted},
+            selected.bindings,
+            component_paths,
+        ),
+    )
+
+
 def _assert_structure_honored(
     pipe: Any, injected: Dict[str, Any], *, slot: str = "",
 ) -> None:
@@ -660,17 +736,19 @@ def _assert_structure_honored(
     unexpected keyword — ``**kwargs`` swallows it and the class loads the
     checkpoint itself. That failure is SILENT and it is the exact failure this
     slice cannot tolerate: the mint would hold every weight and still report a
-    weightless child. So it is checked, on the object that came back, and the
-    caller decides what to do about a refusal (the mint child falls back to a
-    real-weight load and records why).
+    weightless child. So it is checked, on the object that came back, and a
+    miss raises ``StructureNotHonored`` — a DISTINCT type from the buildable
+    strand, because the component WAS built weight-free and the pipeline threw
+    it away. The mint child FAILS CLOSED on it (it does not fall back to a
+    real-weight export, which is how z-image OOM'd ~40 GiB as `retryable`).
     """
-    from ..models.structure_only import STAMP, StructureOnlyUnsupported
+    from ..models.structure_only import STAMP, StructureNotHonored
 
     for component, module in sorted(injected.items()):
         got = getattr(pipe, component, None)
         if got is module or getattr(got, STAMP, False):
             continue
-        raise StructureOnlyUnsupported(
+        raise StructureNotHonored(
             component=component,
             cls_name=type(pipe).__name__,
             lacks=(
@@ -702,9 +780,10 @@ def _structure_device(device: str) -> str:
 
 def _load_injected_model(
     annotation: Any, local_path: str, *, decl: Any = None, slot: str = "",
-    device: str = "", arm_compile: bool = True,
+    device: str = "", arm_compile: bool = True, place: bool = True,
     overrides: Optional[Dict[str, str]] = None,
     structure_only: Sequence[str] = (),
+    mint: Optional["local_serve.LocalMintContext"] = None,
 ) -> Any:
     """Load one setup slot via the shared core, with a per-process warm cache
     (so ``serve`` and repeated local dispatches never reload weights).
@@ -723,7 +802,11 @@ def _load_injected_model(
         # real-weight one; sharing a cache entry between them would hand a
         # weightless pipeline to a caller that asked for weights.
         + ("|structure=" + ",".join(sorted(structure_only))
-           if structure_only else ""),
+           if structure_only else "")
+        # ...and an UNPLACED composition is a different object again: handing
+        # it to a caller that asked for a servable one would serve from host
+        # memory (pgw#1124).
+        + ("" if place else "|unplaced"),
     )
     if key in _INJECTED_CACHE:
         return _INJECTED_CACHE[key]
@@ -752,7 +835,7 @@ def _load_injected_model(
                 dtype=str(getattr(binding, "dtype", "") or ""))
     sl = provision.load_slot(
         annotation, local_path, binding=binding, slot=slot, device=device,
-        components=injected or None,
+        place=place, components=injected or None,
     )
     if not sl.is_pipeline:
         return sl.obj
@@ -783,14 +866,20 @@ def _load_injected_model(
         and compile_cfg is not None
         and device.strip().lower() != "cpu"
     ):
-        from ..local_cells import enable_compiled as enable_compiled_local
+        from .. import local_serve
         from ..models.cache_paths import tensorhub_cas_dir
 
-        # Local runtime (gw#555): delivered/env artifacts first, then the
-        # user's local cell store — adopt a stored self-minted cell or mint
-        # one. This call-site is the ONLY entry to local minting; the
-        # production executor arms compile via hub-delivered cells only.
-        enable_compiled_local(sl.obj, compile_cfg, Path(tensorhub_cas_dir()))
+        # §4.28 / pgw#1127: the ONE arming brain, with NO sink. Delivered
+        # artifact, then THIS MACHINE's own ck1-keyed cell store, then a
+        # delegated AOT mint whose result lands in that store — so the second
+        # run of this endpoint on this machine arms from disk with no mint, no
+        # hub and no network. Before pgw#1127 this line called
+        # `local_cells.enable_compiled`, the JIT path, which meant the store
+        # pgw#1096 built for exactly this machine was unreachable from it and
+        # pgw#1086 wave 1's deletion of that module would have taken compiled
+        # serving off cozy-local outright.
+        local_serve.enable_compiled(
+            sl.obj, compile_cfg, Path(tensorhub_cas_dir()), mint=mint)
     _INJECTED_CACHE[key] = sl.obj
     return sl.obj
 
@@ -854,24 +943,24 @@ def _local_executing_execution_lane(
     (author kernels execute it); otherwise the most-quantized binding's lane
     (the local twin of Executor._served_lane, eager execution)."""
 
+    body = ""
     if execution_lane_str and handles:
         try:
             req = lanespec.parse_execution_lane_spec(execution_lane_str)
             if req.execution_lane is not None and lanespec.execution_lane_body_id(req.execution_lane) in handles:
-                return lanespec.execution_lane_id(req.execution_lane)
+                body = lanespec.execution_lane_body_id(req.execution_lane)
         except ValueError:
             pass
-    ranked = {b: i for i, b in enumerate(lanespec.known_execution_lanes())}
-    best, best_key = None, (2, len(ranked) + 1)
-    for b in (bindings or {}).values():
-        execution_lane = lanespec.execution_lane_of_binding(
-            getattr(b, "flavor", "") or "",
-            getattr(b, "storage_dtype", "") or "", False)
-        quant = 1 if lanespec.family_of(execution_lane) == lanespec.FAMILY_BF16 else 0
-        key = (quant, ranked.get(lanespec.execution_lane_id(execution_lane), len(ranked)))
-        if best is None or key < best_key:
-            best, best_key = execution_lane, key
-    return lanespec.execution_lane_id(best) if best is not None else "bf16-w16a16+eager"
+    if not body:
+        body = lanespec.most_quantized_body(
+            lanespec.execution_lane_body_of_binding(
+                getattr(b, "flavor", "") or "",
+                getattr(b, "storage_dtype", "") or "")
+            for b in (bindings or {}).values())
+    # ie#655: a local run compiles nothing, so the execution axis is eager —
+    # including for a compiled-only body, whose PLAN is not what happened here.
+    return lanespec.execution_lane_id(
+        lanespec.observed_execution_lane(body, False))
 
 
 def _apply_execution_lane_to_bindings(bindings: Dict[str, Any], execution_lane_str: str) -> Dict[str, Any]:
@@ -988,6 +1077,11 @@ def dispatch_request(
 # --------------------------------------------------------------------------
 
 def _handle_run(args: argparse.Namespace) -> int:
+    # pgw#1142 / §4.32 item 4: before anything can arm or mint. `run` does its
+    # setup() per invocation, so the order has to stand before the first one.
+    if bool(getattr(args, "eager_only", False)):
+        serve_posture.apply_command(
+            True, actor="cozy-local-cli", reason="--eager-only")
     try:
         return _run_inner(args)
     except _UsageError as e:
@@ -1187,7 +1281,8 @@ def _run_inner(args: argparse.Namespace) -> int:
             emit=_stderr_emitter,
             write_event=_write_event,
             on_resolved=lambda resolved: _discard(
-                run_setup(instance, resolved, device=device)),
+                run_setup(
+                    instance, resolved, device=device, selected=selected)),
         )
     except CanceledError:
         raise

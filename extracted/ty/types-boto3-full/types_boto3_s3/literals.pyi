@@ -350,6 +350,7 @@ S3ServiceName = Literal["s3"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

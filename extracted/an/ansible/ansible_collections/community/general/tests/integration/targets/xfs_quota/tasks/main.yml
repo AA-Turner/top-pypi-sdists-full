@@ -10,7 +10,7 @@
 
 - name: setup Alpine
   when: ansible_facts.distribution == 'Alpine'
-  package:
+  ansible.builtin.package:
     name:
       - xfsprogs
       - xfsprogs-extra
@@ -20,18 +20,18 @@
 
 - block:
     - name: Create test user
-      user:
+      ansible.builtin.user:
         name: xfsquotauser
         state: present
       become: true
 
-    - include_tasks: uquota.yml
-    - include_tasks: gquota.yml
-    - include_tasks: pquota.yml
+    - ansible.builtin.include_tasks: uquota.yml
+    - ansible.builtin.include_tasks: gquota.yml
+    - ansible.builtin.include_tasks: pquota.yml
 
   always:
     - name: cleanup test user
-      user:
+      ansible.builtin.user:
         name: xfsquotauser
         state: absent
       become: true

@@ -11,11 +11,6 @@ from typing import (
 
 import pyarrow as pa
 
-try:
-    import polars as pl
-except ImportError:
-    pl = None  # type: ignore[assignment]
-
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as pb
 from chalk.features._encoding.missing_value import MissingValueStrategy
 
@@ -33,17 +28,6 @@ try:
     import numpy as np
 except ImportError:
     np = None  # type: ignore[assignment]
-
-_POLARS_FLOAT16: Any
-if pl is not None:
-    try:
-        _POLARS_FLOAT16 = pl.Float16()  # pyright: ignore[reportConstantRedefinition, reportAttributeAccessIssue]
-    except AttributeError:
-        # Older Polars versions don't have Float16; fall back to Float32 to match
-        # what GenericFeatureConverter returns for pa.float16().
-        _POLARS_FLOAT16 = pl.Float32()  # pyright: ignore[reportConstantRedefinition]
-else:
-    _POLARS_FLOAT16 = None  # pyright: ignore[reportConstantRedefinition]
 
 # Sentinel NaN used by Float16FeatureConverter to represent missing values,
 # matching GenericFeatureConverter's convention of using NaN (not null) for float16.
@@ -71,12 +55,26 @@ class Float16FeatureConverter(
     _primitive_type_value: ClassVar[Type[float]] = float
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.float16()
     _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(float16=pb.EmptyMessage())
-    _polars_dtype_value: ClassVar[Any] = _POLARS_FLOAT16
+    _polars_dtype_value: ClassVar[Any] = None
 
     _coerce_fn = staticmethod(float)
     # pa.array([Python float], type=pa.float16()) raises ArrowTypeError.
     _arrow_coerce_fn: ClassVar = np.float16 if np is not None else float  # type: ignore[union-attr]
     _json_coerce_fn: ClassVar = np.float16 if np is not None else float  # type: ignore[union-attr]
+
+    @property
+    def polars_dtype(self) -> Any:
+        """Return Float16 when supported, otherwise preserve the Float32 fallback."""
+        val = type(self)._polars_dtype_value
+        if val is None:
+            try:
+                import polars as pl
+
+                val = getattr(pl, "Float16", pl.Float32)()
+                type(self)._polars_dtype_value = val
+            except ImportError:
+                pass
+        return val
 
     @classmethod
     def new(cls, default: Any, is_nullable: bool) -> "Float16FeatureConverter":
@@ -230,7 +228,7 @@ class Float32FeatureConverter(
     _primitive_type_value: ClassVar[Type[float]] = float
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.float32()
     _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(float32=pb.EmptyMessage())
-    _polars_dtype_value: ClassVar[Any] = pl.Float32() if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None
 
     _coerce_fn = staticmethod(float)
 
@@ -274,7 +272,7 @@ class Float64FeatureConverter(
     _primitive_type_value: ClassVar[Type[float]] = float
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.float64()
     _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(float64=pb.EmptyMessage())
-    _polars_dtype_value: ClassVar[Any] = pl.Float64() if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None
 
     _coerce_fn = staticmethod(float)
 

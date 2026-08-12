@@ -128,11 +128,18 @@ class BaseArray(_DensityBase, _DiagnosticsBase):
             func_kwargs.update(kwargs)
         else:
             extra_kwargs = list(kwargs.keys())
+            if "hdi_prob" in kwargs:
+                raise TypeError(
+                    "hdi got an unexpected keyword argument: 'hdi_prob'. "
+                    "The 'hdi_prob' argument was renamed to 'prob' in arviz-stats 1.0. "
+                    "Use 'prob' instead (e.g. prob=0.95). "
+                    "See the HDI Function Changes section in the migration guide: "
+                    "https://python.arviz.org/en/stable/user_guide/migration_guide.html#hdi-function-changes"
+                )
             if len(extra_kwargs) == 1:
                 raise TypeError(f"hdi got an unexpected keyword argument: '{extra_kwargs[0]}'")
             if len(extra_kwargs) > 1:
                 raise TypeError(f"hdi got unexpected keyword arguments: {extra_kwargs}")
-
         if method == "multimodal_sample":
             func_kwargs["from_sample"] = True
 
@@ -804,7 +811,52 @@ class BaseArray(_DensityBase, _DiagnosticsBase):
             **kwargs,
         )
 
-    def bayesian_r2(self, mu_pred, scale=None, scale_kind="sd", circular=False):
+    def mchain_uniformity_test(self, ary, chain_axis=-2, draw_axis=-1, **kwargs):
+        """Pointwise multi-chain uniformity test for fractional ranks.
+
+        Tests whether multiple chains have the same rank distribution using a
+        hypergeometric-based test combined via the Cauchy combination method.
+
+        Parameters
+        ----------
+        ary : array-like
+            Array of fractional ranks in [0, 1]. The two core dimensions are
+            ``chain_axis`` and ``draw_axis``.
+        chain_axis : int, default -2
+            Axis corresponding to the chain dimension.
+        draw_axis : int, default -1
+            Axis corresponding to the draw dimension.
+        **kwargs
+            Additional keyword arguments passed to :meth:`_mtc_c`.
+
+        Returns
+        -------
+        p_value : array-like
+            Global p-value from the multi-chain test.
+        b_shapley_vals : array-like
+            Between-chain Shapley contributions for each chain per draw, shape (n_draws, n_chains).
+        w_shapley_vals : array-like
+            Draw-wise Shapley contributions to the global p-value, shape (n_draws,).
+        """
+        ary = np.asarray(ary)
+        ary, _ = process_ary_axes(ary, [chain_axis, draw_axis])
+        n_chains = ary.shape[-2]
+        n_draws = ary.shape[-1]
+
+        mtc_c_ufunc = make_ufunc(
+            self._mtc_c,
+            n_output=3,
+            n_input=1,
+            n_dims=2,
+            ravel=False,
+        )
+        return mtc_c_ufunc(
+            ary,
+            out_shape=((), (n_draws, n_chains), (n_draws,)),
+            **kwargs,
+        )
+
+    def bayesian_r2(self, mu_pred, scale, scale_kind="sd", circular=False):
         """Compute Bayesian R² for regression models."""
         r2_ufunc = make_ufunc(
             self._bayesian_r2,

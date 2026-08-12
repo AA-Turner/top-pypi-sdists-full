@@ -683,15 +683,6 @@ def get_source_archive(owner: str, repo: str, commit_hash: str, zip_url: str) ->
         return buf
 
 
-def get_release_metadata(client: GitHubGraphQLClient, owner: str, repo: str, release_id: str) -> GitHubRelease:
-    """Extract release metadata from a release"""
-    for release in get_releases_metadata(client, owner, repo).releases:
-        if release.tag_name == release_id:
-            return release
-
-    raise KeyError(f"release {release_id} not found for {owner}/{repo}")
-
-
 def get_candidate_github_repos_cache_path() -> Path:
     return get_cache_directory() / "candidate_repos.json"
 
@@ -932,7 +923,7 @@ class GithubPluginRepo(BasePluginRepo):
         index = PluginArchiveIndex()
 
         for owner, repo, tag_name, asset, date in rich.progress.track(
-            assets, description="Fetching plugin assests", transient=True, console=stderr_console
+            assets, description="Fetching plugin assets", transient=True, console=stderr_console
         ):
             logger.debug(m("fetching release asset: %s", asset.download_url, owner=owner, repo=repo, tag=tag_name))
             try:

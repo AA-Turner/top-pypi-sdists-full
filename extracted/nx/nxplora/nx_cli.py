@@ -19693,6 +19693,80 @@ def _store_agent_secret(key, secret_name, value):
         return False
 
 
+def _agent_vault_scope(key):
+    """Where an agent's credential lives in the Nexplora vault: `agent:<agent_id>`.
+
+    MUST match lib/channels/adapters/agent-credential-scope.ts byte for byte — the web derives the same
+    string when it looks the credential back up, and a mismatch would not error, it would silently miss
+    and the web would fall back to sending as Nexplora.
+
+    The `key` here IS the agent_id the web sees: the snapshot writes `agent_id: agentKey`
+    (lib/desk/supply-snapshot.ts), so the CLI's local slug and the server's agent_id are the same value.
+    Pinned by tests/test_agent_vault_mirror.py on this side and lib/desk/supply-credential-flow.test.ts
+    on the other."""
+    return "agent:" + str(key)
+
+
+def _mirror_agent_secret_to_vault(cfg, key, channel, value):
+    """OPT-IN: also store this agent's credential in the operator's Nexplora vault.
+
+    WHY ASK RATHER THAN JUST DO IT. Everything else /supply stores stays on this machine — the Keychain
+    is the whole reason the terminal can hold a credential the web cannot. Mirroring puts that secret on
+    the network, and that is a real change in posture, not an implementation detail. So it is asked, once,
+    per credential, and the default is NO.
+
+    WHY OFFER IT AT ALL. Without it, an agent supplied in the terminal can only ever send from the
+    terminal. The web sees the binding, shows the agent, and then sends as Nexplora — which is honest but
+    is not what the operator asked for when they gave that agent its own account.
+
+    The Keychain copy is KEPT either way. This adds a second home, it does not move the credential — so
+    the terminal keeps working exactly as before even if the vault is unreachable."""
+    print()
+    print("  " + dim("This credential is saved on this Mac, in your Keychain."))
+    print("  " + dim("Nexplora on the web cannot read it — different machine."))
+    _pick = _choose("Also store it in your Nexplora vault, so the web can send as this agent?", [
+        ("No — keep it on this Mac only", "the terminal sends as the agent; the web sends as Nexplora"),
+        ("Yes — store it in my vault too", "encrypted, and both surfaces can send as the agent"),
+    ], current=0)
+    if _pick != 1:
+        print(dim("  · kept local — nothing left this machine.\n"))
+        return None
+
+    token = _first_text(cfg.get("token"))
+    if not token:
+        print(dim("  · not signed in, so there is no vault to store it in — kept local.\n"))
+        return None
+
+    try:
+        _base = AUTH_BASE.replace("://api.", "://www.") if "://api." in AUTH_BASE else AUTH_BASE
+        r = requests.post(
+            _base.rstrip("/") + "/api/credential-vault",
+            headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
+            json={
+                "provider": channel,
+                "credentialType": "api_key",
+                "value": value,
+                "scopes": [_agent_vault_scope(key)],
+            },
+            timeout=20,
+        )
+        if r.status_code >= 300:
+            # Named, not swallowed. The Keychain copy is already saved, so the terminal still works —
+            # but the operator asked for something that did not happen and must hear so.
+            print(dim(f"  \u26a0 Couldn't store it in the vault ({r.status_code}) — kept local only."))
+            print(dim("     The terminal can still send as this agent; the web will send as Nexplora.\n"))
+            return None
+        _ref = ((r.json() or {}).get("credential") or {}).get("id")
+        if not _ref:
+            print(dim("  \u26a0 The vault accepted it but returned no reference — kept local only.\n"))
+            return None
+        print(gold("  \u2713 Stored in your vault too.") + dim("  Both the terminal and the web can now send as this agent.\n"))
+        return _ref
+    except Exception as _e:
+        print(dim(f"  \u26a0 Couldn't reach the vault: {str(_e)[:70]} — kept local only.\n"))
+        return None
+
+
 def _load_agent_channels(key):
     """The per-agent channel binding (~/.nx/agent-channels/<slug>.json) for `key`, or None.
     Matches by slug so the filename slug and the lookup always agree (no field/file drift)."""
@@ -19999,6 +20073,82 @@ _AGENT_CHANNEL_SECRET = {
 }
 
 
+def _agent_by_handle(token: str):
+    """Resolve an @token to one of the operator's agents, or None.
+
+    Matching is deliberately forgiving in ONE direction only. An operator types the name they see
+    on screen — "Vinny" is displayed, "@vinny" is typed — so case and a leading @ are ignored, and a
+    unique prefix resolves ("@vin" when only Vinny starts with it). It is NOT fuzzy beyond that: an
+    ambiguous prefix resolves to nothing rather than guessing, because picking one of two agents for
+    someone is how a message goes out over the wrong identity.
+
+    Only agents that actually HAVE a channel are addressable. An agent with no channel cannot act as
+    itself, so resolving to one would produce a turn that silently runs as the operator instead —
+    the same class of quiet identity substitution the /supply work has been closing all session.
+    """
+    tok = (token or "").strip().lstrip("@").lower()
+    if not tok:
+        return None
+    binds = [b for b in _load_user_items("agent-channels") if (b.get("channels") or {})]
+
+    def _names(b):
+        return [str(b.get("name") or "").lower(), str(b.get("display") or "").lower()]
+
+    exact = [b for b in binds if tok in _names(b)]
+    if len(exact) == 1:
+        return exact[0]
+    if len(exact) > 1:
+        return None  # two agents share a name — refuse rather than pick
+    pref = [b for b in binds if any(n.startswith(tok) for n in _names(b) if n)]
+    return pref[0] if len(pref) == 1 else None
+
+
+def _agent_persona_text(b) -> str:
+    """The system-prompt overlay for a turn addressed to one agent with `@name`.
+
+    Names the identity AND the channels it actually holds, because "act as Vinny" without the
+    channel list invites the model to assume reach it does not have — offering to text someone on a
+    number this agent was never given. Only VERIFIED channels are presented as usable; an untested
+    handle is a claim nobody has proven, and letting the model treat it as live would put the
+    unverified-equals-ready mistake into the prompt layer where it is hardest to see.
+    """
+    name = b.get("display") or b.get("name") or "this agent"
+    chans = b.get("channels") or {}
+    ready = [f"{ch} ({(meta or {}).get('handle', '')})" for ch, meta in chans.items() if (meta or {}).get("verified")]
+    untested = [ch for ch, meta in chans.items() if not (meta or {}).get("verified")]
+    lines = [
+        f"You are acting as the operator's agent \"{name}\" for this turn. Speak and sign as {name}.",
+    ]
+    if ready:
+        lines.append("Channels this agent can send on: " + ", ".join(ready) + ".")
+    else:
+        lines.append(
+            "This agent has no verified channel yet, so do not offer to send anything as it — say so plainly.",
+        )
+    if untested:
+        lines.append(
+            "Connected but UNVERIFIED (never present these as working): " + ", ".join(untested) + ".",
+        )
+    return "\n".join(lines)
+
+
+def _print_agent_card(b) -> None:
+    """What this agent is and what it can actually do — the answer to a bare `@name`."""
+    name = b.get("display") or b.get("name")
+    print(gold(f"\n  {name}"))
+    chans = b.get("channels") or {}
+    if not chans:
+        print(dim("     no channels — /supply to give it one\n"))
+        return
+    for ch, meta in chans.items():
+        # verified vs untested is the operator's real question: an untested handle is a claim we
+        # have not proven, and saying "ready" for it would be the false green in miniature.
+        mark = "✓ verified" if meta.get("verified") else "· untested"
+        print("     " + dim(f"{ch:<9} {meta.get('handle','')}   {mark}"))
+    print(dim(f"\n     @{str(b.get('name') or '').lower()} <message>   run a turn as this agent"))
+    print(dim("     $takeoff                      put agents on live duty\n"))
+
+
 def _supply_active(cfg):
     """List every agent that has a channel + its handles (verified vs untested)."""
     binds = [b for b in _load_user_items("agent-channels") if (b.get("channels") or {})]
@@ -20303,6 +20453,10 @@ def _supply_assign_telegram(cfg):
         return
     key, display = picked
     stored = _store_agent_secret(key, "telegram-token", token)
+    # Offered only AFTER the local store succeeded — mirroring a credential we failed to
+    # keep would leave the operator with a vault copy and a terminal that cannot send.
+    if stored:
+        _mirror_agent_secret_to_vault(cfg, key, "telegram", token)
     binding = _load_agent_channels(key) or {"name": key, "display": display, "channels": {}}
     binding["display"] = display; binding.setdefault("channels", {})
     binding["channels"]["telegram"] = {"handle": chat_id, "verified": None}
@@ -20643,6 +20797,10 @@ def _supply_assign_discord(cfg):
         return
     key, display = picked
     stored = _store_agent_secret(key, "discord-token", token)
+    # Offered only AFTER the local store succeeded — mirroring a credential we failed to
+    # keep would leave the operator with a vault copy and a terminal that cannot send.
+    if stored:
+        _mirror_agent_secret_to_vault(cfg, key, "discord", token)
     binding = _load_agent_channels(key) or {"name": key, "display": display, "channels": {}}
     binding["display"] = display; binding.setdefault("channels", {})
     binding["channels"]["discord"] = {"handle": ("@" + _bot_user) if _bot_user else channel_id,
@@ -20703,6 +20861,10 @@ def _supply_assign_x(cfg):
         return
     key, display = picked
     stored = _store_agent_secret(key, "x-token", token)
+    # Offered only AFTER the local store succeeded — mirroring a credential we failed to
+    # keep would leave the operator with a vault copy and a terminal that cannot send.
+    if stored:
+        _mirror_agent_secret_to_vault(cfg, key, "x", token)
     binding = _load_agent_channels(key) or {"name": key, "display": display, "channels": {}}
     binding["display"] = display; binding.setdefault("channels", {})
     # NOT stamped verified: verifying would mean actually posting a tweet from the
@@ -21594,6 +21756,82 @@ def _load_last_session_messages():
     return []
 
 
+def _list_saved_sessions(limit: int = 12):
+    """Recent resumable sessions, newest first: [{path, when, turns, title}].
+
+    /resume used to load the newest transcript silently and print "Resumed — N messages from your
+    last session are back in context." That is a claim the operator cannot see, cannot check, and
+    cannot steer: which session? from when? about what? With several sessions on disk, "your last
+    session" is a guess the CLI makes on their behalf and then reports as fact.
+
+    So the sessions become visible and pickable. The title is the first thing the operator actually
+    said in that session, because that is what they remember it by — not a filename or an id.
+    """
+    # Imported locally: `_dt` is a per-function alias elsewhere in this module, not a global. Without
+    # this the timestamp line would raise NameError straight into the surrounding `except Exception`
+    # and every session would silently list with a blank date — a degradation nobody would report as
+    # a bug, they would just stop trusting the dates.
+    import datetime as _dt
+    import glob as _g
+    out = []
+    seen_paths = set()
+
+    def _turns(msgs):
+        return [m for m in (msgs or [])
+                if isinstance(m, dict) and m.get("role") in ("user", "assistant") and m.get("content")]
+
+    def _title(turns):
+        for m in turns:
+            if m.get("role") == "user":
+                t = " ".join(str(m.get("content") or "").split())
+                if t:
+                    return (t[:54] + "…") if len(t) > 55 else t
+        return "(no prompt)"
+
+    def _add(path, msgs):
+        turns = _turns(msgs)
+        if not turns or path in seen_paths:
+            return
+        seen_paths.add(path)
+        try:
+            when = _dt.datetime.fromtimestamp(os.path.getmtime(path)).strftime("%b %-d  %H:%M")
+        except Exception:
+            when = ""
+        out.append({"path": path, "when": when, "turns": len(turns), "title": _title(turns)})
+
+    # The per-turn autosave is the live one — it is what "continue where I left off" means, so it
+    # is listed first rather than merged into the log pile by timestamp.
+    try:
+        if os.path.exists(_AUTOSAVE_PATH):
+            _add(_AUTOSAVE_PATH, json.load(open(_AUTOSAVE_PATH)))
+    except Exception:
+        pass
+    try:
+        files = _g.glob(os.path.join(NX_DIR, "session-logs", "**", "*.json"), recursive=True)
+        for p in sorted(files, key=os.path.getmtime, reverse=True)[: limit * 2]:
+            try:
+                _add(p, (json.load(open(p)) or {}).get("messages"))
+            except Exception:
+                continue
+            if len(out) >= limit:
+                break
+    except Exception:
+        pass
+    return out[:limit]
+
+
+def _session_messages_at(path):
+    """The transcript of ONE saved session, by path. [] when unreadable."""
+    def _turns(msgs):
+        return [m for m in (msgs or [])
+                if isinstance(m, dict) and m.get("role") in ("user", "assistant") and m.get("content")]
+    try:
+        raw = json.load(open(path))
+    except Exception:
+        return []
+    return _turns(raw if isinstance(raw, list) else (raw or {}).get("messages"))
+
+
 _RESUME_ON_START = False
 
 
@@ -22074,6 +22312,16 @@ def run_nx_repl(cfg):
                     cfg["_active_skills_display"] = []
                 cfg["_active_skills_display"].append(skill)
                 continue
+            # $takeoff / $dispatch — dispatch as a SKILL, not just a slash command.
+            # `$` is already the skill sigil ($brain, $council, $browse), and putting agents on duty
+            # is the same shape of act: a capability you invoke, not a page you navigate to. Both
+            # names are accepted because the surface is called takeoff and the act is called
+            # dispatch, and an operator should not have to remember which word we chose.
+            # It routes to the SAME _run_listen the /takeoff command uses — one implementation, so
+            # the confirmation gate and the web-selection honouring cannot drift between entry points.
+            if user.strip().lower() in ("$takeoff", "$dispatch"):
+                _run_listen(cfg)
+                continue
             if user.startswith("$brain") and " " not in user.strip():
                 # Only the bare "$brain*" token runs the special interactive flow; a
                 # COMPOSED line ("$brain_search $x …") falls through to the generic
@@ -22341,6 +22589,36 @@ def run_nx_repl(cfg):
                         user = _query
                     else:
                         continue
+            # ── @agent — call one of your agents up by name ────────────────────────────────────
+            # `@vinny` shows that agent's card (channels, handles, what is verified).
+            # `@vinny <text>` addresses the turn TO that agent, so the run uses ITS identity and
+            # channels rather than yours.
+            #
+            # An unmatched @token is deliberately NOT an error and NOT swallowed: "@2pm" and
+            # "email @vinny about X" are ordinary English, and a REPL that refuses a sentence
+            # because it starts with @ is worse than one that never had the shortcut.
+            if user.startswith("@") and len(user) > 1:
+                _at_tok = user[1:].split(" ", 1)[0]
+                _at_rest = user[1:].split(" ", 1)[1].strip() if " " in user[1:] else ""
+                _agent = _agent_by_handle(_at_tok)
+                if _agent is not None:
+                    if not _at_rest:
+                        _print_agent_card(_agent)
+                        continue
+                    # Address the turn to this agent by setting _agent_persona — the EXISTING
+                    # per-turn seam (_augment_system_prompt pops it and appends it to the system
+                    # prompt), the same one /crew uses. A first draft set a new `_active_agent`
+                    # key instead and nothing read it, so `@vinny do X` printed an attribution
+                    # and then ran an ordinary turn: the exact false-green shape this whole
+                    # session has been removing, in the feature built to avoid it.
+                    _disp = _agent.get("display") or _agent.get("name")
+                    cfg["_agent_persona"] = _agent_persona_text(_agent)
+                    print(dim(f"  → as {_disp}"))
+                    user = _at_rest
+                elif _at_tok.lower() in ("agents", "crew", "list"):
+                    _supply_active(cfg)
+                    continue
+
             if user.startswith("/"):
                 cmd=user.split()[0].lower()
                 if cmd in("/exit","/quit"):
@@ -23645,14 +23923,33 @@ def run_nx_repl(cfg):
                         print(gold(f"  ✦ Signed in as {cfg.get('account','') or 'your account'}.\n"))
                     continue
                 if cmd=="/resume":
-                    # Splice the most-recent saved session's turns back into this session's context
-                    # (keeps the current system prompt at messages[0]).
-                    _prior=_load_last_session_messages()
-                    if _prior:
-                        messages[:]=messages[:1]+_prior
-                        print(gold(f"  ✦ Resumed — {len(_prior)} messages from your last session are back in context.\n"))
-                    else:
-                        print(dim("  No saved session to resume.\n"))
+                    # SHOW the sessions and let the operator pick. This used to load the newest
+                    # transcript silently and announce "N messages from your last session are back
+                    # in context" — a claim they could not see, check, or steer. With several
+                    # sessions on disk, "your last session" was the CLI guessing and then reporting
+                    # the guess as fact.
+                    _sessions = _list_saved_sessions()
+                    if not _sessions:
+                        print(dim("  No saved sessions yet — have a conversation and it saves itself.\n"))
+                        continue
+                    _pick = _choose(
+                        "Resume which conversation?",
+                        [(s["title"], f"{s['when']}  ·  {s['turns']} messages") for s in _sessions],
+                    )
+                    if _pick is None:
+                        print(dim("  · cancelled\n"))
+                        continue
+                    _chosen = _sessions[_pick]
+                    _prior = _session_messages_at(_chosen["path"])
+                    if not _prior:
+                        # The listing read it a moment ago, so an empty read here means the file
+                        # changed or went away underneath us. Say that rather than resume nothing
+                        # and report success.
+                        print(dim("  That conversation could not be read back.\n"))
+                        continue
+                    messages[:]=messages[:1]+_prior
+                    print(gold(f"\n  ✦ Resumed · {_chosen['title']}")
+                          + dim(f"   {_chosen['turns']} messages back in context\n"))
                     continue
                 if cmd=="/logout":
                     _flush_storage_session(storage_state)

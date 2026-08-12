@@ -26,8 +26,8 @@ classifiers = [
 ]
 dynamic = ["version", "description"]
 dependencies = [
-  "arviz-base>=1.2,<1.3",
-  "arviz-stats[xarray]>=1.2,<1.3",
+  "arviz-base>=1.3.0,<1.4.0",
+  "arviz-stats[xarray]>=1.3.0,<1.4.0",
 ]
 
 [tool.flit.module]
@@ -64,25 +64,39 @@ doc = [
 ]
 
 
-[tool.black]
+[tool.ruff]
 line-length = 100
 
-[tool.isort]
-profile = "black"
-include_trailing_comma = true
-use_parentheses = true
-multi_line_output = 3
-line_length = 100
-skip = [
-    "src/arviz_plots/__init__.py"
+[tool.ruff.lint]
+select = [
+    "F",  # Pyflakes
+    "E",  # Pycodestyle
+    "W",  # Pycodestyle
+    "D",  # pydocstyle
+    "NPY", # numpy specific rules
+    "UP",  # pyupgrade
+    "I",  # isort
+    "TID",  # flake8-tidy-imports (relative imports)
 ]
+extend-safe-fixes = ["TID252"]
 
-[tool.pydocstyle]
+[tool.ruff.lint.per-file-ignores]
+"src/arviz_plots/**/__init__.py" = ["I", "F401", "F403", "E402"]
+"src/arviz_plots/**/*.pyi" = ["TID252"]
+"tests/**/*" = ["D"]
+"docs/**/*" = ["D", "E", "F", "I", "NPY", "TID", "UP", "W"]
+
+[tool.ruff.lint.pydocstyle]
 convention = "numpy"
-match_dir = "^(?!docs|.tox).*"
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.format]
+docstring-code-format = false
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.12"
 warn_redundant_casts = true
 warn_unused_configs = true
 pretty = true

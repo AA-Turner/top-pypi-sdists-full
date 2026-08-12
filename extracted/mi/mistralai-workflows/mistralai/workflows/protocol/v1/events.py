@@ -218,6 +218,20 @@ class BaseEvent(BaseModel):
         description="Execution ID of the parent workflow that initiated this execution. "
         "If this is a root workflow, this field is not set.",
     )
+    continued_run_id: str | None = Field(
+        default=None,
+        description="Run ID of the execution this run continued from. Non-null for continue-as-new runs.",
+    )
+    first_execution_run_id: str | None = Field(
+        default=None,
+        description="Run ID of the first execution in this workflow chain. "
+        "Equals workflow_run_id on fresh starts and resets (chain anchor resets on reset); "
+        "differs on CAN and Retry runs where it stays anchored to the original first run.",
+    )
+    schedule_id: str | None = Field(
+        default=None,
+        description="Temporal schedule ID that triggered this execution, if any.",
+    )
     workflow_exec_id: str = Field(description="Execution ID of the workflow that emitted this event.")
     workflow_run_id: str = Field(
         description="Run ID of the workflow execution. "
@@ -243,18 +257,30 @@ class WorkflowExecutionStartedAttributes(BaseTaskAttributes):
         description="The user-friendly display name of the workflow, if available.",
     )
     input: JSONPayload = Field(description="The input arguments passed to the workflow.")
+    attempt: int = Field(
+        default=1,
+        description="Workflow retry attempt number. 1 on first run and CAN; >1 on workflow-level retries.",
+    )
 
 
 class WorkflowExecutionCompletedAttributes(BaseTaskAttributes):
     """Attributes for workflow execution completed events."""
 
     result: JSONPayload = Field(description="The final result returned by the workflow.")
+    attempt: int = Field(
+        default=1,
+        description="Workflow retry attempt number. 1 on first run and CAN; >1 on workflow-level retries.",
+    )
 
 
 class WorkflowExecutionFailedAttributes(BaseTaskAttributes):
     """Attributes for workflow execution failed events."""
 
     failure: Failure = Field(description="Details about the failure that caused the workflow to fail.")
+    attempt: int = Field(
+        default=1,
+        description="Workflow retry attempt number. 1 on first run and CAN; >1 on workflow-level retries.",
+    )
 
 
 class WorkflowExecutionCanceledAttributes(BaseTaskAttributes):
@@ -263,6 +289,10 @@ class WorkflowExecutionCanceledAttributes(BaseTaskAttributes):
     reason: str | None = Field(
         default=None,
         description="Optional reason provided for the cancellation.",
+    )
+    attempt: int = Field(
+        default=1,
+        description="Workflow retry attempt number. 1 on first run and CAN; >1 on workflow-level retries.",
     )
 
 

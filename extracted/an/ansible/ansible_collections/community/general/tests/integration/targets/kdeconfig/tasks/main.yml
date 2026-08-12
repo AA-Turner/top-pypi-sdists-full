@@ -9,18 +9,18 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Set paths
-  set_fact:
+  ansible.builtin.set_fact:
     output_file: "{{ remote_tmp_dir }}/kdeconf"
     kwriteconf_fake: "{{ remote_tmp_dir }}/kwriteconf"
 
 - name: Install fake kwriteconf
-  copy:
+  ansible.builtin.copy:
     dest: "{{ kwriteconf_fake }}"
     src: kwriteconf_fake
     mode: "0755"
 
 - name: Simple test
-  kdeconfig:
+  community.general.kdeconfig:
     path: "{{ output_file }}"
     values:
       - group: test
@@ -31,13 +31,13 @@
   ignore_errors: true
 
 - name: Simple test - checks
-  assert:
+  ansible.builtin.assert:
     that:
       - result_simple is changed
       - result_simple is not failed
 
 - name: Simple test - idempotence
-  kdeconfig:
+  community.general.kdeconfig:
     path: "{{ output_file }}"
     values:
       - group: test
@@ -48,18 +48,18 @@
   ignore_errors: true
 
 - name: Simple test - idempotence - checks
-  assert:
+  ansible.builtin.assert:
     that:
       - result_simple_idem is not changed
       - result_simple_idem is not failed
 
 - name: Reset
-  file:
+  ansible.builtin.file:
     path: "{{ output_file }}"
     state: absent
 
 - name: Group and groups are mutually exclusive
-  kdeconfig:
+  community.general.kdeconfig:
     path: "{{ output_file }}"
     values:
       - group: test
@@ -71,14 +71,14 @@
   ignore_errors: true
 
 - name: Group and groups are mutually exclusive - checks
-  assert:
+  ansible.builtin.assert:
     that:
       - result_group_mutex is not changed
       - result_group_mutex is failed
       - "result_group_mutex.msg == 'parameters are mutually exclusive: group|groups found in values'"
 
 - name: value and bool_value are mutually exclusive
-  kdeconfig:
+  community.general.kdeconfig:
     path: "{{ output_file }}"
     values:
       - group: test
@@ -90,14 +90,14 @@
   ignore_errors: true
 
 - name: value and bool_value are mutually exclusive - checks
-  assert:
+  ansible.builtin.assert:
     that:
       - result_val_mutex is not changed
       - result_val_mutex is failed
       - "result_val_mutex.msg == 'parameters are mutually exclusive: value|bool_value found in values'"
 
 - name: bool_value must be bool
-  kdeconfig:
+  community.general.kdeconfig:
     path: "{{ output_file }}"
     values:
       - group: test
@@ -108,14 +108,14 @@
   ignore_errors: true
 
 - name: bool_value must be bool - checks
-  assert:
+  ansible.builtin.assert:
     that:
       - result_val_bool is not changed
       - result_val_bool is failed
       - "'is not a valid boolean' in result_val_bool.msg"
 
 - name: Multiple groups test
-  kdeconfig:
+  community.general.kdeconfig:
     path: "{{ output_file }}"
     values:
       - groups:
@@ -129,13 +129,13 @@
   ignore_errors: true
 
 - name: Multiple groups test - checks
-  assert:
+  ansible.builtin.assert:
     that:
       - result_groups is changed
       - result_groups is not failed
 
 - name: Multiple groups test - idempotence
-  kdeconfig:
+  community.general.kdeconfig:
     path: "{{ output_file }}"
     values:
       - groups:
@@ -149,18 +149,18 @@
   ignore_errors: true
 
 - name: Multiple groups test - idempotence - checks
-  assert:
+  ansible.builtin.assert:
     that:
       - result_groups_idem is not changed
       - result_groups_idem is not failed
 
 - name: Reset
-  file:
+  ansible.builtin.file:
     path: "{{ output_file }}"
     state: absent
 
 - name: Bool test
-  kdeconfig:
+  community.general.kdeconfig:
     path: "{{ output_file }}"
     values:
       - group: test
@@ -171,13 +171,13 @@
   ignore_errors: true
 
 - name: Simple test - checks
-  assert:
+  ansible.builtin.assert:
     that:
       - result_bool is changed
       - result_bool is not failed
 
 - name: Bool test - idempotence
-  kdeconfig:
+  community.general.kdeconfig:
     path: "{{ output_file }}"
     values:
       - group: test
@@ -188,18 +188,18 @@
   ignore_errors: true
 
 - name: Bool test - idempotence - checks
-  assert:
+  ansible.builtin.assert:
     that:
       - result_bool_idem is not changed
       - result_bool_idem is not failed
 
 - name: Reset
-  file:
+  ansible.builtin.file:
     path: "{{ output_file }}"
     state: absent
 
 - name: check_mode test
-  kdeconfig:
+  community.general.kdeconfig:
     path: "{{ output_file }}"
     values:
       - group: test
@@ -215,20 +215,20 @@
   diff: true
 
 - name: check_mode test file contents
-  slurp:
+  ansible.builtin.slurp:
     src: "{{ output_file }}"
   register: check_mode_contents
   ignore_errors: true
 
 - name: check_mode test - checks
-  assert:
+  ansible.builtin.assert:
     that:
       - result_checkmode is changed
       - result_checkmode is not failed
       - check_mode_contents is failed
 
 - name: check_mode test - apply
-  kdeconfig:
+  community.general.kdeconfig:
     path: "{{ output_file }}"
     values:
       - group: test
@@ -244,7 +244,7 @@
   diff: true
 
 - name: check_mode test - apply - checks
-  assert:
+  ansible.builtin.assert:
     that:
       - result_checkmode_apply is changed
       - result_checkmode_apply is not failed
@@ -252,7 +252,7 @@
       - "result_checkmode_apply['diff']['before'] == result_checkmode['diff']['before']"
 
 - name: check_mode test - idempotence
-  kdeconfig:
+  community.general.kdeconfig:
     path: "{{ output_file }}"
     values:
       - group: test
@@ -267,18 +267,18 @@
   check_mode: true
 
 - name: check_mode test - idempotence - checks
-  assert:
+  ansible.builtin.assert:
     that:
       - result_checkmode2 is not changed
       - result_checkmode2 is not failed
 
 - name: Reset
-  file:
+  ansible.builtin.file:
     path: "{{ output_file }}"
     state: absent
 
 - name: Unicode test
-  kdeconfig:
+  community.general.kdeconfig:
     path: "{{ output_file }}"
     values:
       - group: tesòt
@@ -289,18 +289,18 @@
   ignore_errors: true
 
 - name: Unicode test - checks
-  assert:
+  ansible.builtin.assert:
     that:
       - result_unicode is changed
       - result_unicode is not failed
 
 - name: Reset
-  file:
+  ansible.builtin.file:
     path: "{{ output_file }}"
     state: absent
 
 - name: Missing groups
-  kdeconfig:
+  community.general.kdeconfig:
     path: "{{ output_file }}"
     values:
       - key: test1
@@ -310,14 +310,14 @@
   ignore_errors: true
 
 - name: Missing groups - checks
-  assert:
+  ansible.builtin.assert:
     that:
       - result_mgroup is not changed
       - result_mgroup is failed
       - "result_mgroup.msg == 'one of the following is required: group, groups found in values'"
 
 - name: Missing key
-  kdeconfig:
+  community.general.kdeconfig:
     path: "{{ output_file }}"
     values:
       - group: test1
@@ -327,14 +327,14 @@
   ignore_errors: true
 
 - name: Missing key - checks
-  assert:
+  ansible.builtin.assert:
     that:
       - result_mkey is not changed
       - result_mkey is failed
       - "result_mkey.msg == 'missing required arguments: key found in values'"
 
 - name: Missing value
-  kdeconfig:
+  community.general.kdeconfig:
     path: "{{ output_file }}"
     values:
       - group: test1
@@ -344,14 +344,14 @@
   ignore_errors: true
 
 - name: Missing value - checks
-  assert:
+  ansible.builtin.assert:
     that:
       - result_mvalue is not changed
       - result_mvalue is failed
       - "result_mvalue.msg == 'one of the following is required: value, bool_value found in values'"
 
 - name: Empty key
-  kdeconfig:
+  community.general.kdeconfig:
     path: "{{ output_file }}"
     values:
       - group: test1
@@ -362,7 +362,7 @@
   ignore_errors: true
 
 - name: Empty key - checks
-  assert:
+  ansible.builtin.assert:
     that:
       - result_ekey is not changed
       - result_ekey is failed

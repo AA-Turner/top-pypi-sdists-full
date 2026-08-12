@@ -36,6 +36,8 @@ class DisassemblyResult:
         self.code_refs_to = {}
         # key: address of API in target DLL, value: {referencing_addr, api_name, dll_name}
         self.apis = {}
+        # key: address of the pointer slot an API was reached through, value: (dll_name, api_name)
+        self.import_slots = {}
         self._api_ref_sources = {}
         self._api_refs_initialized = False
         self.addr_to_api = {}
@@ -213,7 +215,7 @@ class DisassemblyResult:
             extracted_dword = self.binary_info.binary[rel_start_addr:rel_end_addr]
             if len(extracted_dword) < 4:
                 return None
-            return struct.unpack("I", extracted_dword)[0]
+            return struct.unpack("<I", extracted_dword)[0]
         return None
 
     def dereferenceQword(self, addr):
@@ -223,7 +225,7 @@ class DisassemblyResult:
             extracted_qword = self.binary_info.binary[rel_start_addr:rel_end_addr]
             if len(extracted_qword) < 8:
                 return None
-            return struct.unpack("Q", extracted_qword)[0]
+            return struct.unpack("<Q", extracted_qword)[0]
         return None
 
     def addCodeRefs(self, addr_from, addr_to):
@@ -280,12 +282,19 @@ class DisassemblyResult:
             verified_refs = sorted(block_starts.intersection(self.code_refs_from[last_ins_addr]))
             if verified_refs:
                 block_refs[block[0][0]] = verified_refs
+        # block_refs was seeded from sorted(block_starts), so it only needs re-sorting if the
+        # exception pass introduced a key that was not already a block start
+        added_key = False
         for block_start, successors in self._getExceptionSuccessors(func_addr, blocks).items():
             merged_successors = set(block_refs.get(block_start, []))
             merged_successors.update(successors)
             block_refs[block_start] = sorted(merged_successors)
             for successor in successors:
-                block_refs.setdefault(successor, [])
+                if successor not in block_refs:
+                    block_refs[successor] = []
+                    added_key = True
+        if not added_key:
+            return block_refs
         return {block_start: block_refs[block_start] for block_start in sorted(block_refs)}
 
     def getInRefs(self, func_addr):
@@ -295,11 +304,9 @@ class DisassemblyResult:
         return sorted(in_refs)
 
     def getOutRefs(self, func_addr):
-        ins_addrs = set()
         code_refs_from = self.code_refs_from
-        for block in self.functions[func_addr]:
-            for ins in block:
-                ins_addrs.add(ins[0])
+        blocks = self.functions[func_addr]
+        ins_addrs = {ins[0] for block in blocks for ins in block}
         # function may be recursive
         ins_addrs.discard(func_addr)
         out_refs = {}
@@ -365,6 +372,9 @@ class DisassemblyResult:
             api_entry["referencing_addr"].append(referencing_addr)
         self.apis[api_addr] = api_entry
         self._api_refs_initialized = False
+
+    def addImportSlot(self, slot_addr, dll_name, api_name):
+        self.import_slots[slot_addr] = (dll_name, api_name)
 
     def getAllApiRefs(self):
         all_api_refs = {}

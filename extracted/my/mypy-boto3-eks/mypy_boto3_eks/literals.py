@@ -85,6 +85,7 @@ __all__ = (
     "RepairActionType",
     "ResolveConflictsType",
     "ResourceServiceName",
+    "ScoringStrategyTypeType",
     "ServiceName",
     "SpreadLevelType",
     "SsoIdentityTypeType",
@@ -288,6 +289,7 @@ NodegroupUpdateStrategiesType = Literal["DEFAULT", "MINIMAL"]
 ProvisionedControlPlaneTierType = Literal["standard", "tier-2xl", "tier-4xl", "tier-8xl", "tier-xl"]
 RepairActionType = Literal["NoAction", "Reboot", "Replace"]
 ResolveConflictsType = Literal["NONE", "OVERWRITE", "PRESERVE"]
+ScoringStrategyTypeType = Literal["LeastAllocated", "MostAllocated"]
 SpreadLevelType = Literal["host", "rack"]
 SsoIdentityTypeType = Literal["SSO_GROUP", "SSO_USER"]
 SupportTypeType = Literal["EXTENDED", "STANDARD"]
@@ -305,6 +307,9 @@ UpdateParamTypeType = Literal[
     "EndpointPrivateAccess",
     "EndpointPublicAccess",
     "IdentityProviderConfig",
+    "KubeApiServerConfig",
+    "KubeControllerManagerConfig",
+    "KubeSchedulerConfig",
     "KubernetesNetworkConfig",
     "LabelsToAdd",
     "LabelsToRemove",
@@ -354,6 +359,7 @@ UpdateTypeType = Literal[
     "AutoModeUpdate",
     "CapabilityUpdate",
     "ConfigUpdate",
+    "ControlPlaneComponentConfigUpdate",
     "ControlPlaneEgressUpdate",
     "ControlPlaneScalingConfigUpdate",
     "DeletionProtectionUpdate",
@@ -374,8 +380,11 @@ EKSServiceName = Literal["eks"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -662,6 +671,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -679,6 +689,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

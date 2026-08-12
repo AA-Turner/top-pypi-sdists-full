@@ -85,7 +85,11 @@ options:
         description:
             - The kind of storage.
             - The C(FileStorage) and (BlockBlobStorage) only used when I(account_type=Premium_LRS) or I(account_type=Premium_ZRS).
-        default: 'Storage'
+            - C(Storage) (general-purpose v1) and C(BlobStorage) are legacy account kinds that Azure is retiring. Microsoft
+              is disabling creation of new legacy blob storage accounts in September 2026 and will fully retire both kinds
+              in October 2026 (any remaining accounts will be auto-migrated to C(StorageV2)). Use C(StorageV2) for all new
+              accounts.
+        default: 'StorageV2'
         type: str
         choices:
             - Storage
@@ -304,6 +308,11 @@ options:
         description:
             - A boolean flag which indicates whether the default authentication is OAuth or not.
             - The default interpretation is false for this property.
+        type: bool
+    smb_oauth_enabled:
+        description:
+            - Whether managed identities can access Azure Files SMB shares using OAuth.
+            - When unset, the value on Azure is left unchanged (the service default is C(false) for new accounts).
         type: bool
     encryption:
         description:
@@ -558,6 +567,14 @@ EXAMPLES = '''
       default_action: Deny
       bypass: AzureServices
       resource_access_rules: []
+
+- name: Create a StorageV2 account with SMB OAuth enabled for Managed Identity access
+  azure_rm_storageaccount:
+    resource_group: myResourceGroup
+    name: mystorageacct
+    account_type: Standard_LRS
+    kind: StorageV2
+    smb_oauth_enabled: true
 '''
 
 RETURN = '''
@@ -589,6 +606,12 @@ state:
             description:
                 - A boolean flag which indicates whether the default authentication is OAuth or not.
                 - The default interpretation is false for this property.
+            type: bool
+            returned: always
+            sample: true
+        smb_oauth_enabled:
+            description:
+                - Whether managed identities can access Azure Files SMB shares using OAuth.
             type: bool
             returned: always
             sample: true
@@ -1003,7 +1026,7 @@ class AzureRMStorageAccount(AzureRMModuleBaseExt):
             state=dict(default='present', choices=['present', 'absent', 'failover']),
             force_delete_nonempty=dict(type='bool', default=False, aliases=['force']),
             tags=dict(type='dict'),
-            kind=dict(type='str', default='Storage', choices=['Storage', 'StorageV2', 'BlobStorage', 'FileStorage', 'BlockBlobStorage']),
+            kind=dict(type='str', default='StorageV2', choices=['Storage', 'StorageV2', 'BlobStorage', 'FileStorage', 'BlockBlobStorage']),
             access_tier=dict(type='str', choices=['Hot', 'Cool', 'Cold', 'Premium', 'Smart']),
             https_only=dict(type='bool'),
             minimum_tls_version=dict(type='str', choices=['TLS1_0', 'TLS1_1', 'TLS1_2']),
@@ -1012,6 +1035,7 @@ class AzureRMStorageAccount(AzureRMModuleBaseExt):
             allow_shared_key_access=dict(type='bool'),
             allow_cross_tenant_replication=dict(type='bool'),
             default_to_o_auth_authentication=dict(type='bool'),
+            smb_oauth_enabled=dict(type='bool'),
             network_acls=dict(
                 type='dict',
                 options=dict(
@@ -1140,6 +1164,8 @@ class AzureRMStorageAccount(AzureRMModuleBaseExt):
         self.allow_shared_key_access = None
         self.allow_cross_tenant_replication = None
         self.default_to_o_auth_authentication = None
+        self.smb_oauth_enabled = None
+        self._existing_azure_files_auth = None
         self._managed_identity = None
         self.identity = None
         self.update_identity = False
@@ -1179,6 +1205,19 @@ class AzureRMStorageAccount(AzureRMModuleBaseExt):
 
         if self.kind in ['FileStorage', 'BlockBlobStorage', ] and self.account_type not in ['Premium_LRS', 'Premium_ZRS']:
             self.fail("Parameter error: Storage account with {0} kind require account type is Premium_LRS or Premium_ZRS".format(self.kind))
+
+        if self.state == 'present' and self.kind in ('Storage', 'BlobStorage'):
+            self.module.deprecate(
+                "kind='{0}' is a legacy Azure storage account type. Microsoft is disabling creation of new "
+                "legacy blob storage accounts in September 2026 and fully retiring both 'Storage' "
+                "(general-purpose v1) and 'BlobStorage' accounts in October 2026, after which remaining "
+                "accounts will be auto-migrated to 'StorageV2'. Set kind='StorageV2' instead. See "
+                "https://learn.microsoft.com/en-us/azure/storage/common/legacy-blob-storage-account-migration-overview "
+                "and "
+                "https://learn.microsoft.com/en-us/azure/storage/common/general-purpose-version-1-account-migration-overview".format(self.kind),
+                version='4.0.0',
+                collection_name='azure.azcollection',
+            )
         self.account_dict = self.get_account()
 
         curr_identity = self.account_dict["identity"] if self.account_dict else None
@@ -1347,6 +1386,11 @@ class AzureRMStorageAccount(AzureRMModuleBaseExt):
         account_dict['encryption'] = as_attribute_dict(account_obj.encryption) if account_obj.encryption else dict()
 
         account_dict['identity'] = as_attribute_dict(account_obj.identity) if account_obj.identity else dict()
+
+        afa = getattr(account_obj, 'azure_files_identity_based_authentication', None)
+        smb = getattr(afa, 'smb_o_auth_settings', None) if afa else None
+        account_dict['smb_oauth_enabled'] = bool(getattr(smb, 'is_smb_o_auth_enabled', False)) if smb else False
+        self._existing_azure_files_auth = afa
 
         return account_dict
 
@@ -1636,6 +1680,19 @@ class AzureRMStorageAccount(AzureRMModuleBaseExt):
                 except Exception as exc:
                     self.fail("Failed to update large_file_shares_state: {0}".format(str(exc)))
 
+        if self.smb_oauth_enabled is not None and \
+           self.smb_oauth_enabled != self.account_dict.get('smb_oauth_enabled'):
+            self.results['changed'] = True
+            self.account_dict['smb_oauth_enabled'] = self.smb_oauth_enabled
+            if not self.check_mode:
+                try:
+                    parameters = self.storage_models.StorageAccountUpdateParameters(
+                        azure_files_identity_based_authentication=self._build_azure_files_identity_auth_payload(
+                            existing_afa=self._existing_azure_files_auth))
+                    self.storage_client.storage_accounts.update(self.resource_group, self.name, parameters)
+                except Exception as exc:
+                    self.fail("Failed to update smb_oauth_enabled: {0}".format(str(exc)))
+
         update_tags, self.account_dict['tags'] = self.update_tags(self.account_dict['tags'])
         if update_tags:
             self.results['changed'] = True
@@ -1730,6 +1787,30 @@ class AzureRMStorageAccount(AzureRMModuleBaseExt):
             immutability_policy=self.storage_models.AccountImmutabilityPolicyProperties(**policy) if policy else None,
         )
 
+    def _build_azure_files_identity_auth_payload(self, existing_afa=None):
+        '''
+        Build an AzureFilesIdentityBasedAuthentication SDK model that carries the
+        smb_oauth_enabled toggle. Returns None when the caller did not set the
+        parameter.
+        '''
+        if self.smb_oauth_enabled is None:
+            return None
+
+        smb_settings = self.storage_models.SmbOAuthSettings(
+            is_smb_o_auth_enabled=self.smb_oauth_enabled,
+        )
+
+        directory_service_options = getattr(existing_afa, 'directory_service_options', None) or "None"
+        active_directory_properties = getattr(existing_afa, 'active_directory_properties', None)
+        default_share_permission = getattr(existing_afa, 'default_share_permission', None)
+
+        return self.storage_models.AzureFilesIdentityBasedAuthentication(
+            directory_service_options=directory_service_options,
+            active_directory_properties=active_directory_properties,
+            default_share_permission=default_share_permission,
+            smb_o_auth_settings=smb_settings,
+        )
+
     def create_account(self):
         self.log("Creating account {0}".format(self.name))
 
@@ -1764,6 +1845,7 @@ class AzureRMStorageAccount(AzureRMModuleBaseExt):
                 allow_shared_key_access=self.allow_shared_key_access,
                 identity=as_attribute_dict(self.identity) if self.identity else None,
                 immutable_storage_with_versioning=self.immutable_storage_with_versioning,
+                smb_oauth_enabled=self.smb_oauth_enabled,
                 tags=dict()
             )
             if self.tags:
@@ -1779,6 +1861,7 @@ class AzureRMStorageAccount(AzureRMModuleBaseExt):
         sku.tier = self.storage_models.SkuTier.standard if 'Standard' in self.account_type else \
             self.storage_models.SkuTier.premium
         # pylint: disable=missing-kwoa
+        azure_files_auth = self._build_azure_files_identity_auth_payload()
         parameters = self.storage_models.StorageAccountCreateParameters(sku=sku,
                                                                         kind=self.kind,
                                                                         location=self.location,
@@ -1796,6 +1879,7 @@ class AzureRMStorageAccount(AzureRMModuleBaseExt):
                                                                         default_to_o_auth_authentication=self.default_to_o_auth_authentication,
                                                                         allow_cross_tenant_replication=self.allow_cross_tenant_replication,
                                                                         immutable_storage_with_versioning=self._build_immutable_storage_payload(),
+                                                                        azure_files_identity_based_authentication=azure_files_auth,
                                                                         large_file_shares_state=self.large_file_shares_state)
         self.log(str(parameters))
         try:

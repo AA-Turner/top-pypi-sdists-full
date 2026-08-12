@@ -1,3 +1,4 @@
+import logging
 import unittest
 from types import SimpleNamespace
 
@@ -516,6 +517,73 @@ class TestIntelDisassembler(unittest.TestCase):
         # as an effective NOP and skipped, so it is never returned as the candidate start.
         self.assertNotEqual(self._first_gap_candidate(b"\x8b\xff\x90\x90\x90"), 0x1010)
 
+    def _gap_manager(self, stub, base=0x1000, stub_off=0x10):
+        # Same layout as _first_gap_candidate, but hands back the manager so a test can drive
+        # the scan more than once and observe the retained-pad bookkeeping between calls.
+        buf = bytearray(b"\x90")
+        buf += b"\xcc" * (stub_off - len(buf))
+        buf += stub
+        buf += b"\xcc" * (0x200 - len(buf))
+
+        binary_info = BinaryInfo(bytes(buf))
+        binary_info.base_addr = base
+        binary_info.binary_size = len(buf)
+        binary_info.bitness = 32
+        manager = FunctionCandidateManager(SmdaConfig())
+        manager.disassembly = SimpleNamespace(
+            binary_info=binary_info,
+            code_map={base: 1, base + 0x100: 1},
+            data_map={},
+            getRawBytes=lambda offset, n: bytes(buf)[offset : offset + n],
+        )
+        manager.bitness = 32
+        manager.capstone = Cs(CS_ARCH_X86, CS_MODE_32)
+        return manager
+
+    def test_hotpatch_pad_before_a_non_ebp_prologue_is_the_candidate_start(self):
+        # `mov edi, edi` opens every hotpatchable MSVC function, not only those continuing with
+        # `push ebp; mov ebp, esp`. As padding it exists solely to reach the next 16-byte
+        # boundary, so a pad that does not end on one is the function's true entry and must be
+        # the candidate; skipping it would mislocate the start two bytes late.
+        self.assertEqual(self._first_gap_candidate(b"\x8b\xff\x56\x8b\xf2"), 0x1010)
+        self.assertEqual(self._first_gap_candidate(b"\x89\xff\x83\xec\x0c"), 0x1010)
+        # control: the same pad two bytes earlier DOES end on the boundary, so it is genuine
+        # alignment filler and the candidate is the aligned address behind it.
+        self.assertEqual(self._first_gap_candidate(b"\x8b\xff\x56\x8b\xf2", stub_off=0x0E), 0x1010)
+
+    def test_is_unaligned_entry_pad_predicate(self):
+        manager = FunctionCandidateManager(SmdaConfig())
+        manager.bitness = 32
+        self.assertTrue(manager.isUnalignedEntryPad(b"\x8b\xff", 0x1012, b"\x56\x8b\xf2\x00\x00\x00\x00"))
+        # ends on a 16-byte boundary -> alignment filler
+        self.assertFalse(manager.isUnalignedEntryPad(b"\x8b\xff", 0x1010, b"\x56\x8b\xf2\x00\x00\x00\x00"))
+        # more padding behind it -> still inside the filler run, not the run's function entry
+        self.assertFalse(manager.isUnalignedEntryPad(b"\x8b\xff", 0x1012, b"\x90\x90\x90\x90\x90\x90\x90"))
+        # the pad set is per bitness: `mov edi, edi` is the x86 hotpatch convention, and widening
+        # x86 to the other effective NOPs was measured to cost true positives
+        self.assertFalse(manager.isUnalignedEntryPad(b"\x66\x90", 0x1012, b"\x56\x8b\xf2\x00\x00\x00\x00"))
+        manager.bitness = 64
+        self.assertFalse(manager.isUnalignedEntryPad(b"\x8b\xff", 0x1012, b"\x56\x8b\xf2\x00\x00\x00\x00"))
+        self.assertTrue(manager.isUnalignedEntryPad(b"\x66\x90", 0x1012, b"\x0f\xb6\x01\x84\xc0\x74\x24"))
+        self.assertFalse(manager.isUnalignedEntryPad(b"\x66\x90", 0x1010, b"\x0f\xb6\x01\x84\xc0\x74\x24"))
+        # a bitness with no pad set at all matches nothing
+        manager.bitness = 16
+        self.assertFalse(manager.isUnalignedEntryPad(b"\x66\x90", 0x1012, b"\x0f\xb6\x01\x84\xc0\x74\x24"))
+
+    def test_retained_hotpatch_pad_that_yields_no_function_resumes_behind_the_pad(self):
+        # When the retained pad produces no function it really was padding, so the scan must
+        # continue two bytes on instead of following the caller's next-gap address, which would
+        # abandon every remaining byte of the current gap.
+        manager = self._gap_manager(b"\x8b\xff\x56\x8b\xf2")
+        self.assertEqual(manager.nextGapCandidate(), 0x1010)
+        self.assertEqual(manager.nextGapCandidate(0x1100), 0x1012)
+
+    def test_retained_hotpatch_pad_that_became_a_function_follows_the_next_gap(self):
+        manager = self._gap_manager(b"\x8b\xff\x56\x8b\xf2")
+        self.assertEqual(manager.nextGapCandidate(), 0x1010)
+        manager.disassembly.code_map[0x1010] = 1
+        self.assertNotEqual(manager.nextGapCandidate(0x1100), 0x1012)
+
     def test_gap_scan_skips_hlt_and_ud2_trap_filler(self):
         # hlt (0xf4) and ud2 (0x0f 0x0b) are trap filler a function never opens with;
         # the gap scanner must skip them like int3 and promote the code behind them.
@@ -545,6 +613,7 @@ class TestIntelDisassembler(unittest.TestCase):
         disassembler.disassembly = SimpleNamespace(
             apis={},
             addApiReference=lambda *a, **kw: None,
+            addImportSlot=lambda *a, **kw: None,
             dereferenceDword=lambda addr: 0x9999 if addr == 0x1020 else None,
             isAddrWithinMemoryImage=lambda addr: True,
         )
@@ -567,6 +636,7 @@ class TestIntelDisassembler(unittest.TestCase):
         disassembler.disassembly = SimpleNamespace(
             apis={},
             addApiReference=lambda *a, **kw: None,
+            addImportSlot=lambda *a, **kw: None,
             dereferenceDword=lambda addr: 0x9999 if addr == 0x1020 else None,
             isAddrWithinMemoryImage=lambda addr: True,
         )
@@ -587,6 +657,7 @@ class TestIntelDisassembler(unittest.TestCase):
         disassembler.disassembly = SimpleNamespace(
             apis={},
             addApiReference=lambda *a, **kw: None,
+            addImportSlot=lambda *a, **kw: None,
             functions={},
             isAddrWithinMemoryImage=lambda addr: True,
         )
@@ -607,6 +678,7 @@ class TestIntelDisassembler(unittest.TestCase):
         disassembler.disassembly = SimpleNamespace(
             apis={},
             addApiReference=lambda *a, **kw: None,
+            addImportSlot=lambda *a, **kw: None,
             functions={},
             isAddrWithinMemoryImage=lambda addr: True,
         )
@@ -728,6 +800,59 @@ class TestIntelDisassembler(unittest.TestCase):
                 manager.locatePrologueCandidates()
 
                 self.assertEqual(manager.candidates, {})
+
+    def _seed_prologues_32bit(self, buf, code_areas=None):
+        binary_info = BinaryInfo(buf)
+        binary_info.base_addr = 0x1000
+        binary_info.bitness = 32
+        binary_info.binary_size = len(buf)
+
+        manager = FunctionCandidateManager(SmdaConfig())
+        manager.disassembly = SimpleNamespace(binary_info=binary_info, analysis_timeout=False)
+        manager.bitness = 32
+        if code_areas:
+            manager._code_areas = code_areas
+
+        manager.locatePrologueCandidates()
+        return manager.candidates.keys()
+
+    def test_prologue_seeding_reports_a_tripped_timeout_to_its_caller(self):
+        # locatePrologueCandidates walks several patterns; the first one to see the timeout
+        # returns True so the rest are abandoned instead of each rediscovering it.
+        binary_info = BinaryInfo(bytes.fromhex("558bec"))
+        binary_info.base_addr = 0x1000
+        binary_info.bitness = 32
+        binary_info.binary_size = 3
+
+        manager = FunctionCandidateManager(SmdaConfig())
+        manager.disassembly = SimpleNamespace(binary_info=binary_info, analysis_timeout=False)
+        manager.bitness = 32
+        manager._cb_analysis_timeout = lambda: True
+
+        self.assertTrue(manager._seedPrologueMatches(b"\x55\x8b\xec"))
+        self.assertEqual({}, manager.candidates)
+
+    def test_prologue_scan_skips_the_body_behind_a_hotpatch_pad(self):
+        # MSVC emits `mov edi, edi` ahead of `push ebp; mov ebp, esp` and the pad is the
+        # function's entry, so the bare 3-byte prologue also matching two bytes in must not
+        # seed a second candidate there -- ground truth counts only the pad.
+        candidates = self._seed_prologues_32bit(bytes.fromhex("8bff558bec" + "90" * 11 + "558bec"))
+
+        self.assertIn(0x1000, candidates)
+        self.assertNotIn(0x1002, candidates)
+        # a bare prologue with no pad in front of it is still seeded where it matches
+        self.assertIn(0x1010, candidates)
+
+    def test_prologue_scan_seeds_the_body_when_the_pad_is_outside_the_code_area(self):
+        # The pad two bytes back is normally seeded by the 5-byte pattern scanned first, which
+        # is what makes skipping the body safe. When the code filter rejected the pad, nothing
+        # stands behind the body, so it must be seeded rather than dropped.
+        candidates = self._seed_prologues_32bit(
+            bytes.fromhex("8bff558bec" + "90" * 11 + "558bec"), code_areas=[[0x1002, 0x1020]]
+        )
+
+        self.assertNotIn(0x1000, candidates)
+        self.assertIn(0x1002, candidates)
 
     def test_prefixed_call_keeps_fallthrough_in_same_block(self):
         state = FunctionAnalysisState(0x1000, SimpleNamespace())
@@ -944,6 +1069,35 @@ class TestIntelDisassembler(unittest.TestCase):
         state = self._analyze(backend, "int", "0x2e", [self._ins("mov", "eax, 1")])
         self.assertFalse(state.is_sanely_ending)
 
+    def test_int0x80_exit_reports_the_program_end_at_debug_level(self):
+        # the whole suite runs under a global logging.disable(), which suppresses records
+        # regardless of logger level, so the debug arm needs that lifted rather than just a
+        # level change - restore the previous value so later tests keep their quiet output
+        backend = X86Backend()
+        logger = logging.getLogger("smda.intel.X86Backend")
+        previous_disable = logging.root.manager.disable
+        logging.disable(logging.NOTSET)
+        try:
+            with self.assertLogs(logger, level=logging.DEBUG) as captured:
+                state = self._analyze(backend, "int", "0x80", [self._ins("mov", "eax, 1")])
+        finally:
+            logging.disable(previous_disable)
+
+        self.assertTrue(state.is_sanely_ending)
+        self.assertTrue(any("program ending instruction" in line for line in captured.output))
+
+    def test_an_import_stub_of_pure_padding_resolves_to_no_slot(self):
+        # endbr/nop are skipped while looking for the stub's jmp, so a window holding
+        # nothing else runs the scan out of instructions with no slot to report
+        binary_info = SimpleNamespace(_plt_ranges=[(0x1000, 0x1010)], _macho_stub_ranges=[])
+        disassembler = SimpleNamespace(
+            disassembly=SimpleNamespace(binary_info=binary_info),
+            capstone=Cs(CS_ARCH_X86, CS_MODE_64),
+            _getDisasmWindowBuffer=lambda addr: b"\xf3\x0f\x1e\xfa" + b"\x90" * 4,
+        )
+
+        self.assertIsNone(X86Backend._resolveImportSlot(disassembler, 0x1000))
+
     def _analyzeCallAlignmentCut(self, tail_bytes, lief_type="PE", bitness=64, candidate_addrs=None):
         # lays out: call rel32 @ call_addr; effective-NOP padding ("mov eax, eax" x5,
         # then a 1-byte "nop") up to the next 16-byte boundary (align_addr); tail_bytes
@@ -1046,6 +1200,70 @@ class TestIntelDisassembler(unittest.TestCase):
         self.assertTrue(state.is_sanely_ending)
         self.assertTrue(state.is_block_ending_instruction)
         self.assertEqual(fc_manager.added_candidates, [align_addr])
+
+
+class _StubChainCandidateManager(FunctionCandidateManager):
+    """Drives locateStubChainCandidates without the init/queue machinery: the real block
+    regexes, address arithmetic and data_map bookkeeping run, only candidate creation is
+    recorded."""
+
+    BASE_ADDR = 0x400000
+
+    def __init__(self, binary):
+        self.bitness = 64
+        self._code_areas = []
+        self.candidates = {}
+        self.recovered = []
+        self.disassembly = SimpleNamespace(
+            binary_info=SimpleNamespace(binary=binary, base_addr=self.BASE_ADDR),
+            data_map=set(),
+        )
+
+    def ensureCandidate(self, addr):
+        self.recovered.append(addr)
+        return True
+
+
+class StubChainCandidateTestSuite(unittest.TestCase):
+    PAD = b"\x00" * 16
+
+    def _locate(self, chain):
+        manager = _StubChainCandidateManager(self.PAD + chain + self.PAD)
+        manager.locateStubChainCandidates()
+        return manager
+
+    def test_jmp_stub_chain_yields_one_candidate_per_entry(self):
+        chain = b"\xff\x25\x11\x22\x33\x44" + b"\xff\x25\x55\x66\x77\x88"
+
+        manager = self._locate(chain)
+
+        base = _StubChainCandidateManager.BASE_ADDR + len(self.PAD)
+        self.assertEqual([base, base + 6], manager.recovered)
+
+    def test_plt_chain_yields_one_candidate_per_entry_and_marks_the_interleaved_bytes(self):
+        entry = b"\xff\x25\x11\x22\x33\x44\x68\x00\x00\x00\x00\xe9\x00\x00\x00\x00"
+        chain = entry + entry
+
+        manager = self._locate(chain)
+
+        base = _StubChainCandidateManager.BASE_ADDR + len(self.PAD)
+        self.assertEqual([base, base + 16], manager.recovered)
+        self.assertTrue(set(range(base + 6, base + 16)).issubset(manager.disassembly.data_map))
+
+    def test_plt_sec_chain_yields_one_candidate_per_endbr64_guarded_entry(self):
+        entry = b"\xf3\x0f\x1e\xfa\xf2\xff\x25\x11\x22\x33\x44\x0f\x1f\x44\x00\x00"
+        chain = entry + entry
+
+        manager = self._locate(chain)
+
+        base = _StubChainCandidateManager.BASE_ADDR + len(self.PAD)
+        self.assertEqual([base, base + 16], manager.recovered)
+        self.assertTrue(set(range(base + 7, base + 12)).issubset(manager.disassembly.data_map))
+
+    def test_a_lone_stub_is_not_a_chain(self):
+        manager = self._locate(b"\xff\x25\x11\x22\x33\x44")
+
+        self.assertEqual([], manager.recovered)
 
 
 if __name__ == "__main__":

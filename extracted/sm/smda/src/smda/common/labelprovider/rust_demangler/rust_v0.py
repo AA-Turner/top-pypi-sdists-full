@@ -261,7 +261,7 @@ class Parser:
         start = self.next_val
         while True:
             n = self.next_func()
-            if n.isdigit() or (n in "abcdef"):
+            if n in string.digits or (n in "abcdef"):
                 continue
             elif n == "_":
                 break
@@ -271,7 +271,7 @@ class Parser:
 
     def digit_10(self) -> Optional[int]:
         d = self.peek()
-        if d.isdigit():
+        if d in string.digits:
             d = int(d)
         else:
             return None
@@ -280,7 +280,7 @@ class Parser:
 
     def digit_62(self) -> int:
         d = self.peek()
-        if d.isdigit():
+        if d in string.digits:
             d = int(d)
         elif d.islower():
             d = 10 + (ord(d) - ord("a"))
@@ -805,7 +805,10 @@ class Printer:
         self.check_recursion_limit()
         try:
             if self.eat("B"):
-                return self.backref_printer().print_const()
+                prin = self.backref_printer()
+                prin.print_const()
+                self.out = prin.out
+                return
 
             ty_tag = self.parser_mut().next_func()
             if ty_tag == "p":

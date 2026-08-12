@@ -15,8 +15,10 @@ class ReqIFSpecificationType:
         spec_attributes: Optional[List[SpecAttributeDefinition]] = None,
         spec_attribute_map: Optional[Dict[str, str]] = None,
         is_self_closed: bool = False,
+        alternative_id: Optional[str] = None,
     ):
         self.identifier: str = identifier
+        self.alternative_id: Optional[str] = alternative_id
 
         self.description: Optional[str] = description
         self.last_change: Optional[str] = last_change

@@ -16,12 +16,16 @@ from mistralai.extra.workflows.encoding.config import (
 from mistralai.extra.workflows.encoding.payload_encoder import PayloadEncoder
 from pydantic import BaseModel
 from pydantic_core import to_json
+from temporalio.api.common.v1 import Payload
 
+from mistralai.workflows.core.encoding import CUSTOM_ENCODING_FORMAT
 from mistralai.workflows.core.temporal.payload_codec import MistralWorkflowsPayloadCodec
 from mistralai.workflows.models import (
     EncodedPayloadOptions,
     EncryptedStrField,
     NetworkEncodedResult,
+    PayloadMetadataKeys,
+    PayloadWithContext,
     WorkflowContext,
 )
 from tests.test_helpers import InMemoryBlobStorage
@@ -457,3 +461,46 @@ class TestPayloadEncoder:
 
             decoded_content = await encoder.decode_payload_content(encoded_data, encoding_options)
             assert decoded_content == small_payload_content
+
+
+class TestPayloadMetadataCodec:
+    def _make_codec(self) -> MistralWorkflowsPayloadCodec:
+        return MistralWorkflowsPayloadCodec(
+            payload_offloading_config=None,
+            payload_encryption_config=None,
+        )
+
+    def _make_input_payload(self, context: WorkflowContext) -> Payload:
+        payload_with_context = PayloadWithContext(context=context, payload=b"{}", empty=False)
+        return Payload(
+            metadata={PayloadMetadataKeys.ENCODING: CUSTOM_ENCODING_FORMAT.encode()},
+            data=payload_with_context.model_dump_json().encode(),
+        )
+
+    @pytest.mark.asyncio
+    async def test_codec_round_trip_preserves_new_context_fields(self):
+        context = WorkflowContext(
+            namespace="ns",
+            execution_id="exec-1",
+            continued_run_id="run-prev",
+            first_execution_run_id="run-first",
+            schedule_id="my-schedule",
+        )
+        [encoded] = await self._make_codec().encode([self._make_input_payload(context)])
+        [decoded] = await self._make_codec().decode([encoded])
+
+        result = PayloadWithContext.model_validate_json(decoded.data)
+        assert result.context.continued_run_id == "run-prev"
+        assert result.context.first_execution_run_id == "run-first"
+        assert result.context.schedule_id == "my-schedule"
+
+    @pytest.mark.asyncio
+    async def test_codec_round_trip_new_fields_absent_when_none(self):
+        context = WorkflowContext(namespace="ns", execution_id="exec-1")
+        [encoded] = await self._make_codec().encode([self._make_input_payload(context)])
+        [decoded] = await self._make_codec().decode([encoded])
+
+        result = PayloadWithContext.model_validate_json(decoded.data)
+        assert result.context.continued_run_id is None
+        assert result.context.first_execution_run_id is None
+        assert result.context.schedule_id is None

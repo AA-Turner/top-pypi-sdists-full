@@ -33,13 +33,24 @@ from .api.export_contract import (
     Fork,
     GraphClass,
     Input,
+    MintBlocker,
     import_export_declaration,
     register_export_declaration,
+)
+from .api.derive import (
+    DeclarationMismatch,
+    assert_blockers,
+    assert_faithful,
+    cfg_image_classes,
+    class_set_delta,
+    contract_delta,
+    override_delta,
 )
 from .api.formula import RuntimeFormula
 from .api.slot import OBJECTIVES, ObjectiveMismatchError, ResolvedSlot, Slot
 from .families import GenerationDefaults
-from .models.provision import arm_compile
+from .models.provision import (arm_compile, report_applied_attention,
+                               report_applied_lane)
 from .text_pin import TextLengthExceededError, pad_text_sequence
 from .geometry import (
     FamilyGeometry,
@@ -126,11 +137,23 @@ __all__ = [
     "GraphClass",
     "Input",
     "Arg",
+    # pgw#1115: a mint refusal is DATA on the declaration.
+    "MintBlocker",
     "register_export_declaration",
+    "DeclarationMismatch",
+    "assert_blockers",
+    "assert_faithful",
+    "cfg_image_classes",
+    "class_set_delta",
+    "contract_delta",
+    "override_delta",
     "import_export_declaration",
     "ConfigParam",
     "NoWarmup",
     "arm_compile",
+    # pgw#1104: the serve-time recipe reports the lane it APPLIED.
+    "report_applied_attention",
+    "report_applied_lane",
     # SDK v2 per-request views + text pinning.
     "for_request",
     "FetchedUrl",

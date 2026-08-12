@@ -44,6 +44,7 @@ CloudWatchNetworkMonitorServiceName = Literal["networkmonitor"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

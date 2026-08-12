@@ -64,8 +64,8 @@ def test_runtime_missing_ansible_module(monkeypatch: MonkeyPatch) -> None:
 
         def __init__(
             self,
-            *args: Any,  # noqa: ARG002,ANN401
-            **kwargs: Any,  # noqa: ARG002,ANN401
+            *args: Any,  # ruff:ignore[unused-method-argument, any-type]
+            **kwargs: Any,  # ruff:ignore[unused-method-argument, any-type]
         ) -> None:
             raise ModuleNotFoundError
 
@@ -393,7 +393,7 @@ def test__update_env_no_default(
 def test__update_env(
     monkeypatch: MonkeyPatch,
     old_value: str,
-    default: str,  # pylint: disable=unused-argument # noqa: ARG001
+    default: str,  # pylint: disable=unused-argument # ruff:ignore[unused-function-argument]
     value: list[str],
     result: str,
 ) -> None:
@@ -1130,6 +1130,42 @@ def test_prepare_ansible_paths_uses_absolute_library_path(
     assert project_library_path in paths, (
         f"Expected absolute path '{project_library_path}' in ANSIBLE_LIBRARY, "
         f"got: {library_env}"
+    )
+
+
+def test_prepare_ansible_paths_skips_library_for_collections(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Collection plugins/modules must not be added to ANSIBLE_LIBRARY.
+
+    Regression test for https://github.com/ansible/ansible-compat/issues/605:
+    exposing a collection's modules as legacy short names can shadow builtins
+    (e.g. ansible.legacy.stat resolving to the collection's stat.py stub).
+
+    Args:
+        tmp_path: Pytest temporary directory fixture.
+    """
+    project_dir = tmp_path / "example_collection"
+    project_dir.mkdir()
+    (project_dir / "galaxy.yml").write_text(
+        "namespace: example\nname: test\nversion: 1.0.0\n",
+        encoding="utf-8",
+    )
+    modules_dir = project_dir / "plugins" / "modules"
+    modules_dir.mkdir(parents=True)
+    (modules_dir / "stat.py").write_text(
+        '"""Documentation-only module stub."""\n',
+        encoding="utf-8",
+    )
+
+    runtime = Runtime(project_dir=project_dir, isolated=False)
+    runtime._prepare_ansible_paths()
+
+    library_env = runtime.environ.get("ANSIBLE_LIBRARY", "")
+    project_library_path = str(modules_dir.absolute())
+    assert project_library_path not in library_env.split(":"), (
+        f"Collection modules path '{project_library_path}' must not appear in "
+        f"ANSIBLE_LIBRARY, got: {library_env}"
     )
 
 

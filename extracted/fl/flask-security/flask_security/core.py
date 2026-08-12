@@ -1214,7 +1214,7 @@ class UserMixin(BaseUserMixin):
 
         .. versionadded:: 5.8.0
         """
-        return True
+        return False
 
 
 class WebAuthnMixin:
@@ -1820,7 +1820,7 @@ class Security:
             if self.oauthglue:
                 self.oauthglue._create_blueprint(app, bp)
             if cv("CACHE_CONTROL", app=app):
-                bp.after_app_request(add_cache_control)
+                bp.after_request(add_cache_control)
             app.register_blueprint(bp)
             app.context_processor(_context_processor)
 

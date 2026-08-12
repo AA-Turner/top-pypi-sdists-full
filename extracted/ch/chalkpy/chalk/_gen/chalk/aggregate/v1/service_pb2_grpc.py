@@ -50,6 +50,11 @@ class AggregateServiceStub(object):
             request_serializer=chalk_dot_aggregate_dot_v1_dot_service__pb2.CreateAggregateBackfillJobRequest.SerializeToString,
             response_deserializer=chalk_dot_aggregate_dot_v1_dot_service__pb2.CreateAggregateBackfillJobResponse.FromString,
         )
+        self.CreateAggregateBackfillV2 = channel.unary_unary(
+            "/chalk.aggregate.v1.AggregateService/CreateAggregateBackfillV2",
+            request_serializer=chalk_dot_aggregate_dot_v1_dot_service__pb2.CreateAggregateBackfillV2Request.SerializeToString,
+            response_deserializer=chalk_dot_aggregate_dot_v1_dot_service__pb2.CreateAggregateBackfillV2Response.FromString,
+        )
 
 
 class AggregateServiceServicer(object):
@@ -103,7 +108,22 @@ class AggregateServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def CreateAggregateBackfillJob(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Creates one backfill job for a single already-planned sub-backfill, so callers must
+        plan first and then call this once per planned sub-backfill.
+
+        Prefer CreateAggregateBackfillV2, which does the planning and the fan-out server side.
+        Kept for clients pinned to versions that predate V2.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CreateAggregateBackfillV2(self, request, context):
+        """CreateAggregateBackfillV2 plans an aggregate backfill and, unless the request asks for
+        plan mode, creates the jobs for it. This replaces the client-side
+        plan-then-create-each-sub-backfill loop that PlanAggregateBackfill plus
+        CreateAggregateBackfillJob require.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -145,6 +165,11 @@ def add_AggregateServiceServicer_to_server(servicer, server):
             servicer.CreateAggregateBackfillJob,
             request_deserializer=chalk_dot_aggregate_dot_v1_dot_service__pb2.CreateAggregateBackfillJobRequest.FromString,
             response_serializer=chalk_dot_aggregate_dot_v1_dot_service__pb2.CreateAggregateBackfillJobResponse.SerializeToString,
+        ),
+        "CreateAggregateBackfillV2": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateAggregateBackfillV2,
+            request_deserializer=chalk_dot_aggregate_dot_v1_dot_service__pb2.CreateAggregateBackfillV2Request.FromString,
+            response_serializer=chalk_dot_aggregate_dot_v1_dot_service__pb2.CreateAggregateBackfillV2Response.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.aggregate.v1.AggregateService", rpc_method_handlers)
@@ -348,6 +373,35 @@ class AggregateService(object):
             "/chalk.aggregate.v1.AggregateService/CreateAggregateBackfillJob",
             chalk_dot_aggregate_dot_v1_dot_service__pb2.CreateAggregateBackfillJobRequest.SerializeToString,
             chalk_dot_aggregate_dot_v1_dot_service__pb2.CreateAggregateBackfillJobResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateAggregateBackfillV2(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.aggregate.v1.AggregateService/CreateAggregateBackfillV2",
+            chalk_dot_aggregate_dot_v1_dot_service__pb2.CreateAggregateBackfillV2Request.SerializeToString,
+            chalk_dot_aggregate_dot_v1_dot_service__pb2.CreateAggregateBackfillV2Response.FromString,
             options,
             channel_credentials,
             insecure,

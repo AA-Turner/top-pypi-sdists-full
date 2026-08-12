@@ -1,9 +1,16 @@
+# cython: freethreading_compatible=True
+# Declares the module safe to import without re-enabling the GIL on
+# free-threaded CPython. Module-level state (encoders/decoders, error_map,
+# charset tables, escape table) is built during import and read-only after;
+# per-connection state lives on the instances. It does NOT make a single
+# Connection/Cursor safe to share between threads.
 # Python implementation of the MySQL client-server protocol
 # http://dev.mysql.com/doc/internals/en/client-server-protocol.html
 # Error codes:
 # https://dev.mysql.com/doc/refman/5.5/en/error-handling.html
 import asyncio
 import errno
+import inspect
 import os
 import socket
 import sys
@@ -280,9 +287,26 @@ class Connection:
     :param host: Host where the database server is located.
     :param user: Username to log in as.
     :param password: Password to use.
+    :param password_creator:
+        Callable returning the password to authenticate with, consulted before
+        every connection attempt — including the ones a pool makes on its own
+        when it recycles or reconnects, which is the point: short-lived
+        credentials such as AWS RDS IAM tokens expire while pooled connections
+        outlive them, and nothing else gives you a hook at that moment.
+        May be a plain function or return an awaitable. Must return ``str`` or
+        ``bytes``. Takes precedence over ``password`` when both are given.
     :param database: Database to use, None to not use a particular one.
     :param port: MySQL port to use, default is usually OK. (default: 3306)
     :param unix_socket: Use a unix socket rather than TCP/IP.
+    :param sock:
+        An already-connected socket to speak MySQL over, instead of connecting
+        to ``host``/``port`` ourselves. Combine it with ``ssl`` to hand the
+        driver a connection whose TLS is set up by the caller rather than
+        negotiated in-protocol — what connectors that front the server with a
+        TLS proxy (e.g. Cloud SQL) need. The socket is used by a single
+        connection and is closed with it, so a pool needs a fresh socket per
+        connection; reconnecting one raises. Keep-alive and TCP_NODELAY are
+        left to the caller.
     :param read_timeout: The timeout for reading from the connection in seconds (default: None - no timeout)
     :param charset: Charset to use.
     :param sql_mode: Default SQL_MODE to use.
@@ -297,6 +321,13 @@ class Connection:
         This option defaults to true.
     :param client_flag: Custom flags to send to MySQL. Find potential values in constants.
     :param cursor_cls: Custom cursor class to use.
+    :param query_callback:
+        Called as ``callback(cursor, query, elapsed_ms)`` after every statement,
+        with the duration as a float in milliseconds. Use it to route statement
+        logging wherever you want — a different level than ``echo``'s INFO, a
+        slow-query log, a tracing span. ``executemany`` and ``callproc`` report
+        once for the whole call rather than per row. Independent of ``echo``:
+        setting both logs and calls back.
     :param init_command: Initial SQL statement to run when connection is established.
     :param connect_timeout: The timeout for connecting to the database in seconds.
         (default: 10, min: 1, max: 31536000)
@@ -324,9 +355,11 @@ class Connection:
             *,
             user=None,  # The first four arguments is based on DB-API 2.0 recommendation.
             password="",
+            password_creator=None,
             host=None,
             database=None,
             unix_socket=None,
+            sock=None,
             port=0,
             charset="",
             sql_mode=None,
@@ -347,6 +380,7 @@ class Connection:
             program_name=None,
             server_public_key=None,
             echo=False,
+            query_callback=None,
             ssl=None,
             stmt_cache_size=0,
             db=None,  # deprecated
@@ -401,10 +435,17 @@ class Connection:
         if ssl:
             if not SSL_ENABLED:
                 raise NotImplementedError("SSL module not found")
-            client_flag |= SSL
+            if sock is None:
+                # With a caller-supplied socket the TLS handshake happens
+                # before any MySQL byte is sent, so the server must not be
+                # asked for an in-protocol upgrade — advertising CLIENT_SSL
+                # and then not sending the SSL request packet is a
+                # `1043 Bad handshake`.
+                client_flag |= SSL
             self._ssl_context = self._create_ssl_ctx(ssl)
 
         self._echo = echo
+        self._query_callback = query_callback
         self._last_usage = self._loop.time()
 
         self._host = host or "localhost"
@@ -413,10 +454,14 @@ class Connection:
             raise ValueError("port should be of type int")
         self._user = user or DEFAULT_USER
         self._password = password or b""
+        self._password_creator = password_creator
         if isinstance(self._password, str):
             self._password = self._password.encode("latin1")
         self._db = database
         self._unix_socket = unix_socket
+        self._sock = sock
+        self._sock_consumed = False
+        self._tls_established = False
         if not (0 < connect_timeout <= 31536000):
             raise ValueError("connect_timeout should be >0 and <=31536000")
         self._connect_timeout = connect_timeout or None
@@ -485,8 +530,17 @@ class Connection:
     def _create_ssl_ctx(self, sslp):
         if isinstance(sslp, ssl.SSLContext):
             return sslp
+        elif sslp is True:
+            # `ssl=True` means "use TLS with default settings" (the form DSN
+            # parsers produce for `?ssl=True`). Previously this returned None
+            # while SSL stayed advertised in the client flags, so the
+            # connection silently fell back to plaintext (#90).
+            sslp = {}
         elif not isinstance(sslp, dict):
-            return
+            raise ValueError(
+                "ssl argument must be True, a dict of ssl options, "
+                "or an ssl.SSLContext, got %r" % (type(sslp).__name__,)
+            )
         ca = sslp.get("ca")
         capath = sslp.get("capath")
         hasnoca = ca is None and capath is None
@@ -675,8 +729,8 @@ class Connection:
         """
         self._last_usage = self._loop.time()
         if cursor:
-            return cursor(self, echo=self._echo)
-        return self._cursor_cls(self, echo=self._echo)
+            return cursor(self, echo=self._echo, query_callback=self._query_callback)
+        return self._cursor_cls(self, echo=self._echo, query_callback=self._query_callback)
 
     # The following methods are INTERNAL USE ONLY (called from Cursor)
     async def query(self, sql, unbuffered=False):
@@ -789,6 +843,8 @@ class Connection:
             await self._read_ok_packet()
         except Exception:
             if reconnect:
+                self.close()
+                self._connected = False
                 await self.connect()
                 await self.ping(False)
             else:
@@ -803,6 +859,24 @@ class Connection:
         self._charset = charset
         self._encoding = encoding
 
+    async def _refresh_password(self):
+        """Ask password_creator for a fresh credential before authenticating."""
+        password = self._password_creator()
+        # Not iscoroutine: a creator wrapping an async client may hand back a
+        # Task or any awaitable, and those must be awaited too.
+        if inspect.isawaitable(password):
+            password = await password
+        if isinstance(password, str):
+            password = password.encode("latin1")
+        elif isinstance(password, (bytes, bytearray)):
+            password = bytes(password)
+        else:
+            raise ValueError(
+                "password_creator must return str or bytes, got %s"
+                % type(password).__name__
+            )
+        self._password = password
+
     async def connect(self):
         if self._connected:
             return self._proto, self._transport
@@ -814,8 +888,39 @@ class Connection:
             self._mariadb_ext_caps = 0
             self._bulk_supported = False
             loop = self._loop
+            self._tls_established = False
 
-            if self._unix_socket:
+            if self._password_creator is not None:
+                await self._refresh_password()
+
+            if self._sock is not None:
+                if self._sock_consumed:
+                    raise errors.OperationalError(
+                        CR_SERVER_LOST,
+                        "Cannot reconnect a connection built from a user-supplied "
+                        "socket; pass a fresh socket to connect(sock=...)",
+                    )
+                self._sock_consumed = True
+                proto = _MySQLProtocol(loop)
+                # With an ssl context the TLS handshake runs now, before any
+                # MySQL bytes, instead of the in-protocol upgrade below: the
+                # peer here is the caller's endpoint, not necessarily a server
+                # that speaks MySQL's STARTTLS dance.
+                self._transport, _ = await asyncio.wait_for(
+                    loop.create_connection(
+                        lambda: proto,
+                        sock=self._sock,
+                        ssl=self._ssl_context,
+                        server_hostname=self._host if self._ssl_context else None,
+                    ),
+                    timeout=self._connect_timeout,
+                )
+                self._proto = proto
+                self.host_info = "socket %s" % (self._sock,)
+                if self._ssl_context is not None:
+                    self._secure = True
+                    self._tls_established = True
+            elif self._unix_socket:
                 proto = _MySQLProtocol(loop)
                 self._transport, _ = await asyncio.wait_for(
                     loop.create_unix_connection(lambda: proto, self._unix_socket),
@@ -840,7 +945,8 @@ class Connection:
                             continue
                         raise
                 self.host_info = "socket %s:%d" % (self._host, self._port)
-            if not self._unix_socket:
+            # A caller-supplied socket is left exactly as it was configured.
+            if not self._unix_socket and self._sock is None:
                 self._set_nodelay(True)
             self._next_seq_id = 0
 
@@ -1089,7 +1195,9 @@ class Connection:
             raise ValueError("Did not specify a username")
 
         charset_id = charset_by_name(self._charset).id
-        if self._ssl_context:
+        # _tls_established means the caller handed us a socket that is already
+        # encrypted, so there is no in-protocol upgrade left to do.
+        if self._ssl_context and not self._tls_established:
             # capablities, max packet, charset
             data = IIB.pack(self._client_flag, MAX_PACKET_LEN, charset_id)
             data += b'\x00' * (32 - len(data))
@@ -1116,6 +1224,11 @@ class Connection:
                 server_hostname=self._host,
             )
             self._proto = proto
+            # The channel is encrypted from here on. caching_sha2_password
+            # full auth sends the password in the clear over a secure channel;
+            # without this it took the RSA branch instead and the server, which
+            # expects cleartext on a TLS connection, replied 1045 (#117).
+            self._secure = True
         if isinstance(self._user, str):
             self._user = self._user.encode(self._encoding)
 
@@ -1877,9 +1990,11 @@ class LoadLocalFile:
 
 def connect(user=None,
             password="",
+            password_creator=None,
             host=None,
             database=None,
             unix_socket=None,
+            sock=None,
             port=0,
             charset="",
             sql_mode=None,
@@ -1899,6 +2014,7 @@ def connect(user=None,
             binary_prefix=False,
             program_name=None,
             echo=False,
+            query_callback=None,
             server_public_key=None,
             ssl=None,
             stmt_cache_size=0,
@@ -1907,9 +2023,11 @@ def connect(user=None,
     coro = _connect(
         user=user,
         password=password,
+        password_creator=password_creator,
         host=host,
         database=database,
         unix_socket=unix_socket,
+        sock=sock,
         port=port,
         charset=charset,
         sql_mode=sql_mode,
@@ -1930,6 +2048,7 @@ def connect(user=None,
         program_name=program_name,
         server_public_key=server_public_key,
         echo=echo,
+        query_callback=query_callback,
         ssl=ssl,
         stmt_cache_size=stmt_cache_size,
         db=db,  # deprecated

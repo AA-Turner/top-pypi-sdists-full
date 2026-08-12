@@ -2,7 +2,8 @@ from typing import Any
 
 from django.db.backends.base.base import BaseDatabaseWrapper
 from django.db.models.expressions import CombinedExpression, Expression, Func, Value
-from django.db.models.fields import BooleanField, Field, FloatField
+from django.db.models.fields import Field, FloatField
+from django.db.models.lookups import Lookup
 from django.db.models.sql.compiler import SQLCompiler
 
 from modelsearch.conf import get_app_config
@@ -171,15 +172,22 @@ class CombinedSearchQueryExpression(SearchQueryCombinable, CombinedExpression):
         return f"({super().__str__()})"
 
 
-class MatchExpression(Expression):
+class MatchExpression(Lookup):
+    # We define MatchExpression as a Lookup (rather than an Expression) so that the SQL returned from `as_sql` will be
+    # used directly in the WHERE clause. Otherwise, Django would wrap it in an Exact(expr, True) expression, inserting
+    # an unnecessary "= True" in the resulting SQL, which SQLite won't accept.
+    # See https://github.com/wagtail/django-modelsearch/issues/104
+
+    lookup_name = "match"
     filterable = True
     template = f"{SQLiteFTSIndexEntry._meta.db_table} MATCH %s"  # TODO: Can the table name be inferred from the query instead?
-    output_field = BooleanField()
 
     def __init__(self, columns: list[str], query: SearchQueryCombinable) -> None:
-        super().__init__(output_field=self.output_field)
         self.columns = columns
         self.query = query
+        # Pass None as the lhs and rhs expressions expected by Lookup. Our `as_sql` method will ignore these and use the
+        # columns and query attributes instead.
+        super().__init__(None, None)
 
     def as_sql(self, compiler, connection):
         joined_columns = " ".join(

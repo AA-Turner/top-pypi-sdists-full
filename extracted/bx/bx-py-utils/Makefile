@@ -34,21 +34,26 @@ lint: ## Check/fix code style by running: "ruff check"
 lint-fix: ## Check/fix code style by running: "ruff check --fix"
 	.venv/bin/ruff check --fix
 
-.PHONY: nox
-nox:  ## Run tests via nox with all environments
-	.venv/bin/nox
-
-.PHONY: test
-test: ## Run tests
-	.venv/bin/python3 -m unittest --verbose --locals
-
-.PHONY: coverage
-coverage:  ## Run tests with coverage
-	.venv/bin/coverage run
+.PHONY: coverage-report
+coverage-report:  ## Creates coverage report
 	.venv/bin/coverage combine --append
 	.venv/bin/coverage report
 	.venv/bin/coverage xml
 	.venv/bin/coverage json
+
+.PHONY: coverage
+coverage:  ## Run tests with coverage (prefer the "nox" target)
+	.venv/bin/coverage run
+	$(MAKE) coverage-report
+
+.PHONY: nox
+nox:  ## Run tests via nox with all environments and create coverage report
+	uv run nox
+	$(MAKE) coverage-report
+
+.PHONY: test
+test: ## Run tests
+	.venv/bin/python3 -m unittest --verbose --locals
 
 .PHONY: update-test-snapshot-files
 update-test-snapshot-files:   ## Update all snapshot files (by remove and recreate all snapshot files)

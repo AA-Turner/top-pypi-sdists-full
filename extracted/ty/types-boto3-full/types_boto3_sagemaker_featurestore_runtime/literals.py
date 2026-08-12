@@ -44,6 +44,7 @@ SageMakerFeatureStoreRuntimeServiceName = Literal["sagemaker-featurestore-runtim
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

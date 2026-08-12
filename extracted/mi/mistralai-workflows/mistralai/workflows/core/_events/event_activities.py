@@ -42,6 +42,7 @@ async def _emit_workflow_started(
     workflow_name: str,
     input_args: list,
     display_name: str | None = None,
+    attempt: int = 1,
 ) -> None:
     context = EventContext.get_singleton()
     if context:
@@ -54,6 +55,7 @@ async def _emit_workflow_started(
                         workflow_name=workflow_name,
                         display_name=display_name,
                         input=JSONPayload(value=input_args),
+                        attempt=attempt,
                     ),
                 )
             )
@@ -62,7 +64,7 @@ async def _emit_workflow_started(
 
 
 @activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_workflow_completed", _allow_reserved_name=True)
-async def _emit_workflow_completed(task_id: str, result: Any) -> None:
+async def _emit_workflow_completed(task_id: str, result: Any, attempt: int = 1) -> None:
     context = EventContext.get_singleton()
     if context:
         try:
@@ -72,6 +74,7 @@ async def _emit_workflow_completed(task_id: str, result: Any) -> None:
                     attributes=WorkflowExecutionCompletedAttributes(
                         task_id=task_id,
                         result=JSONPayload(value=result),
+                        attempt=attempt,
                     ),
                 )
             )
@@ -80,7 +83,7 @@ async def _emit_workflow_completed(task_id: str, result: Any) -> None:
 
 
 @activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_workflow_canceled", _allow_reserved_name=True)
-async def _emit_workflow_canceled(task_id: str, reason: str | None) -> None:
+async def _emit_workflow_canceled(task_id: str, reason: str | None, attempt: int = 1) -> None:
     context = EventContext.get_singleton()
     if context:
         try:
@@ -90,6 +93,7 @@ async def _emit_workflow_canceled(task_id: str, reason: str | None) -> None:
                     attributes=WorkflowExecutionCanceledAttributes(
                         task_id=task_id,
                         reason=reason,
+                        attempt=attempt,
                     ),
                 )
             )
@@ -98,7 +102,7 @@ async def _emit_workflow_canceled(task_id: str, reason: str | None) -> None:
 
 
 @activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_workflow_failed", _allow_reserved_name=True)
-async def _emit_workflow_failed(task_id: str, error_message: str) -> None:
+async def _emit_workflow_failed(task_id: str, error_message: str, attempt: int = 1) -> None:
     context = EventContext.get_singleton()
     if context:
         try:
@@ -108,6 +112,7 @@ async def _emit_workflow_failed(task_id: str, error_message: str) -> None:
                     attributes=WorkflowExecutionFailedAttributes(
                         task_id=task_id,
                         failure=Failure(message=error_message),
+                        attempt=attempt,
                     ),
                 )
             )

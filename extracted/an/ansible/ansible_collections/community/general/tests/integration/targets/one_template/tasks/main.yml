@@ -12,7 +12,7 @@
 # ENVIRONMENT PREPARATION
 
 - name: "copy fixtures to test host"
-  copy:
+  ansible.builtin.copy:
     src: testhost/tmp/opennebula-fixtures.json.gz
     dest: /tmp
   when:
@@ -23,12 +23,12 @@
 # Create a new template
 
 - name: "Create a new TEMPLATE"
-  one_template:
+  community.general.one_template:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
     name: ansible-onetemplate-test
-    template: |
+    ansible.builtin.template: |
       CONTEXT = [
         HOSTNAME = "ansible-onetemplate",
         NETWORK = "YES",
@@ -68,7 +68,7 @@
   register: result
 
 - name: "assert that creation worked"
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
 
@@ -76,12 +76,12 @@
 # Updating a template
 
 - name: "Update an existing TEMPLATE"
-  one_template:
+  community.general.one_template:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
     name: ansible-onetemplate-test
-    template: |
+    ansible.builtin.template: |
       CONTEXT = [
         HOSTNAME = "ansible-onetemplate",
         NETWORK = "YES",
@@ -121,17 +121,17 @@
   register: result
 
 - name: "assert that it updated the template"
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
 
 - name: "Update an existing TEMPLATE with the same changes again"
-  one_template:
+  community.general.one_template:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
     name: ansible-onetemplate-test
-    template: |
+    ansible.builtin.template: |
       CONTEXT = [
         HOSTNAME = "ansible-onetemplate",
         NETWORK = "YES",
@@ -171,7 +171,7 @@
   register: result
 
 - name: "assert that there was no change"
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
 
@@ -179,7 +179,7 @@
 # Deletion of templates
 
 - name: "Delete a nonexisting TEMPLATE"
-  one_template:
+  community.general.one_template:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
@@ -193,12 +193,12 @@
   register: result
 
 - name: "assert that there was no change"
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
 
 - name: "Delete an existing TEMPLATE"
-  one_template:
+  community.general.one_template:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
@@ -212,7 +212,7 @@
   register: result
 
 - name: "assert that there was a change"
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
 
@@ -220,7 +220,7 @@
 # Usage without `template` parameter
 
 - name: "Try to create use one_template with state=present and without the template parameter"
-  one_template:
+  community.general.one_template:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
@@ -230,7 +230,7 @@
   ignore_errors: true
 
 - name: "assert that it failed because template is missing"
-  assert:
+  ansible.builtin.assert:
     that:
       - result is failed
 
@@ -238,7 +238,7 @@
 # TEARDOWN
 
 - name: "fetch fixtures"
-  fetch:
+  ansible.builtin.fetch:
     src: /tmp/opennebula-fixtures.json.gz
     dest: targets/one_host/files
   when:

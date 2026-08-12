@@ -527,6 +527,9 @@ parsed:
 
 
 from ansible.module_utils.basic import AnsibleModule
+from ansible_collections.ansible.netcommon.plugins.module_utils.network.common.utils import (
+    emit_warnings,
+)
 
 from ansible_collections.arista.eos.plugins.module_utils.network.eos.argspec.l2_interfaces.l2_interfaces import (
     L2_interfacesArgs,
@@ -559,6 +562,7 @@ def main():
     )
 
     result = L2_interfaces(module).execute_module()
+    emit_warnings(module, result)
     module.exit_json(**result)
 
 

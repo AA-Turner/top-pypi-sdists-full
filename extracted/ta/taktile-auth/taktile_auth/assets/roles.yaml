@@ -19,6 +19,8 @@ ws_viewer/org_id,ws_id:
     - r:workspace_sandbox_endpoint/org_id,ws_id
     - r:workspace_test_endpoint/org_id,ws_id
     - r:workspace_job/org_id,ws_id
+    - r:jobs/org_id,ws_id,*
+    - r:job_run/org_id,ws_id,*,{env=*}
     - data_viewer/org_id,ws_id
 ws_reviewer/org_id,ws_id:
     - agent_viewer/org_id,ws_id
@@ -50,6 +52,9 @@ ws_editor/org_id,ws_id:
     - w+d:workspace_job/org_id,ws_id
     - w:workspace_sandbox_job_trigger/org_id,ws_id
     - w:workspace_test_job_trigger/org_id,ws_id
+    # job management (w+d:jobs) is admin-only; editors can only run sandbox/test
+    - w:job_run/org_id,ws_id,*,{env=sandbox}
+    - w:job_run/org_id,ws_id,*,{env=test}
     - case_editor/org_id,ws_id
     - r+w:workspace_analytics_dashboard/org_id,ws_id
 ws_admin/org_id,ws_id:
@@ -66,6 +71,8 @@ ws_admin/org_id,ws_id:
     - d:workspace_decision_history/org_id,ws_id
     - w+d:workspace_api_keys/org_id,ws_id
     - w:workspace_live_job_trigger/org_id,ws_id
+    - w+d:jobs/org_id,ws_id,*
+    - w:job_run/org_id,ws_id,*,{env=live}
     - r+w+d:outcome_type_management/org_id,ws_id
     - data_admin/org_id,ws_id
     - r+w:workspace_wizard/org_id,ws_id,{env=*}
@@ -223,6 +230,8 @@ api_key_sandbox/org_id,ws_id:
     - r+w+d:workspace_connection_tenant/org_id,ws_id
     - w:workspace_sandbox_job_trigger/org_id,ws_id
     - w:workspace_test_job_trigger/org_id,ws_id
+    - w:job_run/org_id,ws_id,*,{env=sandbox}
+    - w:job_run/org_id,ws_id,*,{env=test}
     - w:workspace_connection_secret/org_id,ws_id
     - r+w:workspace_file/org_id,ws_id,{env=sandbox}
     - r:workspace_management/org_id,ws_id,{env=sandbox,type=*}
@@ -240,6 +249,7 @@ api_key_production/org_id,ws_id:
     - r:workspace_connection/org_id,ws_id
     - r+w+d:workspace_connection_tenant/org_id,ws_id
     - w:workspace_live_job_trigger/org_id,ws_id
+    - w:job_run/org_id,ws_id,*,{env=live}
     - w:workspace_connection_secret/org_id,ws_id
     - r:workspace_management/org_id,ws_id,{env=live,type=*}
     - r+w:workspace_file/org_id,ws_id,{env=live}
@@ -254,6 +264,8 @@ api_key_job_admin/org_id,ws_id:
     - w:workspace_sandbox_job_trigger/org_id,ws_id
     - w:workspace_test_job_trigger/org_id,ws_id
     - w:workspace_live_job_trigger/org_id,ws_id
+    - r+w+d:jobs/org_id,ws_id,*
+    - r+w:job_run/org_id,ws_id,*,{env=*}
 api_key_history_admin/org_id,ws_id:
     - ws_viewer/org_id,ws_id
     - r+w+d:workspace_decision_history/org_id,ws_id

@@ -23,6 +23,10 @@ from .core.interactive_workflow import InteractiveWorkflow
 from .core.rate_limiting.rate_limit import RateLimit
 from .core.task import task, task_from
 from .core.worker import run_worker
+from .core.worker_registrations import (
+    get_registered_workflow_names,
+    get_workflow_registration_ref,
+)
 from .core.workflow import ParentClosePolicy, workflow
 from .exceptions import ActivityError, WorkflowError
 from .models import (
@@ -42,6 +46,8 @@ __all__ = [
     "run_worker",
     "workflow",
     "get_workflow_definition",
+    "get_workflow_registration_ref",
+    "get_registered_workflow_names",
     "execute_workflow",
     "get_execution_id",
     "InteractiveWorkflow",

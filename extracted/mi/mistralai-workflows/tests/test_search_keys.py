@@ -74,6 +74,18 @@ class ScalarLeaves(BaseModel):
     priority: Priority
 
 
+class ExecutionState(BaseModel):
+    """Mimics a model that mirrors the SDK's reserved search-key namespace."""
+
+    state: str
+
+
+class InternalRoot(BaseModel):
+    """A model whose traversal path collides with the reserved `internal.` prefix."""
+
+    execution: ExecutionState
+
+
 class TestValidateSearchKeyPaths:
     @pytest.mark.parametrize(
         "paths",
@@ -137,6 +149,19 @@ class TestValidateSearchKeyPaths:
     def test_rejects_empty_segment(self) -> None:
         with pytest.raises(WorkflowsException, match="empty path segment"):
             validate_search_key_paths(ReportPayload, ["customer."])
+
+    def test_rejects_reserved_prefix_even_when_traversable(self) -> None:
+        # The path resolves against the input model, but the reserved prefix must still be rejected
+        # so a define-time key cannot collide with wait_for_input's `internal.execution.state`.
+        with pytest.raises(WorkflowsException, match="reserves"):
+            validate_search_key_paths(InternalRoot, ["internal.execution.state"])
+
+    def test_reserved_prefix_accumulates_with_other_errors(self) -> None:
+        with pytest.raises(WorkflowsException) as exc_info:
+            validate_search_key_paths(InternalRoot, ["internal.execution.state", "id:"], workflow_name="my-wf")
+        message = exc_info.value.message
+        assert "reserves" in message
+        assert "must not contain ':'" in message
 
     def test_allows_up_to_max_search_keys(self) -> None:
         with mock.patch.object(search_keys_module, "MAX_SEARCH_KEYS", 3):

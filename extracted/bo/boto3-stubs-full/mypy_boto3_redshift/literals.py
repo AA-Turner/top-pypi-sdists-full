@@ -221,6 +221,7 @@ RedshiftServiceName = Literal["redshift"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

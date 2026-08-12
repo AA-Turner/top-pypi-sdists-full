@@ -97,7 +97,7 @@ def connector(
     )
 
 
-class ConnectorError(Exception):
+class ConnectorError(ValueError):
     pass
 
 
@@ -105,7 +105,7 @@ class ConnectorAuthTimeout(ConnectorError):
     pass
 
 
-def _raise_if_duplicate_connector_names(slots: Sequence[ConnectorSlot]) -> None:
+def raise_if_duplicate_connector_names(slots: Sequence[ConnectorSlot]) -> None:
     seen: set[str] = set()
     duplicates: set[str] = set()
     for slot in slots:
@@ -114,9 +114,9 @@ def _raise_if_duplicate_connector_names(slots: Sequence[ConnectorSlot]) -> None:
         seen.add(slot.connector_name)
     if duplicates:
         raise ConnectorError(
-            "@uses_connectors(...) cannot declare duplicate connector_name values "
-            f"{sorted(duplicates)}. Connector bindings are keyed by connector_name, "
-            "so each connector must be declared at most once per workflow."
+            f"Cannot declare duplicate connector_name values {sorted(duplicates)}. "
+            "Connector bindings are keyed by connector_name, so each connector must "
+            "be declared at most once."
         )
 
 
@@ -130,7 +130,7 @@ def uses_connectors(*slots: ConnectorSlot) -> Callable[[ClassType], ClassType]:
     """
 
     def decorator(cls: ClassType) -> ClassType:
-        _raise_if_duplicate_connector_names(slots)
+        raise_if_duplicate_connector_names(slots)
         metadata: dict[str, Any] = dict(getattr(cls, "__plugin_metadata__", {}) or {})
         mistralai_meta = metadata.get(MISTRALAI_PLUGIN_KEY, {})
         mistralai_meta[CONNECTORS_KEY] = [s.to_metadata() for s in slots]

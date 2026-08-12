@@ -1384,6 +1384,9 @@ parsed:
 
 
 from ansible.module_utils.basic import AnsibleModule
+from ansible_collections.ansible.netcommon.plugins.module_utils.network.common.utils import (
+    emit_warnings,
+)
 
 from ansible_collections.arista.eos.plugins.module_utils.network.eos.argspec.ospfv2.ospfv2 import (
     Ospfv2Args,
@@ -1417,6 +1420,7 @@ def main():
     )
 
     result = Ospfv2(module).execute_module()
+    emit_warnings(module, result)
     module.exit_json(**result)
 
 

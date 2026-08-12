@@ -333,6 +333,7 @@ AgentsforBedrockServiceName = Literal["bedrock-agent"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

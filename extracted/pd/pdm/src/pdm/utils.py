@@ -18,13 +18,13 @@ import subprocess
 import sys
 import sysconfig
 import tempfile
-import urllib.parse as parse
 import warnings
 from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 from os import name as os_name
 from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib import parse
 
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.version import Version
@@ -155,7 +155,7 @@ def atomic_open_for_write(filename: str | Path, *, mode: str = "w", encoding: st
     if not os.path.exists(dirname):
         os.makedirs(dirname)
     fd, name = tempfile.mkstemp(prefix="atomic-write-", dir=dirname)
-    fp = open(fd, mode, encoding=encoding if "b" not in mode else None)
+    fp = os.fdopen(fd, mode, encoding=encoding if "b" not in mode else None)
     try:
         yield fp
     except Exception:
@@ -194,7 +194,7 @@ def open_for_write_no_symlink(filename: str | Path, *, encoding: str = "utf-8") 
         if exc.errno in (errno.ELOOP, errno.EMLINK):
             raise PdmUsageError(f"Refusing to write to {path} because it is a symlink.") from exc
         raise
-    fp = open(fd, "w", encoding=encoding)
+    fp = os.fdopen(fd, "w", encoding=encoding)
     try:
         yield fp
     finally:
@@ -281,7 +281,7 @@ def expand_env_vars_in_auth(url: str) -> str:
     if "@" in netloc:
         auth, rest = netloc.split("@", 1)
         auth = expand_env_vars(auth, True)
-        netloc = "@".join([auth, rest])
+        netloc = f"{auth}@{rest}"
     return parse.urlunparse((scheme, netloc, path, params, query, fragment))
 
 
@@ -380,31 +380,9 @@ def comparable_version(version: str) -> Version:
     if parsed.local is not None:
         # strip the local part to make
         # comparable_version("1.2.3+local1") == Version("1.2.3")
-        if hasattr(parsed, "__replace__"):  # packaging >= 26
-            parsed = parsed.__replace__(local=None)
-        else:
-            # packaging < 26 does not have __replace__ method
-            # In this version, we need to manually update _version and recompute _key
-            # Note: In packaging >= 26, _key is a read-only property, but this else branch
-            # only executes on packaging < 26 where _key is a regular attribute that can be
-            # assigned. We use object.__setattr__() instead of direct assignment to satisfy
-            # type checkers that analyze based on the current packaging version.
-            from packaging.version import _cmpkey
-
-            parsed._version = parsed._version._replace(local=None)
-
-            object.__setattr__(
-                parsed,
-                "_key",
-                _cmpkey(
-                    parsed._version.epoch,
-                    parsed._version.release,
-                    parsed._version.pre,
-                    parsed._version.post,
-                    parsed._version.dev,
-                    parsed._version.local,
-                ),
-            )
+        # Build a new Version rather than editing this one: parse_version() is
+        # cached, so the instance is shared with every other caller.
+        parsed = Version(parsed.public)
 
     return parsed
 
@@ -473,9 +451,8 @@ def deprecation_warning(message: str, stacklevel: int = 1, raise_since: str | No
     """
     from pdm.__version__ import __version__
 
-    if raise_since is not None:
-        if parse_version(__version__) >= parse_version(raise_since):
-            raise PDMDeprecationWarning(message)
+    if raise_since is not None and parse_version(__version__) >= parse_version(raise_since):
+        raise PDMDeprecationWarning(message)
     warnings.warn(message, PDMDeprecationWarning, stacklevel=stacklevel + 1)
 
 

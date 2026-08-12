@@ -9,12 +9,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Install required libs
-  pip:
+  ansible.builtin.pip:
     name: python-gitlab
     state: present
 
 - name: Clean up {{ gitlab_project_name }}
-  gitlab_project:
+  community.general.gitlab_project:
     server_url: "{{ gitlab_host }}"
     validate_certs: false
     login_token: "{{ gitlab_login_token }}"
@@ -22,7 +22,7 @@
     state: absent
 
 - name: Create {{ gitlab_project_name }}
-  gitlab_project:
+  community.general.gitlab_project:
     server_url: "{{ gitlab_host }}"
     validate_certs: false
     login_token: "{{ gitlab_login_token }}"
@@ -31,12 +31,12 @@
     state: present
   register: gitlab_project_state
 
-- assert:
+- ansible.builtin.assert:
     that:
       - gitlab_project_state is changed
 
 - name: Create {{ gitlab_project_name }} (Test idempotency)
-  gitlab_project:
+  community.general.gitlab_project:
     server_url: "{{ gitlab_host }}"
     validate_certs: false
     login_token: "{{ gitlab_login_token }}"
@@ -44,6 +44,6 @@
     state: present
   register: gitlab_project_state_again
 
-- assert:
+- ansible.builtin.assert:
     that:
       - gitlab_project_state_again is not changed

@@ -122,6 +122,27 @@ class AsyncOptions(_ActiveContextGuard):
     )
 
 
+AtomicityMode = v0_options_lib.AtomicityMode
+
+
+@dataclasses.dataclass(kw_only=True)
+class AtomicityOptions(_ActiveContextGuard):
+  """Options used to configure checkpoint save atomicity protocol.
+
+  NOTE: Do not use these options unless you fully understand the performance
+  implications of the chosen mode.
+  """
+
+  mode: AtomicityMode = AtomicityMode.AUTO
+  allow_legacy_atomic_rename: bool = False
+
+  def v0(self) -> v0_options_lib.AtomicityOptions:
+    return v0_options_lib.AtomicityOptions(
+        mode=self.mode,
+        allow_legacy_atomic_rename=self.allow_legacy_atomic_rename,
+    )
+
+
 @dataclasses.dataclass(kw_only=True)
 class MultiprocessingOptions(_ActiveContextGuard):
   """Options used to configure multiprocessing behavior.
@@ -585,12 +606,18 @@ class MemoryOptions(_ActiveContextGuard):
       not prioritized. Note that any "prioritized" keys are assumed to be
       lightweight, and `transfer_concurrent_bytes` will be ignored for
       them.
+    serialization_status_callback: A callback object that is called at various
+      points during the save process per keypath, allowing for monitoring or
+      control over the save process.
   """
 
   write_concurrent_bytes: int | None = None
   read_concurrent_bytes: int | None = None
   transfer_concurrent_bytes: int | None = None
   is_prioritized_key_fn: serialization_types.IsPrioritizedKeyFn | None = None
+  serialization_status_callback: (
+      serialization_types.SerializationStatusCallback | None
+  ) = None
 
 
 @dataclasses.dataclass(kw_only=True)

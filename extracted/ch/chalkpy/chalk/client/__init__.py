@@ -13,6 +13,11 @@ from chalk.client.client import ChalkAPIClientProtocol, ChalkClient
 from chalk.client.client_async import AsyncChalkClient
 from chalk.client.exc import ChalkAuthException, ChalkBaseException
 from chalk.client.models import (
+    AggregateBackfillCostEstimate,
+    AggregateBackfillJob,
+    AggregateBackfillPlan,
+    AggregateBackfillResponse,
+    AggregateBackfillStatus,
     BranchDeployResponse,
     BranchIdParam,
     BulkOnlineQueryResponse,
@@ -50,6 +55,11 @@ from chalk.ml.model_handler import model_handler
 
 __all__ = [
     "APINamespace",
+    "AggregateBackfillCostEstimate",
+    "AggregateBackfillJob",
+    "AggregateBackfillPlan",
+    "AggregateBackfillResponse",
+    "AggregateBackfillStatus",
     "AsyncChalkClient",
     "BranchDeployResponse",
     "BranchIdParam",

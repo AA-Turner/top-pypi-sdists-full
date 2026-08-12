@@ -902,6 +902,120 @@ mutation testAzureDataFactoryCredentials(
 }
 """
 
+TEST_DATABRICKS_SQL_WAREHOUSE_CRED_V2_MUTATION = """
+mutation testDatabricksSqlWarehouseCredentialsV2(
+    $databricksWorkspaceUrl: String!,
+    $databricksWarehouseId: String!,
+    $databricksToken: String,
+    $databricksClientId: String,
+    $databricksClientSecret: String,
+    $databricksWorkspaceId: String,
+    $azureTenantId: String,
+    $azureWorkspaceResourceId: String,
+    $validationName: String!,
+    $dcId: UUID,
+) {
+    testDatabricksSqlWarehouseCredentialsV2(
+        connectionDetails: {
+            databricksWorkspaceUrl: $databricksWorkspaceUrl,
+            databricksWarehouseId: $databricksWarehouseId,
+            databricksToken: $databricksToken,
+            databricksClientId: $databricksClientId,
+            databricksClientSecret: $databricksClientSecret,
+            databricksWorkspaceId: $databricksWorkspaceId,
+            azureTenantId: $azureTenantId,
+            azureWorkspaceResourceId: $azureWorkspaceResourceId
+        }
+        validationName: $validationName
+        connectionOptions: {
+            dcId: $dcId
+        }
+    ) {
+        key
+        validationResult {
+            success
+            validationName
+            description
+            additionalData {
+                queriesWithResults {
+                    query
+                    rows
+                }
+            }
+            errors {
+                cause
+                friendlyMessage
+                resolution
+                stackTrace
+            }
+            warnings {
+                cause
+                friendlyMessage
+                resolution
+                stackTrace
+            }
+        }
+    }
+}
+"""
+
+TEST_DATABRICKS_METASTORE_SQL_WAREHOUSE_CRED_V2_MUTATION = """
+mutation testDatabricksMetastoreSqlWarehouseCredentialsV2(
+    $databricksWorkspaceUrl: String!,
+    $databricksWarehouseId: String!,
+    $databricksToken: String,
+    $databricksClientId: String,
+    $databricksClientSecret: String,
+    $databricksWorkspaceId: String,
+    $azureTenantId: String,
+    $azureWorkspaceResourceId: String,
+    $validationName: String!,
+    $dcId: UUID,
+) {
+    testDatabricksMetastoreSqlWarehouseCredentialsV2(
+        connectionDetails: {
+            databricksWorkspaceUrl: $databricksWorkspaceUrl,
+            databricksWarehouseId: $databricksWarehouseId,
+            databricksToken: $databricksToken,
+            databricksClientId: $databricksClientId,
+            databricksClientSecret: $databricksClientSecret,
+            databricksWorkspaceId: $databricksWorkspaceId,
+            azureTenantId: $azureTenantId,
+            azureWorkspaceResourceId: $azureWorkspaceResourceId
+        }
+        validationName: $validationName
+        connectionOptions: {
+            dcId: $dcId
+        }
+    ) {
+        key
+        validationResult {
+            success
+            validationName
+            description
+            additionalData {
+                queriesWithResults {
+                    query
+                    rows
+                }
+            }
+            errors {
+                cause
+                friendlyMessage
+                resolution
+                stackTrace
+            }
+            warnings {
+                cause
+                friendlyMessage
+                resolution
+                stackTrace
+            }
+        }
+    }
+}
+"""
+
 ADD_STREAMING_SYSTEM_MUTATION = """
 mutation addStreamingSystem (
   $streamingSystemType: String!,
@@ -1112,18 +1226,4 @@ class ConnectionOperationsQueries:
         }
         """,
         operation="updateBiConnectionName",
-    )
-
-
-class DatabricksSqlWarehouseOnboardingQueries:
-    test_credentials = GQL(
-        query="""
-      mutation testDatabricksSqlWarehouseCredentials($databricksWorkspaceUrl:String!, $databricksWarehouseId:String!, $databricksToken:String, $databricksClientId:String, $databricksClientSecret:String $connectionOptions:ConnectionTestOptions, $databricksWorkspaceId:String, $azureTenantId:String, $azureWorkspaceResourceId:String) {
-        testDatabricksSqlWarehouseCredentials(databricksConfig: {databricksWorkspaceUrl:$databricksWorkspaceUrl, databricksWarehouseId:$databricksWarehouseId, databricksToken:$databricksToken, databricksClientId:$databricksClientId, databricksClientSecret:$databricksClientSecret, databricksWorkspaceId:$databricksWorkspaceId, azureTenantId:$azureTenantId, azureWorkspaceResourceId:$azureWorkspaceResourceId}, connectionOptions:$connectionOptions) {
-          key
-          success
-        }
-      }
-    """,
-        operation="testDatabricksSqlWarehouseCredentials",
     )

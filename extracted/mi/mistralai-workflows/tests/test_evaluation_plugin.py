@@ -15,7 +15,10 @@ from mistralai.workflows.plugins.evaluation import evaluation
 from mistralai.workflows.plugins.evaluation._activities import (
     _get_obs_client_factory,
     create_optimization,
+    create_optimization_trial,
     patch_optimization,
+    patch_optimization_trial,
+    patch_optimization_trial_run,
     setup_evaluation_run,
     upload_input_records,
     upload_output_records,
@@ -55,6 +58,13 @@ def _make_mock_obs_client() -> MagicMock:
     optimization_response.workspace_id = "test-workspace"
     client.evaluation._endpoints.create_optimization = AsyncMock(return_value=optimization_response)
     client.evaluation._endpoints.patch_optimization = AsyncMock(return_value=optimization_response)
+
+    # create/patch trial + trial-run endpoints (trial-based persistence, OBS-2053)
+    trial_response = MagicMock()
+    trial_response.id = "test-trial-id"
+    client.evaluation._endpoints.create_optimization_trial = AsyncMock(return_value=trial_response)
+    client.evaluation._endpoints.patch_optimization_trial = AsyncMock(return_value=trial_response)
+    client.evaluation._endpoints.patch_optimization_trial_run = AsyncMock(return_value=None)
 
     # get_or_create returns an object with .slug
     eval_response = MagicMock()
@@ -348,7 +358,10 @@ _EVAL_ACTIVITIES = [
     upload_output_records,
     upload_run_scores,
     create_optimization,
+    create_optimization_trial,
     patch_optimization,
+    patch_optimization_trial,
+    patch_optimization_trial_run,
 ]
 
 

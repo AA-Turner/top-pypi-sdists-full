@@ -12,6 +12,7 @@ import (
 
 	"github.com/wandb/wandb/core/internal/observability"
 	"github.com/wandb/wandb/core/internal/runhandle"
+	"github.com/wandb/wandb/core/internal/runsyncstate"
 	"github.com/wandb/wandb/core/internal/runwork"
 	"github.com/wandb/wandb/core/internal/settings"
 	"github.com/wandb/wandb/core/internal/stream"
@@ -72,7 +73,12 @@ func (f *RunSyncerFactory) New(
 		runWork,
 		/*fileReadDelay=*/ 5*time.Second,
 	)
-	recordParser := f.RecordParserFactory.New(runWork.BeforeEndCtx(), tbHandler)
+	syncStateStore := runsyncstate.File(path)
+	recordParser := f.RecordParserFactory.New(
+		runWork.BeforeEndCtx(),
+		tbHandler,
+		syncStateStore,
+	)
 	runReader := f.RunReaderFactory.New(
 		path,
 		displayPath,
@@ -178,13 +184,13 @@ func (rs *RunSyncer) markSynced() {
 func (rs *RunSyncer) printRunURL() {
 	upserter, err := rs.runHandle.Upserter()
 	if err != nil {
-		rs.logger.CaptureError(fmt.Errorf("runsync: printRunURL: %v", err))
+		rs.logger.CaptureError("runsync", fmt.Errorf("runsync: printRunURL: %v", err))
 		return
 	}
 
 	url, err := upserter.RunPath().URL(rs.settings.GetAppURL())
 	if err != nil {
-		rs.logger.CaptureError(fmt.Errorf("runsync: printRunURL: %v", err))
+		rs.logger.CaptureError("runsync", fmt.Errorf("runsync: printRunURL: %v", err))
 		return
 	}
 

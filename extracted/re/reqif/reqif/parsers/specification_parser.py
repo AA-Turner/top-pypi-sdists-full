@@ -5,6 +5,7 @@ from reqif.models.reqif_spec_object import SpecObjectAttribute
 from reqif.models.reqif_specification import (
     ReqIFSpecification,
 )
+from reqif.parsers.alternative_id_parser import AlternativeIDParser
 from reqif.parsers.attribute_value_parser import AttributeValueParser
 from reqif.parsers.spec_hierarchy_parser import (
     ReqIFSpecHierarchyParser,
@@ -67,6 +68,7 @@ class ReqIFSpecificationParser:
         )
 
         return ReqIFSpecification(
+            alternative_id=AlternativeIDParser.parse(specification_xml),
             xml_node=specification_xml,
             description=description,
             identifier=identifier,
@@ -99,10 +101,14 @@ class ReqIFSpecificationParser:
         if specification.xml_node is not None:
             children_tags = list(map(lambda el: el.tag, list(specification.xml_node)))
         else:
-            children_tags = ["TYPE", "CHILDREN", "VALUES"]
+            children_tags = ["ALTERNATIVE-ID", "TYPE", "CHILDREN", "VALUES"]
 
         for tag in children_tags:
-            if tag == "TYPE":
+            if tag == "ALTERNATIVE-ID":
+                output += AlternativeIDParser.unparse(
+                    specification.alternative_id, "          "
+                )
+            elif tag == "TYPE":
                 if specification.specification_type:
                     output += ReqIFSpecificationParser._unparse_specification_type(
                         specification

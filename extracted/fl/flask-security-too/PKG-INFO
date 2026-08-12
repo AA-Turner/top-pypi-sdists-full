@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: Flask-Security-Too
-Version: 5.8.1
+Version: 5.8.2
 Summary: Quickly add security features to your Flask application.
 Keywords: flask security
 Author: Matt Wright
@@ -19,6 +19,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Development Status :: 5 - Production/Stable
+License-File: AUTHORS
 License-File: LICENSE.txt
 Requires-Dist: Flask>=3.1.1
 Requires-Dist: Flask-Login>=0.6.3
@@ -78,6 +79,7 @@ Provides-Extra: common
 Provides-Extra: fsqla
 Provides-Extra: low
 Provides-Extra: mfa
+Import-Name: flask_security
 
 Flask-Security
 ===================

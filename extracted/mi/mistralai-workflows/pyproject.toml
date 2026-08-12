@@ -51,7 +51,6 @@ dependencies = [
     "opentelemetry-sdk>=1.30.0,<2.0.0",
     "opentelemetry-exporter-otlp-proto-http>=1.30.0,<2.0.0",
     "opentelemetry-instrumentation-httpx>=0.60b1,<0.61b0",
-    "opentelemetry-instrumentation-asyncio>=0.60b1,<0.61b0",
 ]
 
 [project.scripts]

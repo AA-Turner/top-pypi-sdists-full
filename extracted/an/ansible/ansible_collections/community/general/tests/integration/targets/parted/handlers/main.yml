@@ -4,11 +4,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Remove loopback device
-  command:
+  ansible.builtin.command:
     cmd: losetup -d {{ losetup_name.stdout }}
   changed_when: true
 
 - name: Remove file
-  file:
+  ansible.builtin.file:
     path: /bigfile
     state: absent

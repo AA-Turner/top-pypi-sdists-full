@@ -1,12 +1,14 @@
 from .adk import ADKIntegration
 from .agentscope import AgentScopeIntegration
 from .agno import AgnoIntegration
+from .ai_sdk import AISDKIntegration
 from .anthropic import AnthropicIntegration
 from .autogen import AutoGenIntegration
 from .bedrock_runtime import BedrockRuntimeIntegration
 from .claude_agent_sdk import ClaudeAgentSDKIntegration
 from .cohere import CohereIntegration
 from .crewai import CrewAIIntegration
+from .cursor_sdk import CursorSDKIntegration
 from .dspy import DSPyIntegration
 from .google_genai import GoogleGenAIIntegration
 from .huggingface_hub import HuggingFaceHubIntegration
@@ -29,12 +31,14 @@ __all__ = [
     "ADKIntegration",
     "AgentScopeIntegration",
     "AgnoIntegration",
+    "AISDKIntegration",
     "AnthropicIntegration",
     "AutoGenIntegration",
     "BedrockRuntimeIntegration",
     "ClaudeAgentSDKIntegration",
     "CohereIntegration",
     "CrewAIIntegration",
+    "CursorSDKIntegration",
     "DSPyIntegration",
     "GoogleGenAIIntegration",
     "HuggingFaceHubIntegration",

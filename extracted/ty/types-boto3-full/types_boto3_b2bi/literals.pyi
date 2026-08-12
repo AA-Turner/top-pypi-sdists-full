@@ -437,6 +437,7 @@ B2BIServiceName = Literal["b2bi"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

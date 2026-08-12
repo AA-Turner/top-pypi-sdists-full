@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: tinker_cookbook
-Version: 0.5.3
+Version: 0.5.4
 Summary: Implementations of post-training algorithms using the Tinker API
 Project-URL: Homepage, https://thinkingmachines.ai/tinker
 Project-URL: Repository, https://github.com/thinking-machines-lab/tinker-cookbook
@@ -23,8 +23,9 @@ Requires-Dist: rich>=13.0.0
 Requires-Dist: safetensors>=0.4.0
 Requires-Dist: termcolor>=2.0.0
 Requires-Dist: tiktoken>=0.12.0
-Requires-Dist: tinker>=0.22.3
-Requires-Dist: torch>=2.0
+Requires-Dist: tinker>=0.23.0
+Requires-Dist: tml-renderers>=0.0.1
+Requires-Dist: torch>=2.10
 Requires-Dist: tqdm>=4.60.0
 Requires-Dist: transformers!=5.4.*,!=5.5.0,!=5.5.1,!=5.5.2,!=5.5.3,<=5.5.4,>=4.57.6
 Provides-Extra: all
@@ -49,9 +50,6 @@ Requires-Dist: soundfile>=0.12.0; extra == 'all'
 Requires-Dist: syllapy; extra == 'all'
 Requires-Dist: sympy>=1.12.0; extra == 'all'
 Requires-Dist: textarena>=0.7.4; extra == 'all'
-Requires-Dist: tinker>=0.23.0; extra == 'all'
-Requires-Dist: tml-renderers>=0.0.1; extra == 'all'
-Requires-Dist: torch>=2.10; extra == 'all'
 Requires-Dist: trackio<1.0.0; extra == 'all'
 Requires-Dist: verifiers<0.1.10,>=0.1.9; extra == 'all'
 Requires-Dist: wandb>=0.16.0; extra == 'all'
@@ -98,10 +96,6 @@ Provides-Extra: eval-swe-bench
 Requires-Dist: modal>=1.5.1; extra == 'eval-swe-bench'
 Provides-Extra: eval-terminal-bench
 Requires-Dist: modal>=1.5.1; extra == 'eval-terminal-bench'
-Provides-Extra: inkling
-Requires-Dist: tinker>=0.23.0; extra == 'inkling'
-Requires-Dist: tml-renderers>=0.0.1; extra == 'inkling'
-Requires-Dist: torch>=2.10; extra == 'inkling'
 Provides-Extra: inspect
 Requires-Dist: inspect-ai>=0.3.100; extra == 'inspect'
 Requires-Dist: inspect-evals>=0.3.106; extra == 'inspect'
@@ -176,12 +170,8 @@ general-purpose model that can code, reason, call tools, and process image and
 audio inputs. Inkling-Small is a smaller, lower-cost model in the same family
 that shares Inkling's rendering path and reasoning-effort interface. Tinker
 Cookbook supports sampling and post-training both through the standalone
-`tml-renderers` library; install it with the `inkling` extra, which also pulls in
-the required `torch>=2.10`:
-
-```bash
-uv pip install 'tinker-cookbook[inkling]'
-```
+`tml-renderers` library, included in the default installation together with the
+required `torch>=2.10`.
 
 Pass `model_name="thinkingmachines/Inkling"` or
 `model_name="thinkingmachines/Inkling-Small"` anywhere the cookbook accepts a

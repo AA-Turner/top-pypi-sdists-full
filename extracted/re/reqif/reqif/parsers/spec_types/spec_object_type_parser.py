@@ -4,6 +4,7 @@ from reqif.helpers.lxml import lxml_escape_for_html
 from reqif.models.reqif_spec_object_type import (
     ReqIFSpecObjectType,
 )
+from reqif.parsers.alternative_id_parser import AlternativeIDParser
 from reqif.parsers.attribute_definition_parser import AttributeDefinitionParser
 
 
@@ -32,6 +33,7 @@ class SpecObjectTypeParser:
         )
 
         return ReqIFSpecObjectType(
+            alternative_id=AlternativeIDParser.parse(spec_object_type_xml),
             description=spec_description,
             identifier=spec_type_id,
             last_change=spec_last_change,
@@ -53,6 +55,8 @@ class SpecObjectTypeParser:
             escaped_long_name = lxml_escape_for_html(spec_type.long_name)
             output += f' LONG-NAME="{escaped_long_name}"'
         output += ">\n"
+
+        output += AlternativeIDParser.unparse(spec_type.alternative_id, "          ")
 
         if spec_type.attribute_definitions is not None:
             output += "          <SPEC-ATTRIBUTES>\n"

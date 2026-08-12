@@ -6,20 +6,20 @@
 # Skip Alpine (Nomad official binaries are glibc-linked, Alpine uses musl)
 # Skip MacOS because of how complicated it is to run an downloaded binary
 - name: Skip unsupported platforms
-  meta: end_play
+  ansible.builtin.meta: end_play
   when: >
     ansible_facts.distribution == 'Alpine'
     or ansible_facts.os_family == 'Darwin'
 
 - name: Install python-nomad
-  pip:
+  ansible.builtin.pip:
     name: python-nomad
     extra_args: "-c {{ remote_constraints }}"
   register: result
   until: result is success
 
 - name: Install jmespath
-  pip:
+  ansible.builtin.pip:
     name: jmespath
     extra_args: "-c {{ remote_constraints }}"
   register: result
@@ -46,13 +46,13 @@
     selfsigned_digest: sha256
 
 - name: Install unzip
-  package:
+  ansible.builtin.package:
     name: unzip
   register: result
   until: result is success
 
 - name: Download nomad binary
-  unarchive:
+  ansible.builtin.unarchive:
     src: '{{ nomad_uri }}'
     dest: '{{ remote_tmp_dir }}'
     remote_src: true
@@ -62,17 +62,17 @@
 - name: Run tests integration
   block:
     - name: Start nomad (dev mode enabled)
-      shell: nohup {{ nomad_cmd }} agent -dev </dev/null >/dev/null 2>&1 &
+      ansible.builtin.shell: nohup {{ nomad_cmd }} agent -dev </dev/null >/dev/null 2>&1 &
 
     - name: wait nomad up
-      wait_for:
+      ansible.builtin.wait_for:
         host: localhost
         port: 4646
         delay: 10
         timeout: 60
 
-    - import_tasks: nomad_job.yml
+    - ansible.builtin.import_tasks: nomad_job.yml
   always:
 
     - name: kill nomad
-      shell: pkill nomad
+      ansible.builtin.command: pkill nomad

@@ -38,6 +38,7 @@ from . import boot_adopt
 from . import boot_phases as boot_mod
 from . import cell_adopt
 from . import dispatch
+from .procsplit import broker as procsplit_broker
 from .plan import (
     InputAssetRef,
     Plan,
@@ -52,6 +53,7 @@ from . import kernel_path
 from . import mint_budget
 from . import settings_authority
 from . import progress as progress_mod
+from . import serve_posture
 from . import serving_mode as serving_mode_mod
 from . import warmup
 from . import worker_credential
@@ -64,16 +66,19 @@ from .api.binding import (
     wire_ref,
 )
 from .convert.hub import HubPublishError
-from .mint_process import MintSlot
+from . import cell_key
+from .mint_process import MintSlot, slot_subjects
 from .api.errors import (
     ArtifactTransferError,
     CanceledError,
     ComponentSubstitutionError,
+    EndpointSetupFailed,
     GpuSlotUnreachable,
     IllegalCombination,
     ModelSlotIdentityError,
     RetryableError,
     ValidationError,
+    WorkerError,
 )
 from .api.streaming import (
     BatchItemDelta,
@@ -121,6 +126,7 @@ from .models.memory import (
 )
 from .models.cache_paths import tensorhub_cas_dir, tensorhub_fill_source_dir
 from .models.download import ensure_local, lookup_provider_for_ref
+from .models.envelope import ArtifactEnvelopeExceeded
 from .models.errors import MissingSnapshotError, UrlExpiredError
 from .models.execution_lanes import ExecutionLaneUnavailableError, mandatory_traced_lane_of
 from .models.residency import Residency
@@ -179,6 +185,7 @@ from .models.serve_fit import demoted
 from .models.serve_fit import load_rung_engaged
 from .models.serve_fit import cast_dropped
 from .models.loading import pipeline_weight_lane
+from .models import attention_modes as attnspec
 from .models import execution_lanes as lanespec
 from . import warmup as warmup_mod
 from .api.decorators import ATTR as _DECL_ATTR
@@ -193,7 +200,7 @@ from .runtimes.server import ServerHandle
 from .models.execution_lane_gate import ExecutionLaneGate, arm_execution_lane_gate
 from .models.memory import rearm_offload
 from . import fleet_cells
-from . import aot_serve, shape_growth, trt_engine
+from . import aot_serve, numerics_ladder, shape_growth, trt_engine
 from . import fleet_cells as fleet_cells_mod
 from . import hot_swap
 from . import mint_delegate
@@ -260,6 +267,12 @@ EVENT_CONTENT_TYPE = "application/x-request-event+json"
 # `progress.STALL_WINDOW_S`).
 _STALL_POLL_S = 5.0
 _STUCK_THREAD_RECYCLE_S = 30.0
+# How often the reaper re-asks whether the abandoned handler thread has ended.
+_STUCK_THREAD_POLL_S = 0.5
+# th#1779: how often the request's evidence sampler re-reads process CPU+I/O.
+# Same cadence as the stall poll, so the freshest sample is never older than
+# one poll when the diagnosis is taken.
+_HANDLER_EVIDENCE_INTERVAL_S = _STALL_POLL_S
 # pgw#687: a cancel that never unwinds. Cancellation of a SYNC handler is
 # cooperative — the thread cannot be killed — so a handler that never polls
 # ctx.cancelled (observed: a modelopt calibration loop) keeps the GPU permit
@@ -345,6 +358,17 @@ def _sanitize(message: str) -> str:
     for pat in _REDACTIONS:
         out = pat.sub("[redacted]", out)
     return out[:1024]
+
+
+def _snapshot_digest(snapshots: Any, ref: str) -> str:
+    """The resolved snapshot's own digest for ``ref``, or ``""``.
+
+    pgw#1117 names it in the envelope refusal: "the binding resolved to THIS
+    artifact" is the fact an operator needs, and a ref alone does not carry it
+    — the whole ie#642 shape is a mutable bare tag head pointing somewhere
+    new."""
+    snap = (snapshots or {}).get(ref) if snapshots else None
+    return str(getattr(snap, "snapshot_digest", "") or "")
 
 
 def _reserved_repo_info(payload: Any, field_name: str) -> Dict[str, Any]:
@@ -478,6 +502,28 @@ def _snapshot_without_components(
     )
 
 
+def _exported_arm(pipeline: Any, ref: str = "") -> bool:
+    """Is THIS object serving on the EXPORTED (AOTI) lane?
+
+    pgw#1141b, and it is the whole issue: the answer decides which failure
+    detector applies. The dynamo lane keeps a per-class cache-hit ledger with
+    teeth (§4.31 — a dynamo arm that misses RECOMPILES silently, so the ledger
+    is its only detector); the exported lane has none, because an AOTI cell
+    that cannot serve RAISES and the wrapper answers eager in-request. Score an
+    exported cell on the dynamo ledger and it is disproven by construction: an
+    artifact performs no FX lookup, so its hit count is permanently zero.
+
+    That is exactly what happened on a real pod. The question used to be asked
+    of the ref STRING through ``aot_serve.is_aot_ref``, which consults keys
+    this process was TOLD about — and the ordered/boot-adopt arm route told it
+    nothing. The object is asked first now: a wrapped cell is a fact about the
+    object, not about who announced it. The ref remains a second route in
+    (a cell whose wrap this frame cannot see still names itself).
+    """
+    return aot_serve.holds_exported_cell(pipeline) or (
+        bool(ref) and aot_serve.is_aot_ref(ref))
+
+
 def _alias_binding_matches(alias: "EndpointSpec", slot_key: str, ref: str) -> bool:
     """Does ``alias`` hold this load-time binding fact? ``slot_key`` is a
     slot name or ``<slot>.<component>`` override key (pgw#617)."""
@@ -540,6 +586,44 @@ def _map_exception(exc: BaseException) -> Tuple["pb.JobStatus", str]:
     detail = _sanitize(str(exc).splitlines()[0] if str(exc) else "")
     label = type(exc).__name__
     return pb.JOB_STATUS_FATAL, f"{label}: {detail}"[:512] if detail else label
+
+
+#: Setup phases in which the worker drives its OWN synthetic forwards. No
+#: request payload reaches any of them — that is the entry condition, and the
+#: reason a fault raised here is the RELEASE's whoever reads it. ``load`` is
+#: deliberately absent: a caller-routed slot can fail to resolve there, and
+#: th#1259's rule is that nothing a payload participates in producing may be
+#: labelled release-owned.
+_WORKER_OWNED_SETUP_PHASES = frozenset({
+    activity_mod.PHASE_TRACE_GRAPH,
+    activity_mod.PHASE_INDUCTOR_COMPILE,
+    activity_mod.PHASE_WARMUP_FORWARD,
+})
+
+
+def _typed_setup_fault(
+    function: str, phase: str, exc: BaseException,
+) -> "Optional[EndpointSetupFailed]":
+    """pgw#1118/th#1773 -> the typed release fault, or None to re-raise as-is.
+
+    Three exclusions, each load-bearing:
+
+    * a phase outside ``_WORKER_OWNED_SETUP_PHASES`` — a payload may
+      participate there, so the origin is not ours to claim;
+    * an exception that already maps to a non-FATAL status — a warm-phase OOM
+      is still an OOM, and re-typing it would fatal a job a bigger card serves;
+    * anything already a ``WorkerError`` — those carry their own origin claim
+      (``ModelSlotIdentityError``, ``ComponentSubstitutionError``, ... are
+      exactly the labels the hub routes on), and wrapping would erase it.
+    """
+    if phase not in _WORKER_OWNED_SETUP_PHASES:
+        return None
+    if isinstance(exc, WorkerError) or not isinstance(exc, Exception):
+        return None
+    status, _ = _map_exception(exc)
+    if status != pb.JOB_STATUS_FATAL:
+        return None
+    return EndpointSetupFailed(function, phase, exc)
 
 
 def _runtime_term_values(
@@ -2553,12 +2637,20 @@ class _ArmOrder:
     (already materialized and content-digest-verified), ``dynamo`` arms JIT
     intake, ``eager_only`` arms nothing. No discovery, ranking or self-mint
     fallback exists on this path — a failed exact arm is a typed refusal.
+
+    ``adopt`` (pgw#1122) marks the ONE order the hub did not give: §4.27
+    boot-adopt builds an identical order out of a cell this pod resolved by its
+    OWN derived key. Nothing named that arm, so its refusal is a degrade to
+    eager with a typed event, not a dead function — carrying the journey's
+    ``BootAdoptOutcome`` here is what lets the degrade report itself under the
+    same family/function/key the ``hit`` was reported under.
     """
 
     backend: str
     selection: Optional["_CompileArtifactSelection"] = None
     expected: Optional["aot_identity.ExpectedIdentity"] = None
     publisher_org: str = ""
+    adopt: Optional["boot_adopt.BootAdoptOutcome"] = None
 
 
 @dataclass(frozen=True)
@@ -2790,6 +2882,16 @@ class _ClassRecord:
     # IDs are minted after successful setup and cleared before vacate; they do
     # not derive from mutable refs, authored specs, or object memory addresses.
     compile_targets: Dict[str, _CompileTargetRecord] = dc_field(default_factory=dict)
+    # pgw#1104: lanes this record's setup() APPLIED to its own weights
+    # (`gen_worker.report_applied_lane`). The binding names the checkpoint the
+    # hub resolved; a serve-time recipe moves the executed lane away from it,
+    # and `_served_execution_lane` must report the lane that RUNS. Dies with
+    # the instance — a new setup re-reports or the lane reverts to the binding.
+    applied_lanes: List[lanespec.AppliedLane] = dc_field(default_factory=list)
+    # pgw#1043 §PRODUCTIZATION: the attention path this record's setup()
+    # INSTALLED (`gen_worker.report_applied_attention`). Empty == dense, which
+    # is why no endpoint is obliged to report. Dies with the instance.
+    applied_attention: List[Any] = dc_field(default_factory=list)
     # gw#661: consecutive will-retry setup losses; reset by any success.
     transient_setup_failures: int = 0
     # pgw#748 phase 1: the armed degree-D rank group serving THIS record, or
@@ -3026,9 +3128,13 @@ class _Job:
     # gw#516: True while the job is past the decode->finalize handoff (GPU
     # slot terminally released, encode/upload tail running, result unshipped).
     finalizing: bool = False
-    # th#913/gw#596: the CONCRETE lane serving this job (stamped post-setup,
-    # reported on JobMetrics.lane). "" = not yet determined.
+    # th#913/gw#596: the CONCRETE lane serving this job (stamped post-setup as
+    # a forecast for ctx.lane, RE-composed at the terminal from the served
+    # identity — ie#655). "" = not yet determined.
     execution_lane: str = ""
+    # ie#655: the hub's lane instruction, kept so the terminal composition can
+    # honor a declared (handles=) body without re-reading the dispatch order.
+    lane_report: str = ""
     # pgw#789 (th#1293 dimensions): this request was served EAGER by a compiled
     # lane — a pgw#680 guard miss, a router heal/volatile verdict, or an
     # aot_serve ingress refusal. Set from the guard-miss callback, which fires
@@ -3042,6 +3148,11 @@ class _Job:
     # where the resolved payload is in scope; 0 means "not applicable"
     # (non-spatial function), never "zero".
     shape: Tuple[int, int, int] = (0, 0, 0)
+    # th#1779: set by the handler THREAD itself when it returns. A sync
+    # handler cannot be killed and its asyncio wrapper task says nothing about
+    # it once cancelled, so this event is the only truthful answer to "is the
+    # abandoned handler still on the card".
+    handler_thread_done: threading.Event = dc_field(default_factory=threading.Event)
     admitted_at: float = dc_field(default_factory=time.monotonic)
     # One JobProgress seq space per job, shared by stream chunks and ctx
     # events so interleaved sends stay monotonic. itertools.count.__next__
@@ -4601,13 +4712,58 @@ class Executor:
                 for slot, ref, digest in bindings
             ) and len({slot for slot, _ref, _digest in bindings}) == len(bindings)
             active_selection = active_artifacts.get(id(pipeline))
+            # pgw#1141 (Paul's ruling, 2026-08-11): on the EXPORTED lane the
+            # warm ledger GATES NOTHING. It used to decide which aliases an
+            # installed target may serve, so an object the boot warmup happened
+            # not to dispatch through was handed `permitted_names=set()` ->
+            # `function_names=()` -> `target_applicability_incomplete` -> a pod
+            # that had just verified its cell at `cos=1.00000` served eager for
+            # life. An AOTI artifact is ahead-of-time machine code for this
+            # exact sm/toolchain: the first call is full speed, and the warm
+            # pass never made it faster — it only checked it. What the cell
+            # advertises is what it may serve; a class it does not carry is
+            # refused BY NAME at ingress and served eager per request
+            # (pgw#844), and a cell-attributable failure revokes the arm
+            # in-request through the wrapper's own fallback.
+            #
+            # The DYNAMO lane keeps the ledger, and the difference is the
+            # failure MODE, not the vintage: a dynamo arm that does not serve
+            # its cell RECOMPILES — correct output, silently slower, no
+            # exception for try-serve to catch and no numerics gate on that
+            # lane at all. Its per-class cache-hit ledger is the only detector
+            # that exists, so deleting it would remove a detector with no
+            # replacement.
+            exported_arm = _exported_arm(
+                pipeline, active_selection.ref if active_selection else "")
+            if exported_arm and not aot_serve.is_armed(pipeline):
+                # pgw#1141: the sticky de-arm reaches the INSTALL. The artifact
+                # revoked itself (a failed target, a constants fault) before
+                # any guard was bound to hear it, so installing its target
+                # would advertise `serving_mode=aot_cell` on a pipeline whose
+                # every call now runs eager — the wire lie pgw#1082/#1093 spent
+                # two pods closing. Under the old barrier the disarm sweep hid
+                # this case by unwrapping first; serve-first reaches it, so it
+                # is named here.
+                detail = (
+                    f"{type(pipeline).__name__} owning slots "
+                    f"{sorted(candidate.slots)} holds a REVOKED exported cell "
+                    f"({active_selection.ref if active_selection else '?'}): "
+                    f"the artifact de-armed itself during boot, so every call "
+                    f"serves eager and no compiled target may advertise it")
+                logger.warning("compile target omitted for %s: %s",
+                               spec.name, detail)
+                self._note_eager_posture(
+                    rec, cell_adopt.EagerPhase.COMPILED_DEGRADED.value, detail)
+                continue
             permitted_names = (
-                function_proofs[id(pipeline)]
+                contract_names if exported_arm
+                else function_proofs[id(pipeline)]
                 if id(pipeline) in function_proofs
                 else contract_names
             )
             object_proven_by_custom_warmup = bool(
-                spec.cls is not None
+                not exported_arm
+                and spec.cls is not None
                 and callable(getattr(spec.cls, "warmup", None))
                 and function_proofs.get(id(pipeline))
             )
@@ -5145,14 +5301,34 @@ class Executor:
         only at degree>1" is therefore enforced by construction: no compile
         selection is fetched, no arming scope opens, no targets install, no
         cell adopts. This is the code the a08a3bd commit message claimed.
+
+        pgw#1113/pgw#819: the condition is ``degree > 1``, FULL STOP — it used
+        to be ``degree > 1 and parallel == "sequence"``, an allowlist by mode
+        NAME, and every mode not on the list inherited a hole. ``internal``
+        was the measured one (a model that spans its cards by its own device
+        map bakes that placement into its kernels, so its cell keyed
+        byte-identically to the single-GPU one, in both directions), and
+        ``cfg`` — the platform's next declared sharding mode
+        (``topology.PARALLEL_CFG``) — would have inherited the same hole the
+        day it got a serve-side implementation. A gate that has to be widened
+        once per new mode is not a rule; ``degree > 1`` is.
+
+        This costs nothing today (no ``internal``-parallel release compiles)
+        and it is SUPERSEDED, not contradicted, by the ``placement`` keying
+        fact (``aot_serve.class_hash``): once a cell can state which cards it
+        was baked for, cells at degree>1 become servable and this gate can
+        narrow again to the modes whose collectives genuinely forbid an
+        ungated forward.
         """
         topo = self.topology
-        if topo.degree > 1 and topo.parallel == "sequence":
+        if topo.degree > 1:
             return (
                 f"eager only at {topo}: compile/hot-swap/self-mint are "
-                "disabled under context parallelism (pgw#775) — any forward "
-                "outside the sequence gate would hang the degree-"
-                f"{topo.degree} group"
+                f"disabled at degree>1 (pgw#775/pgw#819) — under "
+                f"{topo.parallel or 'internal placement'} a compile cell "
+                f"cannot state the {topo.degree}-card placement it would be "
+                f"baked for, and under platform sharding any forward outside "
+                f"the parallelism gate would hang the group"
             )
         return ""
 
@@ -5429,49 +5605,135 @@ class Executor:
         body = lanespec.execution_lane_body_id(req.execution_lane)
         return body if body in spec.handles else ""
 
-    def _served_execution_lane(self, spec: EndpointSpec, instructed: str = "") -> str:
-        """The CONCRETE lane this spec's instance executes as, for
-        JobMetrics.lane and ctx.lane reporting: the most-quantized pipeline
-        binding's lane (table rank), with live compile state as a preference.
-        Fixed-mode bodies override it; a declared (handles=) instruction owns
-        the full lane outright."""
+    def _record_applied_lanes(
+        self,
+        spec: EndpointSpec,
+        rec: _ClassRecord,
+        applied: Tuple[lanespec.AppliedLane, ...],
+    ) -> None:
+        """pgw#1104: bank what ``setup()`` reported it did to the weights.
 
-        # pgw#1082: the SAME reading `serving_mode.classify_mode` takes. A
-        # ref-only test made `metrics.lane` report `+eager` while
-        # `serving_mode` correctly reported `jit_cell` on the same request —
-        # a contradiction `_served_identity`'s docstring says cannot happen,
-        # because a JIT INTAKE arm names no artifact by construction.
-        compiled = False
+        A report that DIVERGES from the binding is the whole point of the
+        mechanism, so it is a wire row and not a log line: the reader must be
+        able to see, from the events alone, that this instance stopped
+        executing the checkpoint's lane and which lane it executes instead."""
+        rec.applied_lanes = list(applied)
+        if not applied:
+            return
+        bound = self._bound_execution_body(spec)
+        for entry in applied:
+            activity_mod.emit_event(
+                activity_mod.KIND_APPLIED_LANE,
+                detail=f"{entry.detail()} bound={bound}",
+                phase=entry.component)
+
+    def _record_applied_attention(
+        self, rec: _ClassRecord, applied: Tuple[Any, ...],
+    ) -> None:
+        """pgw#1043: bank the attention path setup() installed, one wire row
+        per component. Reporting nothing is dense — the absence is the default,
+        not a gap, so silence emits nothing."""
+        rec.applied_attention = list(applied)
+        for entry in applied:
+            activity_mod.emit_event(
+                activity_mod.KIND_APPLIED_ATTENTION,
+                detail=entry.detail(),
+                phase=entry.component)
+
+    def _served_attention_mode(self, spec: EndpointSpec) -> str:
+        """The attention mode `metrics.attention_mode` reports for a request on
+        this spec. Never guessed: it is what the installing code reported, and
+        the ABSENCE of a report is dense — so an endpoint with no sparse path
+        reports "" and nothing downstream has to learn a new default."""
+        if spec.cls is None:
+            return ""
+        rec = self._classes.get(spec.instance_key)
+        entries = list(getattr(rec, "applied_attention", []) or []) if rec else []
+        if not entries:
+            return ""
+        return attnspec.most_sparse_mode([e.mode for e in entries])
+
+    def _served_attention_detail(self, spec: EndpointSpec) -> str:
+        """The full applied-attention row for this instance (k, block, measured
+        density, selector, index artifact) — what `attention_mode` alone cannot
+        carry. One line per component, joined."""
+        if spec.cls is None:
+            return ""
+        rec = self._classes.get(spec.instance_key)
+        entries = list(getattr(rec, "applied_attention", []) or []) if rec else []
+        return "; ".join(e.detail() for e in entries)
+
+    def _bound_execution_body(self, spec: EndpointSpec) -> str:
+        """The most-quantized lane BODY this spec's BINDINGS resolve to — what
+        the hub handed the worker, before any serve-time recipe."""
+        return lanespec.most_quantized_body(
+            lanespec.execution_lane_body_of_binding(
+                getattr(binding, "flavor", "") or "",
+                getattr(binding, "storage_dtype", "") or "")
+            for binding in spec.models.values())
+
+    def _served_execution_body(
+        self, spec: EndpointSpec, instructed: str = "",
+    ) -> str:
+        """The WEIGHTS half of the lane this instance executes: the
+        most-quantized body over the pipeline bindings AND whatever this
+        instance's ``setup()`` reported it APPLIED to them. A declared
+        (handles=) instruction owns the body outright.
+
+        pgw#1104: the applied half is not decoration. minimax-h3 binds a bare
+        tag (empty flavor) and quantizes 300 Linears to w8a8 fp8 inside
+        setup(), so a binding-only derivation priced, verdicted and "proved" a
+        37.4 GiB bf16 lane against a 21.7 GiB fp8 one that was really running.
+        The lane id is a KEY (th#935 verdicts, compile cells, floors,
+        pricing), so it follows the WEIGHTS AS EXECUTED — reported by the
+        recipe that converted them, never sniffed off tensor subclasses."""
+        handled = self._handled_execution_lane_body(spec, instructed)
+        if handled:
+            return handled
+        applied: Tuple[lanespec.AppliedLane, ...] = ()
         if spec.cls is not None:
             rec = self._classes.get(spec.instance_key)
             if rec is not None:
-                compiled = any(
-                    getattr(t, "active_compile_ref", "")
-                    or compile_cache.is_compile_armed(t.pipeline)
-                    for t in rec.compile_targets.values())
-        handled = self._handled_execution_lane_body(spec, instructed)
-        if handled:
-            return lanespec.execution_lane_id(lanespec.parse_execution_lane(instructed))
-        # Report the most-quantized binding's lane: quantized lanes always
-        # outrank bf16 (a bf16 VAE riding a w8a16 pipeline is still the
-        # w8a16 lane), ties by table rank.
-        ranked = {body: i for i, body in enumerate(lanespec.known_execution_lanes())}
-        best = None
-        best_key: Tuple[int, int] = (2, len(ranked) + 1)
-        for binding in spec.models.values():
-            execution_lane = lanespec.execution_lane_of_binding(
+                applied = tuple(rec.applied_lanes)
+        bodies = [
+            lanespec.execution_lane_body_of_binding(
                 getattr(binding, "flavor", "") or "",
-                getattr(binding, "storage_dtype", "") or "",
-                compiled)
-            quant = 1 if lanespec.family_of(execution_lane) == lanespec.FAMILY_BF16 else 0
-            key = (quant, ranked.get(lanespec.execution_lane_id(execution_lane), len(ranked)))
-            if best is None or key < best_key:
-                best, best_key = execution_lane, key
-        if best is None:
-            best = lanespec.ExecutionLane(
-                weights=lanespec.WEIGHTS_BF16, activation=lanespec.ACT_W16A16,
-                execution=lanespec.EXEC_COMPILED if compiled else lanespec.EXEC_EAGER)
-        return lanespec.execution_lane_id(best)
+                getattr(binding, "storage_dtype", "") or "")
+            for binding in spec.models.values()
+        ]
+        # The applied report is validated against the lane table at report
+        # time (`report_applied_lane`), so it can only name a real lane body.
+        bodies.extend(entry.body for entry in applied)
+        return lanespec.most_quantized_body(bodies)
+
+    def _served_execution_lane(
+        self,
+        spec: EndpointSpec,
+        instructed: str = "",
+        served: Optional[serving_mode_mod.ServedIdentity] = None,
+    ) -> str:
+        """The CONCRETE lane this spec's instance executes as, for
+        JobMetrics.lane and ctx.lane reporting: the executed WEIGHTS body at
+        the OBSERVED execution posture.
+
+        ie#655: there is exactly ONE reading of the execution axis on this
+        worker, and it is ``ServedIdentity.serving_mode`` — the same value
+        stamped on ``metrics.serving_mode``. The lane cannot contradict the
+        serving mode because it is COMPOSED from it, not derived beside it.
+        Two separate derivations is how a wan-2.2 H100 that declined its own
+        mint for `insufficient_vram`, served eager, and said so three times in
+        its own boot rows still reported `fp8-w8a8-dynamic+compiled` on both
+        billed requests: the second reading ran the lane table's PLANNING
+        coercion (`fp8-w8a8-dynamic` is a compiled-only CHOICE) over an
+        observed eager posture and rewrote the fact. A declared instruction
+        owns the body, never the execution axis: what the hub asked for is not
+        evidence of what ran."""
+        if served is None:
+            served = self._served_identity(spec)
+        compiled = served.serving_mode != serving_mode_mod.MODE_EAGER
+        return lanespec.execution_lane_id(
+            lanespec.observed_execution_lane(
+                self._served_execution_body(spec, instructed), compiled))
 
     async def ensure_desired_instance(
         self,
@@ -5855,6 +6117,12 @@ class Executor:
                     self._mark_compile_setup_unavailable(rec, spec, str(exc))
                     self._on_state_change()
                 self._mark_setup_failed(rec, exc, exhausted=exhausted)
+                # pgw#1118/th#1773: name the pod's OWN warm/compile fault
+                # before it leaves this boundary — the job path cannot tell
+                # afterwards, and untyped it becomes the caller's `fatal`.
+                typed = _typed_setup_fault(spec.name, act.phase_name, exc)
+                if typed is not None:
+                    raise typed from exc
                 raise
             if rec.failed is not None:
                 # Recovery (desired-state retry succeeded): lift the
@@ -6117,7 +6385,7 @@ class Executor:
         snapshots: Optional[Dict[str, pb.Snapshot]],
         *,
         proof_objects: typing.Iterable[Any] = (),
-        cold_proof_ids: typing.Container[int] = (),
+        cold_proof_ids: typing.Collection[int] = (),
         allow_contract_skip: bool = False,
         armed_cell_refs: typing.Iterable[str] = (),
     ) -> _WarmupEvidence:
@@ -6156,13 +6424,26 @@ class Executor:
                 logger.info("boot warmup skipped for %s: %s",
                             skip.spec.name, skip.reason)
         objects = tuple({id(obj): obj for obj in proof_objects}.values())
-        # Tracing == some artifact is armed or minting on this setup; only
-        # then does the full class x bucket cross-product buy anything (each
-        # graph must trace into the capture / prove against the cell).
-        tracing = bool(objects)
         memory = self._warm_contract_runs.setdefault(
             self._warm_contract_key(spec), set())
         armed_refs = tuple(armed_cell_refs)
+        # Tracing == some artifact is armed or minting on this setup; only
+        # then does the full class x bucket cross-product buy anything (each
+        # graph must trace into the capture / prove against the cell).
+        #
+        # pgw#1141 DELIBERATELY LEAVES THIS ALONE, and the omission is the
+        # decision. §4.31 deletes the warm plan as a PREREQUISITE TO ARMING —
+        # which is this issue — and notes that the per-class cost then buys
+        # nothing on an exported adopt. Collapsing it to the eager plan is a
+        # real saving (sdxl: 18 full generates per handler -> 2) but it is not
+        # free: this plan is also what produces pgw#844's BOOT-TIME coverage
+        # census (`compiled_shape_coverage`, which names the declared classes a
+        # cell does not carry before any tenant meets one) and what feeds the
+        # dynamo lane's per-class cache-hit ledger, its only detector of a
+        # silent recompile. Both deserve an answer of their own rather than a
+        # rider on a P0 arm fix, so the collapse is filed as its own change
+        # with its own red tests. Nothing about the ARM depends on it.
+        tracing = bool(objects)
         skip_ok = (
             allow_contract_skip
             and not cold_proof_ids
@@ -6481,6 +6762,16 @@ class Executor:
             # every attempt is this function's terminal truth (th#1159's
             # genuinely-unfittable VRAM lane is the case this exists for).
             reason, axes = "retry_exhausted", {}
+        elif isinstance(exc, ArtifactEnvelopeExceeded):
+            # pgw#1117 / th#1777: a RELEASE/BINDING verdict, reported under
+            # its own token so the hub can tell it apart from the OOM it
+            # replaces. Deliberately ahead of nothing and behind nothing
+            # meaningful — it is not a HardwareUnmetError (no machine was
+            # consulted, and routing it there would teach the buy-floor
+            # learner to shop for a card big enough to serve an archive
+            # clone) and not a bare setup_failed (which the hub reads as
+            # "the pod could not boot" and feeds to the breaker).
+            reason, axes = exc.reason, exc.axes()
         elif isinstance(exc, HardwareUnmetError):
             reason = getattr(exc, "reason", "hardware_unmet")
             axes = {str(k): str(v) for k, v in (exc.axes() or {}).items()}
@@ -6677,7 +6968,22 @@ class Executor:
         component_paths: Dict[str, Dict[str, str]] = {
             slot: dict(res.component_paths)
             for slot, res in resolved_slots.items() if res.component_paths}
-        eager_only = self._eager_only_reason()
+        topology_eager = self._eager_only_reason()
+        # pgw#1142 / §4.32 item 4. The order joins the topology reason for
+        # every "do not go looking for a cell" decision below — this is the
+        # gate that runs BEFORE the hub round trip and the materialize, so an
+        # operator who says "stop compiling" is obeyed at the first boot phase
+        # rather than at the arm, having paid for a download in between.
+        #
+        # It deliberately does NOT join the REFUSAL two blocks down. The two
+        # are different in kind: a degree>1 topology CANNOT run the named cell
+        # (the collectives would hang), so a spec naming one is unsatisfiable
+        # and must fail typed; an operator order is a decision that the pod
+        # serve eager, and `arm_ordered` obeys it by arming nothing and
+        # serving — killing the function instead would be the opposite of what
+        # was asked for, and it would not be reversible.
+        ordered_eager = serve_posture.block()
+        eager_only = topology_eager or ordered_eager
         if eager_only and spec.compile is not None:
             logger.info("%s: %s", spec.name, eager_only)
         # pgw#904: the ONLY source of a pre-materialized artifact is a Plan's
@@ -6685,10 +6991,10 @@ class Executor:
         # digest-verified it). The connected snapshot scan that used to run
         # here is deleted — the hub no longer attaches cells to snapshots, and
         # a worker that could pick one would be a second resolver.
-        if arm is not None and arm.backend == "aot_cell" and eager_only:
+        if arm is not None and arm.backend == "aot_cell" and topology_eager:
             raise compile_cache.CompiledExecutionLaneUnavailableError(
                 f"the spec names an exact cell but this pod cannot arm one: "
-                f"{eager_only}")
+                f"{topology_eager}")
         compile_selection = arm.selection if arm is not None else None
         compile_artifact = compile_selection.path if compile_selection else None
         # §4.27 steps 1-3 (pgw#1089/pgw#1090): with no Plan-named artifact, this
@@ -6706,10 +7012,19 @@ class Executor:
         # RACE the fetch the way §4.27 step 4 asks. It is already off the
         # request path — no dispatch has occurred — and moving it earlier is a
         # restructure of this method's await order, not of the derivation.
+        # pgw#1127 S2: the `ck1` key THIS MACHINE's own store answered on. Not
+        # an `_ArmOrder`: a self-minted cell carries no hub receipt and no
+        # publisher org, so `arm_ordered` would refuse it
+        # `receipt_gate_unconfigured`. It is an ADDRESS, handed to the arming
+        # brain as a second lookup route into the same CAS the arm-token memo
+        # addresses — one key, two routes, and `_arm_exported_cell` is the one
+        # gate at the end of both.
+        boot_local_key = ""
         if arm is None and spec.compile is not None and not eager_only:
             adopt = await asyncio.to_thread(
                 self._boot_adopt, spec, resolved_slots)
-            if adopt is not None and adopt.adoption is not None:
+            boot_local_key = adopt.local_key
+            if adopt.adoption is not None:
                 got = adopt.adoption
                 compile_selection = _CompileArtifactSelection(
                     path=got.artifact, ref=got.ref,
@@ -6718,7 +7033,25 @@ class Executor:
                 arm = _ArmOrder(
                     backend="aot_cell", selection=compile_selection,
                     expected=got.expected,
-                    publisher_org=got.cell.publisher_org)
+                    publisher_org=got.cell.publisher_org,
+                    # pgw#1122: this order is the POD's, not the hub's.
+                    adopt=adopt)
+        elif arm is None and spec.compile is not None:
+            # pgw#1116: a compiled family that boots WITHOUT asking is a fact
+            # somebody has to be able to read. This is the only branch where
+            # that is correct by design (pgw#775 forbids arming here at all) —
+            # so it says so, rather than being the ninth way to look like a pod
+            # that quietly self-minted.
+            boot_adopt.refused(
+                # pgw#1142: WHICH eager, named. A pod that never asked because
+                # its topology forbids arming and a pod that never asked
+                # because an operator said so are two different boots, and the
+                # second one can be undone.
+                boot_adopt.OPERATOR_EAGER_ONLY if not topology_eager
+                else "eager_only",
+                eager_only,
+                family=str(getattr(spec.compile, "family", "") or ""),
+                function=str(spec.name or ""))
         # pgw#947: the serving-kernel lane comes from the CELL, and it has to
         # be pinned BEFORE setup() — the linears are swapped at model load, so
         # a verdict read afterwards would arrive one whole pipeline too late.
@@ -6805,7 +7138,7 @@ class Executor:
                     snapshots=snapshots,
                     slot_identities=slot_identities,
                     component_paths=component_paths,
-                    arm=arm)
+                    arm=arm, boot_local_key=boot_local_key)
                 rec.shared_keys.extend(inj.shared_keys)
                 # pgw#517: a self-loading (str/Path-slot) endpoint builds its
                 # own pipeline inside setup() and the executor never sees it
@@ -6821,13 +7154,25 @@ class Executor:
                     # on a context-parallel pod.
                     None if eager_only else spec.compile_cell(),
                     self.store._cache_dir, compile_artifact,
-                    enable=self._arming_enable,
+                    enable=functools.partial(
+                        self._arming_enable,
+                        subject=slot_subjects(
+                            resolved_slots,
+                            {name: ident[0]
+                             for name, ident in slot_identities.items()})),
                 )
-                with arming_scope:
+                # pgw#1104: NOT gated on spec.compile — a serve-time recipe
+                # quantizes whether or not this release compiles, and the lane
+                # it applied is what every request then executes.
+                applied_lane_scope = provision.AppliedLaneScope()
+                applied_attn_scope = provision.AppliedAttentionScope()
+                with arming_scope, applied_lane_scope, applied_attn_scope:
                     if asyncio.iscoroutinefunction(setup):
                         await setup(**inj.kwargs)
                     else:
                         await _to_thread_complete(setup, **inj.kwargs)
+                self._record_applied_lanes(spec, rec, applied_lane_scope.applied)
+                self._record_applied_attention(rec, applied_attn_scope.applied)
                 # arm_compile() is the sole unambiguous ownership seam for a
                 # self-loaded pipeline. Such a pipeline may be built from any
                 # path-valued setup input, so freeze every self-loaded slot
@@ -7000,35 +7345,42 @@ class Executor:
             # pgw#735: TRT engines and EXPORTED artifacts both prove
             # themselves by executing, not by an FX cache hit — only the
             # dynamo lane is scored by hits below.
-            def _proves_by_fx(ref: str) -> bool:
+            # pgw#1141b: the lane split is decided per OBJECT (`_exported_arm`),
+            # never off the ref string alone. A boot-adopted cell wraps a live
+            # pipeline through the ordered arm, which taught `is_aot_ref`
+            # nothing — so on a real pod every adopted artifact landed in
+            # `proof_before` (the DYNAMO ledger), scored calls=0 against
+            # counters an AOTI artifact cannot move, and was folded into
+            # `unproven` and unwrapped. `aot_proof_before` was empty, so §4.31's
+            # keep-the-arm branch below could not fire for the one object it
+            # exists for.
+            def _proves_by_fx(pipeline: Any, ref: str) -> bool:
                 return not trt_engine.is_engine_ref(ref) and not \
-                    aot_serve.is_aot_ref(ref)
+                    _exported_arm(pipeline, ref)
 
-            proves_inductor = any(
-                _proves_by_fx(sel.ref)
-                for sel in inj.active_compile_artifacts.values()
-            )
-            proof_before = {
-                id(candidate.pipeline): (
-                    compile_cache.execution_count(candidate.pipeline),
-                    compile_cache.cache_miss_count(candidate.pipeline),
-                    aot_serve.execution_count(candidate.pipeline),
-                )
+            _armed_now = [
+                (candidate.pipeline, sel)
                 for candidate in inj.compile_objects
-                if proves_inductor
-                and id(candidate.pipeline) in inj.active_compile_artifacts
-                and _proves_by_fx(
-                    inj.active_compile_artifacts[id(candidate.pipeline)].ref)
+                if (sel := inj.active_compile_artifacts.get(
+                    id(candidate.pipeline))) is not None
+            ]
+            proves_inductor = any(
+                _proves_by_fx(pipe, sel.ref) for pipe, sel in _armed_now)
+            proof_before = {
+                id(pipe): (
+                    compile_cache.execution_count(pipe),
+                    compile_cache.cache_miss_count(pipe),
+                    aot_serve.execution_count(pipe),
+                )
+                for pipe, sel in _armed_now
+                if proves_inductor and _proves_by_fx(pipe, sel.ref)
             }
             # Exported arms are proven separately: same fail-closed rule, its
             # own counter.
             aot_proof_before = {
-                id(candidate.pipeline): aot_serve.execution_count(
-                    candidate.pipeline)
-                for candidate in inj.compile_objects
-                if id(candidate.pipeline) in inj.active_compile_artifacts
-                and aot_serve.is_aot_ref(
-                    inj.active_compile_artifacts[id(candidate.pipeline)].ref)
+                id(pipe): aot_serve.execution_count(pipe)
+                for pipe, sel in _armed_now
+                if _exported_arm(pipe, sel.ref)
             }
             # pgw#722 finding 2 (the #735 boot-proof gap): the proof loop
             # below used to run only under `proves_inductor`, so a worker
@@ -7199,6 +7551,12 @@ class Executor:
                 # adoption. Zero proven objects still fails closed (gw#586).
                 disproven: list[_CompileObjectCandidate] = []
                 unexercised: list[_CompileObjectCandidate] = []
+                #: pgw#1141: per object, why the boot warmup landed no dispatch
+                #: on an ARMED artifact — the posture that follows is a row on
+                #: the wire, not something a reader has to infer from the two
+                #: later events that only describe its consequences
+                #: (`target_applicability_incomplete`, `armed_target_unresolved`).
+                arm_without_dispatch: Dict[int, str] = {}
                 proven = 0
                 hits = 0
                 misses = 0
@@ -7224,8 +7582,19 @@ class Executor:
                             proved_sel = inj.active_compile_artifacts.get(id(pipe))
                             if proved_sel is not None:
                                 compile_cache.record_cell_proven(proved_sel.ref)
-                        else:
-                            unexercised.append(candidate)
+                            continue
+                        # pgw#1141 / §4.31 + §4.32: an adopted cell arms BEFORE
+                        # setup, so no dispatch can have landed by now, and
+                        # nothing measures it here either — quality was proven
+                        # once, on the pod that MINTED it, and adoption runs no
+                        # quality gate. The absence of a dispatch is therefore
+                        # not a verdict: the arm stands, the first real request
+                        # is the proof, and a cell-attributable failure de-arms
+                        # it in-request.
+                        arm_without_dispatch[id(pipe)] = (
+                            "adoption runs no quality gate (§4.32) — this cell "
+                            "was proven at its mint")
+                        unexercised.append(candidate)
                         continue
                     before = proof_before.get(id(pipe))
                     if before is None:
@@ -7238,6 +7607,9 @@ class Executor:
                     hits += max(0, pipe_hits)
                     misses += max(0, pipe_misses)
                     if not warmed or calls <= 0:
+                        arm_without_dispatch[id(pipe)] = (
+                            "the dynamo lane takes no parity measurement, so "
+                            "this boot holds no evidence either way")
                         unexercised.append(candidate)
                     elif pipe_hits > 0:
                         proven += 1
@@ -7283,10 +7655,84 @@ class Executor:
                 # the bookkeeping down to readiness — reports an honest
                 # phase instead of a stale seal_publish.
                 activity_mod.current_phase(activity_mod.PHASE_FINALIZE)
+
+                def _confess_arm_without_dispatch(
+                    candidate: "_CompileObjectCandidate",
+                ) -> None:
+                    """pgw#1141: name the DECISION, at the decision point.
+
+                    Every emission the old disarm produced described its
+                    wreckage two frames later (`target_applicability_
+                    incomplete`, then `armed_target_unresolved`), so a reader
+                    had to infer that an armed, resolvable cell had been thrown
+                    away. The decision is the opposite one now — the arm STANDS
+                    — and it is still a row, because an unannounced posture is
+                    indistinguishable from a gate that never ran."""
+                    reason = arm_without_dispatch.get(id(candidate.pipeline), "")
+                    if not reason:
+                        return
+                    activity_mod.emit_event(
+                        activity_mod.KIND_CELL_NUMERICS,
+                        f"{spec.name}: the exported cell on slots "
+                        f"{sorted(candidate.slots)} took no warm dispatch — "
+                        f"{reason}. It STAYS ARMED and serves; a "
+                        f"cell-attributable failure revokes it in-request",
+                        phase=numerics_ladder.PHASE_ARMED_UNDISPATCHED,
+                    )
+
+                # pgw#1141 (Paul's ruling, 2026-08-11), and it is a DELETION:
+                # *"skip the warmup/arm check, so we can serve right away; try
+                # to serve, and if an error is encountered and it is the cell's
+                # fault, de-arm the cell and serve eager instead. If our cell is
+                # correct this adds zero cost."* An ABSENCE of warm evidence is
+                # no longer a verdict about the artifact — an adopted cell arms
+                # before setup, so nothing has dispatched through it BY
+                # CONSTRUCTION, and disarming on that destroyed cells verified
+                # at cos=1.00000 on two real pods while the self-mint arm (which
+                # gets its dispatch from the warmup that drives its own capture)
+                # sailed through. The two arms are symmetrical now: neither is
+                # disarmed for want of a dispatch.
+                #
+                # SCOPED TO THE EXPORTED LANE, because the difference is the
+                # failure MODE. An AOTI cell that cannot serve RAISES, and the
+                # wrapper answers that request eager; a DYNAMO arm that does not
+                # serve its cell RECOMPILES — correct output, silently slower,
+                # no exception for try-serve to catch and no numerics gate on
+                # that lane at all — so its per-class cache-hit ledger is the
+                # only detector in existence and keeps its teeth.
+                #
+                # What still has teeth, unchanged:
+                #   * the pgw#868 numerics gate REFUSES a cell that does not
+                #     reproduce eager — the only detector for a cell that runs
+                #     cleanly and returns a WRONG image, which try-serve cannot
+                #     see;
+                #   * EVIDENCE AGAINST still disarms (`disproven`: the object was
+                #     exercised and demonstrably did not serve its own graph —
+                #     a measured fault, not a missing measurement);
+                #   * a cell-attributable failure at serve time revokes the arm
+                #     IN-REQUEST (`aot_serve.wrap_module` / the pgw#680
+                #     guard-miss doctrine): the tenant still gets a correct eager
+                #     answer, the disarm is sticky for the process, and it is
+                #     typed on the wire.
+                #   * PUBLISHING to the fleet stays evidence-gated below —
+                #     serving optimistically costs this pod one eager fallback,
+                #     publishing an unverified cell costs every pod that adopts
+                #     it.
                 unproven = list(disproven)
-                if not proven:
-                    unproven.extend(unexercised)
-                    unexercised = []
+                # The DYNAMO lane's silent-recompile detector, unchanged: with
+                # nothing proven, an unexercised dynamo object is still folded
+                # in and disarmed. Exported candidates never reach here — they
+                # are scored above and keep their arm either way.
+                dynamo_unexercised = [
+                    candidate for candidate in unexercised
+                    if not _exported_arm(candidate.pipeline)
+                ]
+                if not proven and dynamo_unexercised:
+                    unproven.extend(dynamo_unexercised)
+                    unexercised = [
+                        candidate for candidate in unexercised
+                        if candidate not in dynamo_unexercised
+                    ]
                 if unproven:
 
                     quant_execution_lane = any(
@@ -7297,6 +7743,7 @@ class Executor:
                     for candidate in unproven:
                         pipe = candidate.pipeline
                         function_proofs[id(pipe)] = set()
+                        _confess_arm_without_dispatch(candidate)
                         # pgw#722 finding 2: an exported arm disarms through
                         # its own lane — aot_serve.unwrap restores the
                         # forward it captured (under the F2 flip that is the
@@ -7406,6 +7853,29 @@ class Executor:
                         logger.warning("%s; serving eager", detail)
                 for candidate in unexercised:
                     pipe = candidate.pipeline
+                    if _exported_arm(pipe):
+                        # THE DELETED BARRIER (pgw#1141). This branch used to
+                        # unwrap the artifact, drop the lifted lanes, pop the
+                        # active selection and abandon the mint — for an object
+                        # the warm plan simply never dispatched through, which
+                        # is EVERY boot-adopted cell by construction. It keeps
+                        # the arm now and says so; the publish half is the only
+                        # decision an absent measurement may still make.
+                        logger.warning(
+                            "compile object (slots=%s) armed with no warm "
+                            "dispatch (calls=0); it SERVES, and a "
+                            "cell-attributable failure revokes it in-request "
+                            "(pgw#1141)", sorted(candidate.slots))
+                        _confess_arm_without_dispatch(candidate)
+                        # NOTE the publish is NOT withheld here any more. §4.32
+                        # moves that authority to the mint-time gate on this
+                        # same pod (`fleet_cells.adopt_delegated_mint` ->
+                        # `provision.arm_aot(verify_numerics=True)`), which runs
+                        # the freshly compiled artifact against the eager
+                        # forward it was traced from and refuses to publish
+                        # anything that is not identical. A warm dispatch count
+                        # decides nothing at either end.
+                        continue
                     mandatory = pipeline_weight_lane(pipe).startswith(
                         _MANDATORY_EXECUTION_LANES)
                     if mandatory:
@@ -7419,17 +7889,15 @@ class Executor:
                             "proof covers only its exercised siblings",
                             sorted(candidate.slots))
                         continue
+                    # The dynamo lane keeps its disarm: an unexercised dynamo
+                    # object that starts serving RECOMPILES silently, and no
+                    # detector downstream would ever say so.
                     logger.warning(
                         "compile object (slots=%s) unproven (no warmup "
                         "modality, calls=0); serving eager",
                         sorted(candidate.slots))
+                    _confess_arm_without_dispatch(candidate)
                     function_proofs[id(pipe)] = set()
-                    # pgw#722 finding 2: same exported-lane disarm as the
-                    # unproven loop above.
-                    if aot_serve.unwrap(pipe):
-                        from .models import lora_lifted
-
-                        lora_lifted.remove_lifted_lora_execution_lanes(pipe)
                     compile_cache.unwrap(pipe)
                     if spec.lora_bucket:
                         compile_cache.drop_lora_execution_lane(pipe)
@@ -8494,6 +8962,7 @@ class Executor:
         slot_identities: Optional[Dict[str, _ResidencyIdentity]] = None,
         component_paths: Optional[Dict[str, Dict[str, str]]] = None,
         arm: Optional[_ArmOrder] = None,
+        boot_local_key: str = "",
     ) -> "_InjectionResult":
         """Typed injection: each slot receives exactly what its ``setup``
         annotation says — a ``str``/``Path`` local path, or a constructed
@@ -8633,6 +9102,7 @@ class Executor:
                             force_storage_dtype=(
                                 "fp8" if slot in force_fp8_slots else ""),
                             strict_vram=bool(spec.resources.strict_vram),
+                            artifact_digest=_snapshot_digest(snapshots, ref),
                         )
                     except Exception as exc:
                         # Corruption-shaped load failure (gw#408): digest-verify
@@ -8661,6 +9131,7 @@ class Executor:
                             force_storage_dtype=(
                                 "fp8" if slot in force_fp8_slots else ""),
                             strict_vram=bool(spec.resources.strict_vram),
+                            artifact_digest=_snapshot_digest(snapshots, ref),
                         )
                     pipe = sl.obj
                     # pgw#678: record the PIPELINE identity for this slot
@@ -8724,6 +9195,16 @@ class Executor:
                         # read the ONE serveability brain
                         # (compile_cache.mandatory_serving) instead of the
                         # weight-lane prefix. Never overwritten once set.
+                        # pgw#1113: and stamp WHAT this pipe was resolved
+                        # from, for the same reason and at the same seam. The
+                        # arm token is an obligation, and an obligation that
+                        # cannot name its subject dedups two checkpoints into
+                        # one pending, one child and one memo row.
+                        if binding is not None:
+                            fleet_cells.stamp_arm_subject(
+                                pipe, slot, binding_wire_refs(binding),
+                                (slot_identities or {}).get(slot, ("", 0))[0],
+                            )
                         exec_execution_lane, lane_pinned = (
                             self._execution_lane_pick_for_ref(ref))
                         if exec_execution_lane and not getattr(
@@ -8745,7 +9226,7 @@ class Executor:
                             outcome = await _to_thread_complete(
                                 self._enable_compiled,
                                 pipe, spec.compile_cell(), compile_artifact,
-                                compile_selection, arm,
+                                compile_selection, arm, boot_local_key,
                             )
                         except compile_cache.CompiledExecutionLaneUnavailableError as exc:
                             # Mandatory (w8a8/w4a4) lane: self-mint also hit a
@@ -9420,6 +9901,12 @@ class Executor:
         next capability projection — and pgw#622 stays alive for post-mint
         novel shapes. Shared by the in-process and delegated routes (pgw#784):
         the artifact SOURCE differs, what it means to advertise one does not.
+
+        pgw#1113: ``finalized`` holds exactly the pipes that ARMED the cell.
+        The caller no longer expands it across every pid that happened to hold
+        the same pending — an advertisement is a claim about what a target
+        serves, and a pipe that never had the bytes installed serves eager
+        whatever this map says.
         """
 
         act.phase(activity_mod.PHASE_FINALIZE)
@@ -9472,21 +9959,35 @@ class Executor:
         """
 
         spec = bg.spec
-        # One child per DISTINCT pending: sibling pipes of one record whose
-        # axes compute the same key share ONE cell (the qwen edit shape), and
-        # the child mints their union exactly once.
-        sharers: Dict[int, List[int]] = {}
+        # One child per DISTINCT pending. Pipes whose obligation identity is
+        # the same token share one pending and therefore one child mint —
+        # since pgw#1113 that identity names the SUBJECT (which slot, resolved
+        # to which checkpoint), so a shared pending means one thing to
+        # compile rather than one family on one card.
+        holders: Dict[int, List[int]] = {}
         for pid, pending in bg.pendings.items():
-            sharers.setdefault(id(pending), []).append(pid)
-        if not sharers:
+            holders.setdefault(id(pending), []).append(pid)
+        if not holders:
             raise RuntimeError("delegated mint has no pending cell to build")
 
+        #: id(pipeline) -> the cell its OWN pipeline armed. pgw#1113 deleted
+        #: the "sharers" fiction that used to fill this for every pid holding
+        #: the pending: exactly one pipe is handed to `build_cell` and exactly
+        #: one pipe is passed to `adopt_delegated_mint`, so exactly one pipe
+        #: ever had those bytes installed on it. Advertising the other pids'
+        #: targets as compiled was a wire lie that only
+        #: `_bind_compile_guard`'s incidental `False` ("advertising eager")
+        #: stopped from reaching the hub.
         finalized: Dict[int, Any] = {}
+        #: id(pending) -> the cell that discharged it. The publish-coverage
+        #: rule (gw#612) is about the OBLIGATION, not about how many pipes
+        #: hold it, so it reads this rather than `finalized`.
+        discharged: Dict[int, Any] = {}
         declined: Optional[_MintDeclined] = None
         # pgw#999: every classified refusal this run saw, so the terminal
         # RuntimeError names them instead of restating "no advertisable cell".
         declined_reasons: List[str] = []
-        for pids in sharers.values():
+        for pids in holders.values():
             pending = bg.pendings[pids[0]]
             pipe = bg.pipes[pids[0]]
             result = await mint_delegate.build_cell(
@@ -9535,8 +10036,23 @@ class Executor:
                 )
                 declined_reasons.append(result.reason or result.status)
                 continue
-            for pid in pids:
-                finalized[pid] = minted
+            # pgw#1113: the ARMED pipe, and only it. `build_cell` handed the
+            # child this one pipeline and `adopt_delegated_mint` installed the
+            # cell on this one pipeline; the other pids holding this pending
+            # were never armed with these bytes and must not advertise them.
+            finalized[pids[0]] = minted
+            discharged[id(pending)] = minted
+            if len(pids) > 1:
+                activity_mod.emit_event(
+                    "self_mint_unarmed_holder",
+                    f"family={pending.family} key={pending.arm_token}: "
+                    f"{len(pids) - 1} further compile object(s) hold this "
+                    f"obligation and were NOT armed with its cell — one pipe "
+                    f"is armed per delegated mint, so they serve eager until "
+                    f"their own arm. They are not advertised as compiled "
+                    f"(pgw#1113)",
+                    phase="unarmed_obligation_holder",
+                )
             compile_cache.record_cell_proven(str(minted.ref))
 
         if not finalized:
@@ -9548,17 +10064,19 @@ class Executor:
                 + (f" (refused: {', '.join(sorted(set(declined_reasons)))})"
                    if declined_reasons else ""))
 
-        # Publish per shared cell on gw#612's rule: a family cell ships only
-        # when EVERY sharer is covered by it — a partial pack bricks every
-        # adopting boot at the gw#607 per-object proof.
-        for pids in sharers.values():
+        # Publish per OBLIGATION on gw#612's rule: a cell ships only when the
+        # obligation it was built for was actually discharged — a partial pack
+        # bricks every adopting boot at the gw#607 per-object proof. pgw#1113
+        # re-aims the rule from the sharers map (pid membership, which said
+        # nothing about what armed) to the pending itself, which is the thing
+        # the child was given and the thing it either produced a cell for or
+        # did not.
+        for pids in holders.values():
             pending = bg.pendings[pids[0]]
-            gap = [pid for pid in pids if pid not in finalized]
-            if gap:
+            if id(pending) not in discharged:
                 fleet_cells_mod.withhold_self_mint_publish(
                     pending,
-                    f"{len(gap)}/{len(pids)} cell-sharing compile object(s) "
-                    "were not covered by the delegated mint")
+                    "the delegated mint produced no cell for this obligation")
             else:
                 fleet_cells_mod.publish_self_mint(pending)
 
@@ -9596,30 +10114,73 @@ class Executor:
 
     def _boot_adopt(
         self, spec: EndpointSpec, slots: Dict[str, MintSlot],
-    ) -> "Optional[boot_adopt.BootAdoptOutcome]":
+    ) -> "boot_adopt.BootAdoptOutcome":
         """§4.27 steps 1-3 for one boot, off the event loop.
 
-        Returns ``None`` when this pod cannot even ATTEMPT the derivation (no
-        declaration for the family, no hub credential yet) — which is not a
-        failure, it is the state every pod was in before this seam existed.
-        Everything past that point is a :class:`BootAdoptOutcome`, and every
-        one of its non-hit outcomes means "boot as this pod booted yesterday".
+        ALWAYS an outcome, never ``None`` (pgw#1116). The three gates below
+        used to return a bare ``None`` — "this pod cannot even attempt the
+        derivation" — which is a true statement that names nothing: no family,
+        no gate, no event, and a caller unable to tell it from a pod that asked
+        the hub and was told no. Three real pods on 0.103.0 called
+        ``/v1/worker/cells/resolve`` ZERO times and no artifact anywhere said
+        which of these gates did it. Each one now names itself and emits.
+
+        None of them is fatal, and none of them is new behaviour: every non-hit
+        outcome still means "boot as this pod booted yesterday".
         """
         cfg = spec.compile_cell()
         family = str(getattr(cfg, "family", "") or "")
+        fn = str(spec.name or "")
+        # pgw#1107: a registry read, not an evaluation. The pgw#853 thunk that
+        # could raise out of here (and, uncaught, failed the whole model setup)
+        # is retired; a blocked family carries its refusal as
+        # `Compile.blockers` and the mint gate reads it.
         decl = aot_mint.export_declaration(family)
         if decl is None:
-            return None
+            return boot_adopt.refused(
+                "no_export_declaration",
+                f"family {family!r} has no registered export declaration, so "
+                f"this boot cannot state the class set a cell key names",
+                family=family, function=fn)
         try:
             declared_hint = len(list(aot_declaration.cell_plans(decl)))
-        except Exception:  # noqa: BLE001 — never fatal
-            return None
+        except Exception as exc:  # noqa: BLE001 — never fatal
+            return boot_adopt.refused(
+                "declaration_unreadable",
+                f"family {family!r} has a declaration this boot cannot "
+                f"enumerate: {type(exc).__name__}: {exc}",
+                family=family, function=fn)
         base_url = str(self.file_base_url or "")
         bearer = str(self.worker_jwt_provider() or "")
-        if not base_url or not bearer:
-            # Pre-Hello, or an embedded worker with no hub. There is nobody to
-            # ask, and deriving a key nobody will answer is pure boot latency.
-            return None
+        # pgw#1108: the credential lives in the PARENT under the split (pgw#783),
+        # which is the only execution model. This executor runs in the compute
+        # child, whose `worker_jwt_provider` returns "" BY CONSTRUCTION (it holds
+        # no credential — pgw#763 delta 1), so a `not bearer` gate here refused
+        # boot-adopt on EVERY real serving pod: derive never ran, resolve never
+        # fired, and the pod fell straight through to self-mint — the whole reuse
+        # circle stayed open. The seam being up (`broker.active()`) is the child's
+        # honest "there is somebody to ask": the resolve is a parent-mediated
+        # action (`cells.resolve`), so the parent supplies base_url + bearer and
+        # ignores what the child passes. Mirrors `fleet_cells.CellPublisher`'s
+        # own readiness (base_url AND (local bearer OR broker.active())).
+        hub_absent = ""
+        if not base_url or (not bearer and not procsplit_broker.active()):
+            hub_absent = "nobody to ask: base_url={} bearer={} seam={}".format(
+                base_url or "<unset>", "set" if bearer else "<unset>",
+                "up" if procsplit_broker.active() else "down")
+        # pgw#1127 S2: this used to RETURN here, before the derivation, on the
+        # premise that "deriving a key nobody will answer is pure boot latency".
+        # The premise is false on exactly the machines §4.28 is about: the
+        # derived `ck1` key IS `local_cell_store`'s own address, so an offline
+        # box holding the exact cell it needs was being told there was nobody
+        # to ask. The gate survives in its honest form — refuse only when BOTH
+        # answerers are absent — and `attempt` decides the rest, after the
+        # local store has been asked.
+        if boot_adopt.no_cell_source(hub_absent):
+            return boot_adopt.refused(
+                "no_cell_source",
+                f"{hub_absent}, and this machine's own cell store is empty",
+                family=family, function=fn)
         work_root = Path(
             self.store._cache_dir or Path.home() / ".cache" / "gen-worker"
         ) / "boot-key" / (spec.name or "endpoint")
@@ -9639,12 +10200,14 @@ class Executor:
             cache_dir=self.store._cache_dir,
             base_url=base_url,
             bearer=bearer,
+            hub_absent=hub_absent,
         )
 
     def _enable_compiled(
         self, pipe: Any, cfg: Any, artifact: Optional[Path],
         delivered: Optional["_CompileArtifactSelection"] = None,
         arm: Optional[_ArmOrder] = None,
+        boot_local_key: str = "",
     ) -> "fleet_cells.ArmOutcome":
         """Arm the best available compiled path for a freshly loaded pipeline.
 
@@ -9672,34 +10235,90 @@ class Executor:
         pgw#904: with an ``_ArmOrder`` (a Plan dispatch) the fleet POLICY does
         not run at all. The hub already decided: ``aot_cell`` arms exactly the
         named artifact or refuses typed, ``dynamo`` arms JIT intake,
-        ``eager_only`` arms nothing."""
+        ``eager_only`` arms nothing.
+
+        pgw#1122: with ONE exception, and it is the exception that keeps a
+        refusal from costing a pod. §4.27 boot-adopt builds the same
+        ``_ArmOrder`` shape out of a cell this pod resolved by its own derived
+        key — the hub ordered nothing — so a typed refusal there drops the
+        order and runs the ordinary policy, instead of failing the function and
+        leaving the pod to be reaped and replaced."""
 
         if arm is not None:
-            return fleet_cells.arm_ordered(
-                pipe, cfg, self.store._cache_dir,
-                backend=arm.backend,
-                artifact=artifact,
-                delivered_ref=delivered.ref if delivered else "",
-                delivered_digest=delivered.snapshot_digest if delivered else "",
-                expected=arm.expected,
-                publisher_org=arm.publisher_org,
-            )
+            try:
+                return fleet_cells.arm_ordered(
+                    pipe, cfg, self.store._cache_dir,
+                    backend=arm.backend,
+                    artifact=artifact,
+                    delivered_ref=delivered.ref if delivered else "",
+                    delivered_digest=(
+                        delivered.snapshot_digest if delivered else ""),
+                    expected=arm.expected,
+                    publisher_org=arm.publisher_org,
+                )
+            except fleet_cells.OrderedArmError as exc:
+                # pgw#1122: a HUB-ordered arm stays terminal (pgw#904 — the hub
+                # named one exact artifact and a substitute would not be it).
+                # A BOOT-ADOPTED one was ordered by nobody: this pod derived the
+                # key, asked, and was answered, so a refusal here means what
+                # every other boot-adopt refusal means — boot as this pod booted
+                # yesterday. Measured cost of not distinguishing them: three
+                # pods that resolved and materialized a cell correctly, then
+                # reported `worker_function_unavailable reason=compile_cell_
+                # failed`, never served, were reaped `state_blocked_idle`, and
+                # had replacements bought.
+                if arm.adopt is None:
+                    raise
+                if compile_cache.mandatory_serving(pipe):
+                    # A mandatory (w8a8/w4a4) lane serves ONLY from a cell
+                    # (pgw#1010), so "boot as yesterday" is not available here
+                    # and the refusal is genuinely terminal. Fail closed, named.
+                    raise
+                boot_adopt.arm_refused(
+                    arm.adopt, cause=exc.reason, detail=str(exc))
+                # Drop the order and run the ORDINARY fleet policy with no
+                # delivered artifact — bit for bit the call this method makes
+                # when boot-adopt returns a MISS, which is the boot every pod
+                # did before §4.27 existed. The refused cell is not retried: it
+                # is not passed back in.
+                outcome = self._enable_compiled(
+                    pipe, cfg, None, boot_local_key=boot_local_key)
+                if outcome.armed or outcome.eager_reason:
+                    return outcome
+                return dc_replace(
+                    outcome,
+                    eager_reason=cell_adopt.EagerPhase.ADOPTED_CELL_REFUSED)
         return fleet_cells.enable_compiled(
             pipe, cfg, self.store._cache_dir, artifact,
             publisher=self._cell_publisher(),
             delivered_ref=delivered.ref if delivered else "",
             delivered_digest=delivered.snapshot_digest if delivered else "",
+            # pgw#1127 S2: the boot's own derived `ck1`, when THIS MACHINE's
+            # store answered on it. Empty on the fleet path, where the store is
+            # empty and the lookup is one stat.
+            boot_local_key=boot_local_key,
         )
 
     def _arming_enable(
         self, pipe: Any, cfg: Any, cache_dir: Optional[Path],
         artifact: Optional[Path],
+        subject: Tuple[cell_key.SlotSubject, ...] = (),
     ) -> "fleet_cells.ArmOutcome":
         """ArmingScope adapter: a self-loaded pipeline's ``arm_compile()``
         gets the same fleet policy (delivered cell first, self-mint on miss)
         as a worker-loaded slot. ``cache_dir`` comes from the scope, which
-        the executor constructed with its own store cache dir."""
+        the executor constructed with its own store cache dir.
 
+        pgw#1113: this pipeline was built by the ENDPOINT, out of path-valued
+        slots, so nothing here can say which of them it read. The obligation
+        therefore names EVERY slot this setup resolved. That over-splits when
+        the endpoint used only one of them — which costs one re-mint — and
+        the alternative under-splits, which binds a pipeline to a cell nobody
+        proved is its computation.
+        """
+        for sub in subject:
+            fleet_cells.stamp_arm_subject(
+                pipe, sub.slot, sub.refs, sub.snapshot_digest)
         return fleet_cells.enable_compiled(
             pipe, cfg, cache_dir, artifact,
             publisher=self._cell_publisher(),
@@ -9748,6 +10367,7 @@ class Executor:
                 rec, reason="worker shutdown", code="shutdown")
             inst, rec.instance, rec.ready = rec.instance, None, False
             rec.compile_targets.clear()
+            rec.applied_lanes.clear()
             shutdown = getattr(inst, "shutdown", None)
             if inst is not None and callable(shutdown):
                 try:
@@ -9894,6 +10514,9 @@ class Executor:
         old_obj: Any = None
         inst, rec.instance, rec.ready = rec.instance, None, False
         rec.compile_targets.clear()
+        # pgw#1104: the applied lane belonged to THESE weights; the next setup
+        # re-reports it or the lane honestly reverts to the binding's.
+        rec.applied_lanes.clear()
         # The next full StateDelta must remove the old address before any
         # replacement can become READY. Do this synchronously before teardown
         # awaits; adoption's second validation then rejects the stale ID.
@@ -11228,8 +11851,9 @@ class Executor:
             # th#913/gw#596: the concrete lane actually serving this job.
             # th#1050: ctx.lane exposes the same post-degrade truth to the
             # handler (declared-lane endpoints branch on it).
+            job.lane_report = order.lane_report
             job.execution_lane = self._served_execution_lane(
-                spec, instructed=order.lane_report)
+                spec, instructed=job.lane_report)
             # pgw#789: the shape coordinate, taken from the EXECUTED payload
             # with endpoint defaults applied. runtime_terms carries these only
             # when the endpoint declares a runtime formula (and the hub drops
@@ -12070,10 +12694,26 @@ class Executor:
         ``progress.self_diagnosis()`` — non-None only when even the FRESHEST
         open counter is stale past its own per-phase window, the same typed
         ``self_stalled`` confession the activity beat reports to the hub.
+
+        th#1779: the gate is given a source of evidence the handler cannot
+        silence by saying nothing.
+        Before, the only counter a serving request opened was ``infer:steps``,
+        which advances only when the handler emits a ctx event — so an endpoint
+        whose render is one long silent library call had a counter frozen at
+        its opening log line, and the "no magic timeouts" gate degenerated into
+        exactly the 300 s wall clock this docstring disclaims. Measured:
+        minimax-h3 `reference-to-video` died `worker_retryable` at exactly
+        300 s on four consecutive attempts while `generate` (126-229 s)
+        squeaked under the same window. ``_HandlerEvidence`` samples the same
+        process CPU + disk I/O signal ``activity.watchdog`` already trusts for
+        wire-silent compiles, so a silent-but-working handler PROVES it is
+        working and a genuinely wedged one still confesses on fact. The
+        diagnosis itself stays registry-wide, as pgw#894 pinned it.
         """
         bound = spec.method if instance is None else getattr(instance, spec.attr_name)
         call_kwargs = {spec.ctx_param: ctx, spec.payload_param: payload, **kwargs}
 
+        owner = f"request:{job.request_id}"
         loop = asyncio.get_running_loop()
         if spec.is_async_gen:
             coro = self._pump_async_gen(job, bound(**call_kwargs))
@@ -12082,30 +12722,34 @@ class Executor:
         elif spec.output_mode == "stream":
             coro = asyncio.to_thread(self._pump_sync_gen, job, bound, call_kwargs, gpu_index, loop)
         else:
-            coro = asyncio.to_thread(self._call_sync, bound, call_kwargs, gpu_index)
+            coro = asyncio.to_thread(self._call_sync, job, bound, call_kwargs, gpu_index)
 
         job.exec_task = asyncio.ensure_future(coro)
         # th#1111: the handler window stage_ms reconciles against (the same
         # interval runtime_ms measures).
         ctx._stages.handler_open()
         try:
-            while True:
-                try:
-                    return await asyncio.wait_for(
-                        asyncio.shield(job.exec_task), _STALL_POLL_S)
-                except asyncio.TimeoutError:
-                    stalled = progress_mod.self_diagnosis()
-                    if stalled is None:
-                        continue  # advancing (or evidence-free): keep waiting
-                    ctx._cancel()
-                    job.exec_task.cancel()
-                    if not spec.is_async:
-                        self._reap_stuck_thread(job)
-                    raise _ExecutionStalled(
-                        f"self_stalled: counter {stalled.name!r} "
-                        f"({stalled.unit}) has not advanced for "
-                        f"{stalled.age_s:.0f}s (window {stalled.window_s:.0f}s)"
-                    ) from None
+            with _HandlerEvidence(owner):
+                while True:
+                    try:
+                        return await asyncio.wait_for(
+                            asyncio.shield(job.exec_task), _STALL_POLL_S)
+                    except asyncio.TimeoutError:
+                        # pgw#894 pins this UNSCOPED on purpose: the loop's
+                        # question is "is this process wedged", and many
+                        # handlers register no counter of their own.
+                        stalled = progress_mod.self_diagnosis()
+                        if stalled is None:
+                            continue  # advancing (or evidence-free): keep waiting
+                        ctx._cancel()
+                        job.exec_task.cancel()
+                        if not spec.is_async:
+                            self._reap_stuck_thread(job)
+                        raise _ExecutionStalled(
+                            f"self_stalled: counter {stalled.name!r} "
+                            f"({stalled.unit}) has not advanced for "
+                            f"{stalled.age_s:.0f}s (window {stalled.window_s:.0f}s)"
+                        ) from None
         except asyncio.CancelledError:
             # CancelJob path: the exec task was cancelled underneath us.
             raise CanceledError("canceled")
@@ -12113,30 +12757,49 @@ class Executor:
             ctx._stages.handler_close()
 
     @staticmethod
-    def _call_sync(bound: Callable[..., Any], call_kwargs: Dict[str, Any], gpu_index: int) -> Any:
+    def _call_sync(
+        job: _Job, bound: Callable[..., Any], call_kwargs: Dict[str, Any], gpu_index: int,
+    ) -> Any:
         if torch is not None and torch.cuda.is_available():
             try:
                 torch.cuda.set_device(gpu_index)
             except Exception:
                 pass
-        return bound(**call_kwargs)
+        try:
+            return bound(**call_kwargs)
+        finally:
+            # th#1779: the ONLY honest report that the handler THREAD is gone.
+            job.handler_thread_done.set()
 
     def _reap_stuck_thread(self, job: _Job) -> None:
         """Deadline fired but the sync handler thread may not die. If it's
-        still running after the recycle grace, exit so the pod is recycled."""
+        still running after the recycle grace, exit so the pod is recycled.
+
+        th#1779: this watched ``job.exec_task`` — the task the caller had just
+        CANCELLED one line earlier — so ``shield(...)`` re-raised that
+        cancellation immediately, the ``except BaseException`` arm read it as
+        "thread finished" and the reaper never fired once. A sync handler
+        cannot be killed, so the abandoned thread kept denoising on the card
+        while the hub re-dispatched the same request onto the same pod:
+        measured across four attempts on one H100, reserved VRAM ratcheted
+        59.0 -> 75.1 -> 75.8 -> 76.7 GiB with concurrent renders stacking up.
+        The thread's own completion event is the only thing that can answer
+        the question the reaper asks.
+        """
 
         async def _watch() -> None:
-            assert job.exec_task is not None
-            try:
-                await asyncio.wait_for(asyncio.shield(job.exec_task), _STUCK_THREAD_RECYCLE_S)
-            except asyncio.TimeoutError:
-                logger.critical(
-                    "handler thread for %s ignored deadline+cancel for %.0fs; "
-                    "recycling worker process", job.request_id, _STUCK_THREAD_RECYCLE_S,
-                )
-                self._process_exit(70)
-            except BaseException:
-                pass  # thread finished (with error) — no recycle needed
+            done = job.handler_thread_done
+            deadline = time.monotonic() + _STUCK_THREAD_RECYCLE_S
+            while not done.is_set():
+                if time.monotonic() >= deadline:
+                    logger.critical(
+                        "handler thread for %s ignored deadline+cancel for %.0fs; "
+                        "recycling worker process", job.request_id, _STUCK_THREAD_RECYCLE_S,
+                    )
+                    self._process_exit(70)
+                    return
+                await asyncio.sleep(_STUCK_THREAD_POLL_S)
+            # Thread finished (with error or otherwise) — no recycle needed.
 
         asyncio.create_task(_watch(), name=f"reap-{job.request_id}")
 
@@ -12238,17 +12901,20 @@ class Executor:
             except Exception:
                 pass
         acc = StreamAccumulator()
-        for item in bound(**call_kwargs):
-            if job.ctx is not None:
-                job.ctx.raise_if_cancelled()
-            enc = self._encode_chunk(item)
-            if enc is None:
-                break
-            acc.add(item)
-            fut = asyncio.run_coroutine_threadsafe(
-                self._emit_progress(job, next(job.seq), enc[0], enc[1]), loop
-            )
-            fut.result()  # backpressure: block the producer on queue overflow
+        try:
+            for item in bound(**call_kwargs):
+                if job.ctx is not None:
+                    job.ctx.raise_if_cancelled()
+                enc = self._encode_chunk(item)
+                if enc is None:
+                    break
+                acc.add(item)
+                fut = asyncio.run_coroutine_threadsafe(
+                    self._emit_progress(job, next(job.seq), enc[0], enc[1]), loop
+                )
+                fut.result()  # backpressure: block the producer on queue overflow
+        finally:
+            job.handler_thread_done.set()  # th#1779, same contract as _call_sync
         return acc.result()
 
     # ---- results -----------------------------------------------------------
@@ -12398,6 +13064,17 @@ class Executor:
             metrics.fallback_reason = served.fallback_reason
             metrics.sm = served.sm
             metrics.steps, metrics.width, metrics.height = job.shape
+            # ie#655: the lane is composed from the SAME ServedIdentity these
+            # five fields come from, at the SAME instant — so `metrics.lane`
+            # and `metrics.serving_mode` cannot disagree about eager. The
+            # dispatch-time stamp below is a forecast for `ctx.lane` (the
+            # handler needs a lane before it runs); the REPORT is here, where
+            # a per-request eager fallback that happened DURING the handler is
+            # finally knowable.
+            if job.spec is not None:
+                metrics.lane = self._served_execution_lane(
+                    job.spec, instructed=job.lane_report, served=served)
+                job.execution_lane = metrics.lane
         terminal_status = (
             pb.LIFECYCLE_INTENT_STATUS_SUPERSEDED
             if job.superseded
@@ -12456,6 +13133,76 @@ class Executor:
         if not self.in_flight_keys():
             self._idle.set()
             self._bg_quiet.set()
+
+
+class _HandlerEvidence:
+    """th#1779: loop-independent proof that a SERVING handler is working.
+
+    ``activity.watchdog`` has done exactly this for wire-silent load/compile
+    phases since gw#621; a serving request had no equivalent, so the only
+    counter open under it was ``infer:steps`` — which advances on ctx events
+    and therefore measures how CHATTY the endpoint is, not whether it is
+    working. An endpoint whose render is one long silent library call froze
+    that counter at its opening log line and was condemned at the family's
+    300 s window: measured, minimax-h3 `reference-to-video` died
+    `worker_retryable` at exactly 300 s on four consecutive attempts, while
+    `generate` (126-229 s of the same silence) fit under the window and
+    passed. That is a wall clock wearing a progress counter's name.
+
+    The evidence is process+children CPU seconds plus process disk I/O MB —
+    ``activity_mod.default_evidence``, unchanged. A GPU render burns CPU issuing
+    and synchronising kernels; a deadlocked or wedged process burns neither,
+    which is the distinction the gate is supposed to make. Registered under
+    the REQUEST's scope so ``self_diagnosis(owner)`` answers about this
+    request, so the counter dies with the handler (pgw#962) and cannot answer
+    for work it is not doing (pgw#894). The in-call diagnosis stays
+    registry-wide, which pgw#894 pinned deliberately.
+    """
+
+    def __init__(
+        self,
+        owner: str,
+        *,
+        interval_s: float = _HANDLER_EVIDENCE_INTERVAL_S,
+        evidence: Optional[Callable[[], float]] = None,
+    ) -> None:
+        self._owner = owner
+        self._interval = interval_s
+        self._evidence = evidence or activity_mod.default_evidence
+        self._stop = threading.Event()
+        self._counter: Optional[progress_mod.Counter] = None
+        self._thread: Optional[threading.Thread] = None
+
+    def _run(self) -> None:
+        try:
+            base = last = self._evidence()
+        except Exception:
+            base = last = 0.0
+        while not self._stop.wait(self._interval):
+            try:
+                now = self._evidence()
+            except Exception:
+                continue
+            if now - last >= activity_mod.EVIDENCE_EPS and self._counter is not None:
+                last = now
+                self._counter.set_done(now - base)
+
+    def __enter__(self) -> "_HandlerEvidence":
+        self._counter = progress_mod.counter(
+            "evidence:handler", progress_mod.UNIT_EVIDENCE, owner=self._owner)
+        self._thread = threading.Thread(
+            target=self._run, name="handler-evidence", daemon=True)
+        self._thread.start()
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=5)
+        if self._counter is not None:
+            # A counter left open after its producer stopped is the min-age
+            # counter of work nobody is doing (pgw#962).
+            self._counter.finish()
 
 
 class _ExecutionStalled(Exception):

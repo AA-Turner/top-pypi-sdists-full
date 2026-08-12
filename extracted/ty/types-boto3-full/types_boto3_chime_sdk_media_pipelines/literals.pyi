@@ -151,6 +151,7 @@ ChimeSDKMediaPipelinesServiceName = Literal["chime-sdk-media-pipelines"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

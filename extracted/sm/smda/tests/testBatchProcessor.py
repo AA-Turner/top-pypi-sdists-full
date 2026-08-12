@@ -3,14 +3,24 @@ import os
 import shutil
 import tempfile
 import unittest
+from concurrent.futures import Future
+from unittest import mock
+
+import pytest
 
 from smda.SmdaConfig import SmdaConfig
 from smda.utility.BatchProcessor import (
+    _inputSize,
+    _largeWorkerCount,
+    _runPartitions,
     collectInputFiles,
     deriveReportStem,
     disassembleParallel,
     getDefaultWorkerCount,
+    getMemoryBudget,
 )
+
+pytestmark = pytest.mark.slow
 
 FIXTURES = [
     "cutwail_xored",
@@ -74,7 +84,7 @@ class TestBatchProcessor(unittest.TestCase):
         for stem, summary in results.items():
             expected = os.path.join(output_dir, stem + ".smda")
             self.assertEqual(expected, summary["output_path"])
-            with open(expected) as f_in:
+            with open(expected, encoding="utf-8") as f_in:
                 as_dict = json.load(f_in)
             self.assertEqual(summary["num_functions"], as_dict["statistics"]["num_functions"])
 
@@ -112,6 +122,187 @@ class TestBatchProcessor(unittest.TestCase):
 
     def test_default_worker_count_is_positive(self):
         self.assertGreaterEqual(getDefaultWorkerCount(), 1)
+
+    def test_splitting_large_inputs_onto_their_own_pool_does_not_change_output(self):
+        _, pooled = self._run(workers=4)
+        _, split = self._run(workers=4, large_input_bytes=64 * 1024, memory_budget=1 << 30)
+        self.assertEqual(set(pooled), set(split))
+        for stem in pooled:
+            self.assertEqual(pooled[stem]["report_hash"], split[stem]["report_hash"], stem)
+
+    def test_a_single_worker_keeps_large_inputs_on_the_one_pool(self):
+        _, serial = self._run(workers=1)
+        _, split = self._run(workers=1, large_input_bytes=64 * 1024)
+        for stem in serial:
+            self.assertEqual(serial[stem]["report_hash"], split[stem]["report_hash"], stem)
+
+    def test_collected_pairs_are_reused_instead_of_rewalking_the_tree(self):
+        collected = collectInputFiles([self.input_root])
+        summaries = list(disassembleParallel([], workers=1, timeout=0, collected=collected[:1]))
+        self.assertEqual([collected[0][1]], [summary["report_stem"] for summary in summaries])
+
+    def test_vanished_input_is_sized_as_small(self):
+        self.assertEqual(0, _inputSize(os.path.join(self.tmp_dir, "does_not_exist")))
+
+
+class _ScriptedExecutor:
+    """Stands in for ProcessPoolExecutor so the parent-side wave loop can be driven without
+    spawning workers. A task whose path ends in 'boom' resolves to a raised exception."""
+
+    instances = []
+
+    def __init__(self, max_workers=None, **kwargs):
+        self.max_workers = max_workers
+        self.peak_in_flight = 0
+        self.submitted = []
+        _ScriptedExecutor.instances.append(self)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        return False
+
+    def submit(self, _func, task):
+        self.submitted.append(task["path"])
+        future = Future()
+        if task["path"].endswith("boom"):
+            future.set_exception(RuntimeError("worker died"))
+        else:
+            future.set_result({"path": task["path"], "status": "ok"})
+        return future
+
+
+class TestPartitionDriver(unittest.TestCase):
+    def setUp(self):
+        _ScriptedExecutor.instances = []
+
+    @staticmethod
+    def _task(path):
+        return {"path": path, "report_stem": os.path.basename(path)}
+
+    def _run(self, paths, workers=2):
+        tasks = [self._task(path) for path in paths]
+        with mock.patch("smda.utility.BatchProcessor.ProcessPoolExecutor", _ScriptedExecutor):
+            return list(_runPartitions([(tasks, workers, None)]))
+
+    def test_a_dead_worker_becomes_an_error_summary_instead_of_aborting_the_run(self):
+        summaries = self._run(["/corpus/a", "/corpus/boom", "/corpus/b"])
+
+        by_path = {summary["path"]: summary for summary in summaries}
+        self.assertEqual({"/corpus/a", "/corpus/b", "/corpus/boom"}, set(by_path))
+        self.assertEqual("ok", by_path["/corpus/a"]["status"])
+        failed = by_path["/corpus/boom"]
+        self.assertEqual("error", failed["status"])
+        self.assertEqual("boom", failed["report_stem"])
+        self.assertEqual("RuntimeError: worker died", failed["error"])
+        self.assertIsNone(failed["report"])
+
+    def test_every_task_is_yielded_once_when_the_corpus_exceeds_the_in_flight_limit(self):
+        paths = [f"/corpus/{index:02d}" for index in range(20)]
+
+        summaries = self._run(paths, workers=2)
+
+        self.assertEqual(paths, sorted(summary["path"] for summary in summaries))
+        self.assertEqual(len(paths), len(summaries))
+
+    def test_a_batch_is_yielded_in_path_order(self):
+        paths = ["/corpus/c", "/corpus/a", "/corpus/b"]
+
+        summaries = self._run(paths, workers=8)
+
+        self.assertEqual(["/corpus/a", "/corpus/b", "/corpus/c"], [summary["path"] for summary in summaries])
+
+
+class TestLargePartitionSizing(unittest.TestCase):
+    def test_budget_is_a_fraction_of_the_available_memory(self):
+        # os.sysconf is POSIX-only; on Windows with no cgroup the budget is unknown by design
+        # and the worker count alone governs admission
+        if hasattr(os, "sysconf"):
+            self.assertGreater(getMemoryBudget(), 0)
+        else:
+            self.assertIsNone(getMemoryBudget())
+
+    def test_budget_is_unknown_without_sysconf_or_a_cgroup(self):
+        # create=True so this also runs where the attribute never existed
+        with (
+            mock.patch.object(os, "sysconf", None, create=True),
+            mock.patch("smda.utility.BatchProcessor._readCgroupMemoryLimit", return_value=None),
+        ):
+            self.assertIsNone(getMemoryBudget())
+
+    def test_budget_is_unknown_when_sysconf_rejects_the_key(self):
+        with (
+            mock.patch.object(os, "sysconf", side_effect=ValueError, create=True),
+            mock.patch("smda.utility.BatchProcessor._readCgroupMemoryLimit", return_value=None),
+        ):
+            self.assertIsNone(getMemoryBudget())
+
+    def test_a_cgroup_limit_below_physical_memory_wins(self):
+        # the container case: SC_PHYS_PAGES reports the host, the cgroup reports the cap
+        with mock.patch("smda.utility.BatchProcessor._readCgroupMemoryLimit", return_value=1 << 30):
+            self.assertEqual(int((1 << 30) * SmdaConfig.MEMORY_BUDGET_FRACTION), getMemoryBudget())
+
+    @unittest.skipUnless(hasattr(os, "sysconf"), "needs SC_PHYS_PAGES to have a physical size to compare against")
+    def test_a_cgroup_sentinel_above_physical_memory_loses(self):
+        # cgroup v1 spells "unrestricted" as a very large number rather than "max"
+        physical = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+        with mock.patch("smda.utility.BatchProcessor._readCgroupMemoryLimit", return_value=1 << 62):
+            self.assertEqual(int(physical * SmdaConfig.MEMORY_BUDGET_FRACTION), getMemoryBudget())
+
+    def test_a_cgroup_limit_carries_a_platform_without_sysconf(self):
+        with (
+            mock.patch.object(os, "sysconf", None, create=True),
+            mock.patch("smda.utility.BatchProcessor._readCgroupMemoryLimit", return_value=1 << 30),
+        ):
+            self.assertEqual(int((1 << 30) * SmdaConfig.MEMORY_BUDGET_FRACTION), getMemoryBudget())
+
+    def test_budget_caps_concurrency_below_the_worker_count(self):
+        budget = 2 * (1 << 20) * SmdaConfig.LARGE_INPUT_RSS_FACTOR
+        self.assertEqual(2, _largeWorkerCount(1 << 20, 8, 10, budget))
+
+    def test_unknown_budget_leaves_the_worker_count_in_charge(self):
+        self.assertEqual(4, _largeWorkerCount(1 << 20, 8, 4, 0))
+
+    def test_one_worker_survives_an_unaffordable_input(self):
+        self.assertEqual(1, _largeWorkerCount(1 << 30, 8, 10, 1))
+
+
+class TestCollectInputFilesRoots(unittest.TestCase):
+    def _write_sample(self, directory, name):
+        os.makedirs(directory, exist_ok=True)
+        path = os.path.join(directory, name)
+        with open(path, "wb") as f_out:
+            f_out.write(b"MZ")
+        return path
+
+    def test_same_named_samples_in_separate_input_dirs_get_distinct_stems(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            first = os.path.join(tmp_dir, "first")
+            second = os.path.join(tmp_dir, "second")
+            self._write_sample(first, "sample.bin")
+            self._write_sample(second, "sample.bin")
+
+            stems = [stem for _, stem in collectInputFiles([first, second])]
+
+            self.assertEqual(sorted(stems), ["first_sample.bin", "second_sample.bin"])
+
+    def test_same_named_samples_passed_as_files_get_distinct_stems(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            first = self._write_sample(os.path.join(tmp_dir, "first"), "sample.bin")
+            second = self._write_sample(os.path.join(tmp_dir, "second"), "sample.bin")
+
+            stems = [stem for _, stem in collectInputFiles([first, second])]
+
+            self.assertEqual(sorted(stems), ["first_sample.bin", "second_sample.bin"])
+
+    def test_single_directory_still_relativizes_against_itself(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            self._write_sample(os.path.join(tmp_dir, "only"), "sample.bin")
+
+            stems = [stem for _, stem in collectInputFiles([os.path.join(tmp_dir, "only")])]
+
+            self.assertEqual(stems, ["sample.bin"])
 
 
 if __name__ == "__main__":

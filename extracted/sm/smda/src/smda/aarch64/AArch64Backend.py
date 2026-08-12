@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-import contextlib
 import logging
 import re
 
@@ -53,13 +52,19 @@ _HEX_OPERAND = re.compile(r"0x[0-9a-fA-F]+")
 _IMM_TOKEN = re.compile(r"#?-?0x[0-9a-fA-F]+|#-?\d+")
 
 
-def _immediate_tokens(op_str):
-    values = set()
+def _hasDataRefImmediate(op_str, base_addr, upper_addr, is_in_code_areas):
+    """Whether any printed immediate could name a data address, short-circuiting on the first."""
+    # the token pattern cannot match without one of these two markers
+    if "0x" not in op_str and "#" not in op_str:
+        return False
     for match in _IMM_TOKEN.finditer(op_str):
-        token = match.group().lstrip("#")
-        with contextlib.suppress(ValueError):
-            values.add(int(token, 0))
-    return values
+        try:
+            value = int(match.group().lstrip("#"), 0)
+        except ValueError:
+            continue
+        if base_addr <= value < upper_addr and not is_in_code_areas(value):
+            return True
+    return False
 
 
 class AArch64Backend(ArchBackend):
@@ -238,7 +243,7 @@ class AArch64Backend(ArchBackend):
                 pass
             else:
                 got_slot = self._resolvePltGotSlot(d, target)
-                if got_slot is not None and d._handleApiTarget(i_address, got_slot, got_slot):
+                if got_slot is not None and d._handleApiTarget(i_address, got_slot, got_slot, slot=got_slot):
                     # case = "STUB-TAILCALL-API!"
                     state.setSanelyEnding(True)
                 elif state.isFirstInstruction():
@@ -268,10 +273,7 @@ class AArch64Backend(ArchBackend):
         binary_info = d.disassembly.binary_info
         base_addr = binary_info.base_addr
         upper_addr = base_addr + binary_info.binary_size
-        if not any(
-            base_addr <= value < upper_addr and not binary_info.isInCodeAreas(value)
-            for value in _immediate_tokens(i_op_str)
-        ):
+        if not _hasDataRefImmediate(i_op_str, base_addr, upper_addr, binary_info.isInCodeAreas):
             # no printed immediate can yield a data ref, so the detail re-decode
             # below would record nothing.
             return
@@ -376,7 +378,7 @@ class AArch64Backend(ArchBackend):
                 target = self._branchTarget(i_op_str)
                 if target is not None:
                     got_slot = self._resolvePltGotSlot(d, target)
-                    if got_slot is not None and d._handleApiTarget(i_address, got_slot, got_slot):
+                    if got_slot is not None and d._handleApiTarget(i_address, got_slot, got_slot, slot=got_slot):
                         state.addCodeRef(i_address, target)
                     else:
                         d._handleCallTarget(state, i_address, target)
@@ -409,7 +411,7 @@ class AArch64Backend(ArchBackend):
             # whose entry is in a stub range — resolve the GOT slot and attribute the API
             # to this branch (mirrors x86 jmp [iat] thunk analysis).
             got_slot = self._resolvePltGotSlot(d, state.start_addr)
-            if got_slot is not None and d._handleApiTarget(i_address, got_slot, got_slot):
+            if got_slot is not None and d._handleApiTarget(i_address, got_slot, got_slot, slot=got_slot):
                 state.setSanelyEnding(True)
             else:
                 jumptable_targets = d.jumptable_analyzer.getJumpTargets(instruction, state)

@@ -13,11 +13,16 @@ from plato._generated.models import UserOrgsResponse
 def _build_request_args(
     org_public_id: str,
     user_public_id: str,
+    new_active_org_public_id: str | None = None,
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
     url = f"/api/v2/admin/orgs/{org_public_id}/users/{user_public_id}"
+
+    params: dict[str, Any] = {}
+    if new_active_org_public_id is not None:
+        params["new_active_org_public_id"] = new_active_org_public_id
 
     headers: dict[str, str] = {}
     if authorization is not None:
@@ -28,6 +33,7 @@ def _build_request_args(
     return {
         "method": "DELETE",
         "url": url,
+        "params": params,
         "headers": headers,
     }
 
@@ -36,14 +42,20 @@ def sync(
     client: httpx.Client,
     org_public_id: str,
     user_public_id: str,
+    new_active_org_public_id: str | None = None,
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> UserOrgsResponse:
-    """Remove all grants a user has in an org. If it was their active org, clears organization_id."""
+    """Remove all grants a user has in an org and switch their active org.
+
+    Refuses to remove a user from their only org. The active org always ends up
+    on a real membership: `new_active_org_public_id` if given, otherwise (when
+    the removed org was the active one) the first remaining membership."""
 
     request_args = _build_request_args(
         org_public_id=org_public_id,
         user_public_id=user_public_id,
+        new_active_org_public_id=new_active_org_public_id,
         authorization=authorization,
         x_api_key=x_api_key,
     )
@@ -57,14 +69,20 @@ async def asyncio(
     client: httpx.AsyncClient,
     org_public_id: str,
     user_public_id: str,
+    new_active_org_public_id: str | None = None,
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> UserOrgsResponse:
-    """Remove all grants a user has in an org. If it was their active org, clears organization_id."""
+    """Remove all grants a user has in an org and switch their active org.
+
+    Refuses to remove a user from their only org. The active org always ends up
+    on a real membership: `new_active_org_public_id` if given, otherwise (when
+    the removed org was the active one) the first remaining membership."""
 
     request_args = _build_request_args(
         org_public_id=org_public_id,
         user_public_id=user_public_id,
+        new_active_org_public_id=new_active_org_public_id,
         authorization=authorization,
         x_api_key=x_api_key,
     )

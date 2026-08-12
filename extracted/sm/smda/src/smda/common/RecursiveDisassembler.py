@@ -4,6 +4,7 @@ import datetime
 import logging
 import re
 from bisect import bisect_right
+from itertools import chain
 
 from smda.common.BinaryInfo import BinaryInfo
 from smda.common.ExceptionHandling import reraise_non_operational_exception
@@ -22,6 +23,9 @@ from smda.common.TailcallAnalyzer import TailcallAnalyzer
 from smda.DisassemblyResult import DisassemblyResult
 
 LOGGER = logging.getLogger(__name__)
+
+# a leading sign is preserved so that negative displacements ("[rip - 0x20]") resolve correctly
+_REFERENCED_ADDR_RE = re.compile(r"(?P<sign>[+-])?\s*0x(?P<value>[a-fA-F0-9]+)")
 
 
 class RecursiveDisassembler:
@@ -46,6 +50,7 @@ class RecursiveDisassembler:
         self.symbol_providers = []
         self.active_api_providers = []
         self.active_symbol_providers = []
+        self._pdb_info = None
         self._addLabelProviders()
         self.fc_manager = None
         self.tailcall_analyzer = None
@@ -79,13 +84,21 @@ class RecursiveDisassembler:
         if provider.isSymbolProvider():
             self.symbol_providers.append(provider)
 
-    def _updateLabelProviders(self, binary_info):
+    def _runLabelProviderUpdate(self, binary_info):
         for provider in self.label_providers:
             try:
                 provider.update(binary_info)
             except Exception as exc:
                 reraise_non_operational_exception(exc)
                 LOGGER.error("Label provider %s failed to update: %r", provider.__class__.__name__, exc)
+
+    def _updateLabelProviders(self, binary_info):
+        self._runLabelProviderUpdate(binary_info)
+        # a provider clears its symbol map at the top of update(), so a PDB supplied before
+        # analysis would be wiped by this pass; re-apply it afterwards instead
+        pdb_info = getattr(self, "_pdb_info", None)
+        if pdb_info is not None:
+            self._runLabelProviderUpdate(pdb_info)
         self.active_api_providers = [p for p in self.api_providers if p.is_active()]
         self.active_symbol_providers = [p for p in self.symbol_providers if p.is_active()]
 
@@ -95,12 +108,8 @@ class RecursiveDisassembler:
             pdb_info = BinaryInfo(b"")
             pdb_info.file_path = pdb_path
             pdb_info.base_addr = binary_info.base_addr
-            for provider in self.label_providers:
-                try:
-                    provider.update(pdb_info)
-                except Exception as exc:
-                    reraise_non_operational_exception(exc)
-                    LOGGER.error("Label provider %s failed to update: %r", provider.__class__.__name__, exc)
+            self._pdb_info = pdb_info
+            self._runLabelProviderUpdate(pdb_info)
             self.active_api_providers = [p for p in self.api_providers if p.is_active()]
             self.active_symbol_providers = [p for p in self.symbol_providers if p.is_active()]
 
@@ -151,7 +160,7 @@ class RecursiveDisassembler:
     def getReferencedAddr(self, op_str):
         # preserve a leading sign so that negative displacements (e.g. "qword ptr [rip - 0x20]")
         # resolve to the correct address instead of being treated as positive
-        referenced_addr = re.search(r"(?P<sign>[+-])?\s*0x(?P<value>[a-fA-F0-9]+)", op_str)
+        referenced_addr = _REFERENCED_ADDR_RE.search(op_str)
         if referenced_addr:
             value = int(referenced_addr.group("value"), 16)
             return -value if referenced_addr.group("sign") == "-" else value
@@ -189,12 +198,14 @@ class RecursiveDisassembler:
         if state.start_addr == to_addr:
             state.setRecursion(True)
 
-    def _handleApiTarget(self, from_addr, to_addr, dereferenced):
+    def _handleApiTarget(self, from_addr, to_addr, dereferenced, slot=None):
         if to_addr:
             # identify API calls on the fly
             dll, api = self.resolveApi(to_addr, dereferenced)
             if dll or api:
                 self._updateApiInformation(from_addr, dereferenced, dll, api)
+                if slot is not None:
+                    self.disassembly.addImportSlot(slot, dll, api)
                 return (dll, api)
             elif not self.disassembly.isAddrWithinMemoryImage(to_addr):
                 LOGGER.debug("potentially uncovered DLL address: 0x%08x", to_addr)
@@ -277,7 +288,7 @@ class RecursiveDisassembler:
                 LOGGER.debug("  analyzeFunction() now processing block @0x%08x", state.block_start)
             # in capstone, disassembly is more expensive than calling the function, so we use the maximum instruction
             # size as look-ahead. disasm_lite() also provides faster disassembly than disasm(), so we work with tuples.
-            cache = list(self.capstone.disasm_lite(self._getDisasmWindowBuffer(state.block_start), state.block_start))
+            cache = self.capstone.disasm_lite(self._getDisasmWindowBuffer(state.block_start), state.block_start)
             cache_pos = 0
             previous_i = None
             while True:
@@ -294,12 +305,12 @@ class RecursiveDisassembler:
                             i_mnemonic + " " + i_op_str,
                         )
                     cache_pos += i_size
-                    state.setNextInstructionReachable(True)
+                    state.is_next_instruction_reachable = True
                     # count "suspicious" all-zero instructions (e.g. x86 `00 00`,
                     # AArch64 `udf #0`) that indicate non-function code. Testing for an
                     # all-zero decoded instruction is architecture-independent; a
                     # fixed-width constant would never match wider fixed-width ISAs.
-                    if i_bytes and not any(i_bytes):
+                    if i_bytes and not i_bytes[0] and not any(i_bytes):
                         state.suspicious_ins_count += 1
                         LOGGER.debug(
                             "    analyzeFunction() found suspicious function @0x%08x",
@@ -319,7 +330,7 @@ class RecursiveDisassembler:
                     if (
                         i_address not in self.disassembly.code_map
                         and i_address not in self.disassembly.data_map
-                        and not state.isProcessed(i_address)
+                        and i_address not in state.processed_bytes
                     ):
                         if debug_logging:
                             LOGGER.debug(
@@ -349,23 +360,24 @@ class RecursiveDisassembler:
                     else:
                         LOGGER.debug("  analyzeFunction() was already present in local function.")
                         state.setBlockEndingInstruction(True)
-                    if state.isBlockEndingInstruction():
+                    if state.is_block_ending_instruction:
                         state.endBlock()
                         break
                 else:
                     # if the inner loop did not break, we need to refill the cache in order to finish the block-analysis
-                    cache = list(
-                        self.capstone.disasm_lite(
-                            self._getDisasmWindowBuffer(state.block_start + cache_pos),
-                            state.block_start + cache_pos,
-                        )
+                    cache = self.capstone.disasm_lite(
+                        self._getDisasmWindowBuffer(state.block_start + cache_pos),
+                        state.block_start + cache_pos,
                     )
-                    if not cache:
+                    # a generator is always truthy, so emptiness has to be probed by consuming
+                    first_of_refill = next(cache, None)
+                    if first_of_refill is None:
                         break
+                    cache = chain((first_of_refill,), cache)
                     continue
                 # if the inner loop did break, the cache didn't run empty and thus block-analysis is finished
                 break
-            if not state.isBlockEndingInstruction():
+            if not state.is_block_ending_instruction:
                 if i is not None:
                     i_address, i_size, i_mnemonic, i_op_str = i
                     LOGGER.debug(
@@ -386,6 +398,12 @@ class RecursiveDisassembler:
         if analysis_result:
             if self.config.RESOLVE_REGISTER_CALLS:
                 self.indcall_analyzer.resolveRegisterCalls(state)
+            # only the intel backend fills call_memreg_ins, so the non-empty check also
+            # keeps this off analyzers that have no such pass
+            if self.config.RESOLVE_COMPUTED_IMPORT_SLOTS and state.call_memreg_ins:
+                self.indcall_analyzer.resolveComputedImportSlots(state)
+            if self.config.RECORD_IMPORT_SLOT_LOADS:
+                self.backend.recordImportSlotLoads(self, state)
             # finalizeFunction is the only place that flushes TailcallAnalyzer's per-function
             # jumps into its cross-function state, and initFunction() clears them at the start
             # of every function - so gating it on RESOLVE_REGISTER_CALLS made RESOLVE_TAILCALLS

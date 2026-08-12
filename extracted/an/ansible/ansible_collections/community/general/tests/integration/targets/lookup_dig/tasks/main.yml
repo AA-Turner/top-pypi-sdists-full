@@ -9,29 +9,29 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Install dnspython library
-  pip:
+  ansible.builtin.pip:
     name: dnspython
     state: present
     extra_args: "-c {{ remote_constraints }}"
 
 - name: Test dig lookup with existing domain
-  set_fact:
+  ansible.builtin.set_fact:
     dig_existing: "{{ lookup('community.general.dig', 'github.com.') }}"
 
 - name: Test dig lookup with non-existing domain and fail_on_error=no
-  set_fact:
+  ansible.builtin.set_fact:
     dig_nonexisting_fail_no: "{{ lookup('community.general.dig', 'non-existing.domain.', 'fail_on_error=no') }}"
 
 - name: Verify that NXDOMAIN was returned
-  assert:
+  ansible.builtin.assert:
     that: dig_nonexisting_fail_no == 'NXDOMAIN'
 
 - name: Test dig lookup with non-existing domain and fail_on_error=yes
-  set_fact:
+  ansible.builtin.set_fact:
     dig_nonexisting_fail_yes: "{{ lookup('community.general.dig', 'non-existing.domain.', 'fail_on_error=yes') }}"
   ignore_errors: true
   register: dig_nonexisting_fail_yes_result
 
 - name: Verify that the task failed
-  assert:
+  ansible.builtin.assert:
     that: dig_nonexisting_fail_yes_result is failed

@@ -18,7 +18,7 @@ permissions:
 jobs:
   codspeed:
     name: 🚀 CodSpeed
-    runs-on: ubuntu-24.04
+    runs-on: codspeed-macro
     permissions:
       contents: read
       id-token: write # OIDC lets the CodSpeed GitHub App authenticate this public repo without a token secret
@@ -26,19 +26,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # meson project() derives the version from git history
-          submodules: true # the benchmarks read the vendored html5lib-python and War-and-Peace corpora
           persist-credentials: false
+      - name: ⬇️ Install benchmark data
+        run: git submodule update --init --depth 1 tools/html5lib-python tools/bench-data/war-and-peace
       - name: 🔄 Install uv
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: false
-      # build the extension and install the benchmark deps outside the runner, so only the pytest process below is
-      # measured under instrumentation, never the uv/meson build. --notest creates the environment and installs the
-      # benchmark deps but skips tox's commands; the uv install then builds a deterministic LTO-only editable extension
-      # into that environment. The gate measures LTO, not PGO, on purpose: PGO regenerates a fresh profile every build,
-      # which is not byte-reproducible, so a re-profiled binary flips marginal ops a few percent across CodSpeed's
-      # heterogeneous CPU runners and reports false regressions that mask real ones (spike #478). LTO is deterministic.
-      # The shipped wheels keep PGO+LTO for max perf (see tools/pgo_build.py and pyproject's cibuildwheel config).
+      # Build outside instrumentation so setup is not measured. Use LTO because fresh PGO profiles produce different
+      # binaries; release wheels retain PGO+LTO.
       - name: 🏗️ Build the deterministic LTO extension and install benchmark deps
         run: |
           uvx --with tox-uv tox run -e codspeed --notest
@@ -49,16 +45,8 @@ jobs:
         env:
           UV_PYTHON_PREFERENCE: only-managed
       - name: 🚀 Run benchmarks
-        uses: CodSpeedHQ/action@f99becdce5e5d51fd556489ebef684f4ecfd6286 # v4.18.5
-        env:
-          # GitHub hands each run a different physical CPU (Intel Xeon with AVX-512, or AMD EPYC without), and glibc
-          # dispatches a different SIMD memcpy/memmove per CPU, so Callgrind counts different instructions for the same
-          # code and untouched benchmarks drift a few percent run to run. Force one baseline path on every CPU.
-          # arena_max pins the other half of that dispatch: glibc sizes the malloc arena count from the core count
-          # (8 * ncores), so a runner with a different core count takes different paths through malloc and Callgrind
-          # counts those too. Every op here allocates -- the tokenizer and DOM grow their buffers as they parse -- so
-          # the arena count reaches the measurement. One arena is the same arena on every runner.
-          GLIBC_TUNABLES: "glibc.cpu.hwcaps=-AVX512F,-AVX512VL,-AVX512BW,-AVX512DQ,-AVX512CD,-AVX2,-AVX,-ERMS,-FSRM:glibc.malloc.arena_max=1"
+        uses: CodSpeedHQ/action@0ca9cbbf4623b599a6c3ed4fc8a922942705d9f1 # v5.0.2
         with:
+          exclude-allocations: true
           mode: simulation
           run: .tox/codspeed/bin/python -m pytest tests/benchmarks --codspeed

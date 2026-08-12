@@ -256,16 +256,16 @@ def test_email_not_identity(app, sqlalchemy_datastore, get_message):
     )
 
 
-def _allowed(self, form_error):
+def _locked(self, form_error):
     if self.email == "gal@lp.com":
         form_error.append("You are not allowed to do that")
-        return False
-    return True
+        return True
+    return False
 
 
-@pytest.mark.app_settings(TESTING_USER_INJECT=dict(is_locked=_allowed))
+@pytest.mark.app_settings(TESTING_USER_INJECT=dict(is_locked=_locked))
 @pytest.mark.settings(oauth_enable=True)
-def test_override_user_allowed(app, sqlalchemy_datastore, get_message):
+def test_override_user_locked(app, sqlalchemy_datastore, get_message):
     init_app_with_options(
         app,
         sqlalchemy_datastore,

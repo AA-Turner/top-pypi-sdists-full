@@ -630,7 +630,7 @@ def test_devcontainer_usability(
         ),
     ),
 )
-def test_run_success_add_plugin(  # noqa: PLR0913, # pylint: disable=too-many-positional-arguments
+def test_run_success_add_plugin(  # noqa: PLR0913,PLR0917 # pylint: disable=too-many-positional-arguments
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
     cli_args: ConfigDict,
@@ -877,6 +877,34 @@ def test_run_success_add_execution_env(
     result = capsys.readouterr().out
     assert "already exists" in result, result
     assert "Note: Resource added to" in result
+
+
+def test_run_success_add_playbook(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    cli_args: ConfigDict,
+) -> None:
+    """Test Add.run() for adding a sample playbook file.
+
+    Args:
+        capsys: Pytest fixture to capture stdout and stderr.
+        tmp_path: Temporary directory path.
+        cli_args: Dictionary, partial Add class object.
+    """
+    cli_args["resource_type"] = "playbook"
+    add = Add(
+        Config(**cli_args),
+    )
+    add.run()
+    result = capsys.readouterr().out
+    assert "Note: Resource added to" in result
+
+    playbook = tmp_path / "playbook.yml"
+    assert playbook.exists()
+    content = playbook.read_text()
+    assert "name: Example playbook" in content
+    assert "hosts: localhost" in content
+    assert "ansible.builtin.debug" in content
 
 
 def test_run_success_add_play_argspec(

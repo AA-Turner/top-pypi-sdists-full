@@ -26,7 +26,7 @@ from aiohttp import ClientSession
 class MCPTool(ABC):
     """Base class for MCP tools"""
 
-    def __init__(self, safe_mode: bool = False) -> None:
+    def __init__(self, safe_mode: bool = False, github_token: Optional[str] = None):
         """Initialize tool with optional safe mode.
 
         Args:
@@ -35,6 +35,7 @@ class MCPTool(ABC):
                 sensitive listing operations are blocked.
         """
         self.safe_mode = safe_mode
+        self.github_token = github_token
 
     @property
     @abstractmethod
@@ -1149,6 +1150,7 @@ class GithubRepoTool(MCPTool):
             headers = {
                 "Accept": "application/vnd.github+json",
                 "X-GitHub-Api-Version": "2022-11-28",
+                "Authorization": f"Bearer {self.github_token}" if self.github_token else "",
             }
             async with ClientSession() as session:
                 async with session.get(search_url, headers=headers) as resp:
@@ -1239,6 +1241,7 @@ class GithubTextSearchTool(MCPTool):
             headers = {
                 "Accept": "application/vnd.github+json",
                 "X-GitHub-Api-Version": "2022-11-28",
+                "Authorization": f"Bearer {self.github_token}" if self.github_token else "",
             }
             async with ClientSession() as session:
                 async with session.get(search_url, headers=headers) as resp:

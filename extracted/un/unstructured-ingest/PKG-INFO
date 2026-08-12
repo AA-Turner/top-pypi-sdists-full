@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: unstructured_ingest
-Version: 1.8.0
+Version: 1.9.0
 Summary: Local ETL data pipeline to get data RAG ready
 Author-email: Unstructured Technologies <devops@unstructuredai.io>
 License-Expression: Apache-2.0
@@ -217,6 +217,7 @@ Requires-Dist: aiofiles; extra == 'vectara'
 Requires-Dist: httpx; extra == 'vectara'
 Requires-Dist: requests; extra == 'vectara'
 Provides-Extra: vertexai
+Requires-Dist: google-genai; extra == 'vertexai'
 Requires-Dist: vertexai; extra == 'vertexai'
 Provides-Extra: voyageai
 Requires-Dist: langchain-core<2.0.0,>=1.2.22; extra == 'voyageai'

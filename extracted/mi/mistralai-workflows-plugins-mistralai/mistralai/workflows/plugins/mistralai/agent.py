@@ -4,7 +4,8 @@ from pydantic import BaseModel, model_validator
 
 from mistralai.client import models as mistralai_models
 
-from .connectors.decorator import ConnectorSlot
+from .connectors.decorator import ConnectorSlot, raise_if_duplicate_connector_names
+from .connectors.run_as import pinned_run_as_values, raise_if_mixed_run_as
 from .mcp import MCPConfig
 from .tool import Tool
 
@@ -33,7 +34,7 @@ class Agent(mistralai_models.CreateAgentRequest):
     model: str = "mistral-medium-latest"
 
     @model_validator(mode="after")
-    def _reject_credentials_name(self) -> "Agent":
+    def _reject_unsupported_connector_options(self) -> "Agent":
         if self.connectors:
             for slot in self.connectors:
                 if slot.credentials_name is not None:
@@ -42,6 +43,10 @@ class Agent(mistralai_models.CreateAgentRequest):
                         f"supported by the agent SDK. Remove credentials_name or use "
                         f"ToolCallClient for multi-credential connectors."
                     )
+            raise_if_duplicate_connector_names(self.connectors)
+            # No bindings yet, so only explicit values pin an identity here; slots that
+            # omit run_as are judged once the preflight binding resolves.
+            raise_if_mixed_run_as(f"Agent '{self.name}'", pinned_run_as_values(self.connectors))
         return self
 
     _mistral_agent: mistralai_models.Agent | None = None

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest_localftpserver
-Version: 1.5.0
+Version: 1.6.0
 Summary: A PyTest plugin which provides an FTP fixture for your tests
 Author-email: Oz N Tiram <oz.tiram@gmail.com>
 Project-URL: homepage, https://github.com/oz123/pytest-localftpserver
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Framework :: Pytest
 Classifier: Topic :: Software Development :: Testing
@@ -27,7 +28,6 @@ License-File: AUTHORS.rst
 Requires-Dist: pyftpdlib>=1.2.0
 Requires-Dist: PyOpenSSL
 Requires-Dist: pytest
-Requires-Dist: cryptography>=43
 Dynamic: license-file
 
 PyTest FTP Server

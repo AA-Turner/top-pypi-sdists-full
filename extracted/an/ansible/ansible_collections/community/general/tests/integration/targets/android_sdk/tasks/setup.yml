@@ -9,7 +9,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Include OS-specific variables
-  include_vars: '{{ lookup("first_found", params) }}'
+  ansible.builtin.include_vars: '{{ lookup("first_found", params) }}'
   vars:
     params:
       files:
@@ -22,7 +22,7 @@
 
 - name: Install dependencies
   become: true
-  package:
+  ansible.builtin.package:
     name:
       - "{{ openjdk_pkg }}"
       - unzip
@@ -32,14 +32,14 @@
 - name: Install dependencies (OSX)
   block:
     - name: Find brew binary
-      command: which brew
+      ansible.builtin.command: which brew
       register: brew_which
     - name: Get owner of brew binary
-      stat:
+      ansible.builtin.stat:
         path: "{{ brew_which.stdout }}"
       register: brew_stat
     - name: "Install package"
-      homebrew:
+      community.general.homebrew:
         name:
           - "{{ openjdk_pkg }}"
           - unzip
@@ -51,7 +51,7 @@
         HOMEBREW_NO_AUTO_UPDATE: "True"
     - name: Symlink java
       become: true
-      file:
+      ansible.builtin.file:
         src: "{{ brew_prefix }}/opt/openjdk@17/libexec/openjdk.jdk"
         dest: "/Library/Java/JavaVirtualMachines/openjdk-17.jdk"
         state: link
@@ -61,12 +61,12 @@
     - ansible_facts.os_family == 'Darwin'
 
 - name: Create Android SDK directory
-  file:
+  ansible.builtin.file:
     path: "{{ android_sdk_location }}"
     state: directory
 
 - name: Check that sdkmanager is installed
-  stat:
+  ansible.builtin.stat:
     path: "{{ android_sdk_location }}/cmdline-tools/latest/bin/sdkmanager"
   register: sdkmanager_installed
 
@@ -74,7 +74,7 @@
   when: not sdkmanager_installed.stat.exists
   block:
     - name: Create Android SDK dir structure
-      file:
+      ansible.builtin.file:
         path: "{{ item.path }}"
         state: "{{ item.state }}"
       with_items:
@@ -82,7 +82,7 @@
         - { path: "{{ android_sdk_location }}/cmdline-tools/latest", state: "directory" }
 
     - name: Download Android command line tools
-      unarchive:
+      ansible.builtin.unarchive:
         src: "{{ commandline_tools_link }}"
         dest: "{{ android_cmdline_temp_dir }}"
         remote_src: true
@@ -91,7 +91,7 @@
 
 
     - name: Fix directory structure
-      copy:
+      ansible.builtin.copy:
         src: "{{ android_cmdline_temp_dir }}/cmdline-tools/"
         dest: "{{ android_sdk_location }}/cmdline-tools/latest"
         remote_src: true

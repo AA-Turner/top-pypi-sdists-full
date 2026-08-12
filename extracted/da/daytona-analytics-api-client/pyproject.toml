@@ -1,6 +1,6 @@
 [project]
 name = "daytona_analytics_api_client"
-version = "0.203.0"
+version = "0.204.0"
 description = "Daytona Analytics API"
 authors = [
   {name = "OpenAPI Generator Community",email = "team@openapitools.org"},

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plugp100
-Version: 6.0.0
+Version: 6.0.1
 Summary: Controller for TP-Link Tapo P100 and other devices
 Author-email: "@petretiandrea" <petretiandrea@gmail.com>
 License-Expression: GPL-3.0-only
@@ -17,7 +17,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohttp>=3.8.1
 Requires-Dist: certifi>=2021.5.30
-Requires-Dist: cryptography<47,>=38.0.3
+Requires-Dist: cryptography>=38.0.3
 Requires-Dist: ecdsa>=0.19.1
 Requires-Dist: jsons>=1.6.3
 Requires-Dist: passlib>=1.7.4

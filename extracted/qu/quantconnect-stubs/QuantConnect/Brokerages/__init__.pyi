@@ -3474,6 +3474,21 @@ class BrokerageExtensions(System.Object):
         ...
 
     @staticmethod
+    def remove_locate_from_non_short_order(properties: QuantConnect.Interfaces.IOrderProperties, quantity: float, holdings_quantity: float) -> QuantConnect.Interfaces.IOrderProperties:
+        """
+        Removes the locate from an order that does not open a short position.
+        A locate belongs only on short sells; brokers reject it on any other order.
+        A position side set in the properties wins over the holdings check.
+        The edit goes into a copy; the given instance is never touched.
+        
+        :param properties: The order properties to check
+        :param quantity: The order quantity; the sign gives the order direction
+        :param holdings_quantity: The current holdings quantity
+        :returns: A copy of the properties without the locate; null when there is nothing to remove.
+        """
+        ...
+
+    @staticmethod
     def validate_cross_zero_order(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent], not_supported_types: System.Collections.Generic.IReadOnlySet[QuantConnect.Orders.OrderType] = None) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
         """
         Determines whether an order that crosses zero holdings is permitted

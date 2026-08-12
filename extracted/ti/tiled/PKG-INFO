@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: tiled
-Version: 0.2.14
+Version: 0.2.15
 Summary: Structured Scientific Data Access Service
 Project-URL: Homepage, https://github.com/bluesky/tiled
 Project-URL: Documentation, https://blueskyproject.io/tiled
@@ -76,6 +76,7 @@ Requires-Dist: sparse>=0.15.5; extra == 'all'
 Requires-Dist: sqlalchemy[asyncio]>=2; extra == 'all'
 Requires-Dist: stamina; extra == 'all'
 Requires-Dist: starlette>=0.48.0; extra == 'all'
+Requires-Dist: strawberry-graphql[fastapi]>=0.315.3; extra == 'all'
 Requires-Dist: tifffile; extra == 'all'
 Requires-Dist: uvicorn[standard]; extra == 'all'
 Requires-Dist: watchfiles; extra == 'all'
@@ -196,6 +197,7 @@ Requires-Dist: sparse>=0.15.5; extra == 'server'
 Requires-Dist: sqlalchemy[asyncio]>=2; extra == 'server'
 Requires-Dist: stamina; extra == 'server'
 Requires-Dist: starlette>=0.48.0; extra == 'server'
+Requires-Dist: strawberry-graphql[fastapi]>=0.315.3; extra == 'server'
 Requires-Dist: tifffile; extra == 'server'
 Requires-Dist: uvicorn[standard]; extra == 'server'
 Requires-Dist: websockets; extra == 'server'

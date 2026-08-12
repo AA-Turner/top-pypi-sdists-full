@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Create a first server
-  scaleway_compute:
+  community.general.scaleway_compute:
     name: '{{ first_server_name }}'
     state: present
     image: '{{ scaleway_image_id }}'
@@ -14,7 +14,7 @@
     wait: true
 
 - name: Create a second server
-  scaleway_compute:
+  community.general.scaleway_compute:
     name: '{{ second_server_name }}'
     state: present
     image: '{{ scaleway_image_id }}'
@@ -24,39 +24,41 @@
     wait: true
 
 - name: Get server information of the first page
-  scaleway_server_info:
+  community.general.scaleway_server_info:
     region: par1
     query_parameters:
       per_page: 1
       page: 1
   register: first_page
 
-- debug: var=first_page
+- ansible.builtin.debug:
+    var: first_page
 
-- assert:
+- ansible.builtin.assert:
     that:
       - first_page is success
 
 - name: Get server information of the second page
-  scaleway_server_info:
+  community.general.scaleway_server_info:
     region: par1
     query_parameters:
       per_page: 1
       page: 2
   register: second_page
 
-- debug: var=second_page
+- ansible.builtin.debug:
+    var: second_page
 
-- assert:
+- ansible.builtin.assert:
     that:
       - second_page is success
 
-- assert:
+- ansible.builtin.assert:
     that:
       - first_page.scaleway_server_info[0].id != second_page.scaleway_server_info[0].id
 
 - name: Delete first server
-  scaleway_compute:
+  community.general.scaleway_compute:
     name: '{{ first_server_name }}'
     state: absent
     image: '{{ scaleway_image_id }}'
@@ -66,7 +68,7 @@
     wait: true
 
 - name: Delete second server
-  scaleway_compute:
+  community.general.scaleway_compute:
     name: '{{ second_server_name }}'
     state: absent
     image: '{{ scaleway_image_id }}'

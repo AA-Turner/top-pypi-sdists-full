@@ -12,6 +12,7 @@ Usage::
 
     from mypy_boto3_cleanrooms.client import CleanRoomsServiceClient
     from mypy_boto3_cleanrooms.paginator import (
+        ListAnalysisLogExportsPaginator,
         ListAnalysisTemplatesPaginator,
         ListCollaborationAnalysisTemplatesPaginator,
         ListCollaborationChangeRequestsPaginator,
@@ -39,6 +40,7 @@ Usage::
     session = Session()
     client: CleanRoomsServiceClient = session.client("cleanrooms")
 
+    list_analysis_log_exports_paginator: ListAnalysisLogExportsPaginator = client.get_paginator("list_analysis_log_exports")
     list_analysis_templates_paginator: ListAnalysisTemplatesPaginator = client.get_paginator("list_analysis_templates")
     list_collaboration_analysis_templates_paginator: ListCollaborationAnalysisTemplatesPaginator = client.get_paginator("list_collaboration_analysis_templates")
     list_collaboration_change_requests_paginator: ListCollaborationChangeRequestsPaginator = client.get_paginator("list_collaboration_change_requests")
@@ -72,6 +74,8 @@ from typing import TYPE_CHECKING
 from botocore.paginate import PageIterator, Paginator
 
 from .type_defs import (
+    ListAnalysisLogExportsInputPaginateTypeDef,
+    ListAnalysisLogExportsOutputTypeDef,
     ListAnalysisTemplatesInputPaginateTypeDef,
     ListAnalysisTemplatesOutputTypeDef,
     ListCollaborationAnalysisTemplatesInputPaginateTypeDef,
@@ -124,6 +128,7 @@ else:
     from typing_extensions import Unpack
 
 __all__ = (
+    "ListAnalysisLogExportsPaginator",
     "ListAnalysisTemplatesPaginator",
     "ListCollaborationAnalysisTemplatesPaginator",
     "ListCollaborationChangeRequestsPaginator",
@@ -147,6 +152,24 @@ __all__ = (
     "ListProtectedQueriesPaginator",
     "ListSchemasPaginator",
 )
+
+if TYPE_CHECKING:
+    _ListAnalysisLogExportsPaginatorBase = Paginator[ListAnalysisLogExportsOutputTypeDef]
+else:
+    _ListAnalysisLogExportsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListAnalysisLogExportsPaginator(_ListAnalysisLogExportsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/paginator/ListAnalysisLogExports.html#CleanRoomsService.Paginator.ListAnalysisLogExports)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cleanrooms/paginators/#listanalysislogexportspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAnalysisLogExportsInputPaginateTypeDef]
+    ) -> PageIterator[ListAnalysisLogExportsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/paginator/ListAnalysisLogExports.html#CleanRoomsService.Paginator.ListAnalysisLogExports.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cleanrooms/paginators/#listanalysislogexportspaginator)
+        """
 
 if TYPE_CHECKING:
     _ListAnalysisTemplatesPaginatorBase = Paginator[ListAnalysisTemplatesOutputTypeDef]

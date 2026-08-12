@@ -4,13 +4,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Setup test fixture
-  copy:
+  ansible.builtin.copy:
     src: fixtures/ansible-xml-beers.xml
     dest: /tmp/ansible-xml-beers.xml
 
 
 - name: Add child element
-  xml:
+  community.general.xml:
     path: /tmp/ansible-xml-beers.xml
     xpath: /business/beers
     add_children:
@@ -20,10 +20,10 @@
   register: add_children_with_attributes_unicode
 
 - name: Add trailing newline
-  shell: echo "" >> /tmp/ansible-xml-beers.xml
+  ansible.builtin.shell: echo "" >> /tmp/ansible-xml-beers.xml
 
 - name: Compare to expected result
-  copy:
+  ansible.builtin.copy:
     src: results/test-add-children-with-attributes-unicode.xml
     dest: /tmp/ansible-xml-beers.xml
   check_mode: true
@@ -31,8 +31,8 @@
   register: comparison
 
 - name: Test expected result
-  assert:
+  ansible.builtin.assert:
     that:
       - add_children_with_attributes_unicode is changed
       - comparison is not changed  # identical
-  # command: diff -u {{ role_path }}/results/test-add-children-with-attributes-unicode.xml /tmp/ansible-xml-beers.xml
+  # ansible.builtin.command: diff -u {{ role_path }}/results/test-add-children-with-attributes-unicode.xml /tmp/ansible-xml-beers.xml

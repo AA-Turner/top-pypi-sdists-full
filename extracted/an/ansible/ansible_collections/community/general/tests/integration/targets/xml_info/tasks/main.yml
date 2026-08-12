@@ -9,13 +9,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Install lxml (FreeBSD)
-  package:
+  ansible.builtin.package:
     name: 'py{{ ansible_facts.python.version.major }}{{ ansible_facts.python.version.minor }}-lxml'
     state: present
   when: ansible_facts.os_family == "FreeBSD"
 
 - name: Install requirements (RHEL 8)
-  package:
+  ansible.builtin.package:
     name:
       - libxml2-devel
       - libxslt-devel
@@ -25,20 +25,20 @@
 
 # Needed for MacOSX !
 - name: Install lxml
-  pip:
+  ansible.builtin.pip:
     name: lxml
     state: present
 
 - name: Get lxml version
-  command: "{{ ansible_python_interpreter }} -c 'from lxml import etree; print(\".\".join(str(v) for v in etree.LXML_VERSION))'"
+  ansible.builtin.command: "{{ ansible_python_interpreter }} -c 'from lxml import etree; print(\".\".join(str(v) for v in etree.LXML_VERSION))'"
   register: lxml_version
 
 - name: Set lxml capabilities as variables
-  set_fact:
+  ansible.builtin.set_fact:
     lxml_xpath_attribute_result_attrname: '{{ lxml_version.stdout is version("2.3.0", ">=") }}'
 
 - name: Define test XML content
-  set_fact:
+  ansible.builtin.set_fact:
     xml_info_test_xml: |
       <?xml version='1.0' encoding='UTF-8'?>
       <business type="bar">
@@ -56,7 +56,7 @@
       </business>
 
 - name: Write test XML to file
-  copy:
+  ansible.builtin.copy:
     content: "{{ xml_info_test_xml }}"
     dest: /tmp/ansible-xml-info-beers.xml
 
@@ -64,7 +64,7 @@
   when: lxml_xpath_attribute_result_attrname
   block:
 
-    - include_tasks: test-count.yml
-    - include_tasks: test-print-match.yml
-    - include_tasks: test-get-element-content.yml
-    - include_tasks: test-xmlstring.yml
+    - ansible.builtin.include_tasks: test-count.yml
+    - ansible.builtin.include_tasks: test-print-match.yml
+    - ansible.builtin.include_tasks: test-get-element-content.yml
+    - ansible.builtin.include_tasks: test-xmlstring.yml

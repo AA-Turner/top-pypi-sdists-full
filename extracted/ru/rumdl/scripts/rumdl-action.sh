@@ -6,6 +6,14 @@ set -eou pipefail
 rumdl_version="${GHA_RUMDL_VERSION:-}"
 rumdl_cmd="rumdl"
 
+# Validated before anything is downloaded so a typo fails in seconds instead of
+# after a release fetch.
+install_only="${GHA_RUMDL_INSTALL_ONLY:-false}"
+if [ "$install_only" != "true" ] && [ "$install_only" != "false" ]; then
+    echo "::error::Invalid install-only value: $install_only (must be 'true' or 'false')"
+    exit 1
+fi
+
 install_via_pip() {
     if [ -n "$rumdl_version" ]; then
         echo "Installing rumdl (v$rumdl_version) via pip"
@@ -14,7 +22,38 @@ install_via_pip() {
         echo "Installing rumdl (latest) via pip"
         pip install rumdl
     fi
-    rumdl_cmd="rumdl"
+    # pip installs into an environment that is already on PATH, so there is
+    # nothing to publish to $GITHUB_PATH. Resolve the location anyway so the
+    # rumdl-path output means the same thing in both install paths.
+    rumdl_cmd="$(command -v rumdl || echo rumdl)"
+}
+
+# Directory the downloaded binary is installed into and published to
+# $GITHUB_PATH. RUNNER_TEMP is preferred over a bare `mktemp -d`: on Windows it
+# is already a native path (D:\a\_temp) that pwsh and cmd resolve when the
+# runner prepends it to PATH, while mktemp returns an MSYS path (/tmp/tmp.XXXX)
+# that they cannot.
+resolve_bin_dir() {
+    local dir
+    if [ -n "${RUNNER_TEMP:-}" ] && [ -d "${RUNNER_TEMP}" ]; then
+        dir="${RUNNER_TEMP}/rumdl-bin"
+    else
+        dir="$(mktemp -d)/rumdl-bin"
+    fi
+    mkdir -p "$dir"
+    chmod 700 "$dir"
+    printf '%s\n' "$dir"
+}
+
+# Makes `rumdl` callable by bare name in SUBSEQUENT steps. $GITHUB_PATH does not
+# affect the step that writes it, which is why this script keeps invoking
+# "$rumdl_cmd" by absolute path throughout.
+publish_to_path() {
+    if [ -z "${GITHUB_PATH:-}" ]; then
+        return 0
+    fi
+    printf '%s\n' "$1" >>"$GITHUB_PATH"
+    echo "Published to PATH for subsequent steps: $1"
 }
 
 # Prints "<target-triple> <archive-ext>" for this runner's OS/arch, or nothing if unmapped.
@@ -153,13 +192,20 @@ try_install_binary() {
     *) exit "$subshell_status" ;;
     esac
 
+    # Move the binary out of the download scratch into a directory that holds
+    # nothing else, since that directory goes onto PATH for the whole job.
+    local bin_name="rumdl" bin_dir
     if [ "$ext" = "zip" ]; then
-        rumdl_cmd="${workdir}/rumdl.exe"
-    else
-        rumdl_cmd="${workdir}/rumdl"
-        chmod +x "$rumdl_cmd"
+        bin_name="rumdl.exe"
     fi
+    bin_dir="$(resolve_bin_dir)"
+    mv "${workdir}/${bin_name}" "${bin_dir}/${bin_name}"
+    rm -rf "$workdir"
+
+    rumdl_cmd="${bin_dir}/${bin_name}"
+    chmod +x "$rumdl_cmd"
     echo "Installed rumdl binary: $rumdl_cmd"
+    publish_to_path "$bin_dir"
     return 0
 }
 
@@ -180,12 +226,65 @@ else
     install_via_pip
 fi
 
+# Always through "$rumdl_cmd", never a bare `rumdl`: for the binary install the
+# $GITHUB_PATH entry written above is not live in this step, so a bare name would
+# either not resolve or resolve to an unrelated pre-existing rumdl and report its
+# version as the one just installed.
+rumdl_version_output="$("$rumdl_cmd" --version)"
+echo "Installed: $rumdl_version_output"
+
+if [ -n "${GITHUB_OUTPUT:-}" ]; then
+    printf 'rumdl-version=%s\n' "${rumdl_version_output#rumdl }" >>"$GITHUB_OUTPUT"
+    printf 'rumdl-path=%s\n' "$rumdl_cmd" >>"$GITHUB_OUTPUT"
+fi
+
+if [ "$install_only" = "true" ]; then
+    # report-type and fail-on-error carry non-empty defaults and are set on every
+    # run, so they are only worth naming when the caller actually changed them.
+    ignored=""
+    if [ "${GHA_RUMDL_COMMAND:-check}" != "check" ]; then ignored="$ignored command"; fi
+    if [ -n "${GHA_RUMDL_PATH:-}" ]; then ignored="$ignored path"; fi
+    if [ -n "${GHA_RUMDL_CONFIG:-}" ]; then ignored="$ignored config"; fi
+    if [ -n "${GHA_RUMDL_OUTPUT_FILE:-}" ]; then ignored="$ignored output-file"; fi
+    if [ -n "${GHA_RUMDL_ARGS:-}" ]; then ignored="$ignored args"; fi
+    if [ "${GHA_RUMDL_REPORT_TYPE:-logs}" != "logs" ]; then ignored="$ignored report-type"; fi
+    if [ "${GHA_RUMDL_FAIL_ON_ERROR:-true}" != "true" ]; then ignored="$ignored fail-on-error"; fi
+    if [ -n "$ignored" ]; then
+        echo "::warning::install-only is set; ignoring lint input(s):$ignored"
+    fi
+
+    echo
+    echo "install-only: skipping lint. rumdl is on PATH for subsequent steps."
+    exit 0
+fi
+
 echo
-echo "Linting markdown with rumdl"
+# `fmt` is the only value that writes to the workspace, so it says so: a step
+# that silently rewrites files and then exits 0 is otherwise indistinguishable
+# from one that found nothing to change.
+case "${GHA_RUMDL_COMMAND:-check}" in
+"check")
+    rumdl_subcommand=("check")
+    echo "Linting markdown with rumdl"
+    ;;
+"fmt-check")
+    rumdl_subcommand=("fmt" "--check")
+    echo "Checking markdown formatting with rumdl fmt --check"
+    ;;
+"fmt")
+    rumdl_subcommand=("fmt")
+    echo "Formatting markdown with rumdl fmt (files are rewritten in place)"
+    ;;
+*)
+    echo "::error::invalid command: ${GHA_RUMDL_COMMAND:-check}"
+    echo "command should be one of: check, fmt-check, fmt"
+    exit 1
+    ;;
+esac
 echo "Working directory: $(pwd)"
 # Paths: split space-separated input into array, default to workspace root
-read -ra lint_paths <<< "${GHA_RUMDL_PATH:-$GITHUB_WORKSPACE}"
-echo "Lint path(s): ${lint_paths[*]}"
+read -ra lint_paths <<<"${GHA_RUMDL_PATH:-$GITHUB_WORKSPACE}"
+echo "Path(s): ${lint_paths[*]}"
 
 # Build rumdl command arguments
 rumdl_args=()
@@ -201,7 +300,8 @@ if [ -n "${GHA_RUMDL_CONFIG:-}" ]; then
 fi
 
 # Output format
-case "$GHA_RUMDL_REPORT_TYPE" in
+report_type="${GHA_RUMDL_REPORT_TYPE:-logs}"
+case "$report_type" in
 "logs")
     rumdl_args+=("--output-format" "full")
     ;;
@@ -210,7 +310,7 @@ case "$GHA_RUMDL_REPORT_TYPE" in
     ;;
 *)
     echo
-    echo "::error:: invalid report type: $GHA_RUMDL_REPORT_TYPE"
+    echo "::error:: invalid report type: $report_type"
     echo "report type should be one of: logs, annotations"
     exit 1
     ;;
@@ -226,7 +326,7 @@ fi
 # Extra CLI arguments
 extra_args=()
 if [ -n "${GHA_RUMDL_ARGS:-}" ]; then
-    read -ra extra_args <<< "$GHA_RUMDL_ARGS"
+    read -ra extra_args <<<"$GHA_RUMDL_ARGS"
     rumdl_args+=("${extra_args[@]}")
     echo "Extra args: ${extra_args[*]}"
 fi
@@ -241,7 +341,7 @@ fi
 
 # Run rumdl and capture output
 set +e
-results=$("$rumdl_cmd" check "${lint_paths[@]}" "${rumdl_args[@]}" 2>&1)
+results=$("$rumdl_cmd" "${rumdl_subcommand[@]}" "${lint_paths[@]}" "${rumdl_args[@]}" 2>&1)
 exit_code=$?
 set -e
 
@@ -254,7 +354,7 @@ if [ -n "${GHA_RUMDL_OUTPUT_FILE:-}" ]; then
     if [ "$output_dir" != "." ] && [ ! -d "$output_dir" ]; then
         mkdir -p "$output_dir"
     fi
-    if ! echo "$results" > "$GHA_RUMDL_OUTPUT_FILE"; then
+    if ! echo "$results" >"$GHA_RUMDL_OUTPUT_FILE"; then
         echo "::error::Failed to write results to: $GHA_RUMDL_OUTPUT_FILE"
         exit 1
     fi
@@ -262,7 +362,7 @@ if [ -n "${GHA_RUMDL_OUTPUT_FILE:-}" ]; then
 fi
 
 # For annotations mode, re-print annotations for GitHub to pick up
-if [ "$GHA_RUMDL_REPORT_TYPE" = "annotations" ] && [ $exit_code -ne 0 ]; then
+if [ "$report_type" = "annotations" ] && [ $exit_code -ne 0 ]; then
     echo "$results" | grep '::' || true
 fi
 

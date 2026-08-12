@@ -13,14 +13,19 @@ import contextlib
 import http.cookiejar
 import json
 import logging
+import math
 import os
 import random
 import re
+import threading
 import time
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any, cast
+from urllib.parse import unquote
 
 import requests
+from requests.adapters import HTTPAdapter
 
 try:
     from curl_cffi import requests as cffi_requests
@@ -46,13 +51,46 @@ from .exceptions import (
 _LOGGER = logging.getLogger(__name__)
 
 
+# Detect ~username expansion that would point into another user's home directory.
+_OTHER_USER_HOME_RE = re.compile(r"^~[^/\\]")
+
+
 def token_file_path(path: str) -> Path:
-    """Return the token file represented by a directory or JSON path."""
+    """Return the token file represented by a directory or JSON path.
+
+    Rejects paths that expand into another user's home directory via
+    ``~username`` syntax. Bare ``~`` and ``~/...`` are allowed because they
+    resolve to the current user's home.
+
+    Also rejects symlinked tokenstore paths so a pre-planted symlink cannot
+    redirect load/dump/logout to an attacker-controlled location.
+    """
+    if _OTHER_USER_HOME_RE.match(path):
+        raise ValueError(
+            f"Token path must not reference another user's home directory: {path!r}"
+        )
     token_path = Path(path).expanduser()
+    # Reject symlinks anywhere in the tokenstore ancestry (e.g.
+    # ~/.garminconnect -> /attacker/dir). O_NOFOLLOW on the final open()
+    # only covers the last component; an intermediate symlinked directory
+    # would still redirect load/dump/logout into an attacker-controlled tree.
+    for check_path in (token_path, *token_path.parents):
+        try:
+            if check_path.is_symlink():
+                raise ValueError(f"Token path must not be a symlink: {path!r}")
+        except OSError as e:
+            raise ValueError(
+                f"Token path cannot be checked for symlinks: {path!r}"
+            ) from e
     if token_path.is_dir() or token_path.suffix.casefold() != ".json":
         return token_path / "garmin_tokens.json"
     return token_path
 
+
+# -- Domain allowlist --
+# Only official Garmin domains are valid for authentication and API traffic.
+# Arbitrary values would let a malicious caller redirect credentials elsewhere.
+ALLOWED_DOMAINS = {"garmin.com", "garmin.cn"}
 
 # -- iOS mobile app constants (Strategy 1 & 2) --
 IOS_SSO_CLIENT_ID = "GCM_IOS_DARK"
@@ -143,34 +181,105 @@ DI_CLIENT_IDS = (
 class _MFARequired(Exception):
     """Internal sentinel — raised by login strategies when MFA is needed.
 
-    Normally stops the strategy chain immediately (like a credential error).
-    The caller (login()) handles it via prompt_mfa / return_on_mfa.
-
-    Exception: when the strategy that reached MFA can't be trusted to have
-    actually triggered OTP delivery (see ``_MFA_STATE_ATTRS`` /
-    ``_mfa_delivery_uncertain`` in ``login()``), the chain gives remaining
-    strategies a chance first and only falls back to this one if none of
-    them do better.
+    Stops the strategy chain immediately. The caller (login()) handles it via
+    prompt_mfa / return_on_mfa.
     """
-
-
-# Attributes a login strategy stashes on ``self`` when it hits MFA. Snapshotted
-# so a "delivery uncertain" MFA state (see login()) can be shelved while later
-# strategies are tried, then restored if nothing better turns up.
-_MFA_STATE_ATTRS = (
-    "_mfa_method",
-    "_mfa_session",
-    "_mfa_login_params",
-    "_mfa_post_headers",
-    "_mfa_flow",
-    "_mfa_service_url",
-    "_widget_last_resp",
-)
-_UNSET = object()
 
 
 def _build_basic_auth(client_id: str) -> str:
     return "Basic " + base64.b64encode(f"{client_id}:".encode()).decode()
+
+
+_QUERY_VALUE_RE = re.compile(r"([?&][\w.-]+=)[^&\s)'\"]+")
+
+
+def _sanitize_exception_text(err: Exception) -> str:
+    """Render an exception for logs/messages with URL query values redacted.
+
+    ``requests`` embeds the full request URL — query string included — in its
+    exception text. On the login fallback path that URL carries the CAS
+    service ticket (``?ticket=ST-...``), so logging or re-raising the raw
+    exception would leak a credential into application logs and bug reports.
+    """
+    return _QUERY_VALUE_RE.sub(r"\1<redacted>", f"{type(err).__name__}: {err}")
+
+
+def _iter_file_objects(kwargs: dict[str, Any]) -> Iterator[Any]:
+    """Yield file-like objects referenced by request kwargs (files/data)."""
+    files = kwargs.get("files")
+    if isinstance(files, Mapping):
+        values = list(files.values())
+    elif isinstance(files, (list, tuple)):
+        values = [v for _, v in files]
+    else:
+        values = []
+    for value in values:
+        # requests accepts fileobj or (name, fileobj[, content_type[, headers]])
+        fileobj = (
+            value[1] if isinstance(value, (tuple, list)) and len(value) >= 2 else value
+        )
+        if hasattr(fileobj, "read"):
+            yield fileobj
+    data = kwargs.get("data")
+    if hasattr(data, "read"):
+        yield data
+
+
+def _capture_file_positions(
+    kwargs: dict[str, Any],
+) -> list[tuple[Any, int]] | None:
+    """Record the stream position of each file-like body before a request.
+
+    Returns None when any body cannot be repositioned, meaning a retry
+    would re-read from EOF and silently send empty/truncated content.
+    """
+    positions: list[tuple[Any, int]] = []
+    for fileobj in _iter_file_objects(kwargs):
+        try:
+            if not fileobj.seekable():
+                return None
+            positions.append((fileobj, fileobj.tell()))
+        except (OSError, ValueError, AttributeError):
+            return None
+    data = kwargs.get("data")
+    if data is not None and not hasattr(data, "read") and isinstance(data, Iterator):
+        # Streamed iterable body (e.g. a generator): attempt #1 consumes it
+        # and it cannot be rewound, so a retry must not be attempted.
+        return None
+    return positions
+
+
+def _restore_file_positions(positions: list[tuple[Any, int]]) -> bool:
+    """Rewind file-like bodies to their pre-request positions. False on failure."""
+    try:
+        for fileobj, pos in positions:
+            fileobj.seek(pos)
+    except (OSError, ValueError, AttributeError):
+        return False
+    return True
+
+
+def _decode_jwt_payload(token: str) -> dict[str, Any] | None:
+    """Decode a JWT payload without verifying the signature.
+
+    Garmin signs tokens on the server side; the client does not have the
+    signing key, so full signature verification is not possible here. We do
+    reject tokens that claim ``alg: none`` or otherwise look structurally
+    invalid, preventing the most trivial client-side spoofing of unsigned
+    payloads.
+    """
+    try:
+        parts = token.split(".")
+        if len(parts) < 2:
+            return None
+        header_b64 = parts[0] + "=" * (-len(parts[0]) % 4)
+        header = json.loads(base64.urlsafe_b64decode(header_b64).decode())
+        if header.get("alg") == "none":
+            return None
+        payload_b64 = parts[1] + "=" * (-len(parts[1]) % 4)
+        return json.loads(base64.urlsafe_b64decode(payload_b64).decode())
+    except Exception:
+        return None
 
 
 def _native_headers(extra: dict[str, str] | None = None) -> dict[str, str]:
@@ -193,6 +302,10 @@ class Client:
     """A client to communicate with Garmin Connect."""
 
     def __init__(self, domain: str = "garmin.com", **kwargs: Any) -> None:
+        if domain not in ALLOWED_DOMAINS:
+            raise ValueError(
+                f"Invalid domain {domain!r}; must be one of {sorted(ALLOWED_DOMAINS)}"
+            )
         self.domain = domain
         self._sso = f"https://sso.{domain}"
         self._connect = f"https://connect.{domain}"
@@ -220,7 +333,7 @@ class Client:
 
         # Plain session for JWT_WEB fallback and session refresh
         self.cs: Any = requests.Session()
-        adapter = requests.adapters.HTTPAdapter(
+        adapter = HTTPAdapter(
             pool_connections=kwargs.get("pool_connections", 20),
             pool_maxsize=kwargs.get("pool_maxsize", 20),
         )
@@ -238,13 +351,20 @@ class Client:
         self._api_session.cookies.set_policy(
             http.cookiejar.DefaultCookiePolicy(allowed_domains=[])
         )
-        api_adapter = requests.adapters.HTTPAdapter(
+        api_adapter = HTTPAdapter(
             pool_connections=kwargs.get("pool_connections", 20),
             pool_maxsize=kwargs.get("pool_maxsize", 20),
         )
         self._api_session.mount("https://", api_adapter)
 
         self._tokenstore_path: str | None = None
+        # Serialize token refresh and state mutation so concurrent API calls can't
+        # race on the same refresh token or observe half-updated state.
+        self._token_lock: threading.RLock = threading.RLock()
+        # True after login(return_on_mfa=True) returns "needs_mfa" until
+        # resume_login() finishes. Prevents interleaving another login on the
+        # same instance while MFA state is held on self.
+        self._mfa_pending: bool = False
         # Set of strategy names to skip during login, e.g. {"mobile+cffi"}.
         # Valid names: mobile+cffi, mobile+requests, widget+cffi,
         #              portal+cffi, portal+requests
@@ -259,13 +379,34 @@ class Client:
     def is_authenticated(self) -> bool:
         return bool(self.di_token or self.jwt_web)
 
-    def _clear_auth_state(self) -> None:
-        """Wipe all in-memory auth tokens so the next login starts clean."""
+    def _clear_auth_state(self, *, keep_tokenstore_path: bool = False) -> None:
+        """Wipe all in-memory auth tokens and session state so the next login starts clean.
+
+        ``keep_tokenstore_path`` preserves the persistence target: login() sets
+        it via the Garmin wrapper *before* the credential flow runs, and a
+        fresh login should keep persisting to the same store.
+        """
         self.di_token = None
         self.di_refresh_token = None
         self.di_client_id = None
         self.jwt_web = None
         self.csrf_token = None
+        if not keep_tokenstore_path:
+            self._tokenstore_path = None
+        self._mfa_pending = False
+        for attr in (
+            "_mfa_session",
+            "_mfa_login_params",
+            "_mfa_post_headers",
+            "_mfa_service_url",
+            "_mfa_flow",
+            "_mfa_method",
+            "_widget_last_resp",
+        ):
+            setattr(self, attr, None)
+        # Drop any SSO / CAS / JWT_WEB cookies so a stale session cannot be
+        # silently refreshed after logout.
+        self.cs.cookies.clear()
 
     def _verify_token(self) -> bool:
         """Check that the current token is actually accepted by the API tier.
@@ -290,7 +431,10 @@ class Client:
             _LOGGER.debug("Token validation inconclusive (kept): %s", msg)
             return True
         except Exception as e:
-            _LOGGER.debug("Token validation inconclusive (kept): %s", e)
+            _LOGGER.debug(
+                "Token validation inconclusive (kept): %s",
+                _sanitize_exception_text(e),
+            )
             return True
 
     def get_api_headers(self) -> dict[str, str]:
@@ -328,10 +472,8 @@ class Client:
         Tries each strategy in order.  Only credential errors (GarminConnectAuthenticationError)
         and MFA requirements stop the chain immediately — all other failures
         (429 rate limits, transport errors, HTML challenges) fall through to
-        the next strategy. Exception: widget+cffi's email/SMS MFA can't be
-        confirmed to have actually triggered OTP delivery (scraped HTML, no
-        JS execution), so it's shelved instead — remaining strategies get a
-        chance first, and it's only used if none of them do better.
+        the next strategy. MFA requirements are resolved immediately via
+        prompt_mfa / return_on_mfa.
 
         Args:
             email: Garmin account email.
@@ -344,6 +486,20 @@ class Client:
             (None, None) on success; ("needs_mfa", None) when return_on_mfa=True.
 
         """
+        if self._mfa_pending:
+            raise GarminConnectAuthenticationError(
+                "MFA login already in progress; complete it with resume_login() "
+                "or call logout() first"
+            )
+
+        # Start every credential login from a clean slate. A stale di_token
+        # from a previous login/token-load must not survive this call: it
+        # would keep is_authenticated True after all strategies fail, and
+        # get_api_headers() prefers di_token, so it would silently shadow a
+        # fresh jwt_web obtained by a web strategy (and _verify_token would
+        # then "verify" the old identity instead of the new login).
+        self._clear_auth_state(keep_tokenstore_path=True)
+
         strategies: list[tuple[str, Any]] = [
             ("mobile+cffi", lambda: self._mobile_login_cffi(email, password)),
             ("mobile+requests", lambda: self._mobile_login_requests(email, password)),
@@ -362,27 +518,26 @@ class Client:
 
         last_err: Exception | None = None
         rate_limited_count = 0
-        shelved_mfa: dict[str, Any] | None = None
-        shelved_mfa_name = ""
 
         def resolve_mfa(name: str) -> tuple[str | None, Any]:
             if return_on_mfa:
+                self._mfa_pending = True
                 return "needs_mfa", None
             if prompt_mfa:
                 mfa_code = prompt_mfa()
                 self._complete_mfa(mfa_code)
                 if self.verify_login and not self._verify_token():
-                    self._clear_auth_state()
+                    self._clear_auth_state(keep_tokenstore_path=True)
                     raise GarminConnectConnectionError(
                         f"{name}: token rejected by API tier after MFA"
                     )
+                self._mfa_pending = False
                 return None, None
             raise GarminConnectAuthenticationError(
                 "MFA Required but no prompt_mfa mechanism supplied"
             )
 
-        for idx, (name, run) in enumerate(strategies):
-            self._mfa_delivery_uncertain = False
+        for name, run in strategies:
             try:
                 _LOGGER.debug("Trying login strategy: %s", name)
                 run()
@@ -393,7 +548,7 @@ class Client:
                         "%s obtained a token the API rejected; trying next strategy",
                         name,
                     )
-                    self._clear_auth_state()
+                    self._clear_auth_state(keep_tokenstore_path=True)
                     last_err = GarminConnectConnectionError(
                         f"{name}: token rejected by API tier"
                     )
@@ -403,53 +558,24 @@ class Client:
                 # Wrong credentials — stop immediately, no point trying further
                 raise
             except _MFARequired:
-                # A strategy whose MFA delivery can't be trusted (currently:
-                # widget+cffi's email/SMS OTP page — it's scraped HTML with
-                # no JS execution, so we can't confirm Garmin actually sent a
-                # code) doesn't get to stop the chain outright. Shelve its
-                # MFA state and let remaining strategies — which use real
-                # login APIs that are known to trigger delivery — try first.
-                more_strategies_left = idx < len(strategies) - 1
-                if (
-                    self._mfa_delivery_uncertain
-                    and more_strategies_left
-                    and shelved_mfa is None
-                ):
-                    _LOGGER.debug(
-                        "%s reached MFA but OTP delivery is unconfirmed; "
-                        "trying remaining strategies before prompting",
-                        name,
-                    )
-                    shelved_mfa = {
-                        attr: getattr(self, attr, _UNSET) for attr in _MFA_STATE_ATTRS
-                    }
-                    shelved_mfa_name = name
-                    continue
+                # Resolve MFA immediately; the strategy is responsible for
+                # triggering code delivery (widget flow does so explicitly).
                 try:
                     return resolve_mfa(name)
                 except GarminConnectConnectionError as e:
                     last_err = e
                     continue
             except GarminConnectTooManyRequestsError as e:
-                _LOGGER.warning("%s returned 429: %s", name, e)
+                _LOGGER.warning(
+                    "%s returned 429: %s", name, _sanitize_exception_text(e)
+                )
                 rate_limited_count += 1
                 last_err = e
                 continue
             except Exception as e:
-                _LOGGER.warning("%s failed: %s", name, e)
+                _LOGGER.warning("%s failed: %s", name, _sanitize_exception_text(e))
                 last_err = e
                 continue
-
-        if shelved_mfa is not None:
-            _LOGGER.debug(
-                "No later strategy reached MFA or succeeded; falling back to "
-                "%s's MFA state",
-                shelved_mfa_name,
-            )
-            for attr, value in shelved_mfa.items():
-                if value is not _UNSET:
-                    setattr(self, attr, value)
-            return resolve_mfa(shelved_mfa_name)
 
         if rate_limited_count == len(strategies):
             raise GarminConnectTooManyRequestsError(
@@ -457,7 +583,8 @@ class Client:
                 "Try again later or check your IP/network."
             )
         raise GarminConnectConnectionError(
-            f"All login strategies exhausted: {last_err}"
+            "All login strategies exhausted: "
+            + (_sanitize_exception_text(last_err) if last_err else "no strategies ran")
         )
 
     # ------------------------------------------------------------------ #
@@ -482,11 +609,15 @@ class Client:
             except (GarminConnectAuthenticationError, _MFARequired):
                 raise
             except GarminConnectTooManyRequestsError as e:
-                _LOGGER.debug("mobile+cffi(%s) 429: %s", imp, e)
+                _LOGGER.debug(
+                    "mobile+cffi(%s) 429: %s", imp, _sanitize_exception_text(e)
+                )
                 last_err = e
                 continue
             except Exception as e:
-                _LOGGER.debug("mobile+cffi(%s) failed: %s", imp, e)
+                _LOGGER.debug(
+                    "mobile+cffi(%s) failed: %s", imp, _sanitize_exception_text(e)
+                )
                 last_err = e
                 continue
         if last_err:
@@ -587,7 +718,11 @@ class Client:
                 "falling through to next strategy"
             )
 
-        raise GarminConnectConnectionError(f"Mobile login failed: {res}")
+        _LOGGER.debug("Mobile login unexpected response: %s", res)
+        raise GarminConnectConnectionError(
+            f"Mobile login failed: HTTP {r.status_code}, "
+            f"responseStatus={resp_type or 'unknown'}"
+        )
 
     # ------------------------------------------------------------------ #
     #  STRATEGY 3 — SSO Embed Widget + curl_cffi                         #
@@ -844,11 +979,15 @@ class Client:
             except (GarminConnectAuthenticationError, _MFARequired):
                 raise
             except GarminConnectTooManyRequestsError as e:
-                _LOGGER.debug("portal+cffi(%s) 429: %s", imp, e)
+                _LOGGER.debug(
+                    "portal+cffi(%s) 429: %s", imp, _sanitize_exception_text(e)
+                )
                 last_err = e
                 continue
             except Exception as e:
-                _LOGGER.debug("portal+cffi(%s) failed: %s", imp, e)
+                _LOGGER.debug(
+                    "portal+cffi(%s) failed: %s", imp, _sanitize_exception_text(e)
+                )
                 last_err = e
                 continue
         if last_err:
@@ -987,7 +1126,11 @@ class Client:
                 "falling through to next strategy"
             )
 
-        raise GarminConnectConnectionError(f"Portal web login failed: {res}")
+        _LOGGER.debug("Portal web login unexpected response: %s", res)
+        raise GarminConnectConnectionError(
+            f"Portal web login failed: HTTP {r.status_code}, "
+            f"responseStatus={resp_type or 'unknown'}"
+        )
 
     # ------------------------------------------------------------------ #
     #  MFA COMPLETION — dual-endpoint fallback                           #
@@ -1086,8 +1229,14 @@ class Client:
                 self._establish_session(ticket, sess=sess, service_url=svc_url)
                 return
 
-            # Non-success JSON response — could be auth failure
-            failures.append(f"{mfa_url}: {res}")
+            # Non-success JSON response — could be auth failure. Log the full
+            # response at DEBUG but keep exception messages free of sensitive
+            # SSO metadata such as serviceTicketId, customerGuid, or URLs.
+            _LOGGER.debug("MFA verify non-success response from %s: %s", mfa_url, res)
+            status = res.get("responseStatus", {}).get("type") or res.get(
+                "error", {}
+            ).get("status-code", "unknown")
+            failures.append(f"{mfa_url}: {status}")
 
         # All endpoints failed
         if rate_limited_count == len(mfa_endpoints):
@@ -1110,7 +1259,10 @@ class Client:
             self._exchange_service_ticket(ticket, service_url=service_url)
             return
         except Exception as e:
-            _LOGGER.warning("DI token exchange failed (%s), falling back to JWT_WEB", e)
+            _LOGGER.warning(
+                "DI token exchange failed (%s), falling back to JWT_WEB",
+                _sanitize_exception_text(e),
+            )
 
         # Fallback: consume ticket via connect.garmin.com for JWT_WEB cookie
         if sess is not None:
@@ -1214,117 +1366,127 @@ class Client:
         """Refresh the DI Bearer token using the stored refresh token."""
         if not self.di_refresh_token or not self.di_client_id:
             raise GarminConnectAuthenticationError("No DI refresh token available")
-        r = self._http_post(
-            self._di_token_url,
-            headers=_native_headers(
-                {
-                    "Authorization": _build_basic_auth(self.di_client_id),
-                    "Accept": "application/json",
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    "Cache-Control": "no-cache",
-                }
-            ),
-            data={
-                "grant_type": "refresh_token",
-                "client_id": self.di_client_id,
-                "refresh_token": self.di_refresh_token,
-            },
-            timeout=30,
-        )
-        if not r.ok:
-            raise GarminConnectAuthenticationError(
-                f"DI token refresh failed: {r.status_code} {r.text[:200]}"
+        with self._token_lock:
+            # Re-check under the lock in case another thread already refreshed
+            # while we were waiting.
+            if not self.di_refresh_token or not self.di_client_id:
+                raise GarminConnectAuthenticationError("No DI refresh token available")
+            r = self._http_post(
+                self._di_token_url,
+                headers=_native_headers(
+                    {
+                        "Authorization": _build_basic_auth(self.di_client_id),
+                        "Accept": "application/json",
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "Cache-Control": "no-cache",
+                    }
+                ),
+                data={
+                    "grant_type": "refresh_token",
+                    "client_id": self.di_client_id,
+                    "refresh_token": self.di_refresh_token,
+                },
+                timeout=30,
             )
-        data = r.json()
-        access_token = data["access_token"]
-        self.di_token = access_token
-        self.di_refresh_token = data.get("refresh_token", self.di_refresh_token)
-        self.di_client_id = (
-            self._extract_client_id_from_jwt(access_token) or self.di_client_id
-        )
+            if not r.ok:
+                _LOGGER.debug(
+                    "DI token refresh failed: status=%s body=%r",
+                    r.status_code,
+                    r.text[:200],
+                )
+                raise GarminConnectAuthenticationError(
+                    f"DI token refresh failed: {r.status_code}"
+                )
+            data = r.json()
+            access_token = data["access_token"]
+            self.di_token = access_token
+            self.di_refresh_token = data.get("refresh_token", self.di_refresh_token)
+            self.di_client_id = (
+                self._extract_client_id_from_jwt(access_token) or self.di_client_id
+            )
 
     def _extract_client_id_from_jwt(self, token: str) -> str | None:
-        try:
-            parts = token.split(".")
-            if len(parts) < 2:
-                return None
-            payload_b64 = parts[1] + "=" * (-len(parts[1]) % 4)
-            payload = json.loads(base64.urlsafe_b64decode(payload_b64).decode())
-            value = payload.get("client_id")
-            return str(value) if value else None
-        except Exception:
+        payload = _decode_jwt_payload(token)
+        if not payload:
             return None
+        value = payload.get("client_id")
+        return str(value) if value else None
 
     def _token_expires_soon(self) -> bool:
         token = self.di_token or self.jwt_web
         if not token:
             return False
+        payload = _decode_jwt_payload(str(token))
+        if not payload:
+            return False
+        # 'exp' is a server-controlled claim from an unverified JWT payload, so
+        # coerce it defensively: a non-numeric string, container, boolean,
+        # non-finite or overflowing value must not raise (TypeError/ValueError/
+        # OverflowError) and take down every request.
+        raw_exp = payload.get("exp")
+        if isinstance(raw_exp, bool):
+            return False
         try:
-            import time as _time
-
-            parts = str(token).split(".")
-            if len(parts) >= 2:
-                payload_b64 = parts[1] + "=" * (-len(parts[1]) % 4)
-                payload = json.loads(
-                    base64.urlsafe_b64decode(payload_b64.encode()).decode()
-                )
-                exp = payload.get("exp")
-                if exp and _time.time() > (int(exp) - 900):
-                    return True
-        except Exception:
-            _LOGGER.debug("Failed to check token expiry")
-        return False
+            exp = float(raw_exp)  # type: ignore[arg-type]
+        except (TypeError, ValueError, OverflowError):
+            return False
+        if not math.isfinite(exp):
+            return False
+        return time.time() > exp - 900
 
     def _refresh_session(self) -> None:
         """Refresh auth — DI token refresh or legacy JWT_WEB CAS refresh."""
-        if self.di_token:
-            try:
-                self._refresh_di_token()
-                if self._tokenstore_path:
-                    with contextlib.suppress(Exception):
-                        self.dump(self._tokenstore_path)
-            except Exception as err:
-                _LOGGER.debug("DI token refresh failed: %s", err)
-            return
-
-        # JWT_WEB refresh via CAS TGT
-        if not self.is_authenticated:
-            return
-        try:
-            self.cs.get(
-                f"{self._sso}/mobile/sso/en_US/sign-in",
-                params={
-                    "clientId": MOBILE_SSO_CLIENT_ID,
-                    "service": self._mobile_sso_service_url,
-                },
-                allow_redirects=True,
-                timeout=15,
-            )
-            for c in self.cs.cookies.jar:
-                if c.name == "JWT_WEB":
-                    self.jwt_web = c.value
-                    _LOGGER.debug("Session refreshed via CAS TGT")
+        with self._token_lock:
+            if self.di_token:
+                try:
+                    self._refresh_di_token()
                     if self._tokenstore_path:
                         with contextlib.suppress(Exception):
                             self.dump(self._tokenstore_path)
-                    return
+                except Exception as err:
+                    _LOGGER.debug(
+                        "DI token refresh failed: %s", _sanitize_exception_text(err)
+                    )
+                return
 
-            with contextlib.suppress(Exception):
-                self.cs.post(
-                    f"{self._connect}/services/auth/token/di-oauth/refresh",
-                    headers={
-                        "Accept": "application/json",
-                        "NK": "NT",
-                        "Referer": f"{self._connect}/modern/",
+            # JWT_WEB refresh via CAS TGT
+            if not self.is_authenticated:
+                return
+            try:
+                self.cs.get(
+                    f"{self._sso}/mobile/sso/en_US/sign-in",
+                    params={
+                        "clientId": MOBILE_SSO_CLIENT_ID,
+                        "service": self._mobile_sso_service_url,
                     },
-                    timeout=10,
+                    allow_redirects=True,
+                    timeout=15,
                 )
-            for c in self.cs.cookies.jar:
-                if c.name == "JWT_WEB":
-                    self.jwt_web = c.value
-                    break
-        except Exception as err:
-            _LOGGER.debug("Refresh failed: %s", err)
+                for c in self.cs.cookies.jar:
+                    if c.name == "JWT_WEB":
+                        self.jwt_web = c.value
+                        _LOGGER.debug("Session refreshed via CAS TGT")
+                        if self._tokenstore_path:
+                            with contextlib.suppress(Exception):
+                                self.dump(self._tokenstore_path)
+                        return
+
+                with contextlib.suppress(Exception):
+                    self.cs.post(
+                        f"{self._connect}/services/auth/token/di-oauth/refresh",
+                        headers={
+                            "Accept": "application/json",
+                            "NK": "NT",
+                            "Referer": f"{self._connect}/modern/",
+                        },
+                        timeout=10,
+                    )
+                for c in self.cs.cookies.jar:
+                    if c.name == "JWT_WEB":
+                        self.jwt_web = c.value
+                        break
+            except Exception as err:
+                _LOGGER.debug("Refresh failed: %s", _sanitize_exception_text(err))
 
     def dumps(self) -> str:
         """Serialize session state to JSON string."""
@@ -1342,8 +1504,15 @@ class Client:
         account access. It is written as 0o600 inside a 0o700 directory so a
         permissive process umask can't leave it world-readable on a shared host
         (GHSA-wjhr-76vg-2hvc).
+
+        Writes to a sibling temporary file and atomically replaces the target so
+        a concurrent reader never sees a truncated or partial token file.
         """
         p = token_file_path(path)
+        # Serialize with token mutation so the serialized snapshot is consistent
+        # (e.g. not torn across a concurrent refresh).
+        with self._token_lock:
+            payload = self.dumps()
         p.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         # mkdir's mode is subject to umask and a no-op if the dir already
         # exists; chmod enforces 0o700 unconditionally.
@@ -1352,21 +1521,38 @@ class Client:
         # Open with O_CREAT mode 0o600 (and O_NOFOLLOW where available so a
         # pre-planted symlink can't redirect the write) instead of write_text,
         # which would create the file under the umask first.
-        flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-        if hasattr(os, "O_NOFOLLOW"):
-            flags |= os.O_NOFOLLOW
-        fd = os.open(p, flags, 0o600)
-        with os.fdopen(fd, "w", encoding="utf-8") as token_file:
-            token_file.write(self.dumps())
-        # Enforce 0o600 even if the file pre-existed with looser permissions.
-        with contextlib.suppress(OSError):
-            p.chmod(0o600)
+        tmp = p.with_name(p.name + ".tmp")
+        try:
+            flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+            if hasattr(os, "O_NOFOLLOW"):
+                flags |= os.O_NOFOLLOW
+            fd = os.open(tmp, flags, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as token_file:
+                token_file.write(payload)
+            # Enforce 0o600 even if the file pre-existed with looser permissions.
+            with contextlib.suppress(OSError):
+                tmp.chmod(0o600)
+            tmp.replace(p)
+        except Exception:
+            with contextlib.suppress(OSError):
+                tmp.unlink()
+            raise
 
     def load(self, path: str) -> None:
+        """Read tokens from disk, refusing to follow symlinks.
+
+        A pre-planted symlink must not redirect the read to an attacker-controlled
+        file, so this mirrors the write-side hardening in ``dump()``.
+        """
         try:
             self._tokenstore_path = path
             p = token_file_path(path)
-            self.loads(p.read_text())
+            flags = os.O_RDONLY
+            if hasattr(os, "O_NOFOLLOW"):
+                flags |= os.O_NOFOLLOW
+            fd = os.open(p, flags)
+            with os.fdopen(fd, encoding="utf-8") as token_file:
+                self.loads(token_file.read())
         except Exception as e:
             raise GarminConnectConnectionError(
                 f"Token path not loading cleanly: {e}"
@@ -1381,8 +1567,9 @@ class Client:
             if not self.is_authenticated:
                 raise GarminConnectAuthenticationError("Missing tokens from dict load")
         except Exception as e:
+            _LOGGER.debug("Token extraction loads() structurally failed: %s", e)
             raise GarminConnectConnectionError(
-                f"Token extraction loads() structurally failed: {e}"
+                "Token extraction loads() structurally failed"
             ) from e
 
     def connectapi(self, path: str, **kwargs: Any) -> Any:
@@ -1415,8 +1602,28 @@ class Client:
 
     def resume_login(self, _client_state: Any, mfa_code: str) -> tuple[str | None, Any]:
         """Complete a previously initiated MFA login."""
-        self._complete_mfa(mfa_code)
-        return None, None
+        try:
+            self._complete_mfa(mfa_code)
+            if self.verify_login and not self._verify_token():
+                self._clear_auth_state()
+                raise GarminConnectConnectionError(
+                    "token rejected by API tier after MFA"
+                )
+            return None, None
+        finally:
+            # Always clear the pending MFA flag and per-attempt state so a new
+            # login can start after resume_login() finishes (success or failure).
+            self._mfa_pending = False
+            for attr in (
+                "_mfa_session",
+                "_mfa_login_params",
+                "_mfa_post_headers",
+                "_mfa_service_url",
+                "_mfa_flow",
+                "_mfa_method",
+                "_widget_last_resp",
+            ):
+                setattr(self, attr, None)
 
     def download(self, path: str, **kwargs: Any) -> bytes:
         if "headers" not in kwargs:
@@ -1425,8 +1632,29 @@ class Client:
         return self._run_request("GET", path, **kwargs).content
 
     def _run_request(self, method: str, path: str, **kwargs: Any) -> Any:
-        if self.is_authenticated and self._token_expires_soon():
-            self._refresh_session()
+        with self._token_lock:
+            if self.is_authenticated and self._token_expires_soon():
+                self._refresh_session()
+
+        # Defense-in-depth: callers must pass clean path components; query strings
+        # belong in the `params` kwarg, not embedded in the path. Validate the
+        # percent-decoded form: requests' requote_uri() decodes unreserved
+        # characters (e.g. %2e -> .) after this check, so a literal-only match
+        # would let a %2e%2e traversal slip through.
+        decoded_path = unquote(path)
+        # A quoted display name may legitimately contain a run of dots (e.g.
+        # "first..last"); only a path *segment* that is exactly ".." (or
+        # "..;<matrix-params>", a known filter-bypass trick) is traversal.
+        has_traversal_segment = any(
+            segment.split(";", 1)[0] == ".." for segment in decoded_path.split("/")
+        )
+        if (
+            has_traversal_segment
+            or "?" in decoded_path
+            or "#" in decoded_path
+            or "\\" in decoded_path
+        ):
+            raise ValueError(f"Invalid API path: {path!r}")
 
         url = f"{self._connectapi}/{path.lstrip('/')}"
 
@@ -1438,11 +1666,23 @@ class Client:
         headers.update(custom_headers)
 
         sess = self._api_session
+        # Snapshot stream positions of any file bodies so a 401 retry can
+        # rewind them; attempt #1 reads file handles to EOF, and re-sending
+        # the same kwargs would otherwise upload an empty/truncated body.
+        file_positions = _capture_file_positions(kwargs)
         resp = sess.request(method, url, headers=headers, **kwargs)
 
         if resp.status_code == 401:
-            self._refresh_session()
-            resp = sess.request(method, url, headers=self.get_api_headers(), **kwargs)
+            with self._token_lock:
+                self._refresh_session()
+            if file_positions is not None and _restore_file_positions(file_positions):
+                headers = self.get_api_headers()
+                headers.update(custom_headers)
+                resp = sess.request(method, url, headers=headers, **kwargs)
+            else:
+                # Unseekable/unrewindable file body: retrying would silently
+                # send an empty part. Fall through so the 401 raises below.
+                _LOGGER.debug("Skipping 401 retry: request body is not rewindable")
 
         if resp.status_code == 204:
 
@@ -1463,23 +1703,24 @@ class Client:
 
         if resp.status_code >= 400:
             error_msg = f"API Error {resp.status_code}"
+            safe_detail = ""
             try:
                 error_data = resp.json()
                 if isinstance(error_data, dict):
-                    msg = (
+                    safe_detail = (
                         error_data.get("message")
                         or error_data.get("content")
                         or error_data.get("detailedImportResult", {})
                         .get("failures", [{}])[0]
                         .get("messages", [""])[0]
-                    )
-                    if msg:
-                        error_msg += f" - {msg}"
-                    else:
-                        error_msg += f" - {error_data}"
-            except Exception:
-                if len(resp.text) < 500:
-                    error_msg += f" - {resp.text}"
+                    ) or ""
+            except Exception as e:
+                _LOGGER.debug("Could not extract safe error detail: %s", e)
+            if safe_detail:
+                error_msg += f" - {safe_detail}"
+            _LOGGER.debug(
+                "API error response: status=%s body=%r", resp.status_code, resp.text
+            )
             # A 404 is a missing resource, not a connectivity failure.
             if resp.status_code == 404:
                 raise GarminConnectNotFoundError(error_msg)

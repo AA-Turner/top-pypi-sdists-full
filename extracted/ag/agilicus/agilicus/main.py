@@ -685,6 +685,13 @@ def list_signups(ctx, **kwargs):
 @click.option("--attribute-org-id", default=None)
 @click.option("--show-column", multiple=True, default=None)
 @click.option("--cel-expression", default=None)
+@click.option("--page-at-key", multiple=True, type=str, default=None)
+@click.option(
+    "--page-sort", multiple=True, type=click.Choice(page_sort_order_values), default=None
+)
+@click.option(
+    "--search-direction", type=click.Choice(search_direction_values), default=None
+)
 @click.pass_context
 def list_audit_records(ctx, show_column, **kwargs):
     output_format = kwargs.pop("output_format", "")
@@ -718,6 +725,13 @@ def list_audit_records(ctx, show_column, **kwargs):
 @click.option("--request-id", default=None)
 @click.option("--map-email", is_flag=True, default=False)
 @click.option("--cel-expression", default=None)
+@click.option("--page-at-key", multiple=True, type=str, default=None)
+@click.option(
+    "--page-sort", multiple=True, type=click.Choice(page_sort_order_values), default=None
+)
+@click.option(
+    "--search-direction", type=click.Choice(search_direction_values), default=None
+)
 @click.pass_context
 def list_auth_audit_records(ctx, **kwargs):
     records = audits.query_auth_audits(ctx, **kwargs)

@@ -31,7 +31,6 @@ from wandb._iterutils import one
 from wandb._strutils import nameof
 from wandb.apis import public
 from wandb.apis.normalize import normalize_exceptions
-from wandb.apis.public.const import RETRY_TIMEDELTA
 from wandb.apis.public.registries import Registries, Registry
 from wandb.apis.public.registries._utils import fetch_org_entity_from_organization
 from wandb.apis.public.service_api import ServiceApi
@@ -41,13 +40,14 @@ from wandb.apis.public.utils import (
     parse_org_from_registry_path,
 )
 from wandb.errors import UsageError
+from wandb.proto import wandb_api_pb2 as apb
 from wandb.proto import wandb_internal_pb2 as pb
 from wandb.proto.wandb_telemetry_pb2 import Deprecated
 from wandb.sdk import wandb_login, wandb_setup
 from wandb.sdk.artifacts._gqlutils import resolve_org_entity_name
 from wandb.sdk.internal.internal_api import Api as InternalApi
 from wandb.sdk.launch.utils import LAUNCH_DEFAULT_PROJECT
-from wandb.sdk.lib import runid, wbauth
+from wandb.sdk.lib import json_util, runid, wbauth
 from wandb.sdk.lib.deprecation import warn_and_record_deprecation
 from wandb.sdk.lib.service.service_connection import WandbApiFailedError
 
@@ -150,10 +150,6 @@ class Api:
 
         if isinstance(self._auth, wbauth.AuthApiKey):
             self.api_key = self._auth.api_key
-            wandb_login._verify_login(
-                key=self.api_key,
-                base_url=base_url,
-            )
         else:
             self.api_key = None
 
@@ -187,8 +183,12 @@ class Api:
             settings=settings,
             timeout=self._timeout,
         )
+
+        if isinstance(self._auth, wbauth.AuthApiKey):
+            wandb_login._verify_login(self._auth, service_api=self._service_api)
+
         self._sentry = wandb.analytics.sentry.Sentry(pid=os.getpid())
-        self._configure_sentry()
+        self._configure_analytics()
 
     def _load_auth(self, base_url: str) -> wbauth.Auth:
         """Load or prompt for authentication credentials."""
@@ -206,7 +206,7 @@ class Api:
 
         return auth
 
-    def _configure_sentry(self) -> None:
+    def _configure_analytics(self) -> None:
         if not env.error_reporting_enabled():
             return
 
@@ -401,33 +401,48 @@ class Api:
         # 1. create required default launch project in the entity
         self.create_project(LAUNCH_DEFAULT_PROJECT, entity)
 
-        api = InternalApi(
-            default_settings={
-                "entity": entity,
-                "project": self.project(LAUNCH_DEFAULT_PROJECT),
-            },
-            retry_timedelta=RETRY_TIMEDELTA,
+        # 2. create default resource config, receive config id
+        config_json = json_util.dumps({"resource_args": {type: config}})
+        template_variables_json = (
+            json_util.dumps(template_variables) if template_variables else "{}"
         )
 
-        # 2. create default resource config, receive config id
-        config_json = json.dumps({"resource_args": {type: config}})
-        create_config_result = api.create_default_resource_config(
-            entity, type, config_json, template_variables
+        response = self._service_api.send_api_request(
+            apb.ApiRequest(
+                run_queue_operation_request=apb.RunQueueOperationRequest(
+                    create_default_resource_config_request=apb.CreateDefaultResourceConfigRequest(
+                        entity_name=entity,
+                        resource=type,
+                        config=config_json,
+                        template_variables=template_variables_json,
+                    )
+                )
+            )
         )
-        if not create_config_result["success"]:
+        create_config_result = response.run_queue_operation_response.create_default_resource_config_response
+        if not create_config_result.success:
             raise wandb.Error("failed to create default resource config")
-        config_id = create_config_result["defaultResourceConfigID"]
+        config_id = create_config_result.default_resource_config_id
 
         # 3. create run queue
-        create_queue_result = api.create_run_queue(
-            entity,
-            LAUNCH_DEFAULT_PROJECT,
-            name,
-            "PROJECT",
-            prioritization_mode,
-            config_id,
+        response = self._service_api.send_api_request(
+            apb.ApiRequest(
+                run_queue_operation_request=apb.RunQueueOperationRequest(
+                    create_run_queue_request=apb.CreateRunQueueRequest(
+                        entity=entity,
+                        project=LAUNCH_DEFAULT_PROJECT,
+                        queue_name=name,
+                        access="PROJECT",
+                        default_resource_config_id=config_id,
+                        prioritization_mode=prioritization_mode,
+                    )
+                )
+            )
         )
-        if not create_queue_result["success"]:
+        create_queue_result = (
+            response.run_queue_operation_response.create_run_queue_response
+        )
+        if not create_queue_result.success:
             raise wandb.Error("failed to create run queue")
 
         return public.RunQueue(
@@ -506,19 +521,21 @@ class Api:
         """
         # Convert user-facing lowercase access to backend uppercase
         backend_access = access.upper()
+        spec_json = spec if isinstance(spec, str) else json.dumps(spec)
 
-        api = InternalApi(retry_timedelta=RETRY_TIMEDELTA)
-        result = api.create_custom_chart(
-            entity=entity,
-            name=name,
-            display_name=display_name,
-            spec_type=spec_type,
-            access=backend_access,
-            spec=spec,
+        response = self._service_api.send_api_request(
+            apb.ApiRequest(
+                create_custom_chart_request=apb.CreateCustomChartRequest(
+                    entity=entity,
+                    name=name,
+                    display_name=display_name,
+                    spec_type=spec_type,
+                    access=backend_access,
+                    spec=spec_json,
+                )
+            )
         )
-        if result is None or result.get("chart") is None:
-            raise wandb.Error("failed to create custom chart")
-        return result["chart"]["id"]
+        return response.create_custom_chart_response.chart_id
 
     def upsert_run_queue(
         self,
@@ -587,13 +604,6 @@ class Api:
             )
 
         self.create_project(LAUNCH_DEFAULT_PROJECT, entity)
-        api = InternalApi(
-            default_settings={
-                "entity": entity,
-                "project": self.project(LAUNCH_DEFAULT_PROJECT),
-            },
-            retry_timedelta=RETRY_TIMEDELTA,
-        )
         # User provides external_links as a dict with name: url format
         # but backend stores it as a list of dicts with url and label keys.
         external_links = external_links or {}
@@ -606,20 +616,37 @@ class Api:
                 for key, value in external_links.items()
             ]
         }
-        upsert_run_queue_result = api.upsert_run_queue(
-            name,
-            entity,
-            resource_type,
-            {"resource_args": {resource_type: resource_config}},
-            template_variables=template_variables,
-            external_links=external_links,
-            prioritization_mode=prioritization_mode,
+        response = self._service_api.send_api_request(
+            apb.ApiRequest(
+                run_queue_operation_request=apb.RunQueueOperationRequest(
+                    upsert_run_queue_request=apb.UpsertRunQueueRequest(
+                        entity_name=entity,
+                        project_name=LAUNCH_DEFAULT_PROJECT,
+                        queue_name=name,
+                        resource_type=resource_type,
+                        resource_config=json.dumps(
+                            {"resource_args": {resource_type: resource_config}}
+                        ),
+                        external_links=(
+                            json.dumps(external_links) if external_links else None
+                        ),
+                        prioritization_mode=prioritization_mode,
+                        template_variables=(
+                            json.dumps(template_variables)
+                            if template_variables
+                            else None
+                        ),
+                    )
+                )
+            )
         )
-        if not upsert_run_queue_result["success"]:
+        upsert_run_queue_result = (
+            response.run_queue_operation_response.upsert_run_queue_response
+        )
+
+        if not upsert_run_queue_result.success:
             raise wandb.Error("failed to create run queue")
-        schema_errors = (
-            upsert_run_queue_result.get("configSchemaValidationErrors") or []
-        )
+        schema_errors = upsert_run_queue_result.config_schema_validation_errors
         for error in schema_errors:
             wandb.termwarn(f"resource config validation: {error}")
 
@@ -679,8 +706,10 @@ class Api:
         from wandb.apis._generated import GET_DEFAULT_ENTITY_GQL, GetDefaultEntity
 
         if self._default_entity is None:
-            data = self._service_api.execute_graphql(GET_DEFAULT_ENTITY_GQL)
-            result = GetDefaultEntity.model_validate(data)
+            result = self._service_api.execute_graphql(
+                GET_DEFAULT_ENTITY_GQL,
+                parse=GetDefaultEntity.model_validate_json,
+            )
             if (viewer := result.viewer) and (entity := viewer.entity):
                 self._default_entity = entity
         return self._default_entity
@@ -698,8 +727,10 @@ class Api:
         from .users import User
 
         if self._viewer is None:
-            data = self._service_api.execute_graphql(GET_VIEWER_GQL)
-            result = GetViewer.model_validate(data)
+            result = self._service_api.execute_graphql(
+                GET_VIEWER_GQL,
+                parse=GetViewer.model_validate_json,
+            )
             if (viewer := result.viewer) is None:
                 msg = "Unable to fetch user data from W&B, please verify your API key is valid."
                 raise ValueError(msg)
@@ -997,8 +1028,12 @@ class Api:
     def create_team(self, team: str, admin_username: str | None = None) -> Team:
         """Create a new team.
 
+        For W&B Multi-tenant Cloud users, set the Default API organization in
+        your user settings in the W&B UI before calling `create_team()`.
+        This setting determines the organization the new team will belong to.
+
         Args:
-            team: The name of the team
+            team: The name of the team.
             admin_username: Username of the admin user of the team.
                 Defaults to the current user.
 
@@ -1049,11 +1084,11 @@ class Api:
                 non_org_entity=self.settings.get("entity") or self.default_entity,
             )
 
-        gql_op = FETCH_ORGANIZATION_GQL
-        gql_vars = {"org": org_name}
-        data = self._service_api.execute_graphql(gql_op, variables=gql_vars)
-
-        result = FetchOrganization.model_validate(data)
+        result = self._service_api.execute_graphql(
+            FETCH_ORGANIZATION_GQL,
+            variables={"org": org_name},
+            parse=FetchOrganization.model_validate_json,
+        )
         if (org := result.organization) is None:
             raise ValueError(f"Organization {org_name!r} not found.")
         return Organization(self._service_api, **org.model_dump())
@@ -1074,11 +1109,11 @@ class Api:
 
         from .users import User
 
-        data = self._service_api.execute_graphql(
+        result = self._service_api.execute_graphql(
             SEARCH_USERS_GQL,
-            {"query": username_or_email},
+            variables={"query": username_or_email},
+            parse=SearchUsers.model_validate_json,
         )
-        result = SearchUsers.model_validate(data)
         if not (conn := result.users) or not (edges := conn.edges):
             return None
         if len(edges) > 1:
@@ -1102,11 +1137,11 @@ class Api:
 
         from .users import User
 
-        data = self._service_api.execute_graphql(
+        result = self._service_api.execute_graphql(
             SEARCH_USERS_GQL,
-            {"query": username_or_email},
+            variables={"query": username_or_email},
+            parse=SearchUsers.model_validate_json,
         )
-        result = SearchUsers.model_validate(data)
         if not ((conn := result.users) and (edges := conn.edges)):
             return []
         return [
@@ -2534,6 +2569,7 @@ class Api:
                 CREATE_AUTOMATION_GQL,
                 variables=variables,
                 omit_fragments=omit_fragments,
+                parse=CreateAutomation.model_validate_json,
             )
         except WandbApiFailedError as e:
             status = _api_error_status(e)
@@ -2546,18 +2582,15 @@ class Api:
                     f"Automation {name!r} exists. Unable to create another with the same name."
                 ) from None
             raise
-
-        try:
-            result = CreateAutomation.model_validate(data).result
         except ValidationError as e:
             msg = f"Invalid response while creating automation {name!r}"
             raise RuntimeError(msg) from e
 
-        if (result is None) or (result.trigger is None):
+        if not (result := data.result) or not (trigger := result.trigger):
             msg = f"Empty response while creating automation {name!r}"
             raise RuntimeError(msg)
 
-        return Automation.model_validate(result.trigger)
+        return Automation.model_validate(trigger)
 
     @normalize_exceptions
     @tracked
@@ -2655,6 +2688,7 @@ class Api:
                 UPDATE_AUTOMATION_GQL,
                 variables=variables,
                 omit_fragments=self._omitted_automation_fragments(),
+                parse=UpdateAutomation.model_validate_json,
             )
         except WandbApiFailedError as e:
             status = _api_error_status(e)
@@ -2670,18 +2704,15 @@ class Api:
             # Not a (known) recoverable API error
             wandb.termerror(f"Got API error: {e}")
             raise
-
-        try:
-            result = UpdateAutomation.model_validate(data).result
         except ValidationError as e:
             msg = f"Invalid response while updating automation {name!r}"
             raise RuntimeError(msg) from e
 
-        if (result is None) or (result.trigger is None):
+        if not (result := data.result) or not (trigger := result.trigger):
             msg = f"Empty response while updating automation {name!r}"
             raise RuntimeError(msg)
 
-        return Automation.model_validate(result.trigger)
+        return Automation.model_validate(trigger)
 
     @normalize_exceptions
     @tracked
@@ -2698,22 +2729,22 @@ class Api:
         from wandb.automations._utils import extract_id
 
         id_ = extract_id(obj)
-        mutation = DELETE_AUTOMATION_GQL
-        variables = {"id": id_}
-
-        data = self._service_api.execute_graphql(mutation, variables=variables)
 
         try:
-            result = DeleteAutomation.model_validate(data).result
+            data = self._service_api.execute_graphql(
+                DELETE_AUTOMATION_GQL,
+                variables={"id": id_},
+                parse=DeleteAutomation.model_validate_json,
+            )
         except ValidationError as e:
             msg = f"Invalid response while deleting automation {id_!r}"
             raise RuntimeError(msg) from e
 
-        if result is None:
+        if not (result := data.result):
             msg = f"Empty response while deleting automation {id_!r}"
             raise RuntimeError(msg)
 
-        if not result.success:
+        if not (success := result.success):
             raise RuntimeError(f"Failed to delete automation: {id_!r}")
 
-        return result.success
+        return success

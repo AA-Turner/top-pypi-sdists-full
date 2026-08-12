@@ -6,7 +6,12 @@ import httpx
 import pytest
 
 from mistralai.workflows.core.worker import _worker_heartbeat
+from mistralai.workflows.core.worker_registrations import (
+    get_workflow_registration_ref,
+    set_worker_registrations,
+)
 from mistralai.workflows.exceptions import WorkflowsException
+from mistralai.workflows.models import WorkflowSpecWithTaskQueue
 from mistralai.workflows.protocol.v1.workflow import (
     WorkflowRegistrationRef,
     WorkflowSpecsRegisterResponse,
@@ -75,6 +80,8 @@ async def _run_heartbeat(
             workflow_definitions=[],
             workflow_registration_refs=[_make_ref()],
             interval=10,
+            deployment_name="test-deployment",
+            worker_name="test-worker",
         )
 
     return register
@@ -127,6 +134,41 @@ class TestWorkerHeartbeat:
         client.heartbeat_async.assert_awaited_once()
         register.assert_not_awaited()
 
+    async def test_fallback_reregistration_refreshes_worker_registrations(self) -> None:
+        set_worker_registrations({})
+        spec = WorkflowSpecWithTaskQueue(name="alpha", description="alpha", input_schema={}, task_queue="tq")
+        refreshed_ref = WorkflowRegistrationRef(workflow_id=uuid4(), workflow_registration_id=uuid4())
+        register = AsyncMock(
+            return_value=WorkflowSpecsRegisterResponse(
+                workflow_registration_ids=[refreshed_ref.workflow_registration_id],
+                workflow_registration_refs=[refreshed_ref],
+                has_conflicts=False,
+            )
+        )
+
+        async def _sleep_once(delay: float) -> None:
+            if register.await_count:
+                raise asyncio.CancelledError
+
+        try:
+            with (
+                pytest.raises(asyncio.CancelledError),
+                patch("asyncio.sleep", new=_sleep_once),
+                patch("mistralai.workflows.core.worker._register_workflow_specs", new=register),
+            ):
+                await _worker_heartbeat(
+                    worker_client=_make_worker_client([_make_sdk_error(500)]),
+                    workflow_definitions=[spec],
+                    workflow_registration_refs=[_make_ref()],
+                    interval=10,
+                    deployment_name="test-deployment",
+                    worker_name="test-worker",
+                )
+
+            assert get_workflow_registration_ref("alpha") == refreshed_ref
+        finally:
+            set_worker_registrations({})
+
     async def test_unexpected_error_raises_workflows_exception(self) -> None:
         client = AsyncMock()
         client.heartbeat_async = AsyncMock(side_effect=RuntimeError("unexpected"))
@@ -146,6 +188,8 @@ class TestWorkerHeartbeat:
                 workflow_definitions=[],
                 workflow_registration_refs=[_make_ref()],
                 interval=10,
+                deployment_name="test-deployment",
+                worker_name="test-worker",
             )
 
         assert mock_logger.error.call_count == 1

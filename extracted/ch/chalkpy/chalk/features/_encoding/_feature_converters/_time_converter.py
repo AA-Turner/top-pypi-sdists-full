@@ -27,11 +27,6 @@ from ._base import (
 
 # pyright: reportPrivateUsage=false, reportIncompatibleMethodOverride=false, reportReturnType=false, reportUnnecessaryCast=false, reportUnnecessaryComparison=false
 
-try:
-    import polars as pl
-except ImportError:
-    pl = None
-
 
 def _coerce_time(x: Any) -> time:
     """Convert x to time, matching the structuring logic in rich.py/_structure_time and json.py/_structure_time.
@@ -87,7 +82,7 @@ class _TimeFeatureConverterBase(
 class Time32sFeatureConverter(_TimeFeatureConverterBase):
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.time32("s")
     _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(time32=pb.TIME_UNIT_SECOND)
-    _polars_dtype_value: ClassVar[Any] = pl.Time() if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None
 
     def from_primitive_to_protobuf(self, value: time | pa.Scalar) -> pb.ScalarValue:
         scalar_value = _unwrap_scalar_value(value)
@@ -136,7 +131,7 @@ class Time32sFeatureConverter(_TimeFeatureConverterBase):
 class Time32msFeatureConverter(_TimeFeatureConverterBase):
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.time32("ms")
     _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(time32=pb.TIME_UNIT_MILLISECOND)
-    _polars_dtype_value: ClassVar[Any] = pl.Time() if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None
 
     def from_primitive_to_protobuf(self, value: time | pa.Scalar) -> pb.ScalarValue:
         scalar_value = _unwrap_scalar_value(value)
@@ -186,7 +181,7 @@ class Time32msFeatureConverter(_TimeFeatureConverterBase):
 class Time64usFeatureConverter(_TimeFeatureConverterBase):
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.time64("us")
     _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(time64=pb.TIME_UNIT_MICROSECOND)
-    _polars_dtype_value: ClassVar[Any] = pl.Time() if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None
 
     def from_primitive_to_protobuf(self, value: time | pa.Scalar) -> pb.ScalarValue:
         scalar_value = _unwrap_scalar_value(value)
@@ -236,7 +231,7 @@ class Time64usFeatureConverter(_TimeFeatureConverterBase):
 class Time64nsFeatureConverter(_TimeFeatureConverterBase):
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.time64("ns")
     _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(time64=pb.TIME_UNIT_NANOSECOND)
-    _polars_dtype_value: ClassVar[Any] = pl.Time() if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None
 
     def from_primitive_to_protobuf(self, value: time | pa.Scalar) -> pb.ScalarValue:
         scalar_value = _unwrap_scalar_value(value)

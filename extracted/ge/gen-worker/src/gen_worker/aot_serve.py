@@ -95,6 +95,7 @@ from . import boot_phases
 from . import cell_key as cell_key_mod
 from . import host_isa
 from .cell_adopt import AdoptOutcome
+from . import serve_posture
 from . import shape_growth
 from .compile_cache import (
     AdoptError,
@@ -105,6 +106,7 @@ from .compile_cache import (
     sku_slug,
 )
 from .models import lora_lifted
+from .models.memory import is_cuda_oom
 
 logger = logging.getLogger(__name__)
 
@@ -255,6 +257,19 @@ def runtime_key() -> Dict[str, str]:
 # ``fleet_cells.adopt_delegated_mint`` (this pod's OWN mint). Only the first
 # registered, so a self-minted cell — the one artifact this process is
 # certain is exported — was the one ref ``is_aot_ref`` did not recognize.
+#
+# pgw#1141b: that rule was a CONVENTION, and the ORDERED arm route — the one
+# §4.27 boot-adopt and every hub Plan take — never kept it. `arm_ordered`
+# verifies the receipt and calls `provision.arm_aot` directly, so a
+# boot-adopted cell wrapped itself onto a live pipeline while `is_aot_ref`
+# still answered False for its ref, and every reader asking "is this the
+# exported lane?" scored it on the DYNAMO lane's cache-hit ledger, which no
+# AOTI artifact can move. Measured on a real pod (0.111.0, POD PROOF #4):
+# `functions=()` -> `target_applicability_incomplete` ->
+# `armed_target_unresolved` -> eager for life. The registration is now made
+# by :func:`load_and_wrap` at the wrap itself — the one place every route
+# passes and the moment the fact becomes true — so no future arm route can
+# forget it.
 _KNOWN_AOT_KEYS: set[str] = set()
 _KNOWN_AOT_KEYS_LOCK = threading.Lock()
 
@@ -558,21 +573,55 @@ def class_hash(
     Folds the entry's coordinate (target, fork, class dims), its
     ``range_digest`` (the MEASURED node-only-collision fix: three exports
     differing only in declared range hashed identically), its graph
-    interface block, and the trace-mode/lora facts. 16-hex, recomputable
-    from the entry block alone — so a consumer can prove the stamp and a
-    mismatch NAMES the class (the receipts principle).
+    interface block, the node-level ``graph_witness`` body digest, and the
+    trace-mode/lora facts. 16-hex, recomputable from the entry block alone —
+    so a consumer can prove the stamp and a mismatch NAMES the class (the
+    receipts principle).
+
+    ``graph_witness`` (v3, pgw#1031): the node-level digest of the traced
+    program (``graph_hash.graph_hash``, recorded on every keying block by
+    ``aot_mint.keying_block``). Before v3 this axis folded only the graph
+    INTERFACE (``graph``) — the traced ingress identity — so two endpoints
+    whose declarations agreed while their bodies differed shared a key
+    (measured 2026-08-10: ``micro-pad32`` 112 nodes vs ``micro-pad32-branchy``
+    102 nodes, byte-identical keying block, one key, two artifacts). Folding
+    the witness here makes the key sound BY CONSTRUCTION: two different bodies
+    key apart, a collision becomes a MISS (eager + mint), which is the cheap
+    outcome. The witness stays recorded as a top-level sibling for the adopt
+    backstop (``aot_identity.verify_graph_witness``) — defense-in-depth. The
+    fold is tolerant of a missing witness (folds ``""``) so a pre-witness
+    entry is body-blind rather than unhashable; production entries always
+    carry it (``keying_block``), and such stale cells are refused by the
+    envelope/structure gates and the witness backstop regardless.
+
+    ``placement`` (pgw#1113) folds in only when the entry states MORE THAN ONE
+    distinct device — see the comment at the fold.
     """
     facts = {
-        "v": 2,
+        "v": 3,
         "target": str(entry.get("target") or ""),
         "fork": [[str(n), v] for n, v in (entry.get("fork") or [])],
         "class_dims": [
             [str(n), int(v)] for n, v in (entry.get("class_dims") or [])],
         "range_digest": str(entry.get("range_digest") or ""),
         "graph": dict(entry.get("graph") or {}),
+        "graph_witness": str(entry.get("graph_witness") or ""),
         "strict": bool(strict),
         "lora_bucket": int(lora_bucket or 0),
     }
+    placement = sorted({str(d) for d in (entry.get("placement") or ()) if d})
+    if len(placement) > 1:
+        # pgw#1113, closing pgw#819 at the key: a program whose own device map
+        # spans several cards has that placement baked into its kernels, and
+        # the canonical graph form scrubs the device INDEX by deliberate
+        # design (`graph_hash._render_scalar`) so it cannot ride `graph`.
+        # Keyed only when non-trivial — the `excluded` / `param` / `overlay`
+        # precedent — because a single-device placement is what every cell the
+        # fleet has published states, and a field that says "unchanged" would
+        # strand all of them. No `v` bump for the same reason: the fact is
+        # absent from every existing entry and its absence must stay the
+        # canonical form.
+        facts["placement"] = placement
     blob = json.dumps(facts, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(blob).hexdigest()[:16]
 
@@ -2418,6 +2467,19 @@ def wrap_module(
         artifact_lora, eager_lora = adapter_call_kwargs(module, runner)
         eager_kwargs = {**kwargs, **eager_lora}
         kwargs = {**kwargs, **artifact_lora}
+        if serve_posture.eager_only():
+            # pgw#1142 / §4.32 item 4: an operator ordered eager. This is THE
+            # reversibility seam — the artifact is not unwrapped and `state`
+            # is not touched, so releasing the order resumes compiled serving
+            # on the very next call with no re-arm, no re-materialize and no
+            # re-mint. Unwrapping here would have been the same posture for
+            # one boot and a lie afterwards.
+            #
+            # Ordered BEFORE the `failed` check only for cost; the two are
+            # independent and stay independent — releasing the order never
+            # resurrects a cell de-armed for cause (§4.31), because that
+            # de-arm is evidence and this is policy.
+            return original(*args, **eager_kwargs)
         if state["failed"]:
             return original(*args, **eager_kwargs)
         try:
@@ -2478,6 +2540,26 @@ def wrap_module(
             _revoke(state, f"constants unbound: {exc}")
             return original(*args, **eager_kwargs)
         except Exception as exc:  # noqa: BLE001 — ANY artifact problem => eager
+            if is_cuda_oom(exc):
+                # pgw#1141: ATTRIBUTION. The serve-first doctrine makes the
+                # first real request the proof, so what that request blames
+                # decides whether a good cell survives — and allocator
+                # exhaustion is a fact about the CARD at this instant (a
+                # sibling load, a concurrent rotation), not about the artifact.
+                # Condemning the cell for it would retire a correct one on the
+                # first busy moment and re-mint it on the replacement pod.
+                # Serve THIS request eager, stay armed, say so.
+                logger.warning(
+                    "aot-serve: %s hit CUDA OOM (%s); serving this request "
+                    "eager, artifact stays armed — allocator pressure is not "
+                    "the cell's fault", label, exc)
+                activity_mod.emit_event(
+                    "aot_serve_oom",
+                    f"family={meta.get('family')} target={label}: "
+                    f"{type(exc).__name__}: {exc}",
+                    phase="cuda_oom",
+                )
+                return original(*args, **eager_kwargs)
             state["failed"] = True
             detail = (
                 f"AOTI artifact {label} failed: "
@@ -2761,6 +2843,11 @@ def load_and_wrap(
             "bound_constants": {
                 "pools": pools, "literals": literals_by_entry},
         })
+        # pgw#1141b: THE registration, at the one seam every arm route passes.
+        # An exported cell is now live on this object, so its key names an
+        # aot-inductor artifact as a matter of fact rather than of whether the
+        # caller remembered to say so.
+        note_aot_key(str(meta.get("cell_key") or ""))
         logger.info(
             "aot-serve: loaded+bound %d entr%s across %d target(s) in %.1fs "
             "(%d declared constants, combined_graph_hash=%s)",
@@ -2954,6 +3041,25 @@ def is_armed(pipeline: Any) -> bool:
     return bool(states) and not any(s.get("failed", False) for s in states)
 
 
+def holds_exported_cell(pipeline: Any) -> bool:
+    """Whether an AOTI cell is WRAPPED onto this object — armed or revoked.
+
+    pgw#1141b: the LANE question, asked of the object instead of a ref string.
+    "Is this the exported lane?" decides which failure detector applies — the
+    dynamo lane's per-class cache-hit ledger (which an AOTI artifact can never
+    move, so it reads every honest adoption as a disproof) or §4.31's
+    serve-first rule. Answering it through :func:`is_aot_ref` made the answer
+    depend on whether some earlier caller had announced the key to this
+    process; the wrap is the fact itself.
+
+    Distinct from :func:`is_armed` on purpose: a cell whose guard revoked it
+    still HOLDS this pipeline's eager originals, and the install path has to
+    tell "revoked exported cell" (never advertise it) apart from "no cell here
+    at all" (an ordinary dynamo/eager object).
+    """
+    return bool(_marker_states(pipeline))
+
+
 def set_guard_failure_callback(pipeline: Any, callback: Any) -> bool:
     """Bind scheduler-state revocation to every wrapped target's guard."""
     states = _marker_states(pipeline)
@@ -3035,6 +3141,7 @@ __all__ = [
     "entries_from_meta",
     "execution_count",
     "proven_since",
+    "holds_exported_cell",
     "host_isa_reason",
     "NO_HOST_ISA_STAMP",
     "ingress_class_name",

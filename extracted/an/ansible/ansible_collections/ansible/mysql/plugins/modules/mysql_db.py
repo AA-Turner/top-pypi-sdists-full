@@ -13,6 +13,7 @@ DOCUMENTATION = r'''
 module: mysql_db
 short_description: Add or remove MySQL or MariaDB databases from a remote host
 description:
+- "Important: MariaDB support will be dropped in collection version 6.0.0. Use the M(ansible.mariadb.mariadb_db) instead."
 - Add or remove MySQL or MariaDB databases from a remote host.
 options:
   name:
@@ -737,7 +738,7 @@ def main():
     if state in ['absent', 'present'] and not sql_log_bin:
         cursor.execute("SET SQL_LOG_BIN=0;")
 
-    server_implementation = get_server_implementation(cursor)
+    server_implementation = get_server_implementation(module, cursor)
     server_version = get_server_version(cursor)
 
     changed = False

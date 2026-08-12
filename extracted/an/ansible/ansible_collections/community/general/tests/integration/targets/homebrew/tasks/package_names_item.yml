@@ -6,11 +6,11 @@
 # having set package variable to the name to test
 - name: Test one package
   block:
-    - debug:
+    - ansible.builtin.debug:
         var: package
 
     - name: Assure package is absent
-      homebrew:
+      community.general.homebrew:
         package: "{{ package[0] }}"
         state: absent
         update_homebrew: false
@@ -18,7 +18,7 @@
       become_user: "{{ brew_stat.stat.pw_name }}"
 
     - name: Install package by an alternative name
-      homebrew:
+      community.general.homebrew:
         package: "{{ package[1] }}"
         state: present
         update_homebrew: false
@@ -26,7 +26,7 @@
       become_user: "{{ brew_stat.stat.pw_name }}"
       register: package_result
 
-    - assert:
+    - ansible.builtin.assert:
         that:
           - package_result is changed
           - package_result.changed_pkgs[0] == package[1]
@@ -34,7 +34,7 @@
           - 'package_result.msg == "Package installed: " ~ package[1]'
 
     - name: Reinstall should do nothing
-      homebrew:
+      community.general.homebrew:
         package: "{{ package[1] }}"
         state: present
         update_homebrew: false
@@ -42,13 +42,13 @@
       become_user: "{{ brew_stat.stat.pw_name }}"
       register: package_result
 
-    - assert:
+    - ansible.builtin.assert:
         that:
           - package_result is not changed
           - 'package_result.msg == "Package already installed: " ~ package[1]'
 
     - name: Uninstall should work on alternate name
-      homebrew:
+      community.general.homebrew:
         package: "{{ package[1] }}"
         state: absent
         update_homebrew: false
@@ -56,7 +56,7 @@
       become_user: "{{ brew_stat.stat.pw_name }}"
       register: package_result
 
-    - assert:
+    - ansible.builtin.assert:
         that:
           - package_result is changed
           - 'package_result.msg == "Package uninstalled: " ~ package[1]'

@@ -1,22 +1,24 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: browser-use-sdk
-Version: 3.10.0
+Version: 3.11.0
 Summary: Python SDK for the Browser Use cloud API
 Project-URL: Homepage, https://github.com/browser-use/sdk
 Project-URL: Repository, https://github.com/browser-use/sdk
 Project-URL: Issues, https://github.com/browser-use/sdk/issues
 License-Expression: MIT
 Requires-Python: >=3.9
-Requires-Dist: httpx>=0.24
-Requires-Dist: pydantic>=2.0
+Requires-Dist: httpx==0.28.1
+Requires-Dist: idna==3.18
+Requires-Dist: pydantic==2.13.4
 Provides-Extra: dev
-Requires-Dist: pyright>=1.1; extra == 'dev'
-Requires-Dist: pytest>=7; extra == 'dev'
+Requires-Dist: pyright==1.1.411; extra == 'dev'
+Requires-Dist: pytest==9.1.1; (python_version >= '3.10') and extra == 'dev'
 Provides-Extra: examples
-Requires-Dist: python-dotenv>=1.0; extra == 'examples'
+Requires-Dist: python-dotenv==1.2.2; (python_version >= '3.10') and extra == 'examples'
 Provides-Extra: x402
-Requires-Dist: urllib3>=2.7.0; (python_version >= '3.10') and extra == 'x402'
-Requires-Dist: x402[evm]>=2.9.0; (python_version >= '3.10') and extra == 'x402'
+Requires-Dist: aiohttp==3.14.3; (python_version >= '3.10') and extra == 'x402'
+Requires-Dist: urllib3==2.7.0; (python_version >= '3.10') and extra == 'x402'
+Requires-Dist: x402[evm]==2.17.0; (python_version >= '3.10') and extra == 'x402'
 Description-Content-Type: text/markdown
 
 # browser-use-sdk

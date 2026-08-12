@@ -62,7 +62,7 @@ class GetAtsApplicationsRequestTypedDict(TypedDict):
     | --- | --- | --- |
     | `candidate` | n/a | ✓ Yes |
     | `candidate` → `tags` | ✗ No | ✗ No |
-    | `current_stage` | n/a | ✓ Yes |
+    | `current_stage` | ✗ No | ✗ No |
     | `job` | ✗ No | ✗ No |
     | `interviews` | ✓ Yes | ✓ Yes |
     | `offers` | ✓ Yes | ✓ Yes |
@@ -125,7 +125,7 @@ class GetAtsApplicationsRequest(BaseModel):
     | --- | --- | --- |
     | `candidate` | n/a | ✓ Yes |
     | `candidate` → `tags` | ✗ No | ✗ No |
-    | `current_stage` | n/a | ✓ Yes |
+    | `current_stage` | ✗ No | ✗ No |
     | `job` | ✗ No | ✗ No |
     | `interviews` | ✓ Yes | ✓ Yes |
     | `offers` | ✓ Yes | ✓ Yes |

@@ -7,21 +7,21 @@
 # to be able to check replication (one server for master, another for replica).
 
 - name: Install redis dependencies
-  package:
+  ansible.builtin.package:
     name: "{{ redis_packages[ansible_facts.distribution] }}"
     state: latest
     policy_rc_d: "{{ 101 if ansible_facts.pkg_mgr == 'apt' else omit }}"
   notify: cleanup redis
 
 - name: Install redis module
-  pip:
+  ansible.builtin.pip:
     name: "{{ redis_module }}"
     extra_args: "-c {{ remote_constraints }}"
     state: present
   notify: cleanup redis
 
 - name: Create redis directories
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: directory
     owner: "{{ redis_user[ansible_facts.distribution] }}"
@@ -33,7 +33,7 @@
     - "{{ replica_logdir }}"
 
 - name: Create redis configs
-  copy:
+  ansible.builtin.copy:
     dest: "{{ item.file }}"
     content: |
       daemonize yes
@@ -57,7 +57,7 @@
   ansible.builtin.command: "{{ redis_bin[ansible_facts.distribution] }} {{ master_conf }}"
 
 - name: Start redis replica
-  ansible.builtin.command: "{{ redis_bin[ansible_facts.distribution] }} {{ replica_conf }} --{% if old_redis %}slaveof{% else %}replicaof{% endif %} 127.0.0.1 {{ master_port }}"
+  ansible.builtin.command: "{{ redis_bin[ansible_facts.distribution] }} {{ replica_conf }} --replicaof 127.0.0.1 {{ master_port }}"
 
 - name: Wait for redis master to be started
   ansible.builtin.wait_for:

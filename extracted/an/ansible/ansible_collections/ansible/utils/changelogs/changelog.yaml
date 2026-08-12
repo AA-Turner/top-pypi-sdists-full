@@ -548,3 +548,17 @@ releases:
       - onboard-codecov.yml
       - update_fact_bracket.yaml
     release_date: "2026-06-12"
+  6.1.0:
+    changes:
+      minor_changes:
+        - remove warning message about potential instability of ipaddr (it has been
+          stable for years)
+    fragments:
+      - add_stale_closure_workflow.yml
+      - ci_pull_request_trigger.yaml
+      - disable_auto_release_workflow.yaml
+      - fix_pytest_mark_error.yml
+      - onboard-codecov.yml
+      - remove-ipaddr-warning-message-update-docs.yml
+      - tox_skip_cleanup.yml
+    release_date: "2026-08-10"

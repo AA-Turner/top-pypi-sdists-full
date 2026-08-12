@@ -26,6 +26,9 @@ class WorkflowContext(WorkflowContextBase):
     # so downstream readers (ToolCallClient, RemoteSession) can trust its
     # contents as interceptor-owned without forgery checks.
     trusted_extensions: dict[str, Any] = Field(default_factory=dict)
+    continued_run_id: str | None = None
+    first_execution_run_id: str | None = None
+    schedule_id: str | None = None
 
 
 class EncodedPayload(EncodedPayloadBase):
@@ -49,6 +52,9 @@ class PayloadMetadataKeys(StrEnum):
     EXTENSIONS = f"{INTERNAL_METADATA_PREFIX}extensions"
     TRUSTED_EXTENSIONS = f"{INTERNAL_METADATA_PREFIX}trusted_extensions"
     ON_BEHALF_OF = f"{INTERNAL_METADATA_PREFIX}on_behalf_of"
+    CONTINUED_RUN_ID = "continued_run_id"
+    FIRST_EXECUTION_RUN_ID = "first_execution_run_id"
+    SCHEDULE_ID = "schedule_id"
     IS_UNENCODED_MEMO = "is_unencoded_memo"
 
 

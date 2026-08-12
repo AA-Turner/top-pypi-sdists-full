@@ -5,6 +5,7 @@ import io
 import logging
 import os
 from pathlib import Path
+import re
 import sys
 import tempfile
 import types
@@ -111,7 +112,23 @@ class ObfuscationTests(unittest.TestCase):
         self.assertEqual(nx_obfuscate.SB["nx_url"], "https://tiyoncvmleryjmoftdya.supabase.co")
         self.assertEqual(nx_obfuscate.HUB["default"], "http://localhost:37373")
         self.assertEqual(nx_obfuscate.AUTH["base"], "https://api.nexplora.ai")
-        self.assertEqual(nx_obfuscate.ID["version"], nx_cli.VERSION)
+        # ── COMPARED AGAINST setup.py, NOT THE INSTALLED PACKAGE ──────────────────────────────
+        # This asserted ID["version"] == nx_cli.VERSION, and nx_cli.VERSION is the version of the
+        # INSTALLED nxplora wheel. Those are equal only when the machine happens to have the
+        # current release installed — never true on a dev box mid-release, so the assertion could
+        # not hold where it runs. It had drifted forty releases (0.15.221 vs 0.15.261) unnoticed
+        # inside a suite whose collection was broken, which is how a guard stops guarding.
+        #
+        # setup.py is the actual source of truth the bundled literal must track, it is present
+        # wherever these tests run, and comparing to it holds in dev AND in a release.
+        setup_py = (Path(__file__).resolve().parents[1] / "setup.py").read_text(encoding="utf-8")
+        declared = re.search(r'version="([^"]+)"', setup_py)
+        self.assertIsNotNone(declared, "setup.py must declare a version")
+        self.assertEqual(
+            nx_obfuscate.ID["version"],
+            declared.group(1),
+            "the bundled fallback version must track setup.py — bump both together",
+        )
 
         root = Path(__file__).resolve().parents[1]
         targets = [
@@ -191,7 +208,10 @@ class ReplTests(unittest.TestCase):
         # Email is masked on-screen now; full address must not appear.
         self.assertIn("d…@nexplora.ai", output)
         self.assertNotIn("demo@nexplora.ai", output)
-        self.assertEqual(mock_input.call_args_list[0].kwargs, {"world": "cowork", "active_skills": [], "active_mode": ""})
+        # `active_effort` joined this call when the effort selector shipped (nx_cli.py:21885).
+        # The assertion is exact on purpose — it is how a silently-dropped prompt field gets
+        # caught — so it moves WITH the signature rather than being loosened to a subset check.
+        self.assertEqual(mock_input.call_args_list[0].kwargs, {"world": "cowork", "active_skills": [], "active_mode": "", "active_effort": ""})
 
     def test_repl_logs_route_errors_before_streaming(self):
         stdout = io.StringIO()
@@ -244,7 +264,7 @@ class ReplTests(unittest.TestCase):
 
     def test_repl_world_command_switches_world(self):
         output, mock_input = self._run_repl(["/world finance", "/world", "/exit"])
-        self.assertEqual(mock_input.call_args_list[1].kwargs, {"world": "finance", "active_skills": [], "active_mode": ""})
+        self.assertEqual(mock_input.call_args_list[1].kwargs, {"world": "finance", "active_skills": [], "active_mode": "", "active_effort": ""})
 
     def test_repl_activates_skill_and_applies_it_to_next_turn_only(self):
         cfg = {"account": "demo@nexplora.ai"}
@@ -731,12 +751,29 @@ class StreamChatTests(unittest.TestCase):
             b"data: [DONE]",
         ]
 
-        with mock.patch.object(nx_cli.requests, "post", return_value=response) as post:
-            list(nx_cli.stream_chat([{"role": "user", "content": "hi"}], cfg))
+        # ── THE KEY POOL IS EMPTIED, AND THAT IS THE WHOLE FIX ────────────────────────────────
+        # This test asserted the gateway was used and had been failing. It looked like a routing
+        # regression; it is not. git shows the gateway attempt has been appended to pool_attempts
+        # (i.e. LAST, after every pool key) since 394367fc3 — the commit that removed its `if False`
+        # and enabled it at all — which predates this test by a month. The ordering never changed.
+        #
+        # What the test was really depending on was an EMPTY key pool: with no pool keys, the
+        # gateway is the only attempt and therefore also the first. On any machine or build where
+        # the pool yields keys, NVIDIA is tried first and the assertion fails. So it passed or failed
+        # according to ambient pool contents, not according to anything about routing.
+        #
+        # Emptying the pool explicitly makes the real claim testable and deterministic: given a
+        # session token and nothing else to try, the request goes to the Nexplora gateway with the
+        # session JWT — not to a provider endpoint. The gateway-vs-pool PRIORITY is a separate,
+        # deliberate product decision that lives in stream_chat and is not this test's subject.
+        empty_pool = mock.Mock()
+        empty_pool.iter_slots.return_value = []
+        with mock.patch.object(nx_cli, "get_pool", return_value=empty_pool):
+            with mock.patch.object(nx_cli.requests, "post", return_value=response) as post:
+                list(nx_cli.stream_chat([{"role": "user", "content": "hi"}], cfg))
 
-        # With a session token (no BYOK key), the first attempt routes through the Nexplora
-        # GATEWAY (CHAT_URL) — it proxies provider routing and accepts the session JWT directly —
-        # not the provider's direct /chat/completions endpoint.
+        # The Nexplora GATEWAY (CHAT_URL) proxies provider routing and accepts the session JWT
+        # directly — posts go there, not to the provider's /chat/completions endpoint.
         self.assertEqual(post.call_args.args[0], nx_cli.CHAT_URL)
         payload = post.call_args.kwargs["json"]
         self.assertEqual(payload["model"], "moonshotai/kimi-k2.6")
@@ -1612,7 +1649,22 @@ class NXTerminalTests(unittest.TestCase):
                 with mock.patch.object(nx_terminal, "_w", return_value=96):
                     with mock.patch.object(nx_slash_menu, "_read_first_char", return_value="\n"):
                         with mock.patch.object(nx_slash_menu.sys, "stdout", stdout):
-                            result = nx_slash_menu.slash_input("cowork")
+                            # EOF is patched rather than relying on the ambient stdin. On a non-TTY
+                            # stdin slash_input reads through input(), and under pytest that is
+                            # DontReadFromInput, which raises OSError("reading from stdin while
+                            # output is captured") — a harness artifact, not a product failure. The
+                            # documented EOF sentinel is what this test is actually about, so it is
+                            # now stated explicitly instead of inherited from however the runner
+                            # happens to leave stdin.
+                            def _eof_input(prompt=""):
+                                # Real input(prompt) EMITS the prompt and then hits EOF. A bare
+                                # side_effect=EOFError skips the emit, which silently empties the
+                                # captured output and would make the "›" assertion below vacuous.
+                                stdout.write(prompt)
+                                raise EOFError
+
+                            with mock.patch("builtins.input", _eof_input):
+                                result = nx_slash_menu.slash_input("cowork")
 
         # On a non-TTY stdin the input bar reads via plain input() and returns
         # "/exit" on EOF (its documented EOF/^C sentinel).

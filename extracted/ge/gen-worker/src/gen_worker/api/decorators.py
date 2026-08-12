@@ -44,7 +44,10 @@ from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple, Type
 import msgspec
 
 from .binding import BINDING_TYPES, Binding
-from .export_contract import Arg, Dim, Fork, GraphClass, Input, validate_contract
+from .export_contract import (
+    Arg, Dim, Fork, GraphClass, Input, MintBlocker, open_blockers,
+    validate_contract, validate_speed_bar,
+)
 from .formula import RuntimeFormula
 from .slot import OBJECTIVES, TASKS, Slot
 from ..models import execution_lanes as lanespec
@@ -949,6 +952,27 @@ class Compile(msgspec.Struct, frozen=True):
     # conv-bearing UNet.
     numerics_floor: Optional[float] = None
     numerics_warn: Optional[float] = None
+    # pgw#1149 / th#1811 (ie#664 §6): this family's own compile-vs-eager SPEED
+    # bar — the stage it is read off and the minimum speedup the compiled arm
+    # must clear. Declared here, beside the numerics band, because the hub's
+    # publish-time validation session judges a release against the AUTHOR's bar
+    # and holds none of its own: "responsibility is the author's, verification
+    # is the platform's" is unbuildable if the platform supplies the number it
+    # verifies. Undeclared (the default) resolves `bar_undeclared` at publish —
+    # a named refusal, never a default number. A PAIR: see `validate_speed_bar`.
+    # Deliberately NOT a contract axis — declaring or raising a bar must not
+    # re-key a cell — but it IS a `derive.OVERRIDE_FACTS` entry, so a migration
+    # cannot drop it silently.
+    speed_metric: str = ""
+    min_speedup: Optional[float] = None
+    # pgw#1115: DECLARED mint blockers. A family that may not mint yet says so
+    # as DATA here — never as a thunk that raises, which the pgw#1107 fold onto
+    # this decorator cannot carry (`compile=` takes a Compile, never a
+    # callable, so a folded refusal would simply vanish). While any blocker is
+    # unresolved the mint fails CLOSED and names the ids; serving is untouched.
+    # Deliberately NOT a contract axis (`contract_axes()`): resolving a blocker
+    # must not re-key a cell.
+    blockers: tuple[MintBlocker, ...] = ()
 
     def __post_init__(self) -> None:
         force = msgspec.structs.force_setattr
@@ -991,7 +1015,7 @@ class Compile(msgspec.Struct, frozen=True):
         # (`compile_cache._mark_regional_blocks`).
         for name, typ in (("dims", Dim), ("forks", Fork),
                           ("classes", GraphClass), ("inputs", Input),
-                          ("args", Arg)):
+                          ("args", Arg), ("blockers", MintBlocker)):
             rows = tuple(getattr(self, name))
             if any(not isinstance(r, typ) for r in rows):
                 raise TypeError(
@@ -1017,7 +1041,16 @@ class Compile(msgspec.Struct, frozen=True):
                 f"Compile.numerics_floor ({self.numerics_floor}) must not "
                 f"exceed numerics_warn ({self.numerics_warn}): the floor "
                 f"refuses, the warn only confesses")
+        metric, bar = validate_speed_bar(self.speed_metric, self.min_speedup)
+        force(self, "speed_metric", metric)
+        force(self, "min_speedup", bar)
         validate_contract(self)
+
+    @property
+    def open_blockers(self) -> tuple[MintBlocker, ...]:
+        """The UNRESOLVED blockers (pgw#1115). Non-empty ⟹ this family refuses
+        to mint, by declaration, and every mint site fails closed on it."""
+        return open_blockers(self)
 
     @property
     def sequence_dynamic(self) -> Optional[DynamicDim]:
@@ -1718,13 +1751,27 @@ def endpoint(
             "unconditioned model, or a dynamic range via "
             "Compile(dynamic=(DynamicDim('sequence', min=.., max=..),))."
         )
-    if compile is not None and compile.classes and compile.family:
-        # pgw#739: a class-bearing declaration is the family's export
-        # contract; registering at decoration is what lets the mint derive
-        # export inputs with zero per-family SDK code.
-        from .export_contract import register_export_declaration
+    if compile is not None:
+        # pgw#739: an export declaration is the family's export contract;
+        # registering at decoration is what lets the mint derive export inputs
+        # with zero per-family SDK code.
+        #
+        # pgw#1107: the gate asks about INTENT, not about the payload. It used
+        # to read `compile.classes and compile.family`, so a declaration that
+        # named dims/forks/inputs and forgot its classes (or its family) was
+        # dropped on the floor — registered nothing, minted nothing, and on a
+        # pod was indistinguishable from an endpoint that never declared AOT.
+        # Flipping it to "classes required for every compile=" was the other
+        # wrong answer: six endpoints ship a thin class-less `compile=` for the
+        # dynamo lane only and declare no export contract at all. So the
+        # question is whether the author reached for the export vocabulary; if
+        # they did, `register_export_declaration` holds them to it.
+        from .export_contract import (
+            declares_export_contract, register_export_declaration,
+        )
 
-        register_export_declaration(compile)
+        if declares_export_contract(compile):
+            register_export_declaration(compile)
     bucket = int(lora_bucket or 0)
     if bucket:
         from ..models.w8a8_lora import RANK_BUCKETS

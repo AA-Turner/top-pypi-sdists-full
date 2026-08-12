@@ -9,12 +9,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Install required libs
-  pip:
+  ansible.builtin.pip:
     name: python-gitlab
     state: present
 
 - name: Create {{ gitlab_project_name }}
-  gitlab_project:
+  community.general.gitlab_project:
     api_url: "{{ gitlab_api_url }}"
     validate_certs: false
     api_token: "{{ gitlab_api_token }}"
@@ -24,7 +24,7 @@
 
 - name: Create Badge (check)
   check_mode: true
-  gitlab_project_badge:
+  community.general.gitlab_project_badge:
     api_url: "{{ gitlab_api_url }}"
     validate_certs: false
     api_token: "{{ gitlab_api_token }}"
@@ -38,13 +38,13 @@
     var: gitlab_badge_create_check_task
 
 - name: Check module call result
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_badge_create_check_task.changed
       - not gitlab_badge_create_check_task.failed
 
 - name: Create Badge
-  gitlab_project_badge:
+  community.general.gitlab_project_badge:
     api_url: "{{ gitlab_api_url }}"
     validate_certs: false
     api_token: "{{ gitlab_api_token }}"
@@ -58,13 +58,13 @@
     var: gitlab_badge_create_task
 
 - name: Check module call result
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_badge_create_task.changed
       - not gitlab_badge_create_task.failed
 
 - name: Create Badge (confirmation)
-  gitlab_project_badge:
+  community.general.gitlab_project_badge:
     api_url: "{{ gitlab_api_url }}"
     validate_certs: false
     api_token: "{{ gitlab_api_token }}"
@@ -78,14 +78,14 @@
     var: gitlab_badge_create_confirmation_task
 
 - name: Check module call result
-  assert:
+  ansible.builtin.assert:
     that:
       - not gitlab_badge_create_confirmation_task.changed
       - not gitlab_badge_create_confirmation_task.failed
 
 - name: Update Badge (check)
   check_mode: true
-  gitlab_project_badge:
+  community.general.gitlab_project_badge:
     api_url: "{{ gitlab_api_url }}"
     validate_certs: false
     api_token: "{{ gitlab_api_token }}"
@@ -99,13 +99,13 @@
     var: gitlab_badge_update_check_task
 
 - name: Check module call result
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_badge_update_check_task.changed
       - not gitlab_badge_update_check_task.failed
 
 - name: Update Badge
-  gitlab_project_badge:
+  community.general.gitlab_project_badge:
     api_url: "{{ gitlab_api_url }}"
     validate_certs: false
     api_token: "{{ gitlab_api_token }}"
@@ -119,13 +119,13 @@
     var: gitlab_badge_update_task
 
 - name: Check module call result
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_badge_update_task.changed
       - not gitlab_badge_update_task.failed
 
 - name: Update Badge (confirmation)
-  gitlab_project_badge:
+  community.general.gitlab_project_badge:
     api_url: "{{ gitlab_api_url }}"
     validate_certs: false
     api_token: "{{ gitlab_api_token }}"
@@ -139,14 +139,14 @@
     var: gitlab_badge_update_confirmation_task
 
 - name: Check module call result
-  assert:
+  ansible.builtin.assert:
     that:
       - not gitlab_badge_update_confirmation_task.changed
       - not gitlab_badge_update_confirmation_task.failed
 
 - name: Delete Badge (check)
   check_mode: true
-  gitlab_project_badge:
+  community.general.gitlab_project_badge:
     api_url: "{{ gitlab_api_url }}"
     validate_certs: false
     api_token: "{{ gitlab_api_token }}"
@@ -160,13 +160,13 @@
     var: gitlab_badge_delete_check_task
 
 - name: Check module call result
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_badge_delete_check_task.changed
       - not gitlab_badge_delete_check_task.failed
 
 - name: Delete Badge
-  gitlab_project_badge:
+  community.general.gitlab_project_badge:
     api_url: "{{ gitlab_api_url }}"
     validate_certs: false
     api_token: "{{ gitlab_api_token }}"
@@ -180,13 +180,13 @@
     var: gitlab_badge_delete_task
 
 - name: Check module call result
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_badge_delete_task.changed
       - not gitlab_badge_delete_task.failed
 
 - name: Delete Badge (confirmation)
-  gitlab_project_badge:
+  community.general.gitlab_project_badge:
     api_url: "{{ gitlab_api_url }}"
     validate_certs: false
     api_token: "{{ gitlab_api_token }}"
@@ -200,13 +200,13 @@
     var: gitlab_badge_delete_confirmation_task
 
 - name: Check module call result
-  assert:
+  ansible.builtin.assert:
     that:
       - not gitlab_badge_delete_confirmation_task.changed
       - not gitlab_badge_delete_confirmation_task.failed
 
 - name: Clean up {{ gitlab_project_name }}
-  gitlab_project:
+  community.general.gitlab_project:
     api_url: "{{ gitlab_api_url }}"
     validate_certs: false
     api_token: "{{ gitlab_api_token }}"

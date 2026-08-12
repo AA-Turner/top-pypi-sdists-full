@@ -10,19 +10,19 @@
 # once per day.
 
 - name: Create tag
-  copy:
+  ansible.builtin.copy:
     dest: /tmp/.ansible_archlinux_sysupgrade_tag
     content: |
       Last ArchLinux system upgrade by integration tests was done on {{ ansible_facts.date_time.date }}.
   register: archlinux_upgrade_tag
 
 - name: Upgrade all packages
-  pacman:
+  community.general.pacman:
     update_cache: true
     upgrade: true
   when: archlinux_upgrade_tag is changed
 
 - name: Remove EXTERNALLY-MANAGED file
-  file:
+  ansible.builtin.file:
     path: /usr/lib/python{{ ansible_facts.python.version.major }}.{{ ansible_facts.python.version.minor }}/EXTERNALLY-MANAGED
     state: absent

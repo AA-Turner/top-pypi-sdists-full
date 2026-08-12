@@ -64,6 +64,7 @@ BillingandCostManagementDataExportsServiceName = Literal["bcm-data-exports"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

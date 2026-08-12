@@ -10,16 +10,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Find brew binary
-  command: which brew
+  ansible.builtin.command: which brew
   register: brew_which
 
 - name: Get owner of brew binary
-  stat:
+  ansible.builtin.stat:
     path: "{{ brew_which.stdout }}"
   register: brew_stat
 
 # - name: Use ignored-pinned option while upgrading all
-#   homebrew:
+#   community.general.homebrew:
 #     upgrade_all: true
 #     upgrade_options: ignore-pinned
 #   become: true
@@ -28,7 +28,7 @@
 #   environment:
 #     HOMEBREW_NO_AUTO_UPDATE: True
 
-# - assert:
+# - ansible.builtin.assert:
 #     that:
 #       - upgrade_option_result.changed
 
@@ -37,7 +37,7 @@
 
   block:
     - name: Make sure {{ package_name }} package is not installed
-      homebrew:
+      community.general.homebrew:
         name: "{{ package_name }}"
         state: absent
         update_homebrew: false
@@ -45,7 +45,7 @@
       become_user: "{{ brew_stat.stat.pw_name }}"
 
     - name: Install {{ package_name }} package using homebrew
-      homebrew:
+      community.general.homebrew:
         name: "{{ package_name }}"
         state: present
         update_homebrew: false
@@ -53,12 +53,12 @@
       become_user: "{{ brew_stat.stat.pw_name }}"
       register: package_result
 
-    - assert:
+    - ansible.builtin.assert:
         that:
           - package_result is changed
 
     - name: Again install {{ package_name }} package using homebrew
-      homebrew:
+      community.general.homebrew:
         name: "{{ package_name }}"
         state: present
         update_homebrew: false
@@ -66,12 +66,12 @@
       become_user: "{{ brew_stat.stat.pw_name }}"
       register: package_result
 
-    - assert:
+    - ansible.builtin.assert:
         that:
           - package_result is not changed
 
     - name: Uninstall {{ package_name }} package using homebrew
-      homebrew:
+      community.general.homebrew:
         name: "{{ package_name }}"
         state: absent
         update_homebrew: false
@@ -79,12 +79,12 @@
       become_user: "{{ brew_stat.stat.pw_name }}"
       register: package_result
 
-    - assert:
+    - ansible.builtin.assert:
         that:
           - package_result is changed
 
     - name: Again uninstall {{ package_name }} package using homebrew
-      homebrew:
+      community.general.homebrew:
         name: "{{ package_name }}"
         state: absent
         update_homebrew: false
@@ -92,6 +92,6 @@
       become_user: "{{ brew_stat.stat.pw_name }}"
       register: package_result
 
-    - assert:
+    - ansible.builtin.assert:
         that:
           - package_result is not changed

@@ -2,7 +2,7 @@
 
 # -----------------------------------------------------------------------------
 
-__version__ = '4.5.71'
+__version__ = '4.5.73'
 
 # -----------------------------------------------------------------------------
 
@@ -458,6 +458,7 @@ class BaseExchange(SyncExchange):
     def client(self, url):
         self.open()  # ensure self.asyncio_loop is set
         self.clients = self.clients or {}
+        self.ws_dial_backoff = getattr(self, 'ws_dial_backoff', None) or {}
         if url not in self.clients:
             on_message = self.handle_message
             on_error = self.on_error
@@ -494,7 +495,7 @@ class BaseExchange(SyncExchange):
     def watch_multiple(self, url, message_hashes, message=None, subscribe_hashes=None, subscription=None):
         # base exchange self.open starts the aiohttp Session in an async context
         self.open()
-        backoff_delay = 0
+        backoff_delay = self.ws_dial_delay(url)
         client = self.client(url)
 
         future = Future.race([client.future(message_hash) for message_hash in message_hashes])
@@ -538,7 +539,7 @@ class BaseExchange(SyncExchange):
     def watch(self, url, message_hash, message=None, subscribe_hash=None, subscription=None):
         # base exchange self.open starts the aiohttp Session in an async context
         self.open()
-        backoff_delay = 0
+        backoff_delay = self.ws_dial_delay(url)
         client = self.client(url)
         if subscribe_hash is None and message_hash in client.futures:
             return client.futures[message_hash]
@@ -581,11 +582,50 @@ class BaseExchange(SyncExchange):
     def on_connected(self, client, message=None):
         # for user hooks
         # print('Connected to', client.url)
-        pass
+        # a successful connection clears the dial backoff for this url
+        self.ws_dial_backoff = getattr(self, 'ws_dial_backoff', None) or {}
+        if client.url in self.ws_dial_backoff:
+            del self.ws_dial_backoff[client.url]
 
     def on_error(self, client, error):
+        # only genuine dial failures feed the per-url exponential backoff so
+        # that fresh clients against a dead endpoint do not hammer it at
+        # full rate, first dials used to bypass the reconnect backoff
+        # entirely because every watch call passed backoff_delay 0.
+        # Mid-session errors and the ws warn noise floor must not grow the
+        # backoff, otherwise a noisy but working exchange accumulates
+        # attempts and its next reconnect dial sleeps toward the cap,
+        # producing test timeouts instead of noise reduction.
+        # Retry-After from the failed handshake response sets the floor
+        if not getattr(client, 'dial_failed', False):
+            if client.url in self.clients and self.clients[client.url].error:
+                del self.clients[client.url]
+            return
+        client.dial_failed = False
+        self.ws_dial_backoff = getattr(self, 'ws_dial_backoff', None) or {}
+        state = self.ws_dial_backoff.get(client.url) or {'attempts': 0}
+        attempts = state['attempts'] + 1
+        delay = min(30.0, 0.1 * (2 ** min(attempts, 10)))
+        retry_after = getattr(client, 'last_retry_after', None)
+        if retry_after is not None:
+            delay = max(delay, retry_after)
+        self.ws_dial_backoff[client.url] = {
+            'attempts': attempts,
+            'until': self.milliseconds() + int(delay * 1000),
+        }
         if client.url in self.clients and self.clients[client.url].error:
             del self.clients[client.url]
+
+    def ws_dial_delay(self, url):
+        # seconds to wait before the next dial to the given url, 0 when clear
+        self.ws_dial_backoff = getattr(self, 'ws_dial_backoff', None) or {}
+        state = self.ws_dial_backoff.get(url)
+        if not state:
+            return 0
+        remaining = state['until'] - self.milliseconds()
+        if remaining <= 0:
+            return 0
+        return remaining / 1000.0
 
     def on_close(self, client, error):
         if client.error:
@@ -1499,12 +1539,19 @@ class BaseExchange(SyncExchange):
         time = self.parse_timeframe(timeframe) * 1000
         maxEntriesPerRequest = self.require_value(maxEntriesPerRequest, 'fetchPaginatedCallDeterministic() maxEntriesPerRequest is required')
         step = time * maxEntriesPerRequest
+        until = self.safe_integer_2(params, 'until', 'till')  # do not omit it here
         currentSince = current - (maxCalls * step) - 1
         if since is not None:
-            currentSince = max(currentSince, since)
+            if until is not None:
+                # the recent-window floor below would jump past a fully-historical [since, until]
+                # range and return an empty result - requiredCalls is validated against maxCalls
+                # further down, so anchoring at since directly is safe here,
+                # see https://github.com/ccxt/ccxt/issues/26252
+                currentSince = since
+            else:
+                currentSince = max(currentSince, since)
         else:
             currentSince = max(currentSince, 1241440531000)  # avoid timestamps older than 2009
-        until = self.safe_integer_2(params, 'until', 'till')  # do not omit it here
         if until is not None:
             if since is None:
                 raise ArgumentsRequired(self.id + ' fetchPaginatedCallDeterministic() requires a since argument when until is set')
@@ -1526,7 +1573,7 @@ class BaseExchange(SyncExchange):
         key = 0 if (method == 'fetchOHLCV') else 'timestamp'
         return self.filter_by_since_limit(uniqueResults, since, limit, key)
 
-    async def fetch_paginated_call_cursor(self, method: str, symbol: Str = None, since: Int = None, limit: Int = None, params: dict = {}, cursorReceived: Str = None, cursorSent: Str = None, cursorIncrement: Int = None, maxEntriesPerRequest: Int = None):
+    async def fetch_paginated_call_cursor(self, method: str, symbol: Str | Strings = None, since: Int = None, limit: Int = None, params: dict = {}, cursorReceived: Str = None, cursorSent: Str = None, cursorIncrement: Int = None, maxEntriesPerRequest: Int = None):
         maxCalls = 10
         maxCalls, params = self.handle_option_and_params(params, method, 'paginationCalls', maxCalls)
         maxRetries = 3
@@ -1550,7 +1597,8 @@ class BaseExchange(SyncExchange):
                 elif method == 'getLeverageTiersPaginated' or method == 'fetchPositions':
                     response = await getattr(self, method)(symbol, params)
                 elif method == 'fetchOpenInterestHistory':
-                    if symbol is None:
+                    if not isinstance(symbol, str):
+                        # fetchOpenInterestHistory takes a single symbol, never a list
                         raise ArgumentsRequired(self.id + ' fetchPaginatedCallCursor() requires a symbol argument')
                     if timeframe is None:
                         raise ArgumentsRequired(self.id + ' fetchPaginatedCallCursor() requires a timeframe argument')

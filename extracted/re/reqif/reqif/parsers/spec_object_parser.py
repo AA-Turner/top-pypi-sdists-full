@@ -8,6 +8,7 @@ from reqif.models.reqif_spec_object import (
 from reqif.parsers.attribute_value_parser import AttributeValueParser
 
 logger = logging.getLogger(__name__)
+from reqif.parsers.alternative_id_parser import AlternativeIDParser
 
 
 class SpecObjectParser:
@@ -40,6 +41,7 @@ class SpecObjectParser:
         )
 
         return ReqIFSpecObject(
+            alternative_id=AlternativeIDParser.parse(spec_object_xml),
             xml_node=spec_object_xml,
             description=spec_object_description,
             identifier=identifier,
@@ -70,10 +72,14 @@ class SpecObjectParser:
             assert "VALUES" in children_tags
             assert "TYPE" in children_tags
         else:
-            children_tags = ["VALUES", "TYPE"]
+            children_tags = ["ALTERNATIVE-ID", "VALUES", "TYPE"]
 
         for child_tag in children_tags:
-            if child_tag == "VALUES":
+            if child_tag == "ALTERNATIVE-ID":
+                output += AlternativeIDParser.unparse(
+                    spec_object.alternative_id, "          "
+                )
+            elif child_tag == "VALUES":
                 output += AttributeValueParser.unparse_attribute_values(
                     spec_object.attributes
                 )

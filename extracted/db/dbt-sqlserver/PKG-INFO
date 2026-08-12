@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-sqlserver
-Version: 1.11.0
+Version: 1.11.1
 Summary: A Microsoft SQL Server adapter plugin for dbt
 Author: Mikael Ene, Anders Swanson, Sam Debruyn, Cor Zuurmond, Cody Scott
 License: MIT

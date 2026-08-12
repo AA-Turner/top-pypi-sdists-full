@@ -1,26 +1,19 @@
 Metadata-Version: 2.4
 Name: roma
-Version: 1.5.7
+Version: 1.6
 Summary: A lightweight library to deal with 3D rotations in PyTorch.
-Home-page: https://github.com/naver/roma
-Author: Romain Brégier
-Author-email: romain.bregier@naverlabs.com
+Author-email: Romain Brégier <romain.bregier@naverlabs.com>
+License-Expression: BSD-3-Clause
+Project-URL: Homepage, https://github.com/naver/roma
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.6
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
+Requires-Dist: torch>=2.0
+Requires-Dist: numpy
 Dynamic: license-file
-Dynamic: requires-python
-Dynamic: summary
 
 
 
@@ -54,7 +47,7 @@ rotvec = torch.randn(batch_shape + (3,))
 q = roma.rotvec_to_unitquat(rotvec)
 R = roma.unitquat_to_rotmat(q)
 Rbis = roma.rotvec_to_rotmat(rotvec)
-euler_angles = roma.unitquat_to_euler('xyz', q, degrees=True)
+euler_angles = roma.unitquat_to_euler("xyz", q, degrees=True)
 
 # Regression of a rotation from an arbitrary input:
 # Special Procrustes orthonormalization of a 3x3 matrix
@@ -95,12 +88,6 @@ Alternatively one can install the latest version of *RoMa* directly from the sou
 ```
 pip install git+https://github.com/naver/roma
 ```
-
-**With old pytorch versions (torch<1.8)**, we recommend installing [torch-batch-svd](https://github.com/KinglittleQ/torch-batch-svd)
-to achieve a significant speed-up with `special_procrustes` on CUDA GPUs.
-You can check that this module is properly loaded using the function `roma.utils.is_torch_batch_svd_available()`.
-**With recent pytorch installations (torch>=1.8), `torch-batch-svd` is no longer needed or used.**
-
 
 ## License
 *RoMa*, Copyright (c) 2020 NAVER Corp., is licensed under the 3-Clause BSD License (see [license](https://github.com/naver/roma/blob/master/LICENSE)).

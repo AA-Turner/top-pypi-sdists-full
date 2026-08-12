@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 """Version info"""
 
-import sys
 import importlib
+import sys
 
-short_version = "0.11"
-version = "0.11.0"
+short_version = "1.0.0"
+version = "1.0.0"
 
 
 def __get_mod_version(modname):
@@ -27,7 +27,6 @@ def __get_mod_version(modname):
 def show_versions() -> None:
     """Return the version information for all librosa dependencies."""
     core_deps = [
-        "audioread",
         "numpy",
         "scipy",
         "sklearn",
@@ -37,7 +36,6 @@ def show_versions() -> None:
         "soundfile",
         "pooch",
         "soxr",
-        "typing_extensions",
         "lazy_loader",
         "msgpack",
     ]
@@ -45,10 +43,15 @@ def show_versions() -> None:
     extra_deps = [
         "numpydoc",
         "sphinx",
-        "sphinx_rtd_theme",
+        "pydata-sphinx-theme",
         "matplotlib",
-        "sphinx_multiversion",
         "sphinx_gallery",
+        "sphinx-design",
+        "sphinxcontrib-googleanalytics",
+        "sphinx-copybutton",
+        "umap-learn",
+        "pandas",
+        "myst-parser",
         "mir_eval",
         "ipython",
         "sphinxcontrib.rsvgconverter",
@@ -59,6 +62,8 @@ def show_versions() -> None:
         "resampy",
         "presets",
         "packaging",
+        "scipy-stubs",
+        "types-decorator",
     ]
 
     print("INSTALLED VERSIONS")

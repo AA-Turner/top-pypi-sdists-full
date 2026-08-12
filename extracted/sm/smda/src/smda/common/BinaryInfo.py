@@ -218,7 +218,7 @@ class BinaryInfo:
         if lief_type == "PE":
             for section in parsed_binary.sections:
                 section_start = self.base_addr + section.virtual_address
-                section_size = section.virtual_size
+                section_size = section.virtual_size or section.sizeof_raw_data
                 if section_size % 0x1000 != 0:
                     section_size += 0x1000 - (section_size % 0x1000)
                 yield section.name, section_start, section_start + section_size
@@ -238,7 +238,7 @@ class BinaryInfo:
         is_inside = False
         # if no code areas found, assume the whole image is code and calculate according to base address and size
         if self.code_areas is None or len(self.code_areas) == 0:
-            if self.base_addr <= address <= self.base_addr + self.binary_size:
+            if self.base_addr <= address < self.base_addr + self.binary_size:
                 is_inside = True
         else:
             is_inside = any(a[0] <= address < a[1] for a in self.code_areas)

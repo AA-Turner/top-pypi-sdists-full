@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: data-designer
-Version: 0.9.0
+Version: 0.9.1
 Summary: General framework for synthetic data generation
 License-Expression: Apache-2.0
 Classifier: Development Status :: 4 - Beta
@@ -15,8 +15,8 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development
 Requires-Python: >=3.10
-Requires-Dist: data-designer-config==0.9.0
-Requires-Dist: data-designer-engine==0.9.0
+Requires-Dist: data-designer-config==0.9.1
+Requires-Dist: data-designer-engine==0.9.1
 Requires-Dist: huggingface-hub<2,>=1.0.1
 Requires-Dist: opentelemetry-api<1.44,>=1.43
 Requires-Dist: opentelemetry-exporter-prometheus<0.65,>=0.64b0

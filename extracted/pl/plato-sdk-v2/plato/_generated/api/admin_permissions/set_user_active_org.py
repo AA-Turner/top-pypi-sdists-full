@@ -40,7 +40,10 @@ def sync(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> UserOrgsResponse:
-    """Set the user's active organization (updates organization_id FK)."""
+    """Set the user's active organization (updates organization_id FK).
+
+    The target org must be one the user is a member of (has a policy grant on),
+    so the active-org FK can never point at an org without a membership row."""
 
     request_args = _build_request_args(
         user_public_id=user_public_id,
@@ -61,7 +64,10 @@ async def asyncio(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> UserOrgsResponse:
-    """Set the user's active organization (updates organization_id FK)."""
+    """Set the user's active organization (updates organization_id FK).
+
+    The target org must be one the user is a member of (has a policy grant on),
+    so the active-org FK can never point at an org without a membership row."""
 
     request_args = _build_request_args(
         user_public_id=user_public_id,

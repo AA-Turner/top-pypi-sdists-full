@@ -37,6 +37,7 @@ from tests.test_utils import (
     reset_fresh,
     reset_fresh_auth_token,
     setup_tf_sms,
+    get_form_input,
 )
 from tests.test_webauthn import HackWebauthnUtil, reg_2_keys
 
@@ -2424,15 +2425,15 @@ def test_override_tf_required(app, client, get_message):
     assert not response.json["response"]["tf_required"]
 
 
-def _allowed(self, form_error):
+def _locked(self, form_error):
     if self.email == "gal@lp.com":
         form_error.append("You are not allowed to do that")
-        return False
-    return True
+        return True
+    return False
 
 
-@pytest.mark.app_settings(TESTING_USER_INJECT=dict(is_locked=_allowed))
-def test_override_user_allowed(app, client, get_message):
+@pytest.mark.app_settings(TESTING_USER_INJECT=dict(is_locked=_locked))
+def test_override_user_locked(app, client, get_message):
     data = dict(identity="jill@lp.com", passcode="password")
     response = client.post("/us-signin", json=data)
     assert response.status_code == 200
@@ -2447,9 +2448,9 @@ def test_override_user_allowed(app, client, get_message):
     ]
 
 
-@pytest.mark.app_settings(TESTING_USER_INJECT=dict(is_locked=_allowed))
+@pytest.mark.app_settings(TESTING_USER_INJECT=dict(is_locked=_locked))
 @pytest.mark.settings(return_generic_responses=True)
-def test_override_user_allowed_gr(app, client, get_message):
+def test_override_user_locked_gr(app, client, get_message):
     data = dict(identity="gal@lp.com", passcode="password")
     response = client.post("/us-signin", json=data)
     assert response.status_code == 400
@@ -2457,3 +2458,12 @@ def test_override_user_allowed_gr(app, client, get_message):
         "GENERIC_AUTHN_FAILED"
     )
     assert "identity" not in response.json["response"]["field_errors"]
+
+
+@pytest.mark.settings(default_remember_me=True)
+def test_remember_login_form(app, client):
+    # ensure form has the checkbox set if default set.
+    response = client.get("/us-signin")
+    assert response.status_code == 200
+    r = get_form_input(response, "remember")
+    assert "checked" in r

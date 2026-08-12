@@ -30,7 +30,7 @@ from pydantic_core import to_jsonable_python
 
 class SearchRequest(BaseModel):
     """
-    SearchRequest
+    Shared request for POST /api/v3/search and POST /api/v1/answer.
     """ # noqa: E501
     query: StrictStr = Field(description="Natural language search query.")
     effort: Optional[SearchEffortLevel] = Field(default=None, description="Search effort level: 'fast' (default), 'instant', or 'deep'.")

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rumdl
-Version: 0.2.53
+Version: 0.2.54
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -237,7 +237,7 @@ mise ls-remote rumdl
 mise install rumdl
 
 # Use a specific version for the project
-mise use rumdl@0.2.53
+mise use rumdl@0.2.54
 ```
 
 ### Using Nix (macOS/Linux)
@@ -466,7 +466,7 @@ Add the following to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.53
+    rev: v0.2.54
     hooks:
       - id: rumdl      # Lint only; add args [--fix] to auto-fix
       - id: rumdl-fmt  # Pure format, always exits 0
@@ -482,7 +482,7 @@ This mirrors the `ruff` + `ruff-format` split: the linter hook reports by defaul
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.53
+    rev: v0.2.54
     hooks:
       - id: rumdl
         args: [--fix]  # Auto-fix violations in place
@@ -499,7 +499,7 @@ However, for pre-commit workflows where you want to include all files, even when
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.53
+    rev: v0.2.54
     hooks:
       - id: rumdl
         args: [--no-exclude]  # Disable all exclude patterns
@@ -522,14 +522,29 @@ jobs:
 
 The `v0` tag always points to the latest stable release, following GitHub Actions conventions.
 
+The action always adds rumdl to `PATH`, so any later step in the same job can
+call `rumdl` directly.
+
 #### Inputs
 
-| Input         | Description                            | Default        |
-| ------------- | -------------------------------------- | -------------- |
-| `version`     | Version of rumdl to install            | latest         |
-| `path`        | Path to lint                           | workspace root |
-| `config`      | Path to config file                    | auto-detected  |
-| `report-type` | Output format: `logs` or `annotations` | `logs`         |
+| Input           | Description                                             | Default        |
+| --------------- | ------------------------------------------------------- | -------------- |
+| `version`       | Version of rumdl to install                             | latest         |
+| `command`       | `check`, `fmt-check`, or `fmt`                          | `check`        |
+| `path`          | Path(s) to lint, space-separated                        | workspace root |
+| `config`        | Path to config file                                     | auto-detected  |
+| `report-type`   | Output format: `logs` or `annotations`                  | `logs`         |
+| `fail-on-error` | Fail the workflow when violations are found             | `true`         |
+| `output-file`   | Also write the results to this file                     | none           |
+| `args`          | Extra CLI arguments passed to the selected command      | none           |
+| `install-only`  | Install rumdl and skip linting; ignores the lint inputs | `false`        |
+
+#### Outputs
+
+| Output          | Description                                  |
+| --------------- | -------------------------------------------- |
+| `rumdl-version` | Version of rumdl that was installed          |
+| `rumdl-path`    | Absolute path to the installed rumdl binary  |
 
 #### Examples
 
@@ -550,6 +565,29 @@ The `v0` tag always points to the latest stable release, following GitHub Action
     config: .rumdl.toml
     report-type: annotations
 ```
+
+**Fail the build when files are not formatted:**
+
+```yaml
+- uses: rvben/rumdl@v0
+  with:
+    command: fmt-check
+```
+
+**Install only, then drive rumdl yourself:**
+
+```yaml
+- uses: rvben/rumdl@v0
+  with:
+    install-only: true
+- run: make lint
+```
+
+`command` selects what the action runs. `check` lints. `fmt-check` runs
+`rumdl fmt --check`: it prints a diff of what would be reformatted and fails the
+workflow if anything would change, without touching the files. `fmt` runs
+`rumdl fmt`, which rewrites the files in the workspace and succeeds; pair it with
+a step that commits or uploads the result, since nothing else preserves it.
 
 The `annotations` report type displays issues directly in the PR's "Files changed" tab with error/warning severity levels and precise locations.
 The action ref (`rvben/rumdl@v0`) selects the GitHub Action version, while the optional `version` input pins the `rumdl` CLI version installed inside the workflow.

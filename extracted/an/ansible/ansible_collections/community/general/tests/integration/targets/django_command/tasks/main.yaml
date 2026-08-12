@@ -4,45 +4,45 @@
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 - name: Create temporary test directory
-  tempfile:
+  ansible.builtin.tempfile:
     state: directory
     suffix: .django_command
   register: tmp_django_root
 
 - name: Install OS package virtualenv
-  package:
+  ansible.builtin.package:
     name: "{{ os_package_name.virtualenv }}"
     state: present
 
 - name: Ensure virtualenv is created
-  command: >-
+  ansible.builtin.command: >-
     virtualenv {{ tmp_django_root.path }}/venv
 
 - name: Update python package pip
-  pip:
+  ansible.builtin.pip:
     name: pip
     state: latest
     virtualenv: "{{ tmp_django_root.path }}/venv"
 
 - name: Install python package django
-  pip:
+  ansible.builtin.pip:
     name: django
     state: present
     virtualenv: "{{ tmp_django_root.path }}/venv"
 
 - name: Copy files
-  copy:
+  ansible.builtin.copy:
     src: base_test/
     dest: "{{ tmp_django_root.path }}"
     mode: preserve
 
 - name: Create project
-  command:
+  ansible.builtin.command:
     chdir: "{{ tmp_django_root.path }}/startproj"
     cmd: "{{ tmp_django_root.path }}/venv/bin/django-admin startproject test_django_command_1"
 
 - name: Create app
-  command:
+  ansible.builtin.command:
     chdir: "{{ tmp_django_root.path }}/startproj"
     cmd: "{{ tmp_django_root.path }}/venv/bin/django-admin startapp app1"
 

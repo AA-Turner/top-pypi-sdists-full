@@ -1,7 +1,6 @@
 import contextlib
 import logging
 import sys
-from functools import lru_cache
 
 import lief
 
@@ -79,7 +78,6 @@ def align(v, alignment):
         return v + (alignment - remainder)
 
 
-@lru_cache(maxsize=16)
 def has_bogus_sections(elffile, base_addr=0):
     max_virtual_address = 0
     for section in elffile.sections:
@@ -88,7 +86,6 @@ def has_bogus_sections(elffile, base_addr=0):
     return (max_virtual_address - base_addr) > sys.maxsize
 
 
-@lru_cache(maxsize=16)
 def _calculate_base_address(elffile):
     base_addr = 0
     candidates = [0xFFFFFFFFFFFFFFFF]
@@ -113,12 +110,10 @@ def _calculate_base_address(elffile):
     return base_addr
 
 
-@lru_cache(maxsize=16)
 def _get_sorted_sections(elffile):
     return sorted(elffile.sections, key=lambda section: section.size, reverse=True)
 
 
-@lru_cache(maxsize=16)
 def _get_boundaries(elffile, base_addr=0):
     # find min and max virtual addresses.
     max_virtual_address = 0
@@ -238,14 +233,17 @@ class ElfFileLoader:
                     rva + section.size,
                     section.virtual_address,
                 )
-                # potentially perform zero padding if we have less content than section size
-                content_to_be_mapped = bytearray(section.content)
-                if len(section.content) < section.size:
-                    content_to_be_mapped += b"\x00" * (section.size - len(section.content))
                 # clamp to the remaining capacity so both sides of the assignment have the same
                 # length and a section extending past the sized buffer cannot grow it
                 copy_size = min(section.size, max(0, len(mapped_binary) - rva))
-                mapped_binary[rva : rva + copy_size] = content_to_be_mapped[:copy_size]
+                content = section.content
+                if len(content) >= section.size:
+                    mapped_binary[rva : rva + copy_size] = content[:copy_size]
+                else:
+                    # potentially perform zero padding if we have less content than section size
+                    content_to_be_mapped = bytearray(content)
+                    content_to_be_mapped += b"\x00" * (section.size - len(content))
+                    mapped_binary[rva : rva + copy_size] = content_to_be_mapped[:copy_size]
 
     @staticmethod
     def mapBinary(binary, parsed=_NOT_PROVIDED):
@@ -312,8 +310,11 @@ class ElfFileLoader:
         try:
             elffile = safe_lief_parse(binary) if parsed is _NOT_PROVIDED else parsed
             if elffile:
-                abi = elffile.header.identity_os_abi.name
-        except lief.bad_file as exc:
+                identity_os_abi = elffile.header.identity_os_abi
+                abi = getattr(identity_os_abi, "name", "")
+                if not abi:
+                    LOGGER.debug("ELF: unnamed OS ABI %r, reporting it as unknown", identity_os_abi)
+        except ValueError as exc:
             LOGGER.warning("Failed to determine ELF ABI: %s", exc)
         return abi
 
@@ -354,7 +355,8 @@ class ElfFileLoader:
                 if section.alignment and section_size % section.alignment != 0:
                     section_size += section.alignment - (section_size % section.alignment)
                 section_end = section_start + section_size
-                code_areas.append([section_start, section_end])
+                if section_end > section_start:
+                    code_areas.append([section_start, section_end])
         for segment in sorted(elffile.segments, key=lambda segment: segment.physical_size, reverse=True):
             segment_flags = 0
             # ignore invalid segment flags and assume it's not a code section
@@ -367,7 +369,8 @@ class ElfFileLoader:
                 if segment.alignment and segment_size % segment.alignment != 0:
                     segment_size += segment.alignment - (segment_size % segment.alignment)
                 segment_end = segment_start + segment_size
-                code_areas.append([segment_start, segment_end])
+                if segment_end > segment_start:
+                    code_areas.append([segment_start, segment_end])
         return ElfFileLoader.mergeCodeAreas(code_areas)
 
     @staticmethod

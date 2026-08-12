@@ -12,6 +12,7 @@ from pydantic import TypeAdapter
 from pydantic_core import to_json
 from temporalio import workflow
 
+from mistralai.workflows.core.temporal.utils import TEMPORAL_SCHEDULE_ID_SEARCH_KEY
 from mistralai.workflows.core.utils.contextvars import reset_contextvar
 from mistralai.workflows.core.utils.type_hints import get_type_hints
 from mistralai.workflows.models import PayloadWithContext, WorkflowContext
@@ -126,6 +127,9 @@ def create_workflow_context() -> WorkflowContext:
         root_workflow_exec_id=workflow_info.root.workflow_id if workflow_info.root else None,
         parent_workflow_exec_id=workflow_info.parent.workflow_id if workflow_info.parent else None,
         on_behalf_of=on_behalf_of,
+        continued_run_id=workflow_info.continued_run_id,
+        first_execution_run_id=workflow_info.first_execution_run_id,
+        schedule_id=workflow_info.typed_search_attributes.get(TEMPORAL_SCHEDULE_ID_SEARCH_KEY),
     )
 
 

@@ -1,6 +1,8 @@
 import types
 
+import matplotlib
 import numpy
+import pandas
 import pytest
 from matplotlib.testing.decorators import image_comparison
 
@@ -755,6 +757,17 @@ class TestPooled:
             res.col_classifiers[0].bins, numpy.array([-9.5, 34.75, 49.5, 64.25, 108.5])
         )
 
+    def test_pooled_dataframe(self):
+        data = pandas.DataFrame(self.data, columns=["a", "b", "c"])
+        res = Pooled(data, k=4)
+
+        numpy.testing.assert_array_almost_equal(
+            res.col_classifiers[0].counts, numpy.array([15, 5, 0, 0])
+        )
+        numpy.testing.assert_array_almost_equal(
+            res.global_classifier.counts, numpy.array([15, 15, 15, 15])
+        )
+
     def test_pooled_bad_classifier(self):
         classifier = "Larry David"
         message = f"'{classifier}' not a valid classifier."
@@ -776,17 +789,23 @@ class TestPlots:
 
     @image_comparison(["test_histogram_plot"], **pytest.image_comp_kws)
     def test_histogram_plot(self):
-        ax = Quantiles(self.data).plot_histogram()
+        fig, ax = matplotlib.pyplot.subplots(**{"figsize": (8, 6), "dpi": 100})
+        ax = Quantiles(self.data).plot_histogram(ax=ax)
+        ax.set(xlabel=None, ylabel=None)
         return ax.get_figure()
 
     @image_comparison(["test_histogram_plot_despine"], **pytest.image_comp_kws)
     def test_histogram_plot_despine(self):
-        ax = Quantiles(self.data).plot_histogram(despine=False)
+        fig, ax = matplotlib.pyplot.subplots(**{"figsize": (8, 6), "dpi": 100})
+        ax = Quantiles(self.data).plot_histogram(ax=ax, despine=False)
+        ax.set(xlabel=None, ylabel=None)
         return ax.get_figure()
 
     @image_comparison(["test_histogram_plot_linewidth"], **pytest.image_comp_kws)
     def test_histogram_plot_linewidth(self):
+        fig, ax = matplotlib.pyplot.subplots(**{"figsize": (8, 6), "dpi": 100})
         ax = Quantiles(self.data).plot_histogram(
-            linewidth=3, linecolor="red", color="yellow"
+            ax=ax, linewidth=3, linecolor="red", color="yellow"
         )
+        ax.set(xlabel=None, ylabel=None)
         return ax.get_figure()

@@ -8,17 +8,17 @@
   hosts: localhost
   tasks:
     - name: Include test data
-      include_vars: vars.yml
+      ansible.builtin.include_vars: vars.yml
 
     # Test the pattern option using the environment variable
     - name: Test merge list (pattern_type = regex)
       block:
         - name: Print the merged list
-          debug:
+          ansible.builtin.debug:
             msg: "{{ merged_list }}"
 
         - name: Validate that the list is complete
-          assert:
+          ansible.builtin.assert:
             that:
               - "(merged_list | length) == 2"
               - "'item1' in merged_list"
@@ -30,11 +30,11 @@
     - name: Test merge list (pattern_type = suffix)
       block:
         - name: Print the merged list
-          debug:
+          ansible.builtin.debug:
             msg: "{{ merged_list }}"
 
         - name: Validate that the list is complete
-          assert:
+          ansible.builtin.assert:
             that:
               - "(merged_list | length) == 3"
               - "'item1' in merged_list"

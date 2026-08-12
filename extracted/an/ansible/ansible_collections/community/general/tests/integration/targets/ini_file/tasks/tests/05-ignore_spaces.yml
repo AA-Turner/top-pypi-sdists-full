@@ -6,12 +6,12 @@
 ## testing ignore_spaces option
 
 - name: test-ignore_spaces 1 (commented line updated) - create test file
-  copy:
+  ansible.builtin.copy:
     dest: "{{ output_file }}"
     content: "[foo]\n; bar=baz\n"
 
 - name: test-ignore_spaces 1 - set new value
-  ini_file:
+  community.general.ini_file:
     path: "{{ output_file }}"
     section: foo
     option: bar
@@ -20,7 +20,7 @@
   register: result
 
 - name: test-ignore_spaces 1 - read content from output file
-  slurp:
+  ansible.builtin.slurp:
     src: "{{ output_file }}"
   register: output_content
 
@@ -28,19 +28,19 @@
   vars:
     actual_content: "{{ output_content.content | b64decode }}"
     expected_content: "[foo]\nbar = frelt\n"
-  assert:
+  ansible.builtin.assert:
     that:
       - actual_content == expected_content
       - result is changed
       - result.msg == 'option changed'
 
 - name: test-ignore_spaces 2 (uncommented line updated) - create test file
-  copy:
+  ansible.builtin.copy:
     dest: "{{ output_file }}"
     content: "[foo]\nbar=baz\n"
 
 - name: test-ignore_spaces 2 - set new value
-  ini_file:
+  community.general.ini_file:
     path: "{{ output_file }}"
     section: foo
     option: bar
@@ -49,7 +49,7 @@
   register: result
 
 - name: test-ignore_spaces 2 - read content from output file
-  slurp:
+  ansible.builtin.slurp:
     src: "{{ output_file }}"
   register: output_content
 
@@ -57,19 +57,19 @@
   vars:
     actual_content: "{{ output_content.content | b64decode }}"
     expected_content: "[foo]\nbar = frelt\n"
-  assert:
+  ansible.builtin.assert:
     that:
       - actual_content == expected_content
       - result is changed
       - result.msg == 'option changed'
 
 - name: test-ignore_spaces 3 (spaces on top of no spaces) - create test file
-  copy:
+  ansible.builtin.copy:
     dest: "{{ output_file }}"
     content: "[foo]\nbar=baz\n"
 
 - name: test-ignore_spaces 3 - try to set value
-  ini_file:
+  community.general.ini_file:
     path: "{{ output_file }}"
     section: foo
     option: bar
@@ -78,7 +78,7 @@
   register: result
 
 - name: test-ignore_spaces 3 - read content from output file
-  slurp:
+  ansible.builtin.slurp:
     src: "{{ output_file }}"
   register: output_content
 
@@ -86,19 +86,19 @@
   vars:
     actual_content: "{{ output_content.content | b64decode }}"
     expected_content: "[foo]\nbar=baz\n"
-  assert:
+  ansible.builtin.assert:
     that:
       - actual_content == expected_content
       - result is not changed
       - result.msg == "OK"
 
 - name: test-ignore_spaces 4 (no spaces on top of spaces) - create test file
-  copy:
+  ansible.builtin.copy:
     dest: "{{ output_file }}"
     content: "[foo]\nbar = baz\n"
 
 - name: test-ignore_spaces 4 - try to set value
-  ini_file:
+  community.general.ini_file:
     path: "{{ output_file }}"
     section: foo
     option: bar
@@ -108,7 +108,7 @@
   register: result
 
 - name: test-ignore_spaces 4 - read content from output file
-  slurp:
+  ansible.builtin.slurp:
     src: "{{ output_file }}"
   register: output_content
 
@@ -116,7 +116,7 @@
   vars:
     actual_content: "{{ output_content.content | b64decode }}"
     expected_content: "[foo]\nbar = baz\n"
-  assert:
+  ansible.builtin.assert:
     that:
       - actual_content == expected_content
       - result is not changed

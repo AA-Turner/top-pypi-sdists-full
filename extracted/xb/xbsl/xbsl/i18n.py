@@ -233,6 +233,14 @@ _CORE_MESSAGES = {
         "en": "output format: text (default), json (machine-readable: diagnostics + summary) "
               "or codeclimate (a GitLab Code Quality report – the merge request widget)",
     },
+    "cli.help.out": {
+        "ru": "записать отчёт проверки в файл UTF-8 без BOM вместо stdout (перенаправление "
+              "оболочки на Windows добавляет BOM, и разбор JSON на нём падает); "
+              "действует для всех значений --format",
+        "en": "write the check report to a UTF-8 file without BOM instead of stdout "
+              "(shell redirection on Windows adds a BOM that breaks JSON parsing); "
+              "applies to every --format value",
+    },
     "cli.help.stdin": {
         "ru": "проверить один буфер из stdin (для интеграции с редактором); "
               "вид файла и путь в позициях задаёт --filename",
@@ -331,7 +339,7 @@ _CORE_MESSAGES = {
         "en": "compare two data versions: what changed in the platform",
     },
     "cli.help.commands.scaffold-header": {
-        "ru": "скаффолдинг метаданных (создание и правка исходников):",
+        "ru": "создание метаданных (создание и правка исходников):",
         "en": "metadata scaffolding (create and edit sources):",
     },
     "cli.help.commands.footer": {
@@ -393,7 +401,7 @@ _CORE_MESSAGES = {
         "en": "the port (default 8771)",
     },
     "cli.help.mcp.description": {
-        "ru": "MCP-сервер xbsl (stdio): линт, документация Элемента и скаффолдинг метаданных "
+        "ru": "MCP-сервер xbsl (stdio): линт, документация Элемента и создание метаданных "
               "как инструменты агента.",
         "en": "The xbsl MCP server (stdio): linting, the Element documentation and metadata "
               "scaffolding as agent tools.",
@@ -566,7 +574,7 @@ _CORE_MESSAGES = {
               "it extends the builtin set and overrides same-named templates",
     },
     "cli.help.scaf.description": {
-        "ru": "Скаффолдинг метаданных 1С:Элемент (вывод – JSON)",
+        "ru": "Создание метаданных 1С:Элемент (вывод – JSON)",
         "en": "1C:Element metadata scaffolding (output – JSON)",
     },
     "cli.help.scaf.new-project": {

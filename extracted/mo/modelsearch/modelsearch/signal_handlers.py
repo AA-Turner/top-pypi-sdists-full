@@ -5,6 +5,9 @@ from .tasks import insert_or_update_object_task
 
 
 def post_save_signal_handler(instance, **kwargs):
+    if kwargs.get("raw", False):
+        return
+
     insert_or_update_object_task.enqueue(
         instance._meta.app_label, instance._meta.model_name, str(instance.pk)
     )

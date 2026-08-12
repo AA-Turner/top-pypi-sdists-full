@@ -83,4 +83,19 @@ for s in ("notion", "pipedrive", "sentry", "zendesk", "vanta", "launchdarkly"):
 check("zoom NOT in _OAUTH_PENDING (has its app)", "zoom" not in m.MCP_COMING_SOON)
 
 print("\nRESULT:", "ALL PASS" if not fails else ("FAILURES: " + ", ".join(fails)))
-sys.exit(1 if fails else 0)
+
+# Discover-compatible wrapper — same shape as tests/test_integration_write_honesty.py.
+# The checks above run AT IMPORT. A bare module-level sys.exit() raises SystemExit during
+# pytest's import of this module, which pytest reports as an INTERNALERROR and which aborts
+# collection for the WHOLE directory — so this file passing was silently costing us every
+# other test in the suite. `python test_connect_routing.py` behaves exactly as before.
+import unittest  # noqa: E402
+
+
+class ConnectRoutingChecks(unittest.TestCase):
+    def test_all_connect_routing_checks_pass(self):
+        self.assertEqual(fails, [], f"failing checks: {fails}")
+
+
+if __name__ == "__main__":
+    sys.exit(1 if fails else 0)

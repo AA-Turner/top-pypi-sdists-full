@@ -124,9 +124,16 @@ class IdaExporter:
                                 self.disassembly.addCodeRefs(in_ref[0], in_ref[1])
                         if idx == num_subs - 1:
                             for out_ref in self.ida_interface.getCodeOutRefs(instruction_offset):
-                                self.disassembly.addCodeRefs(out_ref[0], out_ref[1])
+                                # IDA reports the edge leaving the macro head; the
+                                # instruction that actually leaves is the last sub, which is
+                                # the address the api_map entry below already uses
+                                self.disassembly.addCodeRefs(smda_instruction[0], out_ref[1])
                                 if out_ref[1] in api_map:
                                     self.disassembly.addr_to_api[smda_instruction[0]] = api_map[out_ref[1]]
+                                    # api_map is keyed by the import entry, so out_ref[1] is
+                                    # the slot this API is reached through
+                                    dll, _, api = api_map[out_ref[1]].rpartition("!")
+                                    self.disassembly.addImportSlot(out_ref[1], dll, api)
                 converted_function.append(converted_block)
             self.disassembly.functions[function_offset] = converted_function
             if self.disassembly.isRecursiveFunction(function_offset):

@@ -156,6 +156,25 @@ class EagerPhase(StrEnum):
     #: never ran, so not one of the per-candidate omission tokens could fire.
     NO_COMPILE_CANDIDATES = "no_compile_candidates"
 
+    #: pgw#1122: the pod resolved a cell BY ITS OWN DERIVED KEY (§4.27
+    #: boot-adopt), materialized it, and the arm refused — a receipt gate, a
+    #: publisher check, an identity this pod cannot establish. Nothing named
+    #: this arm but the pod itself, so there is no order to obey and no reason
+    #: to take the function down: it serves eager and mints its own, which is
+    #: exactly the boot every pod did before boot-adopt existed. Measured cost
+    #: of the alternative: `worker_function_unavailable`, three pods reaped
+    #: `state_blocked_idle`, two replacements bought.
+    ADOPTED_CELL_REFUSED = "adopted_cell_refused"
+
+    #: pgw#1142 / §4.32 item 4: an OPERATOR ordered this worker to serve eager
+    #: only, over the scheduler's control channel or the cozy-local CLI. It is
+    #: neither a defect nor a degradation — it is the answer, and it is
+    #: reversible — so it must never be counted with the failure classes above
+    #: or with `hub_ordered_eager` (which is one PLAN's backend, not a standing
+    #: order about this pod). A worker holding this token has cells it could be
+    #: serving from, still armed, deliberately not called.
+    OPERATOR_EAGER_ONLY = "operator_eager_only"
+
     #: `_fail_closed`'s default, for a caller that has not classified its exit.
     #: A new decline landing here rather than on its own member is the
     #: regression pgw#824 exists to catch.

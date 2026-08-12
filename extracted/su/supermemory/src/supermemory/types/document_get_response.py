@@ -7,12 +7,40 @@ from pydantic import Field as FieldInfo
 
 from .._models import BaseModel
 
-__all__ = ["DocumentGetResponse"]
+__all__ = ["DocumentGetResponse", "Memory"]
+
+
+class Memory(BaseModel):
+    id: str
+
+    created_at: str = FieldInfo(alias="createdAt")
+    """Creation timestamp"""
+
+    is_forgotten: bool = FieldInfo(alias="isForgotten")
+
+    is_inference: bool = FieldInfo(alias="isInference")
+
+    is_latest: bool = FieldInfo(alias="isLatest")
+
+    is_static: bool = FieldInfo(alias="isStatic")
+
+    memory: str
+
+    metadata: Union[str, float, bool, Dict[str, object], List[object], None] = None
+
+    parent_memory_id: Optional[str] = FieldInfo(alias="parentMemoryId", default=None)
+
+    root_memory_id: Optional[str] = FieldInfo(alias="rootMemoryId", default=None)
+
+    source_count: int = FieldInfo(alias="sourceCount")
+
+    updated_at: Optional[str] = FieldInfo(alias="updatedAt", default=None)
+    """Last update timestamp"""
+
+    version: int
 
 
 class DocumentGetResponse(BaseModel):
-    """Document object"""
-
     id: str
     """Unique identifier of the document."""
 
@@ -106,6 +134,12 @@ class DocumentGetResponse(BaseModel):
 
     This can be an ID for your user, a project ID, or any other identifier you wish
     to use to group documents.
+    """
+
+    memories: Optional[List[Memory]] = None
+    """Memories extracted from this document.
+
+    Omitted when the document has no memories (e.g. still processing).
     """
 
     url: Optional[str] = None

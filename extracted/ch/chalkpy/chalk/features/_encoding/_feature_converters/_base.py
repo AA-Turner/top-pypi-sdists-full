@@ -36,6 +36,22 @@ from chalk.utils.log_with_context import get_logger
 
 _logger = get_logger(__name__)
 
+_pl_module: Any = None
+
+
+def _lazy_polars() -> Any:
+    """Import and cache Polars only when a converter needs its dtype."""
+    global _pl_module
+    if _pl_module is None:
+        try:
+            import polars as pl
+
+            _pl_module = pl
+        except ImportError:
+            pass
+    return _pl_module
+
+
 _TRich = TypeVar("_TRich")
 _TRichCo = TypeVar("_TRichCo", covariant=True)
 _TRichCon = TypeVar("_TRichCon", contravariant=True)
@@ -300,7 +316,15 @@ class _ScalarConverterBase(Generic[_TPrim, _TRich]):
 
     @property
     def polars_dtype(self) -> Any:
-        return type(self)._polars_dtype_value
+        val = type(self)._polars_dtype_value
+        if val is None:
+            pl = _lazy_polars()
+            if pl is not None:
+                from chalk.features._encoding.pyarrow import pyarrow_to_polars
+
+                val = pyarrow_to_polars(type(self)._pyarrow_dtype_value, "")
+                type(self)._polars_dtype_value = val
+        return val
 
     @property
     def encoder(self) -> Any:

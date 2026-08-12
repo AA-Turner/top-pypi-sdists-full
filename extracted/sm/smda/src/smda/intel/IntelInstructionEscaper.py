@@ -44,6 +44,8 @@ _COND_JUMP_MNEMONICS = frozenset(
     }
 )
 _ALL_JUMP_MNEMONICS = _JUMP_CALL_MNEMONICS | _COND_JUMP_MNEMONICS
+_IMMEDIATE_RE = re.compile(r"0x[0-9a-fA-F]{1,16}")
+_PTR_REF_RE = re.compile(r"\[(rip (\+|\-) )?(?P<dword_offset>0x[a-fA-F0-9]+)\]")
 
 
 class IntelInstructionEscaper:
@@ -105,6 +107,7 @@ class IntelInstructionEscaper:
         "shlx",
         "shrx",
         "sarx",
+        "rorx",
         "rorxl",
         "rorxq",
         "sarxl",
@@ -180,6 +183,7 @@ class IntelInstructionEscaper:
         "cmpsb",
         "cmpsd",
         "cmpsw",
+        "cmpsq",
         "iret",
         "iretd",
         "iretq",
@@ -284,6 +288,7 @@ class IntelInstructionEscaper:
         "movl",
         "movsd",
         "movsw",
+        "movsq",
         "movsx",
         "movsxd",
         "movzx",
@@ -333,12 +338,14 @@ class IntelInstructionEscaper:
         "pop",
         "popad",
         "popal",
+        "popaw",
         "popf",
         "popfd",
         "popfq",
         "push",
         "pushad",
         "pushal",
+        "pushaw",
         "pushf",
         "pushfd",
         "pushfq",
@@ -459,6 +466,7 @@ class IntelInstructionEscaper:
         "xsaves",
         "xsaves64",
         "xsetbv",
+        "xgetbv",
         "xtest",
         "pcommit",
         # AMD lightweight profiling
@@ -1446,7 +1454,6 @@ class IntelInstructionEscaper:
         "cmpneqss",
         "cmpnlesd",
         "cmpnltsd",
-        "cmpsq",
         "comisd",
         "comiss",
         "cvtpd2dq",
@@ -1481,7 +1488,6 @@ class IntelInstructionEscaper:
         "movntdq",
         "movq",
         "movsldup",
-        "movsq",
         "mulsd",
         "mulss",
         "pabsd",
@@ -1535,7 +1541,6 @@ class IntelInstructionEscaper:
         "pmulld",
         "pmullw",
         "pmuludq",
-        "popaw",
         "por",
         "psadbw",
         "pshufb",
@@ -1570,10 +1575,8 @@ class IntelInstructionEscaper:
         "punpckldq",
         "punpcklqdq",
         "punpcklwd",
-        "pushaw",
         "pxor",
         "rcpss",
-        "rorx",
         "roundsd",
         "sqrtsd",
         "sqrtss",
@@ -1686,7 +1689,6 @@ class IntelInstructionEscaper:
         "vucomiss",
         "vzeroall",
         "vzeroupper",
-        "xgetbv",
         "vsubss",
         "vpmuldq",
         "vcvttsd2usi",
@@ -2086,7 +2088,16 @@ class IntelInstructionEscaper:
                 escaped_field = "REG"
             elif op_field in IntelInstructionEscaper._segment_registers:
                 escaped_field = "SREG"
-            elif op_field in IntelInstructionEscaper._extended_registers or re.search("zmm[0-9]+", op_field):
+            elif op_field in IntelInstructionEscaper._extended_registers or re.fullmatch(
+                r"(?:[xyz]mm|k)[0-9]+(?:\s*\{[^}]*\})*", op_field
+            ):
+                # the explicit table stops at xmm15/ymm15, so AVX-512 widens it here: the
+                # high halves of the vector file and the mask registers otherwise passed
+                # through unescaped and leaked a raw register name into the escaped operand.
+                # EVEX writemask decorations ride on the register operand capstone emits,
+                # so the tail has to be part of the match - and it repeats, because the
+                # zeroing form is spelled as two brace groups separated by a space:
+                # "zmm0 {k1}", "zmm0 {k1} {z}"
                 escaped_field = "XREG"
             elif op_field in IntelInstructionEscaper._control_registers:
                 escaped_field = "CREG"
@@ -2128,7 +2139,10 @@ class IntelInstructionEscaper:
                 escaped_field = "CONST"
             except ValueError:
                 pass
-            if ":" in op_field:
+            # a far pointer is seg:off and carries no memory operand; without the bracket
+            # test this also reclassified every segment-qualified memory operand
+            # ("dword ptr es:[edi]", "fs:[0x30]") from PTR to CONST
+            if ":" in op_field and "[" not in op_field:
                 escaped_field = "CONST"
         if not escaped_field:
             escaped_field = op_field
@@ -2155,10 +2169,11 @@ class IntelInstructionEscaper:
     @classmethod
     def _getPrefixLen(cls, ins_bytes):
         prefixes = cls._PREFIXES
-        return next(
-            (i for i in range(0, len(ins_bytes), 2) if ins_bytes[i : i + 2] not in prefixes),
-            len(ins_bytes),
-        )
+        length = len(ins_bytes)
+        index = 0
+        while index < length and ins_bytes[index : index + 2] in prefixes:
+            index += 2
+        return index
 
     @staticmethod
     def escapeToOpcodeOnly(ins):
@@ -2188,34 +2203,38 @@ class IntelInstructionEscaper:
     @staticmethod
     def escapeBinary(ins, escape_intraprocedural_jumps=False, lower_addr=None, upper_addr=None):
         escaped_sequence = ins.bytes
-        mnemonic = ins.mnemonic.split(" ")[-1]
+        mnemonic = ins.mnemonic
+        if " " in mnemonic:
+            mnemonic = mnemonic.rpartition(" ")[2]
         # remove segment, operand, address, repeat override prefixes
-        if mnemonic in _JUMP_CALL_MNEMONICS or mnemonic in _COND_JUMP_MNEMONICS:
-            escaped_sequence = IntelInstructionEscaper.escapeBinaryJumpCall(ins, escape_intraprocedural_jumps)
+        if mnemonic in _ALL_JUMP_MNEMONICS:
+            return IntelInstructionEscaper.escapeBinaryJumpCall(ins, escape_intraprocedural_jumps)
+        operands = ins.operands
+        # every test below needs "0x" as a substring, and capstone emits lowercase hex only
+        if "0x" not in operands:
             return escaped_sequence
-        if "ptr [0x" in ins.operands or "[rip + 0x" in ins.operands or "[rip - 0x" in ins.operands:
+        if "ptr [0x" in operands or "[rip + 0x" in operands or "[rip - 0x" in operands:
             escaped_sequence = IntelInstructionEscaper.escapeBinaryPtrRef(ins)
         if (
             lower_addr is not None
+            and lower_addr > 0x00100000
             and upper_addr is not None
-            and (
-                ins.operands.startswith("0x")
-                or ", 0x" in ins.operands
-                or "+ 0x" in ins.operands
-                or "- 0x" in ins.operands
-            )
+            and (operands.startswith("0x") or ", 0x" in operands or "+ 0x" in operands or "- 0x" in operands)
         ):
-            immediates = []
-            for immediate_match in re.finditer(r"0x[0-9a-fA-F]{1,16}", ins.operands):
+            for immediate_match in _IMMEDIATE_RE.finditer(operands):
                 immediate = int(immediate_match.group()[2:], 16)
-                if lower_addr > 0x00100000 and lower_addr <= immediate < upper_addr:
-                    immediates.append(immediate)
+                if lower_addr <= immediate < upper_addr:
                     escaped_sequence = IntelInstructionEscaper.escapeBinaryValue(ins, escaped_sequence, immediate)
         return escaped_sequence
 
     @staticmethod
     def escapeBinaryJumpCall(ins, escape_intraprocedural_jumps=False):
-        clean_bytes = IntelInstructionEscaper.getByteWithoutPrefixes(ins)
+        ins_bytes = ins.bytes
+        prefixes = IntelInstructionEscaper._PREFIXES
+        prefix_len = 0
+        while prefix_len < len(ins_bytes) and ins_bytes[prefix_len : prefix_len + 2] in prefixes:
+            prefix_len += 2
+        clean_bytes = ins_bytes[prefix_len:]
         if escape_intraprocedural_jumps and (clean_bytes.startswith(("7", "e0", "e1", "e2", "e3", "eb"))):
             return ins.bytes[:-2] + "??"
         if escape_intraprocedural_jumps and clean_bytes.startswith("0f8"):
@@ -2247,7 +2266,7 @@ class IntelInstructionEscaper:
     @staticmethod
     def escapeBinaryPtrRef(ins):
         escaped_sequence = ins.bytes
-        addr_match = re.search(r"\[(rip (\+|\-) )?(?P<dword_offset>0x[a-fA-F0-9]+)\]", ins.operands)
+        addr_match = _PTR_REF_RE.search(ins.operands)
         if addr_match:
             offset = int(addr_match.group("dword_offset"), 16)
             disp_size = 4
@@ -2270,7 +2289,12 @@ class IntelInstructionEscaper:
             try:
                 packed_hex = str(codecs.encode(struct.pack(pack_format, offset), "hex").decode("ascii"))
             except struct.error:
-                packed_hex = str(codecs.encode(struct.pack("<Q", offset), "hex").decode("ascii"))
+                try:
+                    packed_hex = str(codecs.encode(struct.pack("<Q", offset), "hex").decode("ascii"))
+                except struct.error:
+                    # a displacement wider than 64 bits cannot occur in the instruction
+                    # bytes, so there is nothing to escape
+                    return ins.bytes
             wildcard = "?" * len(packed_hex)
             num_occurrences = occurrences(ins.bytes, packed_hex)
             if num_occurrences == 1:
@@ -2297,7 +2321,11 @@ class IntelInstructionEscaper:
             packed_hex = str(codecs.encode(struct.pack("<I", value), "hex").decode("ascii"))
         except struct.error:
             # value doesn't fit in 32 bits -- a 64-bit immediate (e.g. "mov r64, imm64")
-            packed_hex = str(codecs.encode(struct.pack("<Q", value), "hex").decode("ascii"))
+            try:
+                packed_hex = str(codecs.encode(struct.pack("<Q", value), "hex").decode("ascii"))
+            except struct.error:
+                # an immediate wider than 64 bits cannot occur in the instruction bytes
+                return escaped_sequence
         wildcard = "?" * len(packed_hex)
         num_occurrences = occurrences(escaped_sequence, packed_hex)
         if num_occurrences == 1:

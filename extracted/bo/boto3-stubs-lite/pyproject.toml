@@ -4,10 +4,10 @@
 
 [project]
 name = "boto3-stubs-lite"
-version = "1.43.68"
+version = "1.43.69"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Lite type annotations for boto3 1.43.68 generated with mypy-boto3-builder 8.12.0"
+description = "Lite type annotations for boto3 1.43.69 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -69,11 +69,12 @@ full = [
     "boto3-stubs-full>=1.43.0, <1.44.0",
 ]
 boto3 = [
-    "boto3==1.43.68",
+    "boto3==1.43.69",
 ]
 all = [
     "mypy-boto3-accessanalyzer>=1.43.0, <1.44.0",
     "mypy-boto3-account>=1.43.0, <1.44.0",
+    "mypy-boto3-account-access>=1.43.0, <1.44.0",
     "mypy-boto3-acm>=1.43.0, <1.44.0",
     "mypy-boto3-acm-pca>=1.43.0, <1.44.0",
     "mypy-boto3-agent-registry>=1.43.0, <1.44.0",
@@ -515,6 +516,9 @@ accessanalyzer = [
 ]
 account = [
     "mypy-boto3-account>=1.43.0, <1.44.0",
+]
+account-access = [
+    "mypy-boto3-account-access>=1.43.0, <1.44.0",
 ]
 acm = [
     "mypy-boto3-acm>=1.43.0, <1.44.0",

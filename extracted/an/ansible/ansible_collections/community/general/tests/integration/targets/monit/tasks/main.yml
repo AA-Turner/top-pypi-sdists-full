@@ -12,12 +12,12 @@
     - ansible_facts.os_family != 'Suse'
   block:
     - name: Install EPEL repository (only effective in RHEL)
-      include_role:
+      ansible.builtin.include_role:
         name: setup_epel
 
     - name: create required directories
       become: true
-      file:
+      ansible.builtin.file:
         path: "{{ item }}"
         state: directory
       loop:
@@ -27,11 +27,11 @@
 
     - name: install monit
       become: true
-      package:
+      ansible.builtin.package:
         name: monit
         state: present
 
-    - include_vars: '{{ item }}'
+    - ansible.builtin.include_vars: '{{ item }}'
       with_first_found:
         - files:
             - "{{ ansible_facts.distribution }}-{{ ansible_facts.distribution_major_version }}.yml"
@@ -40,24 +40,24 @@
 
     - name: monit config
       become: true
-      template:
+      ansible.builtin.template:
         src: "monitrc.j2"
         dest: "{{ monitrc }}"
 
     - name: copy process file
       become: true
-      copy:
+      ansible.builtin.copy:
         src: httpd_echo.py
         dest: "{{ process_file }}"
 
     - name: Install virtualenv on Arch Linux
-      pip:
+      ansible.builtin.pip:
         name: virtualenv
         state: present
       when: ansible_facts.os_family == 'Archlinux'
 
     - name: install dependencies
-      pip:
+      ansible.builtin.pip:
         name: "{{ item }}"
         virtualenv: "{{ process_venv }}"
         virtualenv_command: "{{ virtualenv_command }}"
@@ -68,26 +68,26 @@
 
     - name: restart monit
       become: true
-      service:
+      ansible.builtin.service:
         name: monit
         state: restarted
 
-    - include_tasks: test.yml
+    - ansible.builtin.include_tasks: test.yml
 
   always:
     - name: stop monit
       become: true
-      service:
+      ansible.builtin.service:
         name: monit
         state: stopped
 
     - name: uninstall monit
       become: true
-      package:
+      ansible.builtin.package:
         name: monit
         state: absent
 
     - name: remove process files
-      file:
+      ansible.builtin.file:
         path: "{{ process_root }}"
         state: absent

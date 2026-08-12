@@ -3,10 +3,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Include Jenkins user variables
-  include_vars: "{{ role_path }}/vars/credentials.yml"
+  ansible.builtin.include_vars: "{{ role_path }}/vars/credentials.yml"
 
 - name: Make sure Jenkins is ready
-  uri:
+  ansible.builtin.uri:
     url: http://localhost:8080/login
     status_code: 200
     return_content: false
@@ -17,17 +17,17 @@
   until: result.status == 200
 
 - name: Get Jenkins crumb and save cookie
-  shell: |
+  ansible.builtin.shell: |
     curl -s -c cookies.txt -u FishLegs:MeatLug http://localhost:8080/crumbIssuer/api/json > crumb.json
   args:
     executable: /bin/bash
 
 - name: Read crumb value
-  set_fact:
+  ansible.builtin.set_fact:
     crumb_data: "{{ lookup('file', 'crumb.json') | from_json }}"
 
 - name: Create Jenkins folder 'test'
-  shell: |
+  ansible.builtin.shell: |
     curl -b cookies.txt -u {{ jenkins_username }}:{{ jenkins_password }} \
       -H "{{ crumb_data.crumbRequestField }}: {{ crumb_data.crumb }}" \
       -H "Content-Type: application/xml" \

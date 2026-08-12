@@ -16,6 +16,7 @@ from . import activity as activity_mod
 from . import boot_phases as boot_mod
 from . import content_credentials
 from . import receipts
+from . import serve_posture
 from . import mint_goal as mint_goal_mod
 from . import progress as progress_mod
 from . import worker_goals
@@ -92,7 +93,23 @@ def probe_hardware() -> Dict[str, Any]:
         "gpu_sm": "",
         "torch_version": "",
         "installed_libs": [],
+        "driver_version": "",
     }
+    # pgw#1129/th#1798: the HOST driver, read from NVML rather than torch —
+    # the whole point of this fact is that it stays readable when the CUDA
+    # runtime is not. A cu130 build on a 570.x host imports fine, reports every
+    # version string correctly, and dies on its first allocation, so the driver
+    # is the only field in this dict that can tell the hub which hosts its
+    # placement filter actually landed on.
+    try:
+        from .hardware_report import _nvidia_smi_driver_and_gpu
+
+        driver, gpu = _nvidia_smi_driver_and_gpu()
+        info["driver_version"] = driver
+        if gpu and not info["gpu_name"]:
+            info["gpu_name"] = gpu
+    except Exception:
+        pass
     try:
         import torch
 
@@ -433,6 +450,10 @@ class Lifecycle:
             gpu_name=str(hw.get("gpu_name") or ""),
             gpu_sm=str(hw.get("gpu_sm") or ""),
             torch_version=str(hw.get("torch_version") or ""),
+            # pgw#1129/th#1798: the host driver, so the hub can answer
+            # "can the host we landed on run this pod's CUDA line?" from a
+            # SUCCESSFUL boot instead of only from a corpse.
+            driver_version=str(hw.get("driver_version") or ""),
             installed_libs=[str(x) for x in (hw.get("installed_libs") or [])],
             gen_worker_version=gw_version,
             image_digest=self._settings.worker_image_digest,
@@ -1032,6 +1053,18 @@ class Lifecycle:
                 "ignoring retired ModelOp (pgw#1032): hot compile-cache "
                 "adoption is gone; a cell arrives only as a Plan's exact "
                 "Arm.artifact (pgw#904) — the hub never pushes one")
+        elif which == "serve_posture":
+            # pgw#1142 / §4.32 item 4: the operator's eager-only command.
+            # Applied SYNCHRONOUSLY and unconditionally — it touches one
+            # process-global order and never blocks, so there is no state in
+            # which a worker is "too busy" to stop using a broken cell, and
+            # in-flight requests pick it up at their next compiled call.
+            # Idempotent, so the hub replaying it on reconnect is free.
+            serve_posture.apply_command(
+                bool(msg.serve_posture.eager_only),
+                actor=str(msg.serve_posture.actor or ""),
+                reason=str(msg.serve_posture.reason or ""),
+            )
         elif which == "drain":
             # The hub asked, explicitly, for this budget on this drain — an
             # operator budget on a command, which pgw#887 keeps.

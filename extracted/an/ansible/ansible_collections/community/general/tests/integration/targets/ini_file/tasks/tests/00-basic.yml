@@ -6,7 +6,7 @@
 ## basics
 
 - name: test-basic 1 - specify both "value" and "values" and fail
-  ini_file:
+  community.general.ini_file:
     path: "{{ output_file }}"
     section: drinks
     option: fav
@@ -18,7 +18,7 @@
   ignore_errors: true
 
 - name: test-basic 1 - verify error message
-  assert:
+  ansible.builtin.assert:
     that:
       - result_basic_1 is not changed
       - result_basic_1 is failed
@@ -26,7 +26,7 @@
 
 
 - name: test-basic 2 - set "create=no" on non-existing file and fail
-  ini_file:
+  community.general.ini_file:
     path: "{{ non_existing_file }}"
     section: food
     create: false
@@ -35,7 +35,7 @@
   ignore_errors: true
 
 - name: test-basic 2 - verify error message
-  assert:
+  ansible.builtin.assert:
     that:
       - result_basic_2 is not changed
       - result_basic_2 is failed

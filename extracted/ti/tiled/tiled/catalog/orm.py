@@ -2,6 +2,7 @@ from typing import List
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     Column,
     DateTime,
@@ -489,13 +490,13 @@ class DataSource(Timestamped, Base):
         secondary="data_source_asset_association",
         back_populates="data_sources",
         cascade="all, delete",
-        lazy="selectin",
+        lazy="raise",
         viewonly=True,
     )
     # association between Asset -> Association -> DataSource
     asset_associations: Mapped[List["DataSourceAssetAssociation"]] = relationship(
         back_populates="data_source",
-        lazy="selectin",
+        lazy="raise",
         order_by=[DataSourceAssetAssociation.parameter, DataSourceAssetAssociation.num],
     )
 
@@ -534,7 +535,7 @@ class Asset(Timestamped, Base):
     is_directory = Column(Boolean, nullable=False)
     hash_type = Column(Unicode(63), nullable=True)
     hash_content = Column(Unicode(1023), nullable=True)
-    size = Column(Integer, nullable=True)
+    size = Column(BigInteger, nullable=True)
 
     # # many-to-many relationship to Asset, bypassing the `Association` class
     data_sources: Mapped[List["DataSource"]] = relationship(

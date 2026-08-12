@@ -42,6 +42,7 @@ from omnigent.codex_native_app_server import (
     client_for_transport,
     codex_session_meta_model_provider,
     codex_terminal_env,
+    native_codex_launch_base_url,
     normalize_codex_permission_launch_args,
     preload_codex_thread_for_resume,
     resolve_native_codex_launch,
@@ -222,10 +223,12 @@ def _codex_auth_unavailable_reason() -> HarnessUnavailableReason | None:
     fail-open the ``claude-sdk`` / ``openai-agents`` gateway harnesses already
     rely on: their gateway token is a runtime mint the daemon can't observe.
 
-    The check stays synchronous, side-effect free, and local: it resolves the
-    launch (local config reads) and, only on the defer-to-login path, inspects
-    the local auth source. It never runs ``codex login``, a status command, or a
-    network probe; any resolver failure fails safe onto the ``auth.json`` check.
+    The check stays synchronous and local: it resolves the launch (local config
+    reads) and, only on the defer-to-login path, inspects the local auth source.
+    It never runs ``codex login`` or a status command; the CLI ``--version``
+    probe it does run is bounded by ``READINESS_CLI_PROBE_TIMEOUT_S`` so a hung
+    CLI can't stall the readiness refresh, and any resolver failure fails safe
+    onto the ``auth.json`` check.
 
     :returns: ``"binary-missing"`` when the CLI is absent, ``"needs-auth"``
         when the launch would defer to Codex's own login but ``auth.json`` is
@@ -235,20 +238,23 @@ def _codex_auth_unavailable_reason() -> HarnessUnavailableReason | None:
         not judged locally — it surfaces at the first turn via the executor.
     """
     from omnigent.onboarding.harness_install import (
+        READINESS_CLI_PROBE_TIMEOUT_S,
         harness_cli_installed,
     )
     from omnigent.onboarding.provider_config import OPENAI_FAMILY
 
     if _find_codex_cli() is None:
         return HARNESS_BINARY_MISSING
-    if not harness_cli_installed(OPENAI_FAMILY):
+    if not harness_cli_installed(OPENAI_FAMILY, timeout=READINESS_CLI_PROBE_TIMEOUT_S):
         return HARNESS_VERSION_TOO_LOW
     # On a host with no configured provider this may run ambient detection.
     # configured_harness_map shares one probe across all Codex aliases.
     try:
         launch = resolve_native_codex_launch(model=None)
         routes_through_provider = (
-            launch.profile is not None or codex_session_meta_model_provider(launch) != "openai"
+            launch.profile is not None
+            or codex_session_meta_model_provider(launch) != "openai"
+            or native_codex_launch_base_url(launch) is not None
         )
     except Exception:  # noqa: BLE001 - readiness must never raise; fail onto auth.json.
         _logger.debug("codex readiness: launch resolve failed; using auth.json", exc_info=True)
@@ -660,9 +666,15 @@ def _run_with_local_server(
                 prompt=prompt,
             )
             if resolved_session_id is None:
+                # A native ``/new`` rotates ownership to a fresh session, so
+                # read the active id from bridge state instead of the id this
+                # process started with — otherwise the hint resumes a session
+                # the user already cleared away from.
                 echo_native_resume_hint(
                     native_command="codex",
-                    session_id=prepared.session_id,
+                    session_id=(
+                        _active_codex_session_id(prepared.bridge_dir) or prepared.session_id
+                    ),
                 )
 
         asyncio.run(_drive())
@@ -771,9 +783,13 @@ def _run_with_remote_server(
                 recover=_recover,
             )
             if resolved_session_id is None:
+                # See the local path: ``/new`` rotation means bridge state,
+                # not ``prepared``, holds the session worth resuming.
                 echo_native_resume_hint(
                     native_command="codex",
-                    session_id=prepared.session_id,
+                    session_id=(
+                        _active_codex_session_id(prepared.bridge_dir) or prepared.session_id
+                    ),
                     server=base_url,
                 )
 

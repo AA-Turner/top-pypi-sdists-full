@@ -116,6 +116,7 @@ async def register_workflow(
     task_queue: str = "default",
     input_schema: dict[str, Any] | None = None,
     deployment_name: str | None = None,
+    worker_name: str = "test-worker",
     display_name: str | None = None,
 ) -> dict[str, Any]:
     if input_schema is None:
@@ -127,9 +128,11 @@ async def register_workflow(
     }
     if display_name is not None:
         definition["display_name"] = display_name
-    body: dict[str, Any] = {"definitions": [definition]}
-    if deployment_name is not None:
-        body["deployment_name"] = deployment_name
+    body: dict[str, Any] = {
+        "definitions": [definition],
+        "deployment_name": deployment_name or task_queue,
+        "worker_name": worker_name,
+    }
     response = await client.post("/v1/workflows/register", json=body)
     response.raise_for_status()
     return cast(dict[str, Any], response.json())

@@ -32,11 +32,6 @@ from ._base import (
 
 # pyright: reportPrivateUsage=false, reportIncompatibleMethodOverride=false, reportReturnType=false, reportUnnecessaryCast=false, reportUnnecessaryComparison=false
 
-try:
-    import polars as pl
-except ImportError:
-    pl = None
-
 _DATETIME_PA_TYPE = pa.timestamp("us", "UTC")
 _DATETIME_NULL_PROTO = pb.ArrowType(
     timestamp=pb.Timestamp(time_unit=pb.TIME_UNIT_MICROSECOND, timezone="UTC")
@@ -82,7 +77,7 @@ class DatetimeFeatureConverter(
     _primitive_type_value: ClassVar[Type[datetime]] = datetime
     _pyarrow_dtype_value: ClassVar[pa.DataType] = _DATETIME_PA_TYPE
     _proto_arrow_type: ClassVar[pb.ArrowType] = _DATETIME_NULL_PROTO
-    _polars_dtype_value: ClassVar[Any] = pl.Datetime("us", "UTC") if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None
 
     _coerce_fn = staticmethod(_coerce_datetime)
     _use_fast_path = False

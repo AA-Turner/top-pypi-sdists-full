@@ -9,6 +9,7 @@ license.workspace = true
 readme = "README.md"
 
 [dependencies]
+tombi-fs.workspace = true
 tombi-uri.workspace = true
 
 [lints]

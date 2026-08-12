@@ -4,24 +4,24 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Copy test files
-  copy:
+  ansible.builtin.copy:
     src: "files/"
     dest: "{{ remote_tmp_dir }}"
 
 - name: Get original file stat
-  stat:
+  ansible.builtin.stat:
     path: "{{ remote_tmp_dir }}/file.txt"
   register: orig_file_stat
 
 - name: Set supported formats
-  set_fact:
+  ansible.builtin.set_fact:
     formats:
       - bz2
       - gz
       - xz
 
 - name: Ensure xz is present to create compressed files (not Debian)
-  package:
+  ansible.builtin.package:
     name:
       - xz
       - bzip2
@@ -32,7 +32,7 @@
     - ansible_facts.os_family != 'Debian'
 
 - name: Ensure xz is present to create compressed files (Debian)
-  package:
+  ansible.builtin.package:
     name: xz-utils
     state: latest
   when: ansible_facts.os_family == 'Debian'
@@ -40,14 +40,14 @@
 - name: Ensure xz is present to create compressed file (macOS)
   block:
     - name: Find brew binary
-      command: which brew
+      ansible.builtin.command: which brew
       register: brew_which
     - name: Get owner of brew binary
-      stat:
+      ansible.builtin.stat:
         path: "{{ brew_which.stdout }}"
       register: brew_stat
     - name: "Install package"
-      homebrew:
+      community.general.homebrew:
         name: xz
         state: present
         update_homebrew: false
@@ -61,7 +61,7 @@
     - ansible_facts.os_family == 'Darwin'
 
 - name: Generate compressed files
-  shell: |
+  ansible.builtin.shell: |
     gzip < {{ item }} > {{ item }}.gz
     bzip2 < {{ item }} > {{ item }}.bz2
     xz < {{ item }} > {{ item }}.xz
@@ -72,19 +72,19 @@
 # Run tests
 - name: Run core tests
   block:
-    - include_tasks: core.yml
+    - ansible.builtin.include_tasks: core.yml
       loop: "{{ formats }}"
       loop_control:
         loop_var: format
-    - import_tasks: cleanup.yml
+    - ansible.builtin.import_tasks: cleanup.yml
 
 
 - name: Run idempotency and check mode tests
   block:
-    - import_tasks: misc.yml
-    - import_tasks: cleanup.yml
+    - ansible.builtin.import_tasks: misc.yml
+    - ansible.builtin.import_tasks: cleanup.yml
 
 - name: Run tests for destination file
   block:
-    - import_tasks: dest.yml
-    - import_tasks: cleanup.yml
+    - ansible.builtin.import_tasks: dest.yml
+    - ansible.builtin.import_tasks: cleanup.yml

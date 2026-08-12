@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: dlthub
-Version: 0.29.0
+Version: 0.30.0
 Summary: dlthub is a commercial extension to dlt
 Author-email: ScaleVector GmbH <services@dlthub.com>
 Maintainer-email: Marcin Rudolf <marcin@dlthub.com>, Adrian Brudaru <adrian@dlthub.com>, Anton Burnashev <anton@dlthub.com>, David Scharf <david@dlthub.com>

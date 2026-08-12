@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: powertrain-build
-Version: 1.16.9
+Version: 1.17.0
 Summary: A Continuous Integration (CI) build system testing all configurations where a Simulink model is used.
 Home-page: https://opendev.org/volvocars/powertrain-build
 Download-URL: https://pypi.org/project/powertrain-build/
@@ -14,7 +14,7 @@ Classifier: License :: Other/Proprietary License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Topic :: Software Development :: Code Generators
 Classifier: Topic :: Software Development :: Embedded Systems
@@ -33,10 +33,12 @@ Requires-Dist: ruamel.yaml.clib==0.2.7; python_version == "3.6"
 Requires-Dist: ruamel.yaml==0.17.21; python_version == "3.6"
 Requires-Dist: voluptuous<0.14.0,>=0.11.7; python_version < "3.7"
 Requires-Dist: scipy==1.5.4; python_version < "3.8"
-Requires-Dist: scipy==1.14.1; python_version >= "3.11"
+Requires-Dist: scipy==1.14.1; python_version == "3.11"
+Requires-Dist: scipy==1.18.0; python_version >= "3.12"
 Requires-Dist: importlib-resources==5.4.0; python_version < "3.9"
 Requires-Dist: pywin32==305; python_version == "3.6" and sys_platform == "win32"
-Requires-Dist: pywin32==308; python_version > "3.6" and sys_platform == "win32"
+Requires-Dist: pywin32==308; (python_version == "3.7" or python_version == "3.8") and sys_platform == "win32"
+Requires-Dist: pywin32==312; python_version >= "3.9" and sys_platform == "win32"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

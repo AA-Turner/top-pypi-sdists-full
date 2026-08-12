@@ -36,6 +36,7 @@ __all__ = (
     "AttachmentScopeType",
     "AuthCodeEntityTypeType",
     "AutoEvaluationStatusType",
+    "AvailableFilterTypeType",
     "BehaviorType",
     "BehaviorTypeType",
     "BooleanComparisonTypeType",
@@ -148,6 +149,7 @@ __all__ = (
     "ListIntegrationAssociationsPaginatorName",
     "ListLambdaFunctionsPaginatorName",
     "ListLexBotsPaginatorName",
+    "ListMetricsPaginatorName",
     "ListPhoneNumbersPaginatorName",
     "ListPhoneNumbersV2PaginatorName",
     "ListPredefinedAttributesPaginatorName",
@@ -181,6 +183,13 @@ __all__ = (
     "MediaStreamTypeType",
     "MediaTypeType",
     "MeetingFeatureStatusType",
+    "MetricCreationMethodType",
+    "MetricFilterBooleanConditionComparisonType",
+    "MetricFilterNumberConditionComparisonType",
+    "MetricFilterStringConditionComparisonType",
+    "MetricStatusType",
+    "MetricTypeType",
+    "MetricUnitType",
     "MonitorCapabilityType",
     "MultiSelectQuestionRuleCategoryAutomationConditionType",
     "NextContactTypeType",
@@ -243,6 +252,7 @@ __all__ = (
     "SearchDataTablesPaginatorName",
     "SearchHoursOfOperationOverridesPaginatorName",
     "SearchHoursOfOperationsPaginatorName",
+    "SearchMetricsPaginatorName",
     "SearchPredefinedAttributesPaginatorName",
     "SearchPromptsPaginatorName",
     "SearchQueuesPaginatorName",
@@ -280,6 +290,7 @@ __all__ = (
     "TimerEligibleParticipantRolesType",
     "TrafficDistributionGroupStatusType",
     "TrafficTypeType",
+    "TrendIndicatorType",
     "UnitType",
     "UseCaseTypeType",
     "VideoCapabilityType",
@@ -332,6 +343,7 @@ ArtifactStatusType = Literal["APPROVED", "IN_PROGRESS", "REJECTED"]
 AttachmentScopeType = Literal["CASE", "CHAT", "EMAIL", "TASK"]
 AuthCodeEntityTypeType = Literal["CUSTOMER_PROFILE"]
 AutoEvaluationStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
+AvailableFilterTypeType = Literal["METRIC_LEVEL", "RESOURCE_LEVEL"]
 BehaviorType = Literal["Disable", "Enable"]
 BehaviorTypeType = Literal["ROUTE_ANY_CHANNEL", "ROUTE_CURRENT_CHANNEL_ONLY"]
 BooleanComparisonTypeType = Literal["IS_FALSE", "IS_TRUE"]
@@ -650,6 +662,7 @@ ListInstancesPaginatorName = Literal["list_instances"]
 ListIntegrationAssociationsPaginatorName = Literal["list_integration_associations"]
 ListLambdaFunctionsPaginatorName = Literal["list_lambda_functions"]
 ListLexBotsPaginatorName = Literal["list_lex_bots"]
+ListMetricsPaginatorName = Literal["list_metrics"]
 ListPhoneNumbersPaginatorName = Literal["list_phone_numbers"]
 ListPhoneNumbersV2PaginatorName = Literal["list_phone_numbers_v2"]
 ListPredefinedAttributesPaginatorName = Literal["list_predefined_attributes"]
@@ -702,6 +715,15 @@ MediaTypeType = Literal[
     "IMAGE_LOGO_LIGHT_HORIZONTAL",
 ]
 MeetingFeatureStatusType = Literal["AVAILABLE", "UNAVAILABLE"]
+MetricCreationMethodType = Literal["METRIC_BUILDER", "SERVICE_LEVEL_BUILDER"]
+MetricFilterBooleanConditionComparisonType = Literal["IS_FALSE", "IS_TRUE"]
+MetricFilterNumberConditionComparisonType = Literal[
+    "GREATER", "GREATER_OR_EQUAL", "LESSER", "LESSER_OR_EQUAL"
+]
+MetricFilterStringConditionComparisonType = Literal["MATCHES_ANY", "MATCHES_NONE"]
+MetricStatusType = Literal["PUBLISHED", "SAVED"]
+MetricTypeType = Literal["AWS_MANAGED", "CUSTOMER_MANAGED"]
+MetricUnitType = Literal["DOUBLE", "INTEGER", "PERCENT", "SECONDS"]
 MonitorCapabilityType = Literal["BARGE", "SILENT_MONITOR"]
 MultiSelectQuestionRuleCategoryAutomationConditionType = Literal["NOT_PRESENT", "PRESENT"]
 NextContactTypeType = Literal["QUICK_CONNECT"]
@@ -1047,6 +1069,7 @@ SearchContactsTimeRangeTypeType = Literal[
 SearchDataTablesPaginatorName = Literal["search_data_tables"]
 SearchHoursOfOperationOverridesPaginatorName = Literal["search_hours_of_operation_overrides"]
 SearchHoursOfOperationsPaginatorName = Literal["search_hours_of_operations"]
+SearchMetricsPaginatorName = Literal["search_metrics"]
 SearchPredefinedAttributesPaginatorName = Literal["search_predefined_attributes"]
 SearchPromptsPaginatorName = Literal["search_prompts"]
 SearchQueuesPaginatorName = Literal["search_queues"]
@@ -1113,6 +1136,7 @@ TrafficDistributionGroupStatusType = Literal[
     "UPDATE_IN_PROGRESS",
 ]
 TrafficTypeType = Literal["CAMPAIGN", "GENERAL"]
+TrendIndicatorType = Literal["NEGATIVE", "NEUTRAL", "POSITIVE"]
 UnitType = Literal["COUNT", "PERCENT", "SECONDS"]
 UseCaseTypeType = Literal["CONNECT_CAMPAIGNS", "RULES_EVALUATION"]
 VideoCapabilityType = Literal["SEND"]
@@ -1166,6 +1190,7 @@ ConnectServiceName = Literal["connect"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",
@@ -1628,6 +1653,7 @@ PaginatorName = Literal[
     "list_integration_associations",
     "list_lambda_functions",
     "list_lex_bots",
+    "list_metrics",
     "list_phone_numbers",
     "list_phone_numbers_v2",
     "list_predefined_attributes",
@@ -1664,6 +1690,7 @@ PaginatorName = Literal[
     "search_data_tables",
     "search_hours_of_operation_overrides",
     "search_hours_of_operations",
+    "search_metrics",
     "search_predefined_attributes",
     "search_prompts",
     "search_queues",

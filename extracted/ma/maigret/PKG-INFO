@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: maigret
-Version: 0.6.3
+Version: 0.6.4
 Summary: 🕵️‍♂️ Collect a dossier on a person by username from thousands of sites.
 License: MIT
 License-File: LICENSE
@@ -102,26 +102,14 @@ Description-Content-Type: text/markdown
 ## Sponsors
 
 <p align="center">
-  <a href="https://www.711proxy.com/?utm_t=1&utm_i=538">
-    <img src="https://i.imgur.com/s1JHMun.gif" width="250" alt="711Proxy">
+  <a href="https://www.ipcook.com/?ref=githubmaigret&utm_source=github&utm_medium=referral&utm_campaign=maigret">
+    <img src="https://github.com/user-attachments/assets/8c02d81a-8135-408d-a5e0-7558a1f49a2d" width="250" alt="IPcook">
   </a>
 </p>
 
 <p>
-  <a href="https://www.711proxy.com/?utm_t=1&utm_i=538"><b>711Proxy</b></a> provides reliable residential proxies for web scraping, username lookups, and public data collection. Over <b>100M</b> residential IPs across <b>200+</b> countries • High Success Rates • Fast & Reliable Connections. <br>
-<b>Special Offer</b>: Free trial available! Rotating residential proxies from just <b>$0.55/GB</b>. Unlimited residential proxies from <b>$15/hour</b> with no concurrency limits.
-</p>
-
-<br>
-
-<p align="center">
-  <a href="https://9proxy.com/?utm_source=Github&utm_campaign=obscura">
-    <img src="https://i.imgur.com/FleHdvu.gif" width="250" alt="9Proxy">
-  </a>
-</p>
-
-<p>
-  <a href="https://9proxy.com/?utm_source=Github&utm_campaign=obscura"><b>9Proxy</b></a> provides residential proxies from just <b>$0.018/IP or $0.68/GB</b>. 20M+ IPs across 90+ countries. Sticky or rotating sessions, managed from desktop or mobile app.
+   <a href="https://www.ipcook.com/?ref=githubmaigret&utm_source=github&utm_medium=referral&utm_campaign=maigret"><b>IPcook</b></a> provides reliable residential proxies for online research, username discovery, and public data collection workflows. High success rates • 99.99% uptime • Response time under 0.5s • Monthly & Pay-as-you-go • Non-expiring traffic • Up to 10 free sub-accounts for team collaboration • Residential proxies from $0.3–$3.2/GB.<br>
+<b>Special Offer</b>: FREE 100MB trial available. Use code WELCOME20 for 20% off.
 </p>
 
 <br>
@@ -134,7 +122,7 @@ Description-Content-Type: text/markdown
 
 <p>
   <a href="https://www.rapidproxy.io/?ref=soxoj"><b>RapidProxy</b></a> provides high-performance residential proxies for Twitter scraping, Selenium automation, and web data extraction. 90M+ IPs • Smart rotation • Anti-block • Non-expiring traffic. <br>
-<b>Special Offer</b>: Try it free — Plans from $0.65/GB. Use code <b>RAPID10</b> for 10% off.
+<b>Special Offer</b>: Try it free — Plans from $0.65/GB. Use code <b>RAPID10</b> for 10% off.
 </p>
 
 ## Contents
@@ -297,10 +285,10 @@ PDF reports (`--pdf`) are an optional extra — install with `pip install 'maigr
 ### Examples
 
 ```bash
-# make HTML, PDF, and Xmind8 reports
+# make HTML, PDF, and XMind reports
 maigret user --html
 maigret user --pdf
-maigret user --xmind #Output not compatible with xmind 2022+
+maigret user --xmind # legacy XML with a manifest for XMind 2022+ readers
 
 # machine-readable exports
 maigret user --json ndjson   # newline-delimited JSON (also: --json simple)
@@ -334,6 +322,12 @@ Run `maigret --help` for all options. Docs: [CLI options](https://maigret.readth
 ### Web interface
 
 Maigret has a built-in web UI with a results graph and downloadable reports.
+
+Don't want to run it yourself? Deploy the published `soxoj/maigret:web` Docker image as a hosted app in one click:
+
+<a href="https://render.com/deploy?repo=https://github.com/soxoj/maigret&path=utils/render.yaml"><img src="https://render.com/images/deploy-to-render-button.svg" alt="Deploy to Render" height="40"></a>
+
+Runs on Render's free tier (spins down after 15 min idle, spins back up on the next request). No login is set up on the instance, so anyone with the URL can use it.
 
 <details>
 <summary>Web Interface Screenshots</summary>

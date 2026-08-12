@@ -84,11 +84,16 @@ def _levels_by_group() -> dict[str, Counter]:
 
 # Rule ids may carry digits (encoding/utf8) - a stricter pattern silently drops such a row
 # and the guard goes blind exactly where it should look.
+#: The table shows the level as a Material Symbols icon and the default state as a mark - words
+#: per column did not fit the page, and the column that matters ("what it checks") was the one
+#: being squeezed out. The level is read from the alt text of the picture.
+_ICON_DEFAULT = {"✓": "on", "–": "off"}
+
 _ROW = re.compile(
-    r"^\|\s*(\d+)\s*\|\s*`([a-z0-9-]+/[a-z0-9-]+)`\s*\|\s*(\w+)\s*\|\s*(\S+)\s*\|\s*(\S+)\s*"
-    r"\|(.*)\|\s*$"
+    r"^\|\s*`([a-z0-9-]+/[a-z0-9-]+)`\s*\|\s*<svg[^>]*aria-label=\"(error|warning|info)\"[^>]*>"
+    r".*?</svg>\s*\|\s*(\S+)\s*\|\s*(\S+)\s*\|(.*)\|\s*$"
 )
-_ANY_ROW = re.compile(r"^\|\s*\d*\s*\|?\s*`")
+_ANY_ROW = re.compile(r"^\|\s*`")
 _TIER_HEADING = re.compile(r"^###\s+(?:Тир|Tier)\s+([A-D])")
 _DOC_LINK = re.compile(r"\[(?:доки|docs)\]\((\S+?)\)")
 
@@ -105,8 +110,9 @@ _COUNTS = {
     "README.md": re.compile(r"\*\*Rules\.\*\*\s*(\d+)\s+rules"),
     "docs/index.ru.md": re.compile(r"(\d+)\s+правил в четырёх тирах"),
     "docs/index.md": re.compile(r"(\d+)\s+rules in four tiers"),
-    "docs/GUIDE.ru.md": re.compile(r"Полный перечень всех\s+(\d+)\s+правил"),
-    "docs/GUIDE.md": re.compile(r"The full list of all\s+(\d+)\s+rules"),
+    # "Rules in depth" moved out of the guide when it was split by task.
+    "docs/linting.ru.md": re.compile(r"Полный перечень всех\s+(\d+)\s+правил"),
+    "docs/linting.md": re.compile(r"The full list of all\s+(\d+)\s+rules"),
 }
 
 # Locale-specific spellings of the "Default" and "Scope" columns.
@@ -133,12 +139,19 @@ def _parse_table(name: str) -> dict[str, dict]:
                 "молча пропускать строки."
             )
             continue
-        position, rule_id, severity, default, scope, tail = match.groups()
+        rule_id, severity, default, scope, tail = match.groups()
+        assert default in _ICON_DEFAULT, (
+            f"{name}:{number} – неизвестный значок включённости {default!r}; "
+            f"допустимы {sorted(_ICON_DEFAULT)}"
+        )
         link = _DOC_LINK.search(tail)
         rows[rule_id] = {
-            "tier": tier, "severity": severity, "default": default, "scope": scope,
-            "link": link.group(1) if link else None, "line": number,
-            "position": int(position),
+            "tier": tier,
+            "severity": severity,
+            "default": _ICON_DEFAULT[default],
+            "scope": scope,
+            "link": link.group(1) if link else None,
+            "line": number,
         }
     return rows
 
@@ -173,9 +186,11 @@ def test_docs_table_matches_registry(name: str):
         info = _by_id().get(rule_id)
         if info is None:
             continue  # reported by test_docs_table_lists_every_rule
+        # Level and default state come back from the icons already normalized; the scope is
+        # still a word, and that one is spelled per locale.
         expected = {
             "severity": info["severity"],
-            "default": words["on"] if info["default"] else words["off"],
+            "default": "on" if info["default"] else "off",
             "scope": words[info["scope"]],
             "tier": info["tier"],
         }
@@ -188,88 +203,91 @@ def test_docs_table_matches_registry(name: str):
     assert not problems, "таблица правил разошлась с реестром:\n" + "\n".join(problems)
 
 
-# --- editors/vscode/package.nls.* --------------------------------------------------------
+# --- documentation of the rule groups -----------------------------------------------------
+# Until 0.59 every group had its own xbsl.groups.<group> setting carrying a description and the
+# level counters, and the guards checked those against the registry. The settings are retired - a
+# group is now a key of the single xbsl.rules table - so the documentation is checked instead:
+# without it there is nowhere to read about a new group.
 
-_GROUP_KEY = "config.groups."
-# The sentence stating the group defaults; the tail is parsed for "<count> ... <level>" pairs,
-# which covers both spellings ("15 правил error, 13 – warning" / "15 rules at error, 13 at
-# warning") without pinning the wording.
-_DEFAULTS = re.compile(r"(?:По умолчанию|Defaults?):\s*([^.]*)\.")
-_COUNTED = re.compile(rf"(\d+)[^\d]*?({_LEVELS})")
-_SINGLE = re.compile(rf"^({_LEVELS})$")
-
-_NLS = ["package.nls.ru.json", "package.nls.json"]
+_RULES_PAGES = ["RULES.ru.md", "RULES.md"]
 
 
-def _parse_nls(name: str) -> dict[str, str]:
-    """Group id -> the "defaults" sentence tail of its description."""
-    data = json.loads((VSCODE / name).read_text(encoding="utf-8"))
-    tails = {}
-    for key, value in data.items():
-        if not key.startswith(_GROUP_KEY) or ".enum." in key:
-            continue
-        group = key[len(_GROUP_KEY):]
-        stated = _DEFAULTS.search(value)
-        assert stated, (
-            f"{name}: в описании группы {group!r} нет предложения об умолчаниях "
-            "(\"По умолчанию: ...\" / \"Defaults: ...\") – сторож не может его сверить"
-        )
-        tails[group] = stated.group(1).strip()
-    return tails
-
-
-@pytest.mark.parametrize("name", _NLS)
-def test_extension_describes_every_group(name: str):
-    described = set(_parse_nls(name))
-    actual = set(_levels_by_group())
-    assert described == actual, (
-        f"{name}: описаны группы {sorted(described)}, в реестре {sorted(actual)}"
-    )
-
-
-@pytest.mark.parametrize("name", _NLS)
-def test_extension_group_counters_match_registry(name: str):
-    problems = []
-    for group, tail in sorted(_parse_nls(name).items()):
-        actual = _levels_by_group().get(group)
-        if actual is None:
-            continue  # reported by test_extension_describes_every_group
-        counted = _COUNTED.findall(tail)
-        if counted:
-            stated = {level: int(number) for number, level in counted}
-            if stated != dict(actual):
-                problems.append(f"{group}: заявлено {stated}, в реестре {dict(actual)}")
-            continue
-        single = _SINGLE.match(tail)
-        assert single, f"{name}: умолчания группы {group!r} не разобраны: {tail!r}"
-        if set(actual) != {single.group(1)}:
-            problems.append(
-                f"{group}: заявлен единственный уровень {single.group(1)!r}, "
-                f"в реестре {dict(actual)}"
-            )
-    assert not problems, f"{name}: счётчики групп разошлись с реестром:\n" + "\n".join(problems)
+@pytest.mark.parametrize("name", _RULES_PAGES)
+def test_rules_page_mentions_every_group(name: str):
+    text = (ROOT / "docs" / name).read_text(encoding="utf-8")
+    missing = [group for group in sorted(_levels_by_group()) if f"{group}/" not in text]
+    assert not missing, f"docs/{name}: группы {missing} не описаны на странице правил"
 
 
 def _manifest() -> dict:
     return json.loads((VSCODE / "package.json").read_text(encoding="utf-8"))
 
 
-def test_extension_settings_cover_every_group():
-    """Every rule group needs its own xbsl.groups.<group> setting, or it cannot be configured."""
+def test_every_runtime_string_has_a_russian_translation():
+    """A string shown at runtime goes through vscode.l10n.t and needs a key in the ru bundle.
+
+    Without the key VS Code silently falls back to the English source, and a Russian editor gets
+    an English panel - which is exactly what shipped with the rules panel until this guard.
+    """
+    bundle = json.loads((VSCODE / "l10n" / "bundle.l10n.ru.json").read_text(encoding="utf-8"))
+    literal = re.compile(r'l10n\.t\(\s*"((?:[^"\\]|\\.)*)"')
+    missing = []
+    for path in sorted((VSCODE / "src").glob("*.ts")):
+        for match in literal.finditer(path.read_text(encoding="utf-8")):
+            text = json.loads('"' + match.group(1) + '"')
+            if text not in bundle:
+                missing.append(f"{path.name}: {text}")
+    assert not missing, "нет перевода в bundle.l10n.ru.json:\n" + "\n".join(missing)
+
+
+def test_settings_do_not_offer_the_retired_rule_keys():
+    """The forms must not offer what the one table replaced.
+
+    xbsl.groups.<group> and the three linter.select/enable/ignore strings said the same things in
+    four syntaxes; the code still READS them, so nobody's setup breaks, but a setting shown in the
+    UI is an invitation to use it - and the invitation now belongs to xbsl.rules alone.
+    """
     package = _manifest()
-    sections = package["contributes"]["configuration"]  # split into UI sections
-    if isinstance(sections, dict):
-        sections = [sections]
-    prefix = "xbsl.groups."
-    declared = {
-        key[len(prefix):]
+    sections = package["contributes"]["configuration"]
+    sections = [sections] if isinstance(sections, dict) else sections
+    retired = {
+        key
         for section in sections
         for key in section.get("properties", {})
-        if key.startswith(prefix)
+        if key.startswith("xbsl.groups.") or key in {"xbsl.linter.select", "xbsl.linter.enable", "xbsl.linter.ignore"}
     }
-    assert declared == set(_levels_by_group()), (
-        f"настройки расширения: группы {sorted(declared)}, в реестре "
-        f"{sorted(_levels_by_group())} – добавьте или удалите xbsl.groups.<группа>"
+    assert not retired, f"настройки расширения снова предлагают снятое: {sorted(retired)}"
+
+
+def test_extension_settings_with_a_link_use_markdown():
+    """A description carrying a link belongs in markdownDescription.
+
+    In a plain `description` VS Code prints the markdown as it is, and the settings screen shows
+    a raw "[Details](https://...)" instead of a link - which is exactly what shipped in 0.58.0
+    for four settings.
+    """
+    package = _manifest()
+    sections = package["contributes"]["configuration"]
+    sections = [sections] if isinstance(sections, dict) else sections
+    catalogs = [
+        json.loads((VSCODE / name).read_text(encoding="utf-8"))
+        for name in ("package.nls.json", "package.nls.ru.json")
+    ]
+    link = re.compile(r"\[[^\]]+\]\(https?://")
+
+    offenders = []
+    for section in sections:
+        for key, entry in section.get("properties", {}).items():
+            raw = entry.get("description")
+            if not raw:
+                continue
+            found = re.fullmatch(r"%(.+)%", raw)
+            texts = [c.get(found.group(1), "") for c in catalogs] if found else [raw]
+            if any(link.search(text) for text in texts):
+                offenders.append(key)
+    assert not offenders, (
+        "описание со ссылкой лежит в description – VS Code покажет сырой markdown; "
+        f"перенесите в markdownDescription: {sorted(offenders)}"
     )
 
 
@@ -362,28 +380,18 @@ def test_docs_table_links_agree_with_extension(name: str):
     )
 
 
-@pytest.mark.parametrize("name", sorted(_TABLES))
-def test_table_numbering_is_continuous(name):
-    """The leading column numbers the rules 1..N straight through the tier tables.
+def test_table_order_matches_across_locales():
+    """A rule sits in the same place in both locales, so the tables can be read side by side.
 
-    A hand-written number is the kind of thing that quietly rots: a rule inserted in the
-    middle shifts everything below it. The guard fails with the first position that broke.
+    The numbering column is gone - it cost width the "what it checks" column needed - and the
+    order itself is what is left to keep in step.
     """
-    rows = _parse_table(name)
-    positions = sorted(row["position"] for row in rows.values())
-    expected = list(range(1, len(rows) + 1))
-    assert positions == expected, (
-        f"{name}: нумерация правил разошлась – ожидались номера 1..{len(rows)}, "
-        f"первое расхождение на {next(iter(set(positions) ^ set(expected)), '?')}"
+    ru = list(_parse_table("RULES.ru.md"))
+    en = list(_parse_table("RULES.md"))
+    assert ru == en, (
+        "порядок правил разошёлся между локалями; первое расхождение: "
+        f"{next((pair for pair in zip(en, ru) if pair[0] != pair[1]), '?')}"
     )
-
-
-def test_table_numbering_matches_across_locales():
-    """A rule keeps the same number in both locales - so a number can be quoted as an id."""
-    ru = {rule: row["position"] for rule, row in _parse_table("RULES.ru.md").items()}
-    en = {rule: row["position"] for rule, row in _parse_table("RULES.md").items()}
-    diverged = {rule: (en[rule], ru[rule]) for rule in en if ru.get(rule) != en[rule]}
-    assert not diverged, f"номера правил разошлись между локалями: {diverged}"
 
 
 @pytest.mark.needs_data
@@ -436,3 +444,54 @@ def test_every_tree_menu_command_is_registered_and_titled():
             if key not in table:
                 problems.append(f"{command}: нет подписи [{lang}] для ключа {key}")
     assert not problems, "команды меню дерева рассогласованы: " + "; ".join(problems)
+
+
+# --- the day sections of the toolkit changelog ---------------------------------------------
+
+#: The section kinds a day may carry, in the order Keep a Changelog prescribes.
+_SECTION_ORDER = {
+    "Добавлено": 0, "Added": 0,
+    "Изменено": 1, "Changed": 1,
+    "Устарело": 2, "Deprecated": 2,
+    "Удалено": 3, "Removed": 3,
+    "Исправлено": 4, "Fixed": 4,
+    "Безопасность": 5, "Security": 5,
+}
+
+
+def _day_sections(name: str) -> list[tuple[str, list[str]]]:
+    """(day heading, its section kinds in order) for every day of the changelog."""
+    days: list[tuple[str, list[str]]] = []
+    for line in (ROOT / name).read_text(encoding="utf-8").splitlines():
+        if line.startswith("## "):
+            days.append((line[3:].strip(), []))
+        elif line.startswith("### ") and days:
+            days[-1][1].append(line[4:].strip())
+    return days
+
+
+@pytest.mark.parametrize("name", ["CHANGELOG.ru.md", "CHANGELOG.md"])
+def test_a_day_carries_each_section_once(name: str):
+    """One day, one section of each kind. Several releases of a day share the day's sections,
+    so a second `### Added` under the same heading is an append that lost its way - it splits
+    what a reader expects to see in one place (the owner caught exactly that)."""
+    problems = [
+        f"{day}: {kind} встречается {kinds.count(kind)} раза"
+        for day, kinds in _day_sections(name)
+        for kind in sorted(set(kinds))
+        if kinds.count(kind) > 1
+    ]
+    assert not problems, f"{name}: разделы дня задвоены – " + "; ".join(problems)
+
+
+@pytest.mark.parametrize("name", ["CHANGELOG.ru.md", "CHANGELOG.md"])
+def test_day_sections_are_named_by_the_standard(name: str):
+    """A section kind outside the standard set is a typo or an invention - both are caught
+    here rather than by a reader."""
+    unknown = [
+        f"{day}: {kind}"
+        for day, kinds in _day_sections(name)
+        for kind in kinds
+        if kind not in _SECTION_ORDER
+    ]
+    assert not unknown, f"{name}: неизвестные разделы – " + "; ".join(unknown)

@@ -20560,7 +20560,7 @@ class SchemaFieldKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'schemaFieldKey'
-    ASPECT_INFO = {'keyForEntity': 'schemaField', 'entityCategory': 'core', 'entityAspects': ['schemafieldInfo', 'structuredProperties', 'forms', 'businessAttributes', 'status', 'schemaFieldAliases', 'documentation', 'testResults', 'deprecation', 'subTypes', 'logicalParent', 'globalTags', 'glossaryTerms', 'semanticFieldAnnotation', 'aiContext']}
+    ASPECT_INFO = {'keyForEntity': 'schemaField', 'entityCategory': 'core', 'entityAspects': ['schemafieldInfo', 'structuredProperties', 'forms', 'businessAttributes', 'status', 'schemaFieldAliases', 'documentation', 'testResults', 'deprecation', 'subTypes', 'logicalParent', 'globalTags', 'glossaryTerms', 'semanticFieldAnnotation', 'aiContext', 'ownership', 'domains']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.SchemaFieldKey")
 
     def __init__(self,
@@ -34546,7 +34546,7 @@ ENTITY_TYPE_TO_ASPECT_NAMES: Dict[str, List[str]] = {
     'dataHubAccessToken': ['dataHubAccessTokenInfo'],
     'dataFlow': ['domains', 'applications', 'deprecation', 'versionInfo', 'dataFlowInfo', 'editableDataFlowProperties', 'ownership', 'status', 'globalTags', 'browsePaths', 'glossaryTerms', 'institutionalMemory', 'dataPlatformInstance', 'container', 'browsePathsV2', 'structuredProperties', 'incidentsSummary', 'forms', 'subTypes', 'testResults', 'documentation'],
     'tag': ['tagProperties', 'ownership', 'deprecation', 'status', 'testResults'],
-    'schemaField': ['schemafieldInfo', 'structuredProperties', 'forms', 'businessAttributes', 'status', 'schemaFieldAliases', 'documentation', 'testResults', 'deprecation', 'subTypes', 'logicalParent', 'globalTags', 'glossaryTerms', 'semanticFieldAnnotation', 'aiContext'],
+    'schemaField': ['schemafieldInfo', 'structuredProperties', 'forms', 'businessAttributes', 'status', 'schemaFieldAliases', 'documentation', 'testResults', 'deprecation', 'subTypes', 'logicalParent', 'globalTags', 'glossaryTerms', 'semanticFieldAnnotation', 'aiContext', 'ownership', 'domains'],
     'dataHubPersona': ['dataHubPersonaInfo'],
     'document': ['documentInfo', 'documentSettings', 'status', 'ownership', 'domains', 'structuredProperties', 'subTypes', 'dataPlatformInstance', 'browsePathsV2', 'globalTags', 'glossaryTerms', 'semanticContent', 'semanticText', 'institutionalMemory', 'documentation', 'documentUsageStatistics'],
     'dataProcessInstance': ['dataProcessInstanceInput', 'dataProcessInstanceOutput', 'dataProcessInstanceProperties', 'dataProcessInstanceRelationships', 'dataProcessInstanceRunEvent', 'status', 'testResults', 'dataPlatformInstance', 'subTypes', 'container', 'mlTrainingRunProperties'],

@@ -114,7 +114,7 @@ from .aot_contract import (  # re-exported: the declaration layer's vocabulary
 from .aot_preconditions import LIFTED_LORA_TORCH_FLOOR, torch_version_gap
 from .compile_cache import (
     _resolve_target,
-    toolchain_present,
+    cxx_toolchain_present,
 )
 from dataclasses import replace
 import inspect
@@ -3296,6 +3296,14 @@ class TracedClass:
     #: carried on every row so a sharded caller can prove its shares are the
     #: whole set without enumerating it itself.
     declared: int = 0
+    #: This row's own ``export_s`` / ``compile_s``, straight off
+    #: ``_export_entry``. The key path ignores them; the pgw#1134 measure-only
+    #: child is here for exactly these numbers.
+    timings: Dict[str, Any] = field(default_factory=dict)
+    #: Loose inductor files, when the caller asked for the compile. The caller
+    #: owns them — the measure-only child counts and deletes them, and the key
+    #: path never asks for a compile so it never sees any.
+    files: Tuple[str, ...] = ()
 
 
 def declared_class_rows(pipeline: Any, spec: ExportSpec, decl: Any) -> List[Any]:
@@ -3320,6 +3328,8 @@ def trace_for_key(
     *,
     share_index: int = 0,
     share_count: int = 1,
+    compile_now: bool = False,
+    inductor_configs: Optional[Mapping[str, Any]] = None,
 ) -> Iterator[TracedClass]:
     """Export the named declared graph classes and yield each one's KEYING
     facts — §4.27 step 1's unit of work (pgw#1089).
@@ -3328,10 +3338,10 @@ def trace_for_key(
     package-side gate removed, and it lives HERE rather than in the boot module
     for two reasons the boot module cannot satisfy on its own:
 
-    * the **branch-arm ordering rule** is pipeline state — adapter-bearing rows
-      first, ONE ``_disarm_branches`` for the whole branchless group. A caller
-      that ordered its rows differently would trace different graphs, and the
-      rule belongs beside the loop that made it;
+    * the **branch-arm ordering rule** is pipeline state — the arm itself,
+      adapter-bearing rows first, ONE ``_disarm_branches`` for the whole
+      branchless group. A caller that ordered its rows differently would trace
+      different graphs, and the rule belongs beside the loop that made it;
     * the trace itself is ``_export_entry``, whose refusals, fork gate,
       declared-range gate and lifted-input gate are the mint's. A boot-side
       re-implementation would be a second trace path, and the two would
@@ -3349,12 +3359,30 @@ def trace_for_key(
     the parent can prove the shares reconstruct the whole class set without
     ever having enumerated it — a stronger check than comparing against a
     parent-side guess would have been.
+
+    ``compile_now`` (pgw#1134) runs the INDUCTOR half of each row as well —
+    ``_export_entry``'s own compile, the one a mint runs — and is what the
+    measure-only child needs: an export-only trace never exercises the
+    whole-graph planner an OOM blocker is about, so a measurement taken
+    without it answers a different question than the one asked. It rides THIS
+    loop rather than a second one for the reason the docstring above gives:
+    two loops trace two graphs, and a measurement of a graph the mint does not
+    export is worth nothing. The key path never passes it, and a compiled row
+    hands its loose files to the caller (``TracedClass.files``) — this
+    function keeps none of them, and nothing here packages anything.
     """
     ordered = declared_class_rows(pipeline, spec, decl)
     declared = len(ordered)
     count = max(1, int(share_count))
     rows = ordered[max(0, int(share_index)) % count::count] if count > 1 \
         else ordered
+    # pgw#1132: the adapter-BEARING rows export from the LIFTED forward, and
+    # arming it is this loop's job exactly as it is `mint_targets`' — the
+    # callers of both (`boot_trace_child`, `mint_child`) arm the CONTAINER
+    # half only, which is pgw#822 verbatim. Held only in the `finally` below,
+    # the first adapter-bearing row of every bucket-bearing family refused and
+    # the whole derivation died before a resolve was possible.
+    _arm_branches(pipeline, int(spec.lora_bucket or 0))
     disarmed = False
     try:
         for plan, arm in rows:
@@ -3371,7 +3399,8 @@ def trace_for_key(
                 boot_phases.PHASE_TRACE_FOR_KEY, function=entry,
             ) as span:
                 row = _export_entry(
-                    pipeline, spec, plan, decl, compile_now=False)
+                    pipeline, spec, plan, decl, compile_now=bool(compile_now),
+                    inductor_configs=inductor_configs)
                 try:
                     nodes = int(len(row.program.graph_module.graph.nodes))
                 except Exception:  # noqa: BLE001 — never fails a trace
@@ -3385,6 +3414,8 @@ def trace_for_key(
                 nodes=nodes,
                 program=row.program,
                 declared=declared,
+                timings=dict(row.timings or {}),
+                files=tuple(str(f) for f in (row.files or ())),
             )
     finally:
         if disarmed:
@@ -3408,19 +3439,19 @@ def keying_block(
     ``aot_serve.entries_from_meta`` validates every block as a full contract,
     and an entry that cannot be parsed cannot be keyed.
 
-    ``graph_witness`` (pgw#1031) is a SIBLING of ``graph``, deliberately
-    OUTSIDE it: ``aot_serve.class_hash`` folds ``target``/``fork``/
-    ``class_dims``/``range_digest``/``graph``/``strict``/``lora_bucket`` and
-    nothing else, so a top-level field is recorded on every cell without
-    moving one key. It is the node-level digest of the traced program
-    (``graph_hash.graph_hash``) — the fact the key axes provably do NOT hold:
-    measured 2026-08-10, ``micro-pad32`` and ``micro-pad32-branchy`` produce a
-    byte-identical keying block (identical signature, symbol ranges, pytree
-    spec, constant FQNs and declared envelope) from 112- and 102-node graphs.
-    The key cannot separate them; this witness can, and the adopt path refuses
-    on it (``aot_identity.verify_graph_witness``) so a collision degrades to
-    eager instead of serving another endpoint's kernels. Whether the witness
-    should BECOME a key axis is pgw#1031's depth question and Paul's to rule.
+    ``graph_witness`` (pgw#1031) is the node-level digest of the traced
+    program (``graph_hash.graph_hash``). It is recorded as a top-level SIBLING
+    of ``graph`` AND folded into the key: since pgw#1031 (option a, Paul-ruled)
+    ``aot_serve.class_hash`` (facts v3) folds it, so the ``graph`` axis is the
+    traced COMPUTATION, not merely the traced ingress. It was measured that the
+    interface alone could not separate two bodies — 2026-08-10, ``micro-pad32``
+    and ``micro-pad32-branchy`` produced a byte-identical keying block
+    (identical signature, symbol ranges, pytree spec, constant FQNs and
+    declared envelope) from 112- and 102-node graphs, one key, two artifacts.
+    The witness closes that at the key: two bodies key apart, a collision is a
+    MISS (eager + mint). It stays a top-level field for the adopt backstop
+    (``aot_identity.verify_graph_witness``, defense-in-depth), which refuses a
+    materialized cell whose recorded witness is not this pod's graph.
     """
     inputs, symbols = aot_package.input_contract(program, flat_leaves)
     block: Dict[str, Any] = {
@@ -3434,6 +3465,15 @@ def keying_block(
         "graph": entry_graph_block(program, spec),
         "graph_witness": graph_hash.graph_hash(program),
     }
+    placement = graph_hash.device_placement(program)
+    if len(placement) > 1:
+        # pgw#1113 / pgw#819: the program's own device map put its modules on
+        # more than one card, and inductor bakes that placement into the
+        # artifact. Recorded — and keyed, in `aot_serve.class_hash` — ONLY
+        # here, on the `excluded_inputs` precedent above: a single-device
+        # program states nothing, so no published cell's block moves and no
+        # published cell re-keys.
+        block["placement"] = list(placement)
     if adapter_arm(spec.fork) is False:
         # pgw#790: the NEGATIVE half of this class's contract. Without it the
         # branchless entry silently ADMITS an adapter-bearing call (a
@@ -4140,7 +4180,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                         help="publish through the fleet CellPublisher")
     parser.add_argument("--require-toolchain", action="store_true",
                         default=True,
-                        help="refuse without a C toolchain (default on)")
+                        help="refuse without a C++ AOTI toolchain (default on)")
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -4160,10 +4200,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     except MintRefused as exc:
         print(f"REFUSED: {exc}", file=sys.stderr)
         return 2
-    if args.require_toolchain and not toolchain_present():
+    if args.require_toolchain and not cxx_toolchain_present():
+        # pgw#900: an AOTI mint links a real `.so` through inductor's C++
+        # wrapper, so a C-only image (`cc`/`gcc` but no working C++) passes
+        # `toolchain_present()` yet dies 336 s later at the linker
+        # (`InvalidCxxCompiler`, measured on L4 0.84.0). Gate on the SAME
+        # predicate the mint child uses (`cxx_toolchain_present`), not the
+        # dynamo-lane `toolchain_present`, so the CLI refuses at second zero.
         print(
-            "REFUSED: no C toolchain (cc/gcc) — an AOTI mint needs the "
-            "compile-job image, not a prod worker image", file=sys.stderr)
+            "REFUSED: no C++ AOTI toolchain — inductor cannot link a kernel "
+            "on this image. An AOTI mint needs the compile-job image, not a "
+            "prod worker image", file=sys.stderr)
         return 2
 
     model = args.model or spec.source_ref

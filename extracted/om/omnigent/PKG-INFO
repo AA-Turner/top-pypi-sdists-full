@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: omnigent
-Version: 0.8.2
+Version: 0.9.0
 Summary: Omnigent: declarative agent authoring and runtime framework
 Author: Databricks, Inc.
 Keywords: agents,llm,ai,databricks,cli
@@ -14,8 +14,8 @@ Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: omnigent-client==0.8.2
-Requires-Dist: omnigent-ui-sdk==0.8.2
+Requires-Dist: omnigent-client==0.9.0
+Requires-Dist: omnigent-ui-sdk==0.9.0
 Requires-Dist: pyyaml<7,>=6.0
 Requires-Dist: json5<1,>=0.10
 Requires-Dist: openai<2.45,>=1.0
@@ -101,8 +101,10 @@ Provides-Extra: hindsight
 Requires-Dist: hindsight-client>=0.4.0; extra == "hindsight"
 Provides-Extra: memory
 Requires-Dist: hindsight-client>=0.4.0; extra == "memory"
+Provides-Extra: nimble
+Requires-Dist: nimble-python<2,>=1.2.0; extra == "nimble"
 Provides-Extra: slack
-Requires-Dist: omnigent-slack==0.8.2; extra == "slack"
+Requires-Dist: omnigent-slack==0.9.0; extra == "slack"
 Provides-Extra: databricks
 Requires-Dist: databricks-sdk<1,>=0.56.0; extra == "databricks"
 Requires-Dist: opentelemetry-distro<1,>=0; extra == "databricks"
@@ -115,6 +117,7 @@ Requires-Dist: locust<3,>=2.30; extra == "loadtest"
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0; extra == "dev"
 Requires-Dist: hindsight-client>=0.4.0; extra == "dev"
+Requires-Dist: nimble-python<2,>=1.2.0; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.21; extra == "dev"
 Requires-Dist: pytest-xdist>=3.6; extra == "dev"
 Requires-Dist: pytest-cov>=5; extra == "dev"
@@ -417,6 +420,7 @@ Two example agents ship with the repo, and they make good first sessions:
 ```bash
 omnigent run examples/polly/
 omnigent run examples/debby/
+omnigent run examples/deep-research/
 
 # ...or on a different harness (sub-agents keep their own):
 omnigent run examples/polly/ --harness <harness>
@@ -433,6 +437,12 @@ Every question you ask goes to both heads, and she lays the two answers out
 side by side. Type `/debate` and the heads critique each other for a few
 rounds before converging. (She needs both a Claude and an OpenAI credential;
 see step 3.)
+
+**🔎 Deep Research** is a single agent that answers a question with a cited,
+cross-checked report. It plans sub-queries, searches the live web and reads
+full pages through an MCP search server, and verifies each claim across
+independent sources. It's also the simplest example to copy from: one agent
+plus one `tools/mcp/*.yaml` server, no sub-agents.
 
 **Prefer the browser?** Start a server and register your machine as a host:
 
@@ -556,11 +566,6 @@ and they're in. Signup is invite-only.
   ```bash
   omnigent run --fork <session_id>
   ```
-
-Shared sessions identify model-visible messages with `[account]:` labels by
-default. Set `OMNIGENT_SHARED_MESSAGE_ATTRIBUTION_ENABLED=0` to hide those
-labels. This does not change stored authors, UI avatars, or who may approve or
-run privileged actions.
 
 > [!TIP]
 > Want your team to sign in with the logins they already have (**Google,

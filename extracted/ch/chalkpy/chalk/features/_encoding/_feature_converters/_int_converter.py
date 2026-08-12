@@ -9,11 +9,6 @@ from typing import (
 
 import pyarrow as pa
 
-try:
-    import polars as pl
-except ImportError:
-    pl = None  # type: ignore[assignment]
-
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as pb
 from chalk.features._encoding.missing_value import MissingValueStrategy
 
@@ -80,7 +75,7 @@ class Int8FeatureConverter(_IntConverterBase):
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.int8()
     _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(int8=pb.EmptyMessage())
     _proto_value_field: ClassVar[str] = "int8_value"
-    _polars_dtype_value: ClassVar[Any] = pl.Int8() if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None
 
 
 class Int16FeatureConverter(_IntConverterBase):
@@ -89,7 +84,7 @@ class Int16FeatureConverter(_IntConverterBase):
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.int16()
     _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(int16=pb.EmptyMessage())
     _proto_value_field: ClassVar[str] = "int16_value"
-    _polars_dtype_value: ClassVar[Any] = pl.Int16() if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None
 
 
 class Int32FeatureConverter(_IntConverterBase):
@@ -98,7 +93,7 @@ class Int32FeatureConverter(_IntConverterBase):
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.int32()
     _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(int32=pb.EmptyMessage())
     _proto_value_field: ClassVar[str] = "int32_value"
-    _polars_dtype_value: ClassVar[Any] = pl.Int32() if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None
 
 
 class Int64FeatureConverter(_IntConverterBase):
@@ -107,7 +102,7 @@ class Int64FeatureConverter(_IntConverterBase):
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.int64()
     _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(int64=pb.EmptyMessage())
     _proto_value_field: ClassVar[str] = "int64_value"
-    _polars_dtype_value: ClassVar[Any] = pl.Int64() if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None
 
 
 class UInt8FeatureConverter(_IntConverterBase):
@@ -116,7 +111,7 @@ class UInt8FeatureConverter(_IntConverterBase):
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.uint8()
     _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(uint8=pb.EmptyMessage())
     _proto_value_field: ClassVar[str] = "uint8_value"
-    _polars_dtype_value: ClassVar[Any] = pl.UInt8() if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None
 
 
 class UInt16FeatureConverter(_IntConverterBase):
@@ -125,7 +120,7 @@ class UInt16FeatureConverter(_IntConverterBase):
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.uint16()
     _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(uint16=pb.EmptyMessage())
     _proto_value_field: ClassVar[str] = "uint16_value"
-    _polars_dtype_value: ClassVar[Any] = pl.UInt16() if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None
 
 
 class UInt32FeatureConverter(_IntConverterBase):
@@ -134,7 +129,7 @@ class UInt32FeatureConverter(_IntConverterBase):
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.uint32()
     _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(uint32=pb.EmptyMessage())
     _proto_value_field: ClassVar[str] = "uint32_value"
-    _polars_dtype_value: ClassVar[Any] = pl.UInt32() if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None
 
 
 class UInt64FeatureConverter(_IntConverterBase):
@@ -143,4 +138,4 @@ class UInt64FeatureConverter(_IntConverterBase):
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.uint64()
     _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(uint64=pb.EmptyMessage())
     _proto_value_field: ClassVar[str] = "uint64_value"
-    _polars_dtype_value: ClassVar[Any] = pl.UInt64() if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None

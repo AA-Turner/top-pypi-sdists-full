@@ -11,12 +11,14 @@ from braintrust.integrations import (
     ADKIntegration,
     AgentScopeIntegration,
     AgnoIntegration,
+    AISDKIntegration,
     AnthropicIntegration,
     AutoGenIntegration,
     BedrockRuntimeIntegration,
     ClaudeAgentSDKIntegration,
     CohereIntegration,
     CrewAIIntegration,
+    CursorSDKIntegration,
     DSPyIntegration,
     GoogleGenAIIntegration,
     HuggingFaceHubIntegration,
@@ -58,6 +60,7 @@ def auto_instrument(
     openai: bool = True,
     anthropic: bool = True,
     litellm: bool = True,
+    ai_sdk: bool = True,
     pydantic_ai: bool = True,
     google_genai: bool = True,
     instructor: bool = True,
@@ -67,6 +70,7 @@ def auto_instrument(
     agno: bool = True,
     agentscope: bool = True,
     claude_agent_sdk: bool = True,
+    cursor_sdk: bool = True,
     dspy: bool = True,
     adk: bool = True,
     langchain: bool = True,
@@ -94,6 +98,7 @@ def auto_instrument(
         openai: Enable OpenAI instrumentation (default: True)
         anthropic: Enable Anthropic instrumentation (default: True)
         litellm: Enable LiteLLM instrumentation (default: True)
+        ai_sdk: Enable Vercel AI SDK for Python instrumentation (default: True)
         pydantic_ai: Enable Pydantic AI instrumentation (default: True)
         google_genai: Enable Google GenAI instrumentation (default: True)
         instructor: Enable Instructor (structured-output) instrumentation (default: True)
@@ -103,6 +108,7 @@ def auto_instrument(
         agno: Enable Agno instrumentation (default: True)
         agentscope: Enable AgentScope instrumentation (default: True)
         claude_agent_sdk: Enable Claude Agent SDK instrumentation (default: True)
+        cursor_sdk: Enable Cursor SDK instrumentation (default: True)
         dspy: Enable DSPy instrumentation (default: True)
         adk: Enable Google ADK instrumentation (default: True)
         langchain: Enable LangChain instrumentation (default: True)
@@ -169,6 +175,8 @@ def auto_instrument(
         results["anthropic"] = _instrument_integration(AnthropicIntegration)
     if litellm:
         results["litellm"] = _instrument_integration(LiteLLMIntegration)
+    if ai_sdk:
+        results["ai_sdk"] = _instrument_integration(AISDKIntegration)
     if pydantic_ai:
         results["pydantic_ai"] = _instrument_integration(PydanticAIIntegration)
     if google_genai:
@@ -187,6 +195,8 @@ def auto_instrument(
         results["agentscope"] = _instrument_integration(AgentScopeIntegration)
     if claude_agent_sdk:
         results["claude_agent_sdk"] = _instrument_integration(ClaudeAgentSDKIntegration)
+    if cursor_sdk:
+        results["cursor_sdk"] = _instrument_integration(CursorSDKIntegration)
     if dspy:
         results["dspy"] = _instrument_integration(DSPyIntegration)
     if adk:

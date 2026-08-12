@@ -13,31 +13,31 @@
 
 # Core functionality tests
 - name: Archive - no options ({{ format }})
-  archive:
+  community.general.archive:
     path: "{{ remote_tmp_dir }}/*.txt"
     dest: "{{ remote_tmp_dir }}/archive_no_opts.{{ format }}"
     format: "{{ format }}"
   register: archive_no_options
 
 - name: Verify that archive exists - no options ({{ format }})
-  file:
+  ansible.builtin.file:
     path: "{{remote_tmp_dir}}/archive_no_opts.{{ format }}"
     state: file
 
 - name: Verify that archive result is changed and includes all files - no options ({{ format }})
-  assert:
+  ansible.builtin.assert:
     that:
       - archive_no_options is changed
       - "archive_no_options.dest_state == 'archive'"
       - "archive_no_options.archived | length == 3"
 
 - name: Remove the archive - no options ({{ format }})
-  file:
+  ansible.builtin.file:
     path: "{{ remote_tmp_dir }}/archive_no_options.{{ format }}"
     state: absent
 
 - name: Archive - file options ({{ format }})
-  archive:
+  community.general.archive:
     path: "{{ remote_tmp_dir }}/*.txt"
     dest: "{{ remote_tmp_dir }}/archive_file_options.{{ format }}"
     format: "{{ format }}"
@@ -45,54 +45,54 @@
   register: archive_file_options
 
 - name: Retrieve archive file information - file options ({{ format }})
-  stat:
+  ansible.builtin.stat:
     path: "{{ remote_tmp_dir }}/archive_file_options.{{ format }}"
   register: archive_file_options_stat
 
 - name: Test that the file modes were changed
-  assert:
+  ansible.builtin.assert:
     that:
       - archive_file_options_stat is not changed
       - "archive_file_options.mode == '0600'"
       - "archive_file_options.archived | length == 3"
 
 - name: Remove the archive - file options ({{ format }})
-  file:
+  ansible.builtin.file:
     path: "{{ remote_tmp_dir }}/archive_file_options.{{ format }}"
     state: absent
 
 - name: Archive - non-ascii ({{ format }})
-  archive:
+  community.general.archive:
     path: "{{ remote_tmp_dir }}/*.txt"
     dest: "{{ remote_tmp_dir }}/archive_nonascii_くらとみ.{{ format }}"
     format: "{{ format }}"
   register: archive_nonascii
 
 - name: Retrieve archive file information - non-ascii ({{ format }})
-  stat:
+  ansible.builtin.stat:
     path: "{{ remote_tmp_dir }}/archive_nonascii_くらとみ.{{ format }}"
   register: archive_nonascii_stat
 
 - name: Test that archive exists - non-ascii ({{ format }})
-  assert:
+  ansible.builtin.assert:
     that:
       - archive_nonascii is changed
       - archive_nonascii_stat.stat.exists == true
 
 - name: Remove the archive - non-ascii ({{ format }})
-  file:
+  ansible.builtin.file:
     path: "{{ remote_tmp_dir }}/archive_nonascii_くらとみ.{{ format }}"
     state: absent
 
 - name: Archive - single target ({{ format }})
-  archive:
+  community.general.archive:
     path: "{{ remote_tmp_dir }}/foo.txt"
     dest: "{{ remote_tmp_dir }}/archive_single_target.{{ format }}"
     format: "{{ format }}"
   register: archive_single_target
 
 - name: Assert archive has correct state - single target ({{ format }})
-  assert:
+  ansible.builtin.assert:
     that:
       - archive_single_target.dest_state == state_map[format]
   vars:
@@ -102,6 +102,7 @@
       gz: compress
       bz2: compress
       xz: compress
+      zstd: compress
 
 - block:
     - name: Retrieve contents of archive - single target ({{ format }})
@@ -114,7 +115,7 @@
       register: archive_single_target_contents
 
     - name: Assert that file names are preserved - single target ({{ format }})
-      assert:
+      ansible.builtin.assert:
         that:
           - "'oo.txt' not in archive_single_target_contents.files"
           - "'foo.txt' in archive_single_target_contents.files"
@@ -123,12 +124,12 @@
   when: "format == 'zip'"
 
 - name: Remove archive - single target ({{ format }})
-  file:
+  ansible.builtin.file:
     path: "{{ remote_tmp_dir }}/archive_single_target.{{ format }}"
     state: absent
 
 - name: Archive - path list ({{ format }})
-  archive:
+  community.general.archive:
     path:
       - "{{ remote_tmp_dir }}/empty.txt"
       - "{{ remote_tmp_dir }}/foo.txt"
@@ -138,23 +139,23 @@
   register: archive_path_list
 
 - name: Verify that archive exists - path list ({{ format }})
-  file:
+  ansible.builtin.file:
     path: "{{remote_tmp_dir}}/archive_path_list.{{ format }}"
     state: file
 
 - name: Assert that archive contains all files - path list ({{ format }})
-  assert:
+  ansible.builtin.assert:
     that:
       - archive_path_list is changed
       - "archive_path_list.archived | length == 3"
 
 - name: Remove archive - path list ({{ format }})
-  file:
+  ansible.builtin.file:
     path: "{{ remote_tmp_dir }}/archive_path_list.{{ format }}"
     state: absent
 
 - name: Archive - missing paths ({{ format }})
-  archive:
+  community.general.archive:
     path:
       - "{{ remote_tmp_dir }}/*.txt"
       - "{{ remote_tmp_dir }}/dne.txt"
@@ -164,7 +165,7 @@
   register: archive_missing_paths
 
 - name: Assert that incomplete archive has incomplete state - missing paths ({{ format }})
-  assert:
+  ansible.builtin.assert:
     that:
       - archive_missing_paths is changed
       - "archive_missing_paths.dest_state == 'incomplete'"
@@ -172,6 +173,6 @@
       - "(remote_tmp_dir ~ '/foo.txt') not in archive_missing_paths.missing"
 
 - name: Remove archive - missing paths ({{ format }})
-  file:
+  ansible.builtin.file:
     path: "{{ remote_tmp_dir }}/archive_missing_paths.{{ format }}"
     state: absent

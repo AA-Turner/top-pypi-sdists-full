@@ -118,6 +118,7 @@ ApiGatewayV2ServiceName = Literal["apigatewayv2"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

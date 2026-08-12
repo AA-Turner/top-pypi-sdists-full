@@ -5,8 +5,6 @@ from datetime import timedelta
 from typing import Mapping, Protocol, Sequence
 
 from nominal_api import (
-    event,
-    scout,
     scout_checklistexecution_api,
     scout_checks_api,
     scout_datareview_api,
@@ -15,11 +13,11 @@ from nominal_api import (
 from typing_extensions import Self
 
 from nominal.core import run as core_run
-from nominal.core._clientsbunch import HasScoutParams
 from nominal.core._utils.api_tools import HasRid, RefreshableConjureMixin, rid_from_instance_or_string
 from nominal.core._utils.frontend_urls import checklist_preview_url, checklist_url
 from nominal.core.asset import Asset
 from nominal.core.data_review import DataReview
+from nominal.core.exceptions import NominalChecklistNotPublishedError
 from nominal.ts import _to_api_duration
 
 
@@ -33,23 +31,21 @@ class Checklist(HasRid, RefreshableConjureMixin[scout_checks_api.VersionedCheckl
     _clients: _Clients = field(repr=False)
     author_rid: str | None = field(default=None, repr=False)
 
-    class _Clients(HasScoutParams, Protocol):
+    class _Clients(DataReview._Clients, Protocol):
         @property
         def checklist(self) -> scout_checks_api.ChecklistService: ...
         @property
         def checklist_execution(self) -> scout_checklistexecution_api.ChecklistExecutionService: ...
         @property
         def datareview(self) -> scout_datareview_api.DataReviewService: ...
-        @property
-        def event(self) -> event.EventService: ...
-        @property
-        def run(self) -> scout.RunService: ...
 
     @classmethod
     def _from_conjure(cls, clients: _Clients, checklist: scout_checks_api.VersionedChecklist) -> Self:
         # TODO(ritwikdixit): support draft checklists with VCS
         if not checklist.metadata.is_published:
-            raise ValueError("cannot get a checklist that has not been published")
+            raise NominalChecklistNotPublishedError(
+                f"cannot get checklist {checklist.rid!r}: this version has not been published"
+            )
 
         return cls(
             rid=checklist.rid,

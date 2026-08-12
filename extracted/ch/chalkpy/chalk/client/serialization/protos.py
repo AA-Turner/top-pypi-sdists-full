@@ -4,10 +4,17 @@ from typing import Any, Dict, List, Optional, Union
 
 from google.protobuf import message as proto_message
 
+from chalk._gen.chalk.aggregate.v1 import backfill_pb2
+from chalk._gen.chalk.aggregate.v1 import service_pb2 as aggregate_service_pb2
 from chalk._gen.chalk.common.v1 import chalk_error_pb2, online_query_pb2
 from chalk.client import ChalkError, ChalkException, ErrorCode, ErrorCodeCategory, OnlineQueryContext, QueryMeta
 from chalk.client._internal_models.models import INDEX_COL_NAME, OBSERVED_AT_COL_NAME, PKEY_COL_NAME, TS_COL_NAME
 from chalk.client.models import (
+    AggregateBackfillCostEstimate,
+    AggregateBackfillJob,
+    AggregateBackfillPlan,
+    AggregateBackfillResponse,
+    AggregateBackfillStatus,
     BulkOnlineQueryResponse,
     BulkOnlineQueryResult,
     BulkUploadFeaturesResult,
@@ -170,6 +177,115 @@ class ChalkErrorConverter:
             exception=chalk_exception,
             feature=get_field_or(error_proto, "feature", None),
             resolver=get_field_or(error_proto, "resolver", None),
+        )
+
+
+class AggregateBackfillConverter:
+    _status_map: "BidirectionalMap[AggregateBackfillStatus, backfill_pb2.AggregateBackfillStatus]" = BidirectionalMap(
+        [
+            (AggregateBackfillStatus.UNKNOWN, backfill_pb2.AGGREGATE_BACKFILL_STATUS_UNSPECIFIED),
+            (AggregateBackfillStatus.INITIALIZING, backfill_pb2.AGGREGATE_BACKFILL_STATUS_INITIALIZING),
+            (AggregateBackfillStatus.INIT_FAILED, backfill_pb2.AGGREGATE_BACKFILL_STATUS_INIT_FAILED),
+            (AggregateBackfillStatus.SKIPPED, backfill_pb2.AGGREGATE_BACKFILL_STATUS_SKIPPED),
+            (AggregateBackfillStatus.QUEUED, backfill_pb2.AGGREGATE_BACKFILL_STATUS_QUEUED),
+            (AggregateBackfillStatus.WORKING, backfill_pb2.AGGREGATE_BACKFILL_STATUS_WORKING),
+            (AggregateBackfillStatus.COMPLETED, backfill_pb2.AGGREGATE_BACKFILL_STATUS_COMPLETED),
+            (AggregateBackfillStatus.FAILED, backfill_pb2.AGGREGATE_BACKFILL_STATUS_FAILED),
+            (AggregateBackfillStatus.CANCELED, backfill_pb2.AGGREGATE_BACKFILL_STATUS_CANCELED),
+        ]
+    )
+
+    @staticmethod
+    def _timestamp_decode(proto: proto_message.Message, field: str) -> Optional[dt.datetime]:
+        if not proto.HasField(field):
+            return None
+        return getattr(proto, field).ToDatetime(tzinfo=dt.timezone.utc)
+
+    @staticmethod
+    def _duration_decode(proto: proto_message.Message, field: str) -> Optional[dt.timedelta]:
+        if not proto.HasField(field):
+            return None
+        return proto_duration_to_timedelta(getattr(proto, field))
+
+    @staticmethod
+    def _status_decode(status_proto: "backfill_pb2.AggregateBackfillStatus") -> AggregateBackfillStatus:
+        # Unlike ErrorCode, this is a lifecycle enum a newer server can extend. Reporting an
+        # unrecognized value as UNKNOWN keeps the rest of the backfill readable, where raising
+        # would fail the whole response over one status we happen not to know yet.
+        status_py = AggregateBackfillConverter._status_map.get_reverse(status_proto)
+        return AggregateBackfillStatus.UNKNOWN if status_py is None else status_py
+
+    @staticmethod
+    def _cost_estimate_decode(proto: backfill_pb2.AggregateBackfillCostEstimate) -> AggregateBackfillCostEstimate:
+        return AggregateBackfillCostEstimate(
+            max_buckets=proto.max_buckets,
+            expected_buckets=proto.expected_buckets,
+            expected_bytes=proto.expected_bytes,
+            expected_storage_cost=proto.expected_storage_cost,
+            expected_runtime=AggregateBackfillConverter._duration_decode(proto, "expected_runtime"),
+        )
+
+    @staticmethod
+    def plan_decode(proto: backfill_pb2.AggregateBackfillWithCostEstimate) -> AggregateBackfillPlan:
+        backfill = proto.backfill
+        return AggregateBackfillPlan(
+            # Flattened from series[].rules[].dependent_features so callers do not have to walk four
+            # levels of nesting to answer "which features does this sub-backfill cover?".
+            features=list(
+                dict.fromkeys(
+                    feature
+                    for series in backfill.series
+                    for rule in series.rules
+                    for feature in rule.dependent_features
+                )
+            ),
+            estimate=AggregateBackfillConverter._cost_estimate_decode(proto.estimate),
+            resolver=backfill.resolver or None,
+            datetime_feature=backfill.datetime_feature or None,
+            lower_bound=AggregateBackfillConverter._timestamp_decode(backfill, "lower_bound"),
+            upper_bound=AggregateBackfillConverter._timestamp_decode(backfill, "upper_bound"),
+            bucket_duration=AggregateBackfillConverter._duration_decode(backfill, "bucket_duration"),
+            max_retention=AggregateBackfillConverter._duration_decode(backfill, "max_retention"),
+            group_by=list(backfill.group_by),
+            filters_description=backfill.filters_description or None,
+            input_sql=get_field_or(backfill, "input_sql", None),
+        )
+
+    @staticmethod
+    def job_decode(proto: backfill_pb2.AggregateBackfillJob) -> AggregateBackfillJob:
+        return AggregateBackfillJob(
+            id=proto.id,
+            status=AggregateBackfillConverter._status_decode(proto.status),
+            # Deduplicated so every server path agrees. `CreateAggregateBackfillV2` writes a
+            # deduplicated set, but a V1 server builds this row from one insert per sub-backfill via
+            # `array_cat`, repeating anything two sub-backfills share -- the schema marks the column
+            # "may have duplicates". The server can also append resolvers while hydrating the row
+            # from its metrics store, which does not deduplicate either. So these values can be
+            # shorter than what the server actually persisted or returned.
+            features=list(dict.fromkeys(proto.features)),
+            resolvers=list(dict.fromkeys(proto.resolvers)),
+            query_tags=list(proto.query_tags),
+            environment_id=proto.environment_id or None,
+            resolver=get_field_or(proto, "resolver", None),
+            agent_id=get_field_or(proto, "agent_id", None),
+            deployment_id=get_field_or(proto, "deployment_id", None),
+            plan_hash=get_field_or(proto, "plan_hash", None),
+            cron_aggregate_backfill_id=get_field_or(proto, "cron_aggregate_backfill_id", None),
+            cron_aggregate_backfill_name=get_field_or(proto, "cron_aggregate_backfill_name", None),
+            created_at=AggregateBackfillConverter._timestamp_decode(proto, "created_at"),
+            updated_at=AggregateBackfillConverter._timestamp_decode(proto, "updated_at"),
+        )
+
+    @staticmethod
+    def response_decode(
+        proto: aggregate_service_pb2.CreateAggregateBackfillV2Response,
+    ) -> AggregateBackfillResponse:
+        return AggregateBackfillResponse(
+            # An unset `job` means the request was a plan-only dry run, which creates nothing.
+            job=AggregateBackfillConverter.job_decode(proto.job) if proto.HasField("job") else None,
+            sub_backfills=[
+                AggregateBackfillConverter.plan_decode(sub_backfill) for sub_backfill in proto.sub_backfills
+            ],
         )
 
 

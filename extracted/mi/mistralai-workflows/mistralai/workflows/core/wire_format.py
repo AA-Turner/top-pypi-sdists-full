@@ -275,9 +275,9 @@ def generate_wire_format_docs() -> str:
         "# Wire Format V3",
         "",
         "Atlas streams graph data from the server to the browser as SSE. Each `graph` event "
-        "carries a JSON payload conforming to this schema. Both the Python server and the Rust "
-        "server emit the same format; the TypeScript frontend has a single entry point "
-        "(`flatToTopology`) regardless of which backend produced it.",
+        "carries a JSON payload conforming to this schema. The same format is used for graphs "
+        "uploaded by the worker and stored via the API, so the TypeScript frontend has a single "
+        "entry point (`flatToTopology`) whatever the source.",
         "",
         "## Encoding",
         "",

@@ -31,4 +31,20 @@ check("EOF -> None (clean abort)", C.arrow_pick("Sign in", OPTS) is None)
 check("empty options -> None", C.arrow_pick("x", []) is None)
 
 print("\nRESULT:", "ALL PASS" if not fails else ("FAILURES: " + ", ".join(fails)))
-sys.exit(1 if fails else 0)
+
+# Discover-compatible wrapper — same shape as tests/test_integration_write_honesty.py.
+# The checks above run AT IMPORT (pure functions, offline). A bare module-level sys.exit()
+# raises SystemExit while pytest is importing the module, which pytest reports as an
+# INTERNALERROR and which aborts collection for the WHOLE directory — so a green run of this
+# file was silently costing us every other test in the suite. Guarding it keeps `python
+# test_arrow_pick.py` working exactly as before while letting the file be collected.
+import unittest  # noqa: E402
+
+
+class ArrowPickChecks(unittest.TestCase):
+    def test_all_arrow_pick_checks_pass(self):
+        self.assertEqual(fails, [], f"failing checks: {fails}")
+
+
+if __name__ == "__main__":
+    sys.exit(1 if fails else 0)

@@ -394,7 +394,7 @@ class WorkerMessage(_message.Message):
     def __init__(self, hello: _Optional[_Union[Hello, _Mapping]] = ..., state_delta: _Optional[_Union[StateDelta, _Mapping]] = ..., job_accepted: _Optional[_Union[JobAccepted, _Mapping]] = ..., job_result: _Optional[_Union[JobResult, _Mapping]] = ..., job_progress: _Optional[_Union[JobProgress, _Mapping]] = ..., model_event: _Optional[_Union[ModelEvent, _Mapping]] = ..., fn_unavailable: _Optional[_Union[FnUnavailable, _Mapping]] = ..., fn_degraded: _Optional[_Union[FnDegraded, _Mapping]] = ..., activity_update: _Optional[_Union[ActivityUpdate, _Mapping]] = ..., hardware_unsuitable: _Optional[_Union[HardwareUnsuitable, _Mapping]] = ..., goal_receipt: _Optional[_Union[GoalReceipt, _Mapping]] = ..., lifecycle_snapshot: _Optional[_Union[LifecycleSnapshot, _Mapping]] = ..., boot_phase: _Optional[_Union[BootPhase, _Mapping]] = ...) -> None: ...
 
 class SchedulerMessage(_message.Message):
-    __slots__ = ("hello_ack", "run_job", "cancel_job", "model_op", "drain", "token_refresh", "run_attempt")
+    __slots__ = ("hello_ack", "run_job", "cancel_job", "model_op", "drain", "token_refresh", "run_attempt", "serve_posture")
     HELLO_ACK_FIELD_NUMBER: _ClassVar[int]
     RUN_JOB_FIELD_NUMBER: _ClassVar[int]
     CANCEL_JOB_FIELD_NUMBER: _ClassVar[int]
@@ -402,6 +402,7 @@ class SchedulerMessage(_message.Message):
     DRAIN_FIELD_NUMBER: _ClassVar[int]
     TOKEN_REFRESH_FIELD_NUMBER: _ClassVar[int]
     RUN_ATTEMPT_FIELD_NUMBER: _ClassVar[int]
+    SERVE_POSTURE_FIELD_NUMBER: _ClassVar[int]
     hello_ack: HelloAck
     run_job: RunJob
     cancel_job: CancelJob
@@ -409,7 +410,8 @@ class SchedulerMessage(_message.Message):
     drain: Drain
     token_refresh: TokenRefresh
     run_attempt: RunAttempt
-    def __init__(self, hello_ack: _Optional[_Union[HelloAck, _Mapping]] = ..., run_job: _Optional[_Union[RunJob, _Mapping]] = ..., cancel_job: _Optional[_Union[CancelJob, _Mapping]] = ..., model_op: _Optional[_Union[ModelOp, _Mapping]] = ..., drain: _Optional[_Union[Drain, _Mapping]] = ..., token_refresh: _Optional[_Union[TokenRefresh, _Mapping]] = ..., run_attempt: _Optional[_Union[RunAttempt, _Mapping]] = ...) -> None: ...
+    serve_posture: ServePosture
+    def __init__(self, hello_ack: _Optional[_Union[HelloAck, _Mapping]] = ..., run_job: _Optional[_Union[RunJob, _Mapping]] = ..., cancel_job: _Optional[_Union[CancelJob, _Mapping]] = ..., model_op: _Optional[_Union[ModelOp, _Mapping]] = ..., drain: _Optional[_Union[Drain, _Mapping]] = ..., token_refresh: _Optional[_Union[TokenRefresh, _Mapping]] = ..., run_attempt: _Optional[_Union[RunAttempt, _Mapping]] = ..., serve_posture: _Optional[_Union[ServePosture, _Mapping]] = ...) -> None: ...
 
 class Hello(_message.Message):
     __slots__ = ("protocol_version", "worker_id", "release_id", "resources", "state", "models", "in_flight", "heartbeat_interval_ms", "worker_session_id", "lifecycle_snapshot")
@@ -436,7 +438,7 @@ class Hello(_message.Message):
     def __init__(self, protocol_version: _Optional[_Union[ProtocolVersion, str]] = ..., worker_id: _Optional[str] = ..., release_id: _Optional[str] = ..., resources: _Optional[_Union[WorkerResources, _Mapping]] = ..., state: _Optional[_Union[StateDelta, _Mapping]] = ..., models: _Optional[_Iterable[_Union[ModelResidency, _Mapping]]] = ..., in_flight: _Optional[_Iterable[_Union[InFlightJob, _Mapping]]] = ..., heartbeat_interval_ms: _Optional[int] = ..., worker_session_id: _Optional[str] = ..., lifecycle_snapshot: _Optional[_Union[LifecycleSnapshot, _Mapping]] = ...) -> None: ...
 
 class WorkerResources(_message.Message):
-    __slots__ = ("gpu_count", "vram_total_bytes", "gpu_name", "gpu_sm", "installed_libs", "image_digest", "git_commit", "instance_id", "host_canary", "torch_version", "gen_worker_version", "worker_mode")
+    __slots__ = ("gpu_count", "vram_total_bytes", "gpu_name", "gpu_sm", "installed_libs", "image_digest", "git_commit", "instance_id", "host_canary", "torch_version", "gen_worker_version", "worker_mode", "driver_version")
     GPU_COUNT_FIELD_NUMBER: _ClassVar[int]
     VRAM_TOTAL_BYTES_FIELD_NUMBER: _ClassVar[int]
     GPU_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -449,6 +451,7 @@ class WorkerResources(_message.Message):
     TORCH_VERSION_FIELD_NUMBER: _ClassVar[int]
     GEN_WORKER_VERSION_FIELD_NUMBER: _ClassVar[int]
     WORKER_MODE_FIELD_NUMBER: _ClassVar[int]
+    DRIVER_VERSION_FIELD_NUMBER: _ClassVar[int]
     gpu_count: int
     vram_total_bytes: int
     gpu_name: str
@@ -461,7 +464,8 @@ class WorkerResources(_message.Message):
     torch_version: str
     gen_worker_version: str
     worker_mode: str
-    def __init__(self, gpu_count: _Optional[int] = ..., vram_total_bytes: _Optional[int] = ..., gpu_name: _Optional[str] = ..., gpu_sm: _Optional[str] = ..., installed_libs: _Optional[_Iterable[str]] = ..., image_digest: _Optional[str] = ..., git_commit: _Optional[str] = ..., instance_id: _Optional[str] = ..., host_canary: _Optional[_Union[HostCanary, _Mapping]] = ..., torch_version: _Optional[str] = ..., gen_worker_version: _Optional[str] = ..., worker_mode: _Optional[str] = ...) -> None: ...
+    driver_version: str
+    def __init__(self, gpu_count: _Optional[int] = ..., vram_total_bytes: _Optional[int] = ..., gpu_name: _Optional[str] = ..., gpu_sm: _Optional[str] = ..., installed_libs: _Optional[_Iterable[str]] = ..., image_digest: _Optional[str] = ..., git_commit: _Optional[str] = ..., instance_id: _Optional[str] = ..., host_canary: _Optional[_Union[HostCanary, _Mapping]] = ..., torch_version: _Optional[str] = ..., gen_worker_version: _Optional[str] = ..., worker_mode: _Optional[str] = ..., driver_version: _Optional[str] = ...) -> None: ...
 
 class HardwareUnsuitable(_message.Message):
     __slots__ = ("worker_id", "release_id", "reason_class", "detail", "driver_version", "gpu_name", "torch_version", "torch_cuda_version", "gen_worker_version", "image_digest", "instance_id", "reported_at_unix_ms")
@@ -1692,3 +1696,13 @@ class TokenRefresh(_message.Message):
     token: str
     expires_at_unix: int
     def __init__(self, token: _Optional[str] = ..., expires_at_unix: _Optional[int] = ...) -> None: ...
+
+class ServePosture(_message.Message):
+    __slots__ = ("eager_only", "reason", "actor")
+    EAGER_ONLY_FIELD_NUMBER: _ClassVar[int]
+    REASON_FIELD_NUMBER: _ClassVar[int]
+    ACTOR_FIELD_NUMBER: _ClassVar[int]
+    eager_only: bool
+    reason: str
+    actor: str
+    def __init__(self, eager_only: _Optional[bool] = ..., reason: _Optional[str] = ..., actor: _Optional[str] = ...) -> None: ...

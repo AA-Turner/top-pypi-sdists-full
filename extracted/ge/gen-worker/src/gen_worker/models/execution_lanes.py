@@ -10,7 +10,7 @@ A lane is the FULL execution-strategy descriptor:
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Iterable, Optional
 
 import msgspec
 
@@ -71,8 +71,13 @@ class _ExecutionLaneBody(msgspec.Struct, frozen=True, kw_only=True):
     scale: str = ""
 
 
-# THE lane table's rows, ranked best-first. Execution support is authoritative:
-# lane enumeration, validation, and binding resolution all read this one field.
+# THE lane table's rows, ranked best-first. Execution support is authoritative
+# for what the platform CHOOSES: lane enumeration, validation, and binding
+# resolution all read this one field. It is NOT a claim about what can be
+# OBSERVED — ie#655: a compiled-only body serves eager whenever a serve-time
+# recipe quantizes and the self-mint then declines, and a report of that state
+# must name it (``observed_execution_lane``) rather than be coerced into the
+# choosable set.
 _KNOWN_BODIES: tuple[_ExecutionLaneBody, ...] = (
     # Eager w8a8 has not been measured; keep Tensorhub's compiled-only answer.
     _ExecutionLaneBody(weights=WEIGHTS_FP8, activation=ACT_W8A8,
@@ -142,6 +147,94 @@ def known_execution_lane_bodies() -> list[str]:
         execution_lane_body_id(_execution_lane_for_body(body, EXEC_EAGER))
         for body in _KNOWN_BODIES
     ]
+
+
+def _body_for_token(token: str) -> Optional[_ExecutionLaneBody]:
+    tok = str(token or "").strip().lower()
+    for body in _KNOWN_BODIES:
+        if execution_lane_body_id(_execution_lane_for_body(body, EXEC_EAGER)) == tok:
+            return body
+    return None
+
+
+def valid_execution_lane_body(token: str) -> bool:
+    """Twin of the hub's ``precision.ValidExecutionLaneBody``."""
+    return _body_for_token(token) is not None
+
+
+def execution_lane_of_body(token: str, compiled: bool) -> ExecutionLane:
+    """PLAN: the lane a known BODY token is CHOSEN to execute as under live
+    compile state. Raises ValueError on a token outside the table: the lane
+    vocabulary is platform-wide (the hub joins verdicts, cells and pricing on
+    it) and no caller extends it.
+
+    Not for reporting — see ``observed_execution_lane`` (ie#655)."""
+    body = _body_for_token(token)
+    if body is None:
+        raise ValueError(
+            f"lane body {token!r} is not a known lane body "
+            f"(known: {', '.join(known_execution_lane_bodies())})")
+    return _planned_execution(
+        _execution_lane_for_body(body, EXEC_EAGER), compiled)
+
+
+def observed_execution_lane(token: str, compiled: bool) -> ExecutionLane:
+    """REPORT: the lane weights of body ``token`` are OBSERVED executing as.
+
+    ie#655: the table's execution support says which lanes the platform
+    PLANS, and an observation is not a plan. ``_planned_execution`` therefore
+    must not touch this path: wan-2.2 served w8a8 weights EAGER on an H100
+    (its self-mint declined for `insufficient_vram`) and the compiled-only
+    coercion rewrote the honest `+eager` into `+compiled` — an over-claim on
+    the key that feeds pricing, verdicts, floors and cell identity, in the
+    flattering direction. The body stays table-validated (the weights half is
+    still vocabulary); the execution axis is whatever actually happened."""
+    body = _body_for_token(token)
+    if body is None:
+        raise ValueError(
+            f"lane body {token!r} is not a known lane body "
+            f"(known: {', '.join(known_execution_lane_bodies())})")
+    return _execution_lane_for_body(
+        body, EXEC_COMPILED if compiled else EXEC_EAGER)
+
+
+def most_quantized_body(tokens: Iterable[str]) -> str:
+    """The most-quantized BODY among ``tokens`` (a bf16 VAE riding a w8a8
+    pipeline is still the w8a8 lane), ties by table rank. Unknown tokens are
+    dropped; an empty selection is the plain bf16 body."""
+    ranked = {body: i for i, body in enumerate(known_execution_lane_bodies())}
+    best, best_key = "", (2, len(ranked) + 1)
+    for token in tokens:
+        tok = str(token or "").strip().lower()
+        if tok not in ranked:
+            continue
+        quant = 1 if tok.startswith(WEIGHTS_BF16 + "-") else 0
+        key = (quant, ranked[tok])
+        if not best or key < best_key:
+            best, best_key = tok, key
+    return best or f"{WEIGHTS_BF16}-{ACT_W16A16}"
+
+
+class AppliedLane(msgspec.Struct, frozen=True, kw_only=True):
+    """What a SERVE-TIME recipe actually did to the weights (pgw#1104).
+
+    The lane a request reports must be the lane its weights execute. A
+    binding names the CHECKPOINT the hub resolved; an endpoint that quantizes
+    inside ``setup()`` (torchao ``quantize_``, wan-2.2's ``_quantize_fp8``,
+    minimax-h3's ``serve_recipe.quantize_dit``) moves the executed lane away
+    from it, and only the code that did the conversion can say so provably.
+    ``body`` is a ``known_execution_lane_bodies()`` token — the same th#1050
+    vocabulary ``handles=`` uses; eager/compiled stays the platform's axis."""
+
+    component: str
+    body: str
+    modules: int = 0
+    kept_bf16: int = 0
+
+    def detail(self) -> str:
+        return (
+            f"component={self.component} applied={self.body} "
+            f"modules={self.modules} kept_bf16={self.kept_bf16}")
 
 
 def valid_execution_lane(execution_lane: ExecutionLane) -> bool:
@@ -224,7 +317,10 @@ def mandatory_traced_lane_of(flavor: str) -> str:
     return ""
 
 
-def _with_supported_execution(execution_lane: ExecutionLane, compiled: bool) -> ExecutionLane:
+def _planned_execution(execution_lane: ExecutionLane, compiled: bool) -> ExecutionLane:
+    """The execution axis of a PLANNED lane: the caller's preference, moved
+    onto a mode the table says this body is chosen for. Planning only —
+    an OBSERVED posture is a fact and coercing it is a lie (ie#655)."""
     execution = EXEC_COMPILED if compiled else EXEC_EAGER
     body = _body_for_execution_lane(execution_lane)
     if body is not None and not _supports(body, execution):
@@ -237,9 +333,11 @@ def _with_supported_execution(execution_lane: ExecutionLane, compiled: bool) -> 
     )
 
 
-def execution_lane_of_binding(flavor: str, storage_dtype: str, compiled: bool) -> ExecutionLane:
-    """The concrete lane a (flavor, cast/storage_dtype) binding executes as —
-    the twin of tensorhub's ``LaneOfResolution``."""
+def execution_lane_body_of_binding(flavor: str, storage_dtype: str) -> str:
+    """The lane BODY a (flavor, cast/storage_dtype) binding names — the
+    WEIGHTS half, with no execution axis. Split out of
+    ``execution_lane_of_binding`` (ie#655) so the reporting path can stamp an
+    observed execution onto it instead of a planned one."""
     # cycle: ladder imports lanes at module top
     from .ladder import (
         CLASS_FP8,
@@ -266,7 +364,16 @@ def execution_lane_of_binding(flavor: str, storage_dtype: str, compiled: bool) -
                     scale=SCALE_STATIC, execution="")
     else:
         execution_lane = ExecutionLane(weights=WEIGHTS_BF16, activation=ACT_W16A16, execution="")
-    return _with_supported_execution(execution_lane, compiled)
+    return execution_lane_body_id(execution_lane)
+
+
+def execution_lane_of_binding(flavor: str, storage_dtype: str, compiled: bool) -> ExecutionLane:
+    """PLAN: the lane a (flavor, cast/storage_dtype) binding is chosen to
+    execute as — the twin of tensorhub's ``LaneOfResolution``."""
+    body = _body_for_token(execution_lane_body_of_binding(flavor, storage_dtype))
+    assert body is not None  # every branch above names a table row
+    return _planned_execution(
+        _execution_lane_for_body(body, EXEC_EAGER), compiled)
 
 
 class ExecutionLaneUnavailableError(ValueError):
@@ -281,6 +388,7 @@ class ExecutionLaneUnavailableError(ValueError):
 
 __all__ = [
     "ACT_W16A16",
+    "AppliedLane",
     "ACT_W4A4",
     "ACT_W8A16",
     "ACT_W8A8",
@@ -306,7 +414,12 @@ __all__ = [
     "known_execution_lanes",
     "execution_lane_body_id",
     "execution_lane_id",
+    "execution_lane_body_of_binding",
     "execution_lane_of_binding",
+    "execution_lane_of_body",
+    "most_quantized_body",
+    "observed_execution_lane",
+    "valid_execution_lane_body",
     "parse_execution_lane",
     "parse_execution_lane_spec",
     "valid_execution_lane",

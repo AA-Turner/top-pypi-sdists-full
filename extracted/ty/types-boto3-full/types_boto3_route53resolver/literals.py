@@ -184,6 +184,7 @@ Route53ResolverServiceName = Literal["route53resolver"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

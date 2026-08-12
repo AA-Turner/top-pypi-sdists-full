@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Unified-python-sdk
-Version: 0.59.25
+Version: 0.59.26
 Summary: Python Client SDK for Unified.to
 License-File: LICENSE.md
 Author: Unified API Inc.
@@ -514,6 +514,15 @@ asyncio.run(main())
 * [update_ats_interview](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ats/README.md#update_ats_interview) - Update an interview
 * [update_ats_job](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ats/README.md#update_ats_job) - Update a job
 * [update_ats_scorecard](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/ats/README.md#update_ats_scorecard) - Update a scorecard
+
+### [Attendance](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/attendance/README.md)
+
+* [create_hris_attendance](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/attendance/README.md#create_hris_attendance) - Create an attendance
+* [get_hris_attendance](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/attendance/README.md#get_hris_attendance) - Retrieve an attendance
+* [list_hris_attendances](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/attendance/README.md#list_hris_attendances) - List all attendances
+* [patch_hris_attendance](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/attendance/README.md#patch_hris_attendance) - Update an attendance
+* [remove_hris_attendance](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/attendance/README.md#remove_hris_attendance) - Remove an attendance
+* [update_hris_attendance](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/attendance/README.md#update_hris_attendance) - Update an attendance
 
 ### [Auth](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/auth/README.md)
 
@@ -1193,6 +1202,7 @@ asyncio.run(main())
 
 ### [Hris](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md)
 
+* [create_hris_attendance](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_attendance) - Create an attendance
 * [create_hris_bankaccount](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_bankaccount) - Create a bankaccount
 * [create_hris_benefit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_benefit) - Create a benefit
 * [create_hris_company](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_company) - Create a company
@@ -1204,6 +1214,7 @@ asyncio.run(main())
 * [create_hris_location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_location) - Create a location
 * [create_hris_timeoff](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_timeoff) - Create a timeoff
 * [create_hris_timeshift](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_timeshift) - Create a timeshift
+* [get_hris_attendance](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_attendance) - Retrieve an attendance
 * [get_hris_bankaccount](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_bankaccount) - Retrieve a bankaccount
 * [get_hris_benefit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_benefit) - Retrieve a benefit
 * [get_hris_company](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_company) - Retrieve a company
@@ -1217,6 +1228,7 @@ asyncio.run(main())
 * [get_hris_taxonomy](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_taxonomy) - Retrieve a taxonomy
 * [get_hris_timeoff](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_timeoff) - Retrieve a timeoff
 * [get_hris_timeshift](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_timeshift) - Retrieve a timeshift
+* [list_hris_attendances](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_attendances) - List all attendances
 * [list_hris_bankaccounts](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_bankaccounts) - List all bankaccounts
 * [list_hris_benefits](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_benefits) - List all benefits
 * [list_hris_companies](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_companies) - List all companies
@@ -1230,6 +1242,7 @@ asyncio.run(main())
 * [list_hris_taxonomies](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_taxonomies) - List all taxonomies
 * [list_hris_timeoffs](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_timeoffs) - List all timeoffs
 * [list_hris_timeshifts](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_timeshifts) - List all timeshifts
+* [patch_hris_attendance](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_attendance) - Update an attendance
 * [patch_hris_bankaccount](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_bankaccount) - Update a bankaccount
 * [patch_hris_benefit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_benefit) - Update a benefit
 * [patch_hris_company](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_company) - Update a company
@@ -1241,6 +1254,7 @@ asyncio.run(main())
 * [patch_hris_location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_location) - Update a location
 * [patch_hris_timeoff](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_timeoff) - Update a timeoff
 * [patch_hris_timeshift](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_timeshift) - Update a timeshift
+* [remove_hris_attendance](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#remove_hris_attendance) - Remove an attendance
 * [remove_hris_bankaccount](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#remove_hris_bankaccount) - Remove a bankaccount
 * [remove_hris_benefit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#remove_hris_benefit) - Remove a benefit
 * [remove_hris_company](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#remove_hris_company) - Remove a company
@@ -1252,6 +1266,7 @@ asyncio.run(main())
 * [remove_hris_location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#remove_hris_location) - Remove a location
 * [remove_hris_timeoff](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#remove_hris_timeoff) - Remove a timeoff
 * [remove_hris_timeshift](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#remove_hris_timeshift) - Remove a timeshift
+* [update_hris_attendance](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#update_hris_attendance) - Update an attendance
 * [update_hris_bankaccount](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#update_hris_bankaccount) - Update a bankaccount
 * [update_hris_benefit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#update_hris_benefit) - Update a benefit
 * [update_hris_company](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#update_hris_company) - Update a company

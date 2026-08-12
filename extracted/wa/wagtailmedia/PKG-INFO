@@ -1,11 +1,11 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: wagtailmedia
-Version: 0.17.2
+Version: 0.18.1
 Summary: A Wagtail module for audio and video files.
 Keywords: Wagtail,Django,media
 Author-email: Mikalai Radchuk  <hello@torchbox.com>
 Maintainer-email: Dan Braghis <dan.braghis@torchbox.com>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-Expression: BSD-3-Clause
 Classifier: Development Status :: 4 - Beta
@@ -14,25 +14,26 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Framework :: Wagtail
-Classifier: Framework :: Wagtail :: 6
 Classifier: Framework :: Wagtail :: 7
 License-File: LICENSE
-Requires-Dist: Wagtail>=6.3
-Requires-Dist: Django>=4.2
-Requires-Dist: pre-commit>=4.3.0 ; extra == "linting"
-Requires-Dist: coverage>=7.10.0 ; extra == "testing"
-Requires-Dist: tox>=4.28.4 ; extra == "testing"
+Requires-Dist: Wagtail>=7.0
+Requires-Dist: Django>=5.2
+Requires-Dist: pre-commit>=4.6.0 ; extra == "linting"
+Requires-Dist: coverage>=7.14.0 ; extra == "testing"
+Requires-Dist: tox>=4.54.0 ; extra == "testing"
+Requires-Dist: psycopg ; extra == "testing"
 Project-URL: Changelog, https://github.com/torchbox/wagtailmedia/blob/main/CHANGELOG.md
 Project-URL: Issues, https://github.com/torchbox/wagtailmedia/issues
 Project-URL: Repository, https://github.com/torchbox/wagtailmedia
 Provides-Extra: linting
 Provides-Extra: testing
+Import-Name: wagtailmedia
 
 # [wagtailmedia](https://pypi.org/project/wagtailmedia/)
 
@@ -49,9 +50,9 @@ but for audio and video files.
 
 wagtailmedia requires the following:
 
-- Python (3.9, 3.10, 3.11, 3.12, 3.13)
-- Django (4.2, 5.1, 5.2)
-- Wagtail (6.3, 6.4, 7.0)
+- Python (3.10, 3.11, 3.12, 3.13, 3.14)
+- Django (5.2, 6.0)
+- Wagtail (7.0, 7.1, 7.2, 7.3, 7.4)
 
 ## Install
 
@@ -61,7 +62,7 @@ Install using pip:
 pip install wagtailmedia
 ```
 
-`wagtailmedia` is compatible with Wagtail 4.1 and above. Check out older releases for compatibility with older versions of Wagtail.
+`wagtailmedia` is compatible with Wagtail 7.0 and above. Check out older releases for compatibility with older versions of Wagtail.
 
 ### Settings
 
@@ -397,8 +398,8 @@ Now you can run tests as shown below:
 tox
 ```
 
-or, you can run them for a specific environment `tox -e py313-dj51-wagtail70` or specific test
-`tox -e py313-dj51-wagtail70 -- tests.test_views.TestMediaChooserUploadView`
+or, you can run them for a specific environment `tox -e python3.13-django5.2-wagtail7.0` or specific test
+`tox -e python3.14-django5.2-wagtail7.0 -- tests.test_views.TestMediaChooserUploadView`
 
 To run the test app interactively, use `tox -e interactive`, visit `http://127.0.0.1:8020/admin/` and log in with `admin`/`changeme`.
 

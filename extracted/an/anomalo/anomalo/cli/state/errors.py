@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import sys
+from collections.abc import Sequence
 from functools import wraps
 from typing import Any
 
@@ -30,11 +33,22 @@ class InvalidFile(StateMachineError):
 
 
 class ConflictingTableFilters(StateMachineError):
+    def __init__(self, flags: Sequence[str]):
+        self.flags = flags
+
     def __str__(self) -> str:
-        return (
-            "--warehouse_id and --configured_only only apply when no table"
-            " references are given"
-        )
+        verb = "applies" if len(self.flags) == 1 else "apply"
+        return f"{', '.join(self.flags)} only {verb} when no table references are given"
+
+
+class UnknownTableLabels(StateMachineError):
+    def __init__(self, labels: Sequence[str]):
+        self.labels = labels
+
+    def __str__(self) -> str:
+        noun = "label" if len(self.labels) == 1 else "labels"
+        names = ", ".join(f'"{label}"' for label in self.labels)
+        return f"No such table {noun}: {names}"
 
 
 class TableRefError(StateMachineError):

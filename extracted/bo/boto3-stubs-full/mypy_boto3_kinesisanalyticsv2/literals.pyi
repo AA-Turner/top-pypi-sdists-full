@@ -100,6 +100,7 @@ KinesisAnalyticsV2ServiceName = Literal["kinesisanalyticsv2"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

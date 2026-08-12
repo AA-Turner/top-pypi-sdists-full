@@ -10,12 +10,12 @@
 
 # Create a new template
 - name: Create a new network
-  one_vnet:
+  community.general.one_vnet:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
     name: bridge-network
-    template: |
+    ansible.builtin.template: |
       VN_MAD  = "bridge"
       BRIDGE  = "br0"
       BRIDGE_TYPE  = "linux"
@@ -29,19 +29,19 @@
   register: result
 
 - name: Assert that network is created
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
 
 
 # Updating a network
 - name: Update an existing network
-  one_vnet:
+  community.general.one_vnet:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
     name: bridge-network
-    template: |
+    ansible.builtin.template: |
       VN_MAD  = "bridge"
       BRIDGE  = "br0"
       BRIDGE_TYPE  = "linux"
@@ -55,18 +55,18 @@
   register: result
 
 - name: Assert that network is changed
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
 
 # Testing idempotence using the same template as in previous task
 - name: Update an existing network with the same changes again
-  one_vnet:
+  community.general.one_vnet:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
     name: bridge-network
-    template: |
+    ansible.builtin.template: |
       VN_MAD  = "bridge"
       BRIDGE  = "br0"
       BRIDGE_TYPE  = "linux"
@@ -80,14 +80,14 @@
   register: result
 
 - name: Assert that network is not changed
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
 
 
 # Deletion of networks
 - name: Delete a nonexisting network
-  one_vnet:
+  community.general.one_vnet:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
@@ -96,12 +96,12 @@
   register: result
 
 - name: Assert that network is not changed
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
 
 - name: Delete an existing network
-  one_vnet:
+  community.general.one_vnet:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
@@ -110,13 +110,13 @@
   register: result
 
 - name: Assert that network was deleted
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
 
 # Trying to run with wrong arguments
 - name: Try to create use network with state=present and without the template parameter
-  one_vnet:
+  community.general.one_vnet:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
@@ -126,18 +126,18 @@
   ignore_errors: true
 
 - name: Assert that it failed because network is missing
-  assert:
+  ansible.builtin.assert:
     that:
       - result is failed
 
 - name: Try to create network with template but without specifying the name parameter
-  one_vnet:
+  community.general.one_vnet:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
     id: 0
     state: present
-    template: |
+    ansible.builtin.template: |
       VN_MAD  = "bridge"
       BRIDGE  = "br0"
       BRIDGE_TYPE  = "linux"
@@ -152,12 +152,12 @@
   ignore_errors: true
 
 - name: Assert that it failed because name is required for initial creation
-  assert:
+  ansible.builtin.assert:
     that:
       - result is failed
 
 - name: Try to use both ID and name at the same time
-  one_vnet:
+  community.general.one_vnet:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
@@ -168,6 +168,6 @@
   ignore_errors: true
 
 - name: Assert that it failed because you can use only one at the time
-  assert:
+  ansible.builtin.assert:
     that:
       - result is failed

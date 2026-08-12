@@ -40,16 +40,22 @@ class PeFileLoader:
             section_infos = []
             optional_header_size = 0xF8
             if pe_offset and len(binary) >= pe_offset + 0x8:
-                num_sections = struct.unpack("H", binary[pe_offset + 0x6 : pe_offset + 0x8])[0]
+                num_sections = struct.unpack("<H", binary[pe_offset + 0x6 : pe_offset + 0x8])[0]
                 bitness = PeFileLoader.getBitness(binary)
                 if bitness == 64:
                     optional_header_size = 0x108
+            # the section table follows the optional header, whose size the COFF header
+            # declares; the bitness-derived default above is only the usual value for it
+            if pe_offset and len(binary) >= pe_offset + 0x16:
+                declared_size = struct.unpack("<H", binary[pe_offset + 0x14 : pe_offset + 0x16])[0]
+                if declared_size:
+                    optional_header_size = 0x18 + declared_size
             if pe_offset and num_sections and len(binary) >= pe_offset + optional_header_size + num_sections * 0x28:
                 for section_index in range(num_sections):
                     section_offset = section_index * 0x28
                     slice_start = pe_offset + optional_header_size + section_offset + 0x8
                     slice_end = pe_offset + optional_header_size + section_offset + 0x8 + 0x10
-                    virt_size, virt_offset, raw_size, raw_offset = struct.unpack("IIII", binary[slice_start:slice_end])
+                    virt_size, virt_offset, raw_size, raw_offset = struct.unpack("<IIII", binary[slice_start:slice_end])
                     section_info = {
                         "section_index": section_index,
                         "virt_size": virt_size,
@@ -70,7 +76,7 @@ class PeFileLoader:
                         max_virt_section_offset,
                         section_info["raw_size"] + section_info["virt_offset"],
                     )
-                    if section_info["raw_offset"] > 0x200:
+                    if section_info["raw_offset"] >= 0x200:
                         min_raw_section_offset = min(min_raw_section_offset, section_info["raw_offset"])
             # isCompatible() only checks for the "MZ" magic, so a DOS-stub-only binary, a
             # corrupted PE, or one with a garbage e_lfanew reaches this point with no usable
@@ -127,9 +133,9 @@ class PeFileLoader:
         if pe_offset and len(binary) >= pe_offset + 0x38:
             bitness = PeFileLoader.getBitness(binary)
             if bitness == 32:
-                base_addr = struct.unpack("I", binary[pe_offset + 0x34 : pe_offset + 0x38])[0]
+                base_addr = struct.unpack("<I", binary[pe_offset + 0x34 : pe_offset + 0x38])[0]
             elif bitness == 64:
-                base_addr = struct.unpack("Q", binary[pe_offset + 0x30 : pe_offset + 0x38])[0]
+                base_addr = struct.unpack("<Q", binary[pe_offset + 0x30 : pe_offset + 0x38])[0]
         if base_addr:
             LOGGER.debug(
                 "Changing base address from 0 to: 0x%x for inference of reference counts (based on PE header)",
@@ -140,7 +146,7 @@ class PeFileLoader:
     @staticmethod
     def getPeOffset(binary):
         if len(binary) >= 0x40:
-            pe_offset = struct.unpack("I", binary[0x3C : 0x3C + 4])[0]
+            pe_offset = struct.unpack("<I", binary[0x3C : 0x3C + 4])[0]
             return pe_offset
         return 0
 
@@ -148,7 +154,7 @@ class PeFileLoader:
     def getMachineType(binary):
         pe_offset = PeFileLoader.getPeOffset(binary)
         if pe_offset and len(binary) >= pe_offset + 0x6 and binary[pe_offset : pe_offset + 4] == b"PE\x00\x00":
-            return struct.unpack("H", binary[pe_offset + 0x4 : pe_offset + 0x6])[0]
+            return struct.unpack("<H", binary[pe_offset + 0x4 : pe_offset + 0x6])[0]
         return 0
 
     @staticmethod
@@ -157,7 +163,7 @@ class PeFileLoader:
         if PeFileLoader.checkPe(binary):
             pe_offset = PeFileLoader.getPeOffset(binary)
             if pe_offset and len(binary) >= pe_offset + 0x2C:
-                oep_rva = struct.unpack("I", binary[pe_offset + 0x28 : pe_offset + 0x2C])[0]
+                oep_rva = struct.unpack("<I", binary[pe_offset + 0x28 : pe_offset + 0x2C])[0]
         return oep_rva
 
     @staticmethod
@@ -192,11 +198,13 @@ class PeFileLoader:
                 # MEM_EXECUTE
                 if section.characteristics & 0x20000000:
                     section_start = base_address + section.virtual_address
-                    section_size = section.virtual_size
+                    # the PE loader maps a zero-VirtualSize section to its raw size
+                    section_size = section.virtual_size or section.sizeof_raw_data
                     if section_size % 0x1000 != 0:
                         section_size += 0x1000 - (section_size % 0x1000)
                     section_end = section_start + section_size
-                    code_areas.append([section_start, section_end])
+                    if section_end > section_start:
+                        code_areas.append([section_start, section_end])
         return PeFileLoader.mergeCodeAreas(code_areas)
 
     @staticmethod

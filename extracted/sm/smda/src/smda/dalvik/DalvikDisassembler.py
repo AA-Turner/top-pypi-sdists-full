@@ -10,6 +10,7 @@ from smda.dalvik.DalvikFunctionAnalysisState import DalvikFunctionAnalysisState
 from smda.dalvik.DalvikOpcodeDecoder import (
     OPCODES,
     decode_instruction,
+    decode_instruction_shallow,
     parse_code_item_header,
     read_sleb128,
     read_uleb128,
@@ -158,6 +159,7 @@ class DexReferenceResolver:
         # resolver's lifetime (resolver tables and analyzeBuffer's method list do);
         # an id reused after GC would alias a stale entry.
         self._type_format_cache = {}
+        self._proto_format_cache = {}
         self._loadExtendedTables()
 
     def _indexItems(self, items):
@@ -235,21 +237,27 @@ class DexReferenceResolver:
         if name:
             return self._normalizeTypeString(name)
         with contextlib.suppress(Exception):
-            type_as_string = self._normalizeTypeString(str(type_obj))
-            if type_as_string and not type_as_string.startswith("<lief.") and " - " not in type_as_string:
-                return type_as_string
-        with contextlib.suppress(Exception):
-            return repr(type_obj)
-        return "<?>"
+            # guard before normalizing: normalization rewrites dots to slashes and wraps the
+            # result as "L...;", which turns an object repr into a plausible descriptor
+            raw_type_string = str(type_obj)
+            if not raw_type_string.startswith("<") and " - " not in raw_type_string:
+                type_as_string = self._normalizeTypeString(raw_type_string)
+                if type_as_string:
+                    return type_as_string
+        return f"<{type(type_obj).__name__}>"
 
     def _formatProto(self, prototype):
         if prototype is None:
             return "()<?>"
-        params = []
-        for param in getattr(prototype, "parameters_type", []):
-            params.append(self._formatType(param))
+        cached = self._proto_format_cache.get(id(prototype))
+        if cached is not None:
+            return cached[1]
+        params = [self._formatType(param) for param in getattr(prototype, "parameters_type", [])]
         return_type = self._formatType(getattr(prototype, "return_type", None))
-        return f"({''.join(params)}){return_type}"
+        result = f"({''.join(params)}){return_type}"
+        # the prototype is stored alongside its result so the cache pins the object whose id keys it
+        self._proto_format_cache[id(prototype)] = (prototype, result)
+        return result
 
     def formatMethod(self, method):
         if method is None:
@@ -413,11 +421,15 @@ class DexReferenceResolver:
           [3..] bootstrap linker args.
         """
         raw = self.raw_data
-        if raw is None or call_site_off >= len(raw):
+        if raw is None or call_site_off < 0 or call_site_off >= len(raw):
             return {"offset": call_site_off, "values": [], "display": f"call_site@off={call_site_off}"}
         try:
             values, _ = self._readEncodedArray(raw, call_site_off)
-        except (ValueError, struct.error):
+        except Exception as exc:
+            # a crafted call_site_ids entry reaches an arbitrary encoded_value tree, whose
+            # nested arrays and annotations can exhaust the stack or index out of range as
+            # well as fail to parse; none of that should end the run
+            reraise_non_operational_exception(exc)
             return {"offset": call_site_off, "values": [], "display": f"call_site@off={call_site_off}"}
         handle_idx = None
         name_idx = None
@@ -992,31 +1004,30 @@ class DalvikDisassembler:
         seen_ranges = set(payload_ranges)
         had_backward_payload = False
         idx = 0
-        null_resolve = lambda ref_kind, ref_index: ""  # noqa: E731
         # Dalvik instructions are 16-bit aligned (one "code unit"), so always
         # advance by 2 on resync — stepping by 1 wastes a decode attempt at every
         # odd offset on adversarial input.
         while idx < len(bytecode):
-            if any(start <= idx < end for start, end in payload_ranges):
+            if payload_ranges and any(start <= idx < end for start, end in payload_ranges):
                 idx += 2
                 continue
             try:
-                decoded = decode_instruction(bytecode, idx, null_resolve)
+                size_bytes, payload_idx = decode_instruction_shallow(bytecode, idx)
             except ValueError:
                 idx += 2
                 continue
             valid.add(idx)
-            if decoded.payload_idx is not None:
-                payload_size = self._getPayloadSize(bytecode, decoded.payload_idx)
+            if payload_idx is not None:
+                payload_size = self._getPayloadSize(bytecode, payload_idx)
                 if payload_size:
-                    range_pair = (decoded.payload_idx, decoded.payload_idx + payload_size)
+                    range_pair = (payload_idx, payload_idx + payload_size)
                     if range_pair not in seen_ranges:
                         payload_ranges.append(range_pair)
                         seen_ranges.add(range_pair)
                         # Backward or self-overlapping payload relative to this insn.
-                        if decoded.payload_idx <= idx:
+                        if payload_idx <= idx:
                             had_backward_payload = True
-            idx += decoded.size_bytes
+            idx += size_bytes
         return valid, payload_ranges, had_backward_payload
 
     def _buildValidInstructionStarts(self, bytecode):
@@ -1410,11 +1421,17 @@ class DalvikDisassembler:
         scan = data_off + ((4 - (data_off % 4)) % 4)
         # Sort intervals for linear skip advancement.
         claimed_intervals.sort()
+        # scan only ever increases, so an interval ending at or before it stays dead.
+        first_alive = 0
+        num_intervals = len(claimed_intervals)
         while scan + 16 <= data_end and len(candidates) < max_candidates:
             if decode_attempts >= self._MAX_ORPHAN_DECODE_ATTEMPTS:
                 break
+            while first_alive < num_intervals and claimed_intervals[first_alive][1] <= scan:
+                first_alive += 1
             advanced = False
-            for a, b in claimed_intervals:
+            for index in range(first_alive, num_intervals):
+                a, b = claimed_intervals[index]
                 if a <= scan < b:
                     scan = b if b % 4 == 0 else b + (4 - (b % 4))
                     advanced = True
@@ -1455,6 +1472,8 @@ class DalvikDisassembler:
                 candidates.append(accepted)
                 self._claimCodeItemRange(claimed_intervals, scan, hdr["insns_size"])
                 claimed_intervals.sort()
+                first_alive = 0
+                num_intervals = len(claimed_intervals)
             scan += 4
         return candidates
 

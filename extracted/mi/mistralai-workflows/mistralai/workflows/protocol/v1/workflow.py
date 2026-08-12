@@ -56,18 +56,31 @@ class LocationType(str, Enum):
     managed = "managed"
 
 
+# aeon injects this as k8s_cluster to flag managed workers; SDKs < 3.10.0 crash on
+# LOCATION_TYPE=managed. Mirrors managedK8sClusterSentinel in the aeon operator.
+# TODO: drop with the validator once every managed worker is on >= 3.10.0.
+MANAGED_K8S_CLUSTER_SENTINEL = "__mistral_managed__"
+
+
 class DeploymentLocation(BaseModel):
     location_type: LocationType = Field(description="Where the deployment runs: 'local', 'k8s', or 'managed'")
     k8s_cluster: str | None = Field(default=None, description="K8s cluster name, if applicable")
     k8s_namespace: str | None = Field(default=None, description="K8s namespace, if applicable")
 
+    @model_validator(mode="after")
+    def _normalize_managed_sentinel(self) -> Self:
+        if self.k8s_cluster == MANAGED_K8S_CLUSTER_SENTINEL:
+            self.location_type = LocationType.managed
+            self.k8s_cluster = None
+        return self
+
 
 class WorkflowSpecsRegisterRequest(BaseModel):
     definitions: List[WorkflowSpecWithTaskQueue] = Field(description="List of workflow specs to register")
-    deployment_name: DeploymentName = Field(default=None, description="Name of the deployment this worker belongs to")
-    worker_name: str | None = Field(
-        default=None, description="Human-readable name of this worker process (hostname or pod name)"
+    deployment_name: Annotated[str, BeforeValidator(_validate_deployment_name)] = Field(
+        description="Name of the deployment this worker belongs to"
     )
+    worker_name: str = Field(description="Human-readable name of this worker process (hostname or pod name)")
     deployment_location: DeploymentLocation | None = Field(
         default=None, description="Metadata about where this deployment is running (local, k8s, etc.)"
     )
@@ -88,14 +101,15 @@ class WorkflowRegistrationRef(BaseModel):
         if isinstance(data, dict):
             d = dict(data)
             if not d.get("workflow_registration_id") and d.get("workflow_version_id"):
-                d["workflow_registration_id"] = d["workflow_version_id"]
+                d["workflow_registration_id"] = d.pop("workflow_version_id")
+            d.pop("workflow_version_id", None)
             return d
         return data
 
     @model_validator(mode="after")
     def _ensure_registration_id_set(self) -> Self:
         if self.workflow_registration_id is None:
-            raise ValueError("Either workflow_registration_id or workflow_version_id must be provided")
+            raise ValueError("workflow_registration_id is required")
         return self
 
     @computed_field(description="Deprecated: use workflow_registration_id")  # type: ignore[prop-decorator]
@@ -105,33 +119,25 @@ class WorkflowRegistrationRef(BaseModel):
         return self.workflow_registration_id
 
 
-def _raise_if_missing_or_different(left: list, lname: str, right: list, rname: str, *, optional: bool = False) -> list:
-    if not optional and not left and not right:
-        raise ValueError(f"You must specify either {lname} or {rname}")
-    if not left:
-        return right
-    if not right:
-        return left
-    if left == right:
-        return left
-    raise ValueError(f"If both {lname} and {rname} are specified, they must match")
+def _remap_deprecated(data: Any, renames: dict[str, str]) -> Any:
+    """Before-validator: remap deprecated field names to their replacements."""
+    if isinstance(data, dict):
+        d = dict(data)
+        for old, new in renames.items():
+            if old in d and new not in d:
+                d[new] = d.pop(old)
+            else:
+                d.pop(old, None)
+        return d
+    return data
 
 
 class WorkflowSpecsRegisterResponse(BaseModel):
     has_conflicts: bool = Field(description="Whether one of the provided workflow specs has already been registered")
 
-    workflow_version_ids: List[uuid.UUID] = Field(
-        default_factory=list,
-        description="Deprecated: use workflow_registration_ids",
-    )
     workflow_registration_ids: List[uuid.UUID] = Field(
         default_factory=list,
         description="List of workflow IDs that were registered",
-    )
-
-    workflow_version_refs: List[WorkflowRegistrationRef] = Field(
-        default_factory=list,
-        description="Deprecated: use workflow_registration_refs",
     )
     workflow_registration_refs: List[WorkflowRegistrationRef] = Field(
         default_factory=list,
@@ -139,42 +145,40 @@ class WorkflowSpecsRegisterResponse(BaseModel):
     )
     warnings: List[str] = Field(default_factory=list, description="Non-fatal warnings produced during registration")
 
-    @model_validator(mode="after")
-    def _sync_deprecated_fields(self) -> Self:
-        self.workflow_registration_ids = self.workflow_version_ids = _raise_if_missing_or_different(
-            self.workflow_registration_ids,
-            "workflow_registration_ids",
-            self.workflow_version_ids,
-            "workflow_version_ids",
+    # Excluded from serialization — new clients use workflow_registration_ids/refs.
+    @property
+    def workflow_version_ids(self) -> List[uuid.UUID]:
+        return list(self.workflow_registration_ids)
+
+    @property
+    def workflow_version_refs(self) -> List[WorkflowRegistrationRef]:
+        return list(self.workflow_registration_refs)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _remap_register_deprecated_fields(cls, data: Any) -> Any:
+        return _remap_deprecated(
+            data,
+            {
+                "workflow_version_ids": "workflow_registration_ids",
+                "workflow_version_refs": "workflow_registration_refs",
+            },
         )
-        self.workflow_registration_refs = self.workflow_version_refs = _raise_if_missing_or_different(
-            self.workflow_registration_refs,
-            "workflow_registration_refs",
-            self.workflow_version_refs,
-            "workflow_version_refs",
-            optional=True,
-        )
-        return self
 
 
 class WorkerHeartbeatRequest(BaseModel):
     workflow_registration_refs: List[WorkflowRegistrationRef] = Field(
         default_factory=list, description="List of workflow registration references to heartbeat"
     )
-    # Deprecated alias kept for backward compatibility
-    workflow_version_refs: List[WorkflowRegistrationRef] = Field(
-        default_factory=list, description="Deprecated: use workflow_registration_refs"
+    deployment_name: Annotated[str, BeforeValidator(_validate_deployment_name)] = Field(
+        description="Name of the deployment this worker belongs to"
     )
-    deployment_name: DeploymentName = Field(default=None, description="Name of the deployment this worker belongs to")
-    worker_name: str | None = Field(
-        default=None, description="Human-readable name of this worker process (hostname or pod name)"
-    )
+    worker_name: str = Field(description="Human-readable name of this worker process (hostname or pod name)")
 
-    @model_validator(mode="after")
-    def _coerce_deprecated_fields(self) -> Self:
-        if self.workflow_version_refs and not self.workflow_registration_refs:
-            self.workflow_registration_refs = self.workflow_version_refs
-        return self
+    @model_validator(mode="before")
+    @classmethod
+    def _remap_heartbeat_deprecated_fields(cls, data: Any) -> Any:
+        return _remap_deprecated(data, {"workflow_version_refs": "workflow_registration_refs"})
 
 
 class WorkerHeartbeatResponse(BaseModel):
@@ -453,11 +457,11 @@ class WorkflowExecutionRequest(BaseModel):
         default=None,
         description="Plugin-specific data to propagate into WorkflowContext.extensions at execution time.",
     )
-
     task_queue: str | None = Field(
         default=None,
         description="Deprecated. Use deployment_name instead.",
         deprecated="Deprecated. Use deployment_name instead.",
+        # TODO for SDK 4: json_schema_extra={"x-mistral-field-visibility": "excluded"},
     )
     deployment_name: DeploymentName = Field(
         default=None, description="Name of the deployment to route this execution to"
@@ -690,6 +694,7 @@ class WorkflowScheduleRequest(BaseModel):
         default=None,
         description="Deprecated. Use deployment_name instead.",
         deprecated="Deprecated. Use deployment_name instead.",
+        # TODO for SDK 4: json_schema_extra={"x-mistral-field-visibility": "excluded"},
     )
 
     schedule_id: str | None = Field(

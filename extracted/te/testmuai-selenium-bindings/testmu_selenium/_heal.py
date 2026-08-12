@@ -53,6 +53,17 @@ from testmu_selenium._helpers._tagify import MOBILE_TAGIFY_SCRIPT
 from testmu_selenium._helpers._frame import switch_to_frame_by_xpath
 from testmu_selenium._errors import HealTierMiss
 
+
+_BILLING_RUN_ID = uuid.uuid4().hex
+
+
+def _billing_run_id() -> str:
+    """Identifier for the current run, used to scope usage attribution.
+
+    Prefers BILLING_RUN_ID when set, for hosts that run several tests in one
+    process; otherwise the per-process uuid, which is already unique per run.
+    """
+    return os.getenv("BILLING_RUN_ID") or _BILLING_RUN_ID
 _log = logging.getLogger(__name__)
 
 
@@ -227,6 +238,7 @@ class Heal:
                 "tagified_image": self.tagified_image,
                 "commit_id": self.commit_id,
                 "test_id": self.test_id,
+                "billing_run_id": _billing_run_id(),
                 "username": self.username,
                 "accesskey": self.accesskey,
                 "tags_description": self.tags_description,
@@ -321,6 +333,7 @@ class Heal:
             "accesskey": self.accesskey,
             "org_id": self.org_id,
             "test_id": self.test_id,
+            "billing_run_id": _billing_run_id(),
             "commit_id": self.commit_id,
             "current_action": self.current_action,
             "version": self.version,
@@ -364,6 +377,7 @@ class Heal:
                 "current_action": self.current_action,
                 "commit_id": self.commit_id,
                 "test_id": self.test_id,
+                "billing_run_id": _billing_run_id(),
                 "username": self.username,
                 "accesskey": self.accesskey,
                 "version": self.version,
@@ -402,6 +416,7 @@ class Heal:
             "current_action": self.current_action,
             "commit_id": self.commit_id,
             "test_id": self.test_id,
+            "billing_run_id": _billing_run_id(),
             "username": self.username,
             "accesskey": self.accesskey,
             "org_id": self.org_id,
@@ -523,6 +538,9 @@ class Heal:
                 "drop_aware": drop_aware,
                 "request_id": request_id,
                 "a11y_flatten": [],
+                "test_id": self.test_id,
+                "billing_run_id": _billing_run_id(),
+                "instruction_id": str((self.current_action or {}).get("instruction_id", "") or ""),
             }
             headers = self._make_auth_headers()
             _log.info(
@@ -652,6 +670,9 @@ class Heal:
                 "drop_aware": False,
                 "request_id": request_id,
                 "a11y_flatten": [],
+                "test_id": self.test_id,
+                "billing_run_id": _billing_run_id(),
+                "instruction_id": str((self.current_action or {}).get("instruction_id", "") or ""),
             }
             headers = self._make_auth_headers()
             _log.info(

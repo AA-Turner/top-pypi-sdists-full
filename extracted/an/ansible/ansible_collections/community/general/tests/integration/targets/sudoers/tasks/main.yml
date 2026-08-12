@@ -6,7 +6,7 @@
 # Initialise environment
 
 - name: Register variables
-  set_fact:
+  ansible.builtin.set_fact:
     sudoers_path: /etc/sudoers.d
     alt_sudoers_path: /etc/sudoers_alt
 
@@ -241,13 +241,13 @@
   register: edge_case_2
 
 - name: find visudo
-  command:
+  ansible.builtin.command:
     cmd: which visudo
   register: which_visudo
   when: ansible_facts.os_family != 'Darwin'
 
 - name: Prevent visudo being executed
-  file:
+  ansible.builtin.file:
     path: "{{ which_visudo.stdout }}"
     mode: '-x'
   when: ansible_facts.os_family != 'Darwin'

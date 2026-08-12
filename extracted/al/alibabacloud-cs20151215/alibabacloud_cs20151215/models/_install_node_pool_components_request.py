@@ -16,9 +16,9 @@ class InstallNodePoolComponentsRequest(DaraModel):
     ):
         # The list of node components.
         self.components = components
-        # The list of node names for the rolling update. By default, all nodes are included.
+        # The list of node names for the rolling operation. Default value: all nodes.
         self.node_names = node_names
-        # The rolling update configuration.
+        # The rolling policy configuration.
         self.rolling_policy = rolling_policy
 
     def validate(self):
@@ -68,12 +68,15 @@ class InstallNodePoolComponentsRequestRollingPolicy(DaraModel):
     def __init__(
         self,
         batch_interval: int = None,
+        max_failed_nodes: int = None,
         max_parallelism: int = None,
         pause_policy: str = None,
     ):
-        # The interval between batches during the upgrade. Unit: seconds.
+        # The upgrade interval between batches. Unit: seconds.
         self.batch_interval = batch_interval
-        # The maximum number of nodes that can be processed in parallel per batch. Default value: 1.
+        # The maximum number of nodes that are allowed to fail during the rolling process. Default value: 0, which indicates that the task fails if any node fails. If the value is greater than 0, the task fails and stops when the cumulative number of failed nodes exceeds this value.
+        self.max_failed_nodes = max_failed_nodes
+        # The maximum number of parallel operations per batch. Default value: 1.
         self.max_parallelism = max_parallelism
         # The automatic pause policy during the node upgrade process.
         self.pause_policy = pause_policy
@@ -89,6 +92,9 @@ class InstallNodePoolComponentsRequestRollingPolicy(DaraModel):
         if self.batch_interval is not None:
             result['batchInterval'] = self.batch_interval
 
+        if self.max_failed_nodes is not None:
+            result['maxFailedNodes'] = self.max_failed_nodes
+
         if self.max_parallelism is not None:
             result['maxParallelism'] = self.max_parallelism
 
@@ -101,6 +107,9 @@ class InstallNodePoolComponentsRequestRollingPolicy(DaraModel):
         m = m or dict()
         if m.get('batchInterval') is not None:
             self.batch_interval = m.get('batchInterval')
+
+        if m.get('maxFailedNodes') is not None:
+            self.max_failed_nodes = m.get('maxFailedNodes')
 
         if m.get('maxParallelism') is not None:
             self.max_parallelism = m.get('maxParallelism')

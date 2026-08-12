@@ -50,6 +50,7 @@ ChimeSDKIdentityServiceName = Literal["chime-sdk-identity"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

@@ -160,6 +160,7 @@ LocationServicePlacesV2ServiceName = Literal["geo-places"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

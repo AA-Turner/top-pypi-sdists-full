@@ -10,25 +10,27 @@
     delete_files:
       - "test01.cfg"
 
-- debug: var=ansible_facts.distribution
+- ansible.builtin.debug:
+    var: ansible_facts.distribution
 
-- include_tasks: iso_mount.yml
+- ansible.builtin.include_tasks: iso_mount.yml
   vars:
     iso_name: "{{ dest_iso_name }}"
 
-- debug: var=mount_root_dir
+- ansible.builtin.debug:
+    var: mount_root_dir
 
 - name: Check the file test01.cfg is deleted
-  stat:
+  ansible.builtin.stat:
     path: "{{ mount_root_dir }}/test01.cfg"
   register: check_file
 
-- assert:
+- ansible.builtin.assert:
     that:
       - check_file.stat.exists == False
 
 - name: Umount ISO
-  mount:
+  ansible.posix.mount:
     path: "{{ mount_root_dir }}"
     fstab: "{{ test_dir }}/temp.fstab"
     state: unmounted

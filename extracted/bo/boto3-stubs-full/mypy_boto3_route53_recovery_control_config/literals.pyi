@@ -61,6 +61,7 @@ Route53RecoveryControlConfigServiceName = Literal["route53-recovery-control-conf
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

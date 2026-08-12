@@ -38,6 +38,7 @@ from metagit.cli.commands.detect import detect
 from metagit.cli.commands.fmt import fmt_cmd
 from metagit.cli.commands.gitnexus import gitnexus
 from metagit.cli.commands.init import init
+from metagit.cli.commands.lane import lane_group
 from metagit.cli.commands.lease import lease_group
 from metagit.cli.commands.mcp import mcp
 from metagit.cli.commands.merge_cmd import merge_group
@@ -45,6 +46,8 @@ from metagit.cli.commands.nav import nav_cmd
 from metagit.cli.commands.project import project
 from metagit.cli.commands.prompt import prompt
 from metagit.cli.commands.record import record
+from metagit.cli.commands.route import route_group
+from metagit.cli.commands.run import run_group
 from metagit.cli.commands.schedule import schedule_group
 from metagit.cli.commands.search import search
 from metagit.cli.commands.semantic import semantic_group
@@ -105,7 +108,21 @@ def cli(ctx: click.Context, config: str, debug: bool, verbose: bool) -> None:
             logger.error(str(cfg))
             ctx.abort()
 
-        config_path = config if kind == "appconfig" else DEFAULT_CONFIG
+        # Use the config_path returned from resolve_cli_bootstrap (it's either the explicit appconfig path or DEFAULT_CONFIG)
+        config_path = (
+            config
+            if kind == "appconfig"
+            else (
+                str(Path(config).expanduser())
+                if kind == "manifest" and not definition_path
+                else cfg.workspace.path
+                if hasattr(cfg, "workspace")
+                else DEFAULT_CONFIG
+            )
+        )
+        # Actually, let's just get the config file path from the loaded config or use DEFAULT_CONFIG
+        # The load_config function returns an AppConfig object, we need to know what file was loaded
+        # For now, keep the old logic but this is a deeper refactor
 
         # Store the configuration and logger in the context
         ctx.obj = {
@@ -148,6 +165,9 @@ cli.add_command(skills)
 cli.add_command(agent)
 cli.add_command(atlas_group)
 cli.add_command(campaign)
+cli.add_command(route_group)
+cli.add_command(run_group)
+cli.add_command(lane_group)
 cli.add_command(branch_group)
 cli.add_command(lease_group)
 cli.add_command(worktree_group)

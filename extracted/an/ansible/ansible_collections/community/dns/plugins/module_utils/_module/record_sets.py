@@ -48,7 +48,12 @@ from ansible_collections.community.dns.plugins.module_utils._zone_record_set_hel
     bulk_apply_changes as rrset_bulk_apply_changes,
 )
 
-from ._utils import get_prefix, normalize_dns_name
+from ._utils import (
+    create_zone_name_id_argspec,
+    get_prefix,
+    get_zone_id_or_name,
+    normalize_dns_name,
+)
 
 if t.TYPE_CHECKING:  # pragma: no cover
     from ansible.module_utils.basic import AnsibleModule
@@ -74,8 +79,6 @@ def create_module_argument_spec(
     return (
         ArgumentSpec(
             argument_spec={
-                "zone_name": {"type": "str", "aliases": ["zone"]},
-                "zone_id": {"type": provider_information.get_zone_id_type()},
                 "prune": {"type": "bool", "default": False},
                 "record_sets": {
                     "type": "list",
@@ -101,15 +104,10 @@ def create_module_argument_spec(
                     "mutually_exclusive": [("record", "prefix")],
                 },
             },
-            required_one_of=[
-                ("zone_name", "zone_id"),
-            ],
-            mutually_exclusive=[
-                ("zone_name", "zone_id"),
-            ],
         )
         .merge(create_bulk_operations_argspec(provider_information))
         .merge(create_record_transformation_argspec())
+        .merge(create_zone_name_id_argspec(provider_information))
     )
 
 
@@ -164,15 +162,25 @@ def _run_module_record_api(
     api: ZoneRecordAPI[ZoneIDT, RecordIDT],
 ) -> t.NoReturn:
     # Get zone information
-    if module.params["zone_name"] is not None:
-        zone_in = normalize_dns_name(module.params["zone_name"])
+    zone_name_in, zone_id_in = get_zone_id_or_name(module.params, provider_information)
+    if provider_information.is_zone_id_equal_to_zone_name():
+        zone_records = api.get_zone_records(
+            zone_id_in,  # type: ignore
+        )
+        if zone_records is None:
+            module.fail_json(msg="Zone not found")
+        assert zone_name_in is not None
+        zone_in = zone_name_in
+        zone_id: ZoneIDT = zone_name_in  # type: ignore
+    elif zone_name_in is not None:
+        zone_in = zone_name_in
         zone = api.get_zone_with_records_by_name(zone_in)
         if zone is None:
             module.fail_json(msg="Zone not found")
         zone_id = zone.zone.id
         zone_records = zone.records
     else:
-        zone = api.get_zone_with_records_by_id(module.params["zone_id"])
+        zone = api.get_zone_with_records_by_id(zone_id_in)  # type: ignore
         if zone is None:
             module.fail_json(msg="Zone not found")
         zone_in = normalize_dns_name(zone.zone.name)
@@ -344,15 +352,25 @@ def _run_module_record_set_api(
     api: ZoneRecordSetAPI[ZoneIDT, RecordSetIDT, RecordIDT],
 ) -> t.NoReturn:
     # Get zone information
-    if module.params["zone_name"] is not None:
-        zone_in = normalize_dns_name(module.params["zone_name"])
+    zone_name_in, zone_id_in = get_zone_id_or_name(module.params, provider_information)
+    if provider_information.is_zone_id_equal_to_zone_name():
+        zone_record_sets = api.get_zone_record_sets(
+            zone_id_in,  # type: ignore
+        )
+        if zone_record_sets is None:
+            module.fail_json(msg="Zone not found")
+        assert zone_name_in is not None
+        zone_in = zone_name_in
+        zone_id: ZoneIDT = zone_name_in  # type: ignore
+    elif zone_name_in is not None:
+        zone_in = zone_name_in
         zone = api.get_zone_with_record_sets_by_name(zone_in)
         if zone is None:
             module.fail_json(msg="Zone not found")
         zone_id = zone.zone.id
         zone_record_sets = zone.record_sets
     else:
-        zone = api.get_zone_with_record_sets_by_id(module.params["zone_id"])
+        zone = api.get_zone_with_record_sets_by_id(zone_id_in)  # type: ignore
         if zone is None:
             module.fail_json(msg="Zone not found")
         zone_in = normalize_dns_name(zone.zone.name)

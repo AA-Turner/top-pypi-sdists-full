@@ -13,7 +13,7 @@ __version__ = VersionInfo('powertrain-build').release_string()
 LOGGER.info('Current powertrain-build version is %s', __version__)
 __config_version__ = '0.2.1'
 __required_python_lower__ = '3.6'
-__required_python_upper__ = '3.13'
+__required_python_upper__ = '3.14'
 
 
 workspace = helper_functions.get_repo_root()

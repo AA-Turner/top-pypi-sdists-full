@@ -42,6 +42,7 @@ PricingPlanManagerServiceName = Literal["pricing-plan-manager"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

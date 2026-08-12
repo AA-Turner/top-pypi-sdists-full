@@ -12,7 +12,7 @@
     - not (ansible_facts.os_family == 'Alpine' and ansible_facts.distribution_version is version('3.15', '<'))  # TODO
   block:
     - name: Include distribution specific variables
-      include_vars: '{{ lookup(''first_found'', search) }}'
+      ansible.builtin.include_vars: '{{ lookup(''first_found'', search) }}'
       vars:
         search:
           files:
@@ -23,7 +23,7 @@
           paths:
             - vars
     - name: install cron package
-      package:
+      ansible.builtin.package:
         name: '{{ cron_pkg }}'
       when: (cron_pkg | default(false, true)) is truthy
       register: cron_package_installed
@@ -31,24 +31,24 @@
     - when: (faketime_pkg | default(false, true)) is truthy
       block:
         - name: install cron and faketime packages
-          package:
+          ansible.builtin.package:
             name: '{{ faketime_pkg }}'
           register: faketime_package_installed
           until: faketime_package_installed is success
         - name: Find libfaketime path
-          shell: '{{ list_pkg_files }} {{ faketime_pkg }} | grep -F libfaketime.so.1'
+          ansible.builtin.shell: '{{ list_pkg_files }} {{ faketime_pkg }} | grep -F libfaketime.so.1'
           register: libfaketime_path
         - when: ansible_facts.service_mgr == 'systemd'
           block:
             - name: create directory for cron drop-in file
-              file:
+              ansible.builtin.file:
                 path: /etc/systemd/system/{{ cron_service }}.service.d
                 state: directory
                 owner: root
                 group: root
                 mode: '0755'
             - name: Use faketime with cron service
-              copy:
+              ansible.builtin.copy:
                 content: '[Service]
 
                   Environment=LD_PRELOAD={{ libfaketime_path.stdout_lines[0].strip() }}
@@ -62,14 +62,14 @@
                 mode: '0644'
         - when: ansible_facts.system == 'FreeBSD'
           name: Use faketime with cron service
-          copy:
+          ansible.builtin.copy:
             content: cron_env='LD_PRELOAD={{ libfaketime_path.stdout_lines[0].strip() }} FAKETIME="+0y x10"'
             dest: /etc/rc.conf.d/cron
             owner: root
             group: wheel
             mode: '0644'
     - name: enable cron service
-      service:
+      ansible.builtin.service:
         daemon-reload: '{{ (ansible_facts.service_mgr == ''systemd'') | ternary(true, omit) }}'
         name: '{{ cron_service }}'
         state: restarted

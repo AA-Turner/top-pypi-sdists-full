@@ -95,6 +95,7 @@ GreengrassV2ServiceName = Literal["greengrassv2"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

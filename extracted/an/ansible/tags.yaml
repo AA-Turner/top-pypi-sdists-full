@@ -5,34 +5,38 @@ amazon.aws:
   repository: https://github.com/ansible-collections/amazon.aws
   tag: 11.4.0
   version: 11.4.0
+ansible.mariadb:
+  repository: https://github.com/ansible-collections/ansible.mariadb
+  tag: 6.0.2
+  version: 6.0.2
 ansible.mysql:
   repository: https://github.com/ansible-collections/ansible.mysql
-  tag: 5.1.0
-  version: 5.1.0
+  tag: 5.2.0
+  version: 5.2.0
 ansible.netcommon:
   repository: https://github.com/ansible-collections/ansible.netcommon
-  tag: 8.6.0
-  version: 8.6.0
+  tag: v8.6.1
+  version: 8.6.1
 ansible.posix:
   repository: https://github.com/ansible-collections/ansible.posix
   tag: 2.2.2
   version: 2.2.2
 ansible.utils:
   repository: https://github.com/ansible-collections/ansible.utils
-  tag: v6.0.3
-  version: 6.0.3
+  tag: v6.1.0
+  version: 6.1.0
 ansible.windows:
   repository: https://github.com/ansible-collections/ansible.windows
   tag: 3.7.0
   version: 3.7.0
 arista.eos:
   repository: https://github.com/ansible-collections/arista.eos
-  tag: v12.1.2
-  version: 12.1.2
+  tag: v12.2.0
+  version: 12.2.0
 azure.azcollection:
   repository: https://github.com/ansible-collections/azure
-  tag: v3.20.0
-  version: 3.20.0
+  tag: v3.21.0
+  version: 3.21.0
 check_point.mgmt:
   repository: https://github.com/CheckPointSW/CheckPointAnsibleMgmtCollection
   tag: v6.9.0
@@ -48,20 +52,20 @@ cisco.aci:
   version: 2.13.0
 cisco.intersight:
   repository: https://github.com/CiscoDevNet/intersight-ansible
-  tag: 2.20.0
-  version: 2.20.0
+  tag: 2.21.0
+  version: 2.21.0
 cisco.ios:
   repository: https://github.com/ansible-collections/cisco.ios
-  tag: v11.4.2
-  version: 11.4.2
+  tag: v11.5.0
+  version: 11.5.0
 cisco.iosxr:
   repository: https://github.com/ansible-collections/cisco.iosxr
-  tag: v12.3.2
-  version: 12.3.2
+  tag: v12.4.0
+  version: 12.4.0
 cisco.meraki:
   repository: https://github.com/meraki/dashboard-api-ansible
-  tag: v2.24.1
-  version: 2.24.1
+  tag: v2.25.0
+  version: 2.25.0
 cisco.mso:
   repository: https://github.com/CiscoDevNet/ansible-mso
   tag: v2.13.0
@@ -96,16 +100,16 @@ community.crypto:
   version: 3.3.0
 community.dns:
   repository: https://github.com/ansible-collections/community.dns
-  tag: 4.0.2
-  version: 4.0.2
+  tag: 4.1.0
+  version: 4.1.0
 community.docker:
   repository: https://github.com/ansible-collections/community.docker
-  tag: 5.2.1
-  version: 5.2.1
+  tag: 5.2.2
+  version: 5.2.2
 community.general:
   repository: https://github.com/ansible-collections/community.general
-  tag: 13.2.0
-  version: 13.2.0
+  tag: 13.3.0
+  version: 13.3.0
 community.grafana:
   repository: https://github.com/ansible-collections/grafana
   tag: 2.3.0
@@ -209,8 +213,8 @@ dellemc.unity:
 f5networks.f5_modules:
   collection_directory: ./ansible_collections/f5networks/f5_modules
   repository: https://github.com/F5Networks/f5-ansible-f5modules
-  tag: 1.42.0
-  version: 1.42.0
+  tag: 1.43.0
+  version: 1.43.0
 fortinet.fortimanager:
   repository: https://github.com/fortinet-ansible-dev/ansible-galaxy-fortimanager-collection
   tag: 2.14.0
@@ -221,8 +225,8 @@ fortinet.fortios:
   version: 2.5.1
 google.cloud:
   repository: https://github.com/ansible-collections/google.cloud
-  tag: v1.13.0
-  version: 1.13.0
+  tag: v1.14.0
+  version: 1.14.0
 grafana.grafana:
   repository: https://github.com/grafana/grafana-ansible-collection
   tag: 6.1.0
@@ -230,8 +234,8 @@ grafana.grafana:
 graphiant.naas:
   collection_directory: ./ansible_collections/graphiant/naas
   repository: https://github.com/Graphiant-Inc/graphiant-playbooks
-  tag: v26.6.0
-  version: 26.6.0
+  tag: v26.7.0
+  version: 26.7.0
 hetzner.hcloud:
   repository: https://github.com/ansible-collections/hetzner.hcloud
   tag: 6.10.0
@@ -246,16 +250,16 @@ hitachivantara.vspone_object:
   version: 1.2.0
 ibm.storage_virtualize:
   repository: https://github.com/ansible-collections/ibm.storage_virtualize
-  tag: 3.3.0
-  version: 3.3.0
+  tag: 3.4.0
+  version: 3.4.0
 ieisystem.inmanage:
   repository: https://github.com/ieisystem/ieisystem.inmanage
   tag: 4.0.0
   version: 4.0.0
 infinidat.infinibox:
   repository: https://github.com/infinidat/ansible-infinidat-collection
-  tag: v1.8.1
-  version: 1.8.1
+  tag: v1.8.4
+  version: 1.8.4
 infoblox.nios_modules:
   repository: https://github.com/infobloxopen/infoblox-ansible
   tag: v1.9.0
@@ -294,8 +298,8 @@ netapp.cloudmanager:
   version: 21.24.0
 netapp.ontap:
   repository: https://github.com/ansible-collections/netapp.ontap
-  tag: 23.5.0
-  version: 23.5.0
+  tag: 23.6.0
+  version: 23.6.0
 netapp.storagegrid:
   repository: https://github.com/ansible-collections/netapp.storagegrid
   tag: 21.16.0
@@ -342,8 +346,8 @@ splunk.es:
   version: 6.0.1
 telekom_mms.icinga_director:
   repository: https://github.com/telekom-mms/ansible-collection-icinga-director
-  tag: 2.5.1
-  version: 2.5.1
+  tag: 2.6.1
+  version: 2.6.1
 theforeman.foreman:
   repository: https://github.com/theforeman/foreman-ansible-modules
   tag: v5.11.0

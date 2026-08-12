@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asyncmy
-Version: 0.2.13
+Version: 0.2.14
 Summary: The fastest asyncio MySQL/MariaDB driver for Python
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -183,6 +183,78 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 ```
+
+### Type checking
+
+asyncmy ships `py.typed` and stubs for its compiled modules, so mypy and Pylance resolve the API
+without extra configuration:
+
+```py
+conn = await asyncmy.connect(host="localhost", user="root")   # -> Connection
+async with conn.cursor() as cur:
+    rows = await cur.fetchall()                               # -> list[Any]
+```
+
+Contributors: `make stubs` regenerates the stubs after changing a `.pyx` signature. `make check`
+runs `stubtest`, which compares every stub against the compiled module and fails on drift.
+
+### Rotating credentials
+
+Some credentials expire while a pooled connection outlives them — AWS RDS IAM auth tokens last 15
+minutes, for instance. Pass `password_creator` instead of `password` and it is consulted before
+every connection attempt, including the ones the pool makes on its own when it recycles or
+reconnects:
+
+```py
+import boto3
+
+client = boto3.client("rds")
+
+
+def rds_auth_token():
+    return client.generate_db_auth_token(
+        DBHostname="mydb.cluster.amazonaws.com",
+        Port=3306,
+        DBUsername="dbuser",
+        Region="us-east-1",
+    )
+
+
+pool = await asyncmy.create_pool(
+    host="mydb.cluster.amazonaws.com",
+    user="dbuser",
+    password_creator=rds_auth_token,
+)
+```
+
+The callable may be a plain function or return an awaitable, and must return `str` or `bytes`. If
+both `password` and `password_creator` are given, the creator wins.
+
+### Statement logging
+
+`echo=True` logs every statement and its duration to the `asyncmy` logger at INFO level. Nothing
+appears until logging is configured — `logging.basicConfig(level=logging.INFO)` at minimum, since
+the root logger defaults to WARNING.
+
+For anything beyond that, pass `query_callback`. It is called as `callback(cursor, query,
+elapsed_ms)` after every successful statement, with the duration as a float in milliseconds:
+
+```py
+import logging
+
+logger = logging.getLogger("myapp.sql")
+
+
+def log_slow_queries(cursor, query, elapsed_ms):
+    if elapsed_ms > 100:
+        logger.warning("[%sms] %s", elapsed_ms, query)
+
+
+conn = await asyncmy.connect(host="localhost", user="root", query_callback=log_slow_queries)
+```
+
+`executemany` and `callproc` report once for the whole call rather than once per row. The callback
+is independent of `echo`: set both and you get the log line and the callback.
 
 ## Replication
 

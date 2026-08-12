@@ -6,7 +6,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Extract the iso
-  iso_extract:
+  community.general.iso_extract:
     image: '{{ output_test_dir }}/test.iso'
     dest: '{{ output_test_dir }}'
     files:
@@ -15,12 +15,12 @@
     executable: '{{ iso_extract_7zip_executable | default(omit) }}'
   register: iso_extract_test0
 
-- assert:
+- ansible.builtin.assert:
     that:
       - iso_extract_test0 is changed
 
 - name: Extract the iso again
-  iso_extract:
+  community.general.iso_extract:
     image: '{{ output_test_dir }}/test.iso'
     dest: '{{ output_test_dir }}'
     files:
@@ -30,19 +30,19 @@
   register: iso_extract_test0_again
 
 - name: Test iso_extract_test0_again (normal mode)
-  assert:
+  ansible.builtin.assert:
     that:
       - iso_extract_test0_again is not changed
   when: not in_check_mode
 
 - name: Test iso_extract_test0_again (check-mode)
-  assert:
+  ansible.builtin.assert:
     that:
       - iso_extract_test0_again is changed
   when: in_check_mode
 
 - name: Extract the iso using files with leading slash
-  iso_extract:
+  community.general.iso_extract:
     image: '{{ output_test_dir }}/test.iso'
     dest: '{{ output_test_dir }}'
     files:
@@ -53,7 +53,7 @@
   register: iso_extract_leading_slash
 
 - name: Test iso_extract with leading slash succeeds (normal mode)
-  assert:
+  ansible.builtin.assert:
     that:
       - iso_extract_leading_slash is not failed
   when: not in_check_mode

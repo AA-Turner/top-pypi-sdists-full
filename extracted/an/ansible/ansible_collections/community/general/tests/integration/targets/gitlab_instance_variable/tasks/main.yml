@@ -9,18 +9,18 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Install required libs
-  pip:
+  ansible.builtin.pip:
     name: python-gitlab
     state: present
 
 - name: purge all variables for check_mode test
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     purge: true
 
 - name: add a variable value in check_mode
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -30,12 +30,12 @@
   register: gitlab_instance_variable_state
 
 - name: check_mode state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state is changed
 
 - name: apply add value from check_mode test
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -44,12 +44,12 @@
   register: gitlab_instance_variable_state
 
 - name: state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state is changed
 
 - name: apply same value again again
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -58,12 +58,12 @@
   register: gitlab_instance_variable_state
 
 - name: state must be not changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state is not changed
 
 - name: change protected attribute
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -73,12 +73,12 @@
   register: gitlab_instance_variable_state
 
 - name: state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state is changed
 
 - name: revert protected attribute
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -88,12 +88,12 @@
   register: gitlab_instance_variable_state
 
 - name: state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state is changed
 
 - name: change masked attribute
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -103,12 +103,12 @@
   register: gitlab_instance_variable_state
 
 - name: state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state is changed
 
 - name: revert masked attribute by not mention it
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -118,12 +118,12 @@
   register: gitlab_instance_variable_state
 
 - name: state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state is changed
 
 - name: revert again masked attribute by not mention it (idempotent)
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -132,12 +132,12 @@
   register: gitlab_instance_variable_state
 
 - name: state must be not changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state is not changed
 
 - name: set all attributes
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -149,12 +149,12 @@
   register: gitlab_instance_variable_state
 
 - name: state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state is changed
 
 - name: set again all attributes (idempotent)
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -166,12 +166,12 @@
   register: gitlab_instance_variable_state
 
 - name: state must not be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state is not changed
 
 - name: revert both (masked and protected) attribute
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -181,12 +181,12 @@
   register: gitlab_instance_variable_state
 
 - name: state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state is changed
 
 - name: change a variable value in check_mode again
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -196,12 +196,12 @@
   register: gitlab_instance_variable_state
 
 - name: check_mode state must not be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state is not changed
 
 - name: apply again the value change from check_mode test
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -210,18 +210,18 @@
   register: gitlab_instance_variable_state
 
 - name: state must not be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state is not changed
 
 - name: purge all variables again
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     purge: true
 
 - name: set two test variables
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -232,7 +232,7 @@
   register: gitlab_instance_variable_state
 
 - name: set two test variables state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state is changed
       - gitlab_instance_variable_state.instance_variable.added|length == 2
@@ -241,7 +241,7 @@
       - gitlab_instance_variable_state.instance_variable.updated|length == 0
 
 - name: re-set two test variables
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -252,7 +252,7 @@
   register: gitlab_instance_variable_state
 
 - name: re-set two test variables state must not be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state is not changed
       - gitlab_instance_variable_state.instance_variable.added|length == 0
@@ -261,7 +261,7 @@
       - gitlab_instance_variable_state.instance_variable.updated|length == 0
 
 - name: edit one variable
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -271,7 +271,7 @@
   register: gitlab_instance_variable_state
 
 - name: edit one variable state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state.changed
       - gitlab_instance_variable_state.instance_variable.added|length == 0
@@ -281,7 +281,7 @@
       - gitlab_instance_variable_state.instance_variable.updated[0] == "ACCESS_KEY_ID"
 
 - name: append one variable
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -291,7 +291,7 @@
   register: gitlab_instance_variable_state
 
 - name: append one variable state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state.changed
       - gitlab_instance_variable_state.instance_variable.added|length == 1
@@ -301,7 +301,7 @@
       - gitlab_instance_variable_state.instance_variable.added[0] == "some"
 
 - name: re-set all variables
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -314,7 +314,7 @@
   register: gitlab_instance_variable_state
 
 - name: re-set all variables state must not be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - not gitlab_instance_variable_state.changed
       - gitlab_instance_variable_state.instance_variable.added|length == 0
@@ -323,7 +323,7 @@
       - gitlab_instance_variable_state.instance_variable.updated|length == 0
 
 - name: set one variables and purge all others
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -333,7 +333,7 @@
   register: gitlab_instance_variable_state
 
 - name: set one variables and purge all others state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state.changed
       - gitlab_instance_variable_state.instance_variable.added|length == 0
@@ -342,7 +342,7 @@
       - gitlab_instance_variable_state.instance_variable.updated|length == 0
 
 - name: only one variable is left
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -352,7 +352,7 @@
   register: gitlab_instance_variable_state
 
 - name: only one variable is left state must not be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - not gitlab_instance_variable_state.changed
       - gitlab_instance_variable_state.instance_variable.added|length == 0
@@ -362,7 +362,7 @@
       - gitlab_instance_variable_state.instance_variable.untouched[0] == "some"
 
 - name: test integer values
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -372,7 +372,7 @@
   register: gitlab_instance_variable_state
 
 - name: only one variable is left state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state.changed
       - gitlab_instance_variable_state.instance_variable.added|length == 0
@@ -381,7 +381,7 @@
       - gitlab_instance_variable_state.instance_variable.updated|length == 1
 
 - name: test float values
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -391,7 +391,7 @@
   register: gitlab_instance_variable_state
 
 - name: only one variable is left state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state.changed
       - gitlab_instance_variable_state.instance_variable.added|length == 0
@@ -400,7 +400,7 @@
       - gitlab_instance_variable_state.instance_variable.updated|length == 1
 
 - name: delete the last left variable
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     state: absent
@@ -409,7 +409,7 @@
   register: gitlab_instance_variable_state
 
 - name: no variable is left state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state.changed
       - gitlab_instance_variable_state.instance_variable.added|length == 0
@@ -419,7 +419,7 @@
       - gitlab_instance_variable_state.instance_variable.removed[0] == "some"
 
 - name: add one variable with variable_type file
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -430,7 +430,7 @@
   register: gitlab_instance_variable_state
 
 - name: append one variable state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state.changed
       - gitlab_instance_variable_state.instance_variable.added|length == 1
@@ -441,7 +441,7 @@
       # - gitlab_instance_variable_state.instance_variable.added[0] == "my_test_var"
 
 - name: change variable_type attribute
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -451,12 +451,12 @@
   register: gitlab_instance_variable_state
 
 - name: state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state is changed
 
 - name: revert variable_type attribute
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -466,12 +466,12 @@
   register: gitlab_instance_variable_state
 
 - name: state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state is changed
 
 - name: delete the variable_type file variable
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     state: absent
@@ -480,7 +480,7 @@
   register: gitlab_instance_variable_state
 
 - name: no variable is left state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state.changed
       - gitlab_instance_variable_state.instance_variable.added|length == 0
@@ -490,7 +490,7 @@
       - gitlab_instance_variable_state.instance_variable.removed[0] == "my_test_var"
 
 - name: set complete page and purge existing ones
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -538,21 +538,21 @@
   register: gitlab_instance_variable_state
 
 - name: complete page added state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state is changed
       - gitlab_instance_variable_state.instance_variable.added|length == 20
       - gitlab_instance_variable_state.instance_variable.untouched|length == 0
 
 - name: check that no variables are left
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     purge: true
   register: gitlab_instance_variable_state
 
 - name: check that no variables are untouched state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state.changed
       - gitlab_instance_variable_state.instance_variable.added|length == 0
@@ -561,7 +561,7 @@
       - gitlab_instance_variable_state.instance_variable.updated|length == 0
 
 - name: throw error when state is present but no value is given
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     variables:
@@ -570,13 +570,13 @@
   ignore_errors: true
 
 - name: verify fail
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state.failed
       - gitlab_instance_variable_state is not changed
 
 - name: set a new variable to delete it later
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     purge: true
@@ -586,12 +586,12 @@
   register: gitlab_instance_variable_state
 
 - name: verify the change
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state.changed
 
 - name: delete variable without referencing its value
-  gitlab_instance_variable:
+  community.general.gitlab_instance_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     state: absent
@@ -600,7 +600,7 @@
   register: gitlab_instance_variable_state
 
 - name: verify deletion
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_instance_variable_state.changed
       - gitlab_instance_variable_state.instance_variable.removed|length == 1

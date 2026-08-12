@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyobjc-core
-Version: 12.2.1
+Version: 12.2.2
 Summary: Python<->ObjC Interoperability Module
 Home-page: https://github.com/ronaldoussoren/pyobjc
 Author: Ronald Oussoren, bbum, SteveM, LeleG, many others stretching back through the reaches of time...

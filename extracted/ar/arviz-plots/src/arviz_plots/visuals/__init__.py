@@ -6,6 +6,7 @@ That is, the functions in this module take a set of arguments,
 take care of backend-agnostic processing of those arguments
 and eventually they call the requested plotting backend.
 """
+
 import numpy as np
 import xarray as xr
 from arviz_base import rcParams
@@ -214,6 +215,18 @@ def scatter_couple(da_x, da_y, target, mask=None, **kwargs):
     return plot_backend.scatter(da_x.values, da_y.values, target, **kwargs)
 
 
+def contour(x_coords, y_coords, density, target, *, levels=None, **kwargs):
+    """Plot 2D KDE contours for a pairplot couple."""
+    plot_backend = backend_from_object(target)
+    plot_backend.contour(x_coords, y_coords, density, target, levels=levels, **kwargs)
+
+
+def contourf(x_coords, y_coords, density, target, *, levels=None, cmap=None, **kwargs):
+    """Plot 2D KDE filled contours for a pairplot couple."""
+    plot_backend = backend_from_object(target)
+    plot_backend.contourf(x_coords, y_coords, density, target, levels=levels, cmap=cmap, **kwargs)
+
+
 def ecdf_line(values, target, **kwargs):
     """Plot a step line."""
     plot_backend = backend_from_object(target)
@@ -255,6 +268,8 @@ def set_xlim(da, target, limits, **kwargs):
 
 def set_ylim(da, target, limits, **kwargs):
     """Set y-axis limits."""
+    if isinstance(limits, xr.DataArray):
+        limits = limits.item()
     plot_backend = backend_from_object(target)
     plot_backend.ylim(limits, target, **kwargs)
     return target
@@ -324,8 +339,9 @@ def _process_da_x_y(da, x, y, mask=None):
     elif y is None:
         y = da
     if mask is not None:
-        x = x[mask]
-        y = y[mask]
+        x, mask = xr.broadcast(x, mask)
+        x = x.values[mask.values]
+        y = y.values[mask.values]
     return np.broadcast_arrays(x, y)
 
 

@@ -38,7 +38,57 @@ __all__ = [
     "AIConfig",
     "AIOutputConfig",
     "AIProviderConfig",
+    "AITransportProfiles",
+    "ApiTransportProfile",
+    "CliTransportProfile",
 ]
+
+
+class ApiTransportProfile(BaseModel):
+    """Operational knobs for the metered API transport (#1923)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    timeout: float | None = Field(
+        default=None,
+        ge=1.0,
+        description="Stream-sized per-call timeout in seconds (default 60).",
+    )
+    max_cost_usd: float | None = Field(
+        default=None,
+        ge=0,
+        description="Enforced spend ceiling for metered API billing.",
+    )
+
+
+class CliTransportProfile(BaseModel):
+    """Operational knobs for the subscription CLI transport (#1923)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    timeout: float | None = Field(
+        default=None,
+        ge=1.0,
+        description="Whole-turn timeout in seconds (default 900).",
+    )
+    max_cost_usd_advisory: float | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Advisory cost bound under subscription billing; lintro cannot "
+            "enforce spend on the CLI path."
+        ),
+    )
+
+
+class AITransportProfiles(BaseModel):
+    """Transport-scoped AI review profiles (#1923)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    api: ApiTransportProfile = Field(default_factory=ApiTransportProfile)
+    cli: CliTransportProfile = Field(default_factory=CliTransportProfile)
+
 
 _SUPPRESS_DIAGNOSTICS: ContextVar[bool] = ContextVar(
     "ai_config_suppress_diagnostics",
@@ -104,6 +154,14 @@ class AIConfig(BaseModel):
         description=(
             "Required when any AI feature (ai.lint or ai.review) is enabled. "
             "How to invoke the provider: 'api' (SDK) or 'cli' (local binary)."
+        ),
+    )
+    transports: AITransportProfiles = Field(
+        default_factory=AITransportProfiles,
+        description=(
+            "Per-transport operational profiles (timeout and cost caps). "
+            "Resolution: transport profile → legacy api_timeout/max_cost_usd "
+            "→ built-in default (api: 60s; cli: 900s)."
         ),
     )
     model: str | None = None
@@ -293,6 +351,36 @@ class AIConfig(BaseModel):
             "delegated git retrieval on very large diffs is required."
         ),
     )
+    cli_max_diff_tokens: int = Field(
+        default=24_000,
+        ge=1_000,
+        description=(
+            "Per-chunk diff token budget under --transport cli. The "
+            "context-window budget alone is far too large for a single CLI "
+            "call (timeout / 32k output-token exhaustion on ~1.5k-line PRs); "
+            "this ceiling forces the semantic chunker to split large diffs."
+        ),
+    )
+    cli_max_diff_bytes: int = Field(
+        default=1_500_000,
+        ge=10_000,
+        description=(
+            "Hard ceiling on the full unified-diff byte size under "
+            "--transport cli. Diffs above this fail with an actionable "
+            "advisory to use --paths filtering or --transport api instead of "
+            "spawning an unbounded number of CLI chunks."
+        ),
+    )
+    cli_max_findings_per_call: int = Field(
+        default=12,
+        ge=1,
+        le=50,
+        description=(
+            "Maximum findings a single CLI review call may emit. Bounds the "
+            "JSON response so the model cannot hit the ~32k output-token cap "
+            "mid-object; overflow is summarized rather than truncated."
+        ),
+    )
     transcript_logging: bool = Field(
         default=False,
         description=(
@@ -463,6 +551,9 @@ class AIConfig(BaseModel):
             cache_max_entries=self.cache_max_entries,
             context_lines=self.context_lines,
             fix_search_radius=self.fix_search_radius,
+            cli_max_diff_tokens=self.cli_max_diff_tokens,
+            cli_max_diff_bytes=self.cli_max_diff_bytes,
+            cli_max_findings_per_call=self.cli_max_findings_per_call,
         )
 
     @property

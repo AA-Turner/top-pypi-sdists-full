@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import logging
+import re
 
 from capstone import CS_ARCH_X86, CS_MODE_32, CS_MODE_64, Cs
 
@@ -27,6 +28,22 @@ from .MnemonicTfIdf import MnemonicTfIdf
 
 LOGGER = logging.getLogger(__name__)
 
+# a call/jmp through a pointer slot the sample computes itself ("dword ptr [ebx + 0x2c]"),
+# the shape a runtime-built import table is used through. An index register is excluded on
+# purpose: the slot is then not a single address, and those operands belong to jump tables.
+# capstone prints a displacement below 10 as a bare decimal digit, so "[esi + 8]" - the most
+# common slot stride - has no 0x prefix to match on.
+MEM_REG_SLOT_RE = re.compile(
+    r"^(?P<size>dword|qword) ptr \[(?P<reg>[a-z][a-z0-9]{1,3})"
+    r"(?: (?P<sign>[+-]) (?P<disp>0x[0-9a-f]{1,16}|[0-9]))?\]$"
+)
+
+# a load of an import slot into a register: "mov rax, qword ptr [rip + 0x...]" (64-bit) or
+# "mov eax, dword ptr [0x...]" (32-bit). The memory operand must be the source - a store to a
+# slot is IAT patching, which is a different fact and is deliberately not recorded here.
+IMPORT_SLOT_LOAD_RE = re.compile(
+    r"^[a-z][a-z0-9]{1,4}, (?P<size>dword|qword) ptr \[(?P<rip>rip [+-] )?0x[0-9a-f]{1,16}\]$"
+)
 
 SYSCALL_BACKTRACK_BOUNDARY = (
     set(CALL_INS)
@@ -84,6 +101,22 @@ INT80_EXIT_NUMBERS = {1, 252}  # exit, exit_group
 # hoisted membership tables for the per-instruction dispatch in analyzeInstruction()
 _TRAP_TERMINATOR_INS = frozenset({"int3", "hlt"})
 _SYSCALL_INS = frozenset({"syscall"})
+
+_KIND_CALL, _KIND_JMP, _KIND_LOOP, _KIND_CJMP, _KIND_RET, _KIND_TRAP, _KIND_SYSCALL = range(7)
+_KIND_TABLES = (
+    (CALL_INS, _KIND_CALL),
+    (JMP_INS, _KIND_JMP),
+    (LOOP_INS, _KIND_LOOP),
+    (CJMP_INS, _KIND_CJMP),
+    (RET_INS, _KIND_RET),
+    (_TRAP_TERMINATOR_INS, _KIND_TRAP),
+    (_SYSCALL_INS, _KIND_SYSCALL),
+)
+# one lookup replaces the membership chain that 77% of instructions fell all the way through;
+# collapsing to a single dict is only valid while the tables stay disjoint
+_INS_KIND = {mnemonic: kind for table, kind in _KIND_TABLES for mnemonic in table}
+if len(_INS_KIND) != sum(len(table) for table, _ in _KIND_TABLES):
+    raise AssertionError("intel control-flow mnemonic tables overlap")
 
 
 class X86Backend(ArchBackend):
@@ -155,20 +188,24 @@ class X86Backend(ArchBackend):
         i_address, i_size, i_mnemonic, i_op_str = i
         state.setLeaf(False)
         # case = "FALLTHROUGH"
+        # case = "LONG-CALL": a far call names a segment and an offset. capstone separates
+        # the pair with a comma for lcall (a colon only for ljmp), so the operand string
+        # still starts with "0x" and the direct-call arm below would book a code ref to the
+        # segment selector. There is no in-image target to book, so drop it like _analyzeJmp.
+        if i_mnemonic.split(" ")[-1] == "lcall":
+            return
         call_destination = d.getReferencedAddr(i_op_str)
-        if ":" in i_op_str:
-            # case = "LONG-CALL"
-            pass
         if i_op_str.startswith("dword ptr ["):
-            # reg+offset is currently ignored as it is a minority of calls
-            # case = "DWORD-PTR-REG"
             if i_op_str.startswith("dword ptr [0x"):
                 # case = "DWORD-PTR"
                 dereferenced = d.disassembly.dereferenceDword(call_destination)
                 if dereferenced is not None:
                     state.addCodeRef(i_address, dereferenced)
                     d._handleCallTarget(state, i_address, dereferenced)
-                    d._handleApiTarget(i_address, call_destination, dereferenced)
+                    d._handleApiTarget(i_address, call_destination, dereferenced, slot=call_destination)
+            else:
+                # case = "DWORD-PTR-REG"
+                self._collectMemRegSlot(state, i_address, i_op_str)
         elif i_op_str.startswith("qword ptr [rip"):
             rip = i_address + i_size
             call_destination = rip + d.getReferencedAddr(i_op_str)
@@ -178,16 +215,16 @@ class X86Backend(ArchBackend):
                 # against the real destination, like the 32-bit dword-ptr path does
                 state.addCodeRef(i_address, dereferenced)
                 d._handleCallTarget(state, i_address, dereferenced)
-                d._handleApiTarget(i_address, call_destination, dereferenced)
+                d._handleApiTarget(i_address, call_destination, dereferenced, slot=call_destination)
             else:
                 # import-like case: keep the reference on the slot itself
                 state.addCodeRef(i_address, call_destination)
                 if dereferenced is not None:
-                    d._handleApiTarget(i_address, call_destination, dereferenced)
+                    d._handleApiTarget(i_address, call_destination, dereferenced, slot=call_destination)
         elif i_op_str.startswith("0x"):
             # case = "DIRECT"
             import_slot = self._resolveImportSlot(d, call_destination)
-            if import_slot is not None and d._handleApiTarget(i_address, import_slot, import_slot):
+            if import_slot is not None and d._handleApiTarget(i_address, import_slot, import_slot, slot=import_slot):
                 state.addCodeRef(i_address, call_destination)
             else:
                 d._handleCallTarget(state, i_address, call_destination)
@@ -196,11 +233,49 @@ class X86Backend(ArchBackend):
             # case = "REG"
             # this is resolved by backtracking at the end of function analysis.
             state.call_register_ins.append(i_address)
+        elif i_op_str.startswith("qword ptr ["):
+            # case = "QWORD-PTR-REG"
+            self._collectMemRegSlot(state, i_address, i_op_str)
+
+    @staticmethod
+    def _collectMemRegSlot(state, i_address, i_op_str):
+        match = MEM_REG_SLOT_RE.match(i_op_str)
+        if match is None:
+            return
+        displacement = int(match.group("disp"), 0) if match.group("disp") else 0
+        if match.group("sign") == "-":
+            displacement = -displacement
+        state.call_memreg_ins.append(
+            (i_address, match.group("reg"), displacement, 8 if match.group("size") == "qword" else 4)
+        )
+
+    def recordImportSlotLoads(self, disassembler, state):
+        d = disassembler
+        for i_address, i_size, i_mnemonic, i_op_str, _ in state.instructions:
+            if i_mnemonic.split(" ")[-1] != "mov":
+                continue
+            match = IMPORT_SLOT_LOAD_RE.match(i_op_str)
+            if match is None:
+                continue
+            displacement = d.getReferencedAddr(i_op_str)
+            slot = i_address + i_size + displacement if match.group("rip") else displacement
+            if match.group("size") == "qword":
+                dereferenced = d.disassembly.dereferenceQword(slot)
+            else:
+                dereferenced = d.disassembly.dereferenceDword(slot)
+            # resolveApi() gates this: a slot that names no import resolves to (None, None)
+            # and books nothing, so a non-import load costs one map lookup
+            if dereferenced is not None:
+                d._handleApiTarget(i_address, slot, dereferenced, slot=slot)
 
     def _analyzeCondJmpInstruction(self, d, i, state):
         i_address, i_size, i_mnemonic, i_op_str = i
         state.addBlockToQueue(i_address + i_size)
-        jump_destination = d.getReferencedAddr(i_op_str)
+        # capstone always prints a bare "0x..." rel8/rel32 target here, which the queue and the
+        # code ref below already parsed with int(op_str, 16); one parse serves all three.
+        # See _analyzeLoopInstruction for why this parse is deliberately unguarded and what
+        # would have to change if capstone ever printed a Jcc operand in another form.
+        jump_destination = int(i_op_str, 16)
         # case = "FALLTHROUGH"
         d.tailcall_analyzer.addJump(i_address, jump_destination)
         if jump_destination:
@@ -213,17 +288,23 @@ class X86Backend(ArchBackend):
                 pass
             else:
                 # case = "OFFSET-QUEUE"
-                state.addBlockToQueue(int(i_op_str, 16))
-            state.addCodeRef(i_address, int(i_op_str, 16), by_jump=True)
+                state.addBlockToQueue(jump_destination)
+            state.addCodeRef(i_address, jump_destination, by_jump=True)
         state.setBlockEndingInstruction(True)
 
     def _analyzeLoopInstruction(self, d, i, state):
         i_address, i_size, i_mnemonic, i_op_str = i
-        jump_destination = d.getReferencedAddr(i_op_str)
+        # loop/loope/loopne take a rel8 target, which capstone prints as a bare "0x...", so the
+        # direct parse is safe. It is not tolerant, though: getReferencedAddr() used to return 0
+        # for an operand carrying no hex at all and the guard below then skipped the
+        # instruction, where int() raises. A ValueError here degrades the whole report to
+        # status="error", and the fuzzing oracle will not flag it because ValueError is on its
+        # allowlist - so widen this back to a guarded parse if capstone ever prints another form.
+        jump_destination = int(i_op_str, 16)
         if jump_destination:
             # loops are conditional branches: queue the taken edge as well
             state.addBlockToQueue(jump_destination)
-            state.addCodeRef(i_address, int(i_op_str, 16), by_jump=True)
+            state.addCodeRef(i_address, jump_destination, by_jump=True)
         # loops have two exits and should thus be handled as block ending instruction
         state.addBlockToQueue(i_address + i_size)
         state.setBlockEndingInstruction(True)
@@ -254,7 +335,7 @@ class X86Backend(ArchBackend):
             if dereferenced is not None:
                 self._handleApiJumpTarget(d, state, i_address, jump_destination, dereferenced)
         elif i_op_str.startswith("0x"):
-            jump_destination = d.getReferencedAddr(i_op_str)
+            jump_destination = int(i_op_str, 16)
             d.tailcall_analyzer.addJump(i_address, jump_destination)
             if jump_destination in d.disassembly.functions:
                 # case = "TAILCALL!"
@@ -272,9 +353,10 @@ class X86Backend(ArchBackend):
                     pass
                 else:
                     # case = "OFFSET-QUEUE"
-                    state.addBlockToQueue(int(i_op_str, 16))
-            state.addCodeRef(i_address, int(i_op_str, 16), by_jump=True)
+                    state.addBlockToQueue(jump_destination)
+            state.addCodeRef(i_address, jump_destination, by_jump=True)
         else:
+            self._collectMemRegSlot(state, i_address, i_op_str)
             jumptable_targets = d.jumptable_analyzer.getJumpTargets(i, state)
             for target in jumptable_targets:
                 if d.disassembly.isAddrWithinMemoryImage(target):
@@ -285,7 +367,7 @@ class X86Backend(ArchBackend):
 
     @staticmethod
     def _handleApiJumpTarget(d, state, instruction_addr, import_slot, dereferenced):
-        resolved_api = d._handleApiTarget(instruction_addr, import_slot, dereferenced)
+        resolved_api = d._handleApiTarget(instruction_addr, import_slot, dereferenced, slot=import_slot)
         if resolved_api and state.isFirstInstruction():
             # the entire function body is this one jmp-to-import: a thunk, not a real routine
             state.setThunkCall(True)
@@ -354,23 +436,26 @@ class X86Backend(ArchBackend):
         i_address, i_size, i_mnemonic, i_op_str = i
         if previous_instruction is not None:
             previous_address = previous_instruction[0]
-            previous_mnemonic = previous_instruction[2].split(" ")[-1]
-            previous_op_str = previous_instruction[3].strip()
+            previous_mnemonic = previous_instruction[2]
+            if " " in previous_mnemonic:
+                previous_mnemonic = previous_mnemonic.rpartition(" ")[2]
         else:
             previous_address = None
             previous_mnemonic = None
-            previous_op_str = None
         # remove potential "bnd" prefix
-        i_mnemonic_noprefix = i_mnemonic.split(" ")[-1]
-        if i_mnemonic_noprefix in CALL_INS:
+        i_mnemonic_noprefix = i_mnemonic
+        if " " in i_mnemonic_noprefix:
+            i_mnemonic_noprefix = i_mnemonic_noprefix.rpartition(" ")[2]
+        i_kind = _INS_KIND.get(i_mnemonic_noprefix)
+        if i_kind == _KIND_CALL:
             self._analyzeCallInstruction(d, i, state)
-        elif i_mnemonic_noprefix in JMP_INS:
+        elif i_kind == _KIND_JMP:
             self._analyzeJmpInstruction(d, i, state)
-        elif i_mnemonic_noprefix in LOOP_INS:
+        elif i_kind == _KIND_LOOP:
             self._analyzeLoopInstruction(d, i, state)
-        elif i_mnemonic_noprefix in CJMP_INS:
+        elif i_kind == _KIND_CJMP:
             self._analyzeCondJmpInstruction(d, i, state)
-        elif i_mnemonic_noprefix.startswith("j"):
+        elif i_kind is None and i_mnemonic_noprefix.startswith("j"):
             LOGGER.error(
                 "unsupported jump @0x%08x (0x%08x): %s %s",
                 i_address,
@@ -379,7 +464,7 @@ class X86Backend(ArchBackend):
                 i_op_str,
             )
             # we do not analyze any potential exception handler (tricks), so treat breakpoints as exit condition
-        elif i_mnemonic_noprefix in RET_INS:
+        elif i_kind == _KIND_RET:
             self._analyzeEndInstruction(state)
             if LOGGER.isEnabledFor(logging.DEBUG):
                 LOGGER.debug(
@@ -387,7 +472,7 @@ class X86Backend(ArchBackend):
                     i_address,
                 )
             if previous_address is not None and previous_mnemonic == "push":
-                push_ret_destination = d.getReferencedAddr(previous_op_str)
+                push_ret_destination = d.getReferencedAddr(previous_instruction[3].strip())
                 if d.disassembly.isAddrWithinMemoryImage(push_ret_destination):
                     LOGGER.debug(
                         "  analyzeFunction() found push-return jump obfuscation: @0x%08x",
@@ -395,14 +480,14 @@ class X86Backend(ArchBackend):
                     )
                     state.addBlockToQueue(push_ret_destination)
                     state.addCodeRef(i_address, push_ret_destination, by_jump=True)
-        elif i_mnemonic_noprefix in _TRAP_TERMINATOR_INS:
+        elif i_kind == _KIND_TRAP:
             self._analyzeEndInstruction(state)
             if LOGGER.isEnabledFor(logging.DEBUG):
                 LOGGER.debug(
                     "  analyzeFunction() found ending instruction @0x%08x",
                     i_address,
                 )
-        elif i_mnemonic_noprefix in _SYSCALL_INS:
+        elif i_kind == _KIND_SYSCALL:
             syscall_number = self._resolveSyscallNumber(state.current_block, d.disassembly.binary_info.bitness)
             if syscall_number in SYSCALL_EXIT_NUMBERS:
                 self._analyzeEndInstruction(state)
@@ -449,7 +534,7 @@ class X86Backend(ArchBackend):
                 if d.fc_manager.isHotpatchPrologue(instruction_bytes[:5]):
                     seed_address = i_address
                 else:
-                    seed_address = previous_address + (16 - previous_address % 16)
+                    seed_address = (i_address + 15) & ~15
                 # MSVC also int3/nop-pads mid-function (after noreturn calls, loop-head
                 # alignment) on PE images, so alignment-only evidence (no candidate hit at
                 # i_address) needs its seed to actually decode as a function entry before
@@ -493,7 +578,7 @@ class X86Backend(ArchBackend):
                         if d.fc_manager.isHotpatchPrologue(instruction_bytes[:5]):
                             next_candidate_address = i_address
                         else:
-                            next_candidate_address = previous_address + (16 - previous_address % 16)
+                            next_candidate_address = (i_address + 15) & ~15
                         if LOGGER.isEnabledFor(logging.DEBUG):
                             LOGGER.debug(
                                 "  Adding: 0x%x as candidate.",

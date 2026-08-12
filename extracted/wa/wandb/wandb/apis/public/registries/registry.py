@@ -25,6 +25,7 @@ from ._members import (
 from ._utils import (
     Visibility,
     fetch_org_entity_from_organization,
+    filter_for_registry,
     prepare_artifact_types_input,
 )
 from .registries_search import Collections, Versions
@@ -75,6 +76,15 @@ class Registry:
     def id(self) -> str:
         """The unique ID for this registry."""
         return self._current.id
+
+    @property
+    def internal_id(self) -> str | None:
+        """The GraphQL `internalId` for this registry's backing project, if fetched.
+
+        This is a base64-encoded global ID. When decoded, it looks like
+        `Project:123` or `ProjectInternalId:123`.
+        """
+        return self._current.internal_id
 
     @property
     def full_name(self) -> str:
@@ -214,7 +224,9 @@ class Registry:
         return Collections(
             service_api=self._service_api,
             organization=self.organization,
-            registry_filter={"name": self.full_name},
+            registry_filter=filter_for_registry(
+                self, service_api=self._service_api, organization=self.organization
+            ),
             collection_filter=filter,
             order=order,
             per_page=per_page,
@@ -240,7 +252,9 @@ class Registry:
         return Versions(
             service_api=self._service_api,
             organization=self.organization,
-            registry_filter={"name": self.full_name},
+            registry_filter=filter_for_registry(
+                self, service_api=self._service_api, organization=self.organization
+            ),
             collection_filter=None,
             artifact_filter=filter,
             per_page=per_page,
@@ -307,11 +321,15 @@ class Registry:
             data = api._service_api.execute_graphql(
                 UPSERT_REGISTRY_GQL,
                 {"input": gql_input.model_dump()},
+                parse=UpsertRegistry.model_validate_json,
             )
-            result = UpsertRegistry.model_validate(data).upsert_model
         except Exception as e:
             raise ValueError(failed_msg) from e
-        if not (result and result.inserted and (registry_project := result.project)):
+        if not (
+            (result := data.upsert_model)
+            and result.inserted
+            and (registry_project := result.project)
+        ):
             raise ValueError(failed_msg)
 
         return cls(
@@ -329,14 +347,15 @@ class Registry:
 
         failed_msg = f"Failed to delete registry {self.name!r} in organization {self.organization!r}"
 
-        gql_op = DELETE_REGISTRY_GQL
-        gql_vars = {"id": self.id}
         try:
-            data = self._service_api.execute_graphql(gql_op, variables=gql_vars)
-            result = DeleteRegistry.model_validate(data).delete_model
+            data = self._service_api.execute_graphql(
+                DELETE_REGISTRY_GQL,
+                variables={"id": self.id},
+                parse=DeleteRegistry.model_validate_json,
+            )
         except Exception as e:
             raise ValueError(failed_msg) from e
-        if not (result and result.success):
+        if not ((result := data.delete_model) and result.success):
             raise ValueError(failed_msg)
 
     @tracked
@@ -349,11 +368,12 @@ class Registry:
             f" {self.organization!r}."
         )
 
-        gql_op = FETCH_REGISTRY_GQL
-        gql_vars = {"name": self.full_name, "entity": self.entity}
         try:
-            data = self._service_api.execute_graphql(gql_op, variables=gql_vars)
-            result = FetchRegistry.model_validate(data)
+            result = self._service_api.execute_graphql(
+                FETCH_REGISTRY_GQL,
+                variables={"name": self.full_name, "entity": self.entity},
+                parse=FetchRegistry.model_validate_json,
+            )
         except Exception as e:
             raise ValueError(failed_msg) from e
 
@@ -398,7 +418,6 @@ class Registry:
         old_project_name = validate_project_name(self._saved.full_name)
         new_project_name = validate_project_name(self._current.full_name)
 
-        upsert_op = UPSERT_REGISTRY_GQL
         upsert_input = UpsertModelInput(
             description=self.description,
             entity_name=self.entity,
@@ -407,14 +426,16 @@ class Registry:
             allow_all_artifact_types_in_registry=self.allow_all_artifact_types,
             artifact_types=prepare_artifact_types_input(new_artifact_types),
         )
-        upsert_vars = {"input": upsert_input.model_dump()}
         try:
-            data = self._service_api.execute_graphql(upsert_op, variables=upsert_vars)
-            result = UpsertRegistry.model_validate(data).upsert_model
+            data = self._service_api.execute_graphql(
+                UPSERT_REGISTRY_GQL,
+                variables={"input": upsert_input.model_dump()},
+                parse=UpsertRegistry.model_validate_json,
+            )
         except Exception as e:
             raise ValueError(failed_msg) from e
 
-        if result and result.inserted:
+        if (result := data.upsert_model) and result.inserted:
             # This should only trigger if `_saved_name` was modified unexpectedly.
             wandb.termlog(
                 f"Created registry {self.name!r} in organization {self.organization!r} on save"
@@ -427,16 +448,19 @@ class Registry:
 
         # Update the name of the registry if it has changed
         if old_project_name != new_project_name:
-            rename_op = RENAME_REGISTRY_GQL
             rename_input = RenameProjectInput(
                 entity_name=self.entity,
                 old_project_name=old_project_name,
                 new_project_name=new_project_name,
             )
-            rename_vars = {"input": rename_input.model_dump()}
-            data = self._service_api.execute_graphql(rename_op, variables=rename_vars)
-            result = RenameRegistry.model_validate(data).rename_project
-            if not (result and (registry_project := result.project)):
+            data = self._service_api.execute_graphql(
+                RENAME_REGISTRY_GQL,
+                variables={"input": rename_input.model_dump()},
+                parse=RenameRegistry.model_validate_json,
+            )
+            if not (
+                (result := data.rename_project) and (registry_project := result.project)
+            ):
                 raise ValueError(failed_msg)
 
             if result.inserted:
@@ -456,11 +480,11 @@ class Registry:
             RegistryUserMembers,
         )
 
-        gql_op = REGISTRY_USER_MEMBERS_GQL
-        gql_vars = {"project": self.full_name, "entity": self.entity}
-        data = self._service_api.execute_graphql(gql_op, variables=gql_vars)
-        result = RegistryUserMembers.model_validate(data)
-
+        result = self._service_api.execute_graphql(
+            REGISTRY_USER_MEMBERS_GQL,
+            variables={"project": self.full_name, "entity": self.entity},
+            parse=RegistryUserMembers.model_validate_json,
+        )
         if not (project := result.project):
             raise ValueError(f"Failed to fetch user members for registry {self.name!r}")
 
@@ -484,11 +508,11 @@ class Registry:
             RegistryTeamMembers,
         )
 
-        gql_op = REGISTRY_TEAM_MEMBERS_GQL
-        gql_vars = {"project": self.full_name, "entity": self.entity}
-        data = self._service_api.execute_graphql(gql_op, variables=gql_vars)
-        result = RegistryTeamMembers.model_validate(data)
-
+        result = self._service_api.execute_graphql(
+            REGISTRY_TEAM_MEMBERS_GQL,
+            variables={"project": self.full_name, "entity": self.entity},
+            parse=RegistryTeamMembers.model_validate_json,
+        )
         if not (project := result.project):
             raise ValueError(f"Failed to fetch team members for registry {self.name!r}")
 
@@ -550,15 +574,15 @@ class Registry:
             )
         user_ids, team_ids = parse_member_ids(members)
 
-        gql_op = CREATE_REGISTRY_MEMBERS_GQL
         gql_input = CreateProjectMembersInput(
             user_ids=user_ids, team_ids=team_ids, project_id=self.id
         )
-        gql_vars = {"input": gql_input.model_dump()}
-        data = self._service_api.execute_graphql(gql_op, variables=gql_vars)
-        result = CreateRegistryMembers.model_validate(data).result
-
-        if not (result and result.success):
+        data = self._service_api.execute_graphql(
+            CREATE_REGISTRY_MEMBERS_GQL,
+            variables={"input": gql_input.model_dump()},
+            parse=CreateRegistryMembers.model_validate_json,
+        )
+        if not ((result := data.result) and result.success):
             raise ValueError(f"Failed to add members to registry {self.name!r}")
         return self
 
@@ -607,15 +631,15 @@ class Registry:
             )
         user_ids, team_ids = parse_member_ids(members)
 
-        gql_op = DELETE_REGISTRY_MEMBERS_GQL
         gql_input = DeleteProjectMembersInput(
             user_ids=user_ids, team_ids=team_ids, project_id=self.id
         )
-        gql_vars = {"input": gql_input.model_dump()}
-        data = self._service_api.execute_graphql(gql_op, variables=gql_vars)
-        result = DeleteRegistryMembers.model_validate(data).result
-
-        if not (result and result.success):
+        data = self._service_api.execute_graphql(
+            DELETE_REGISTRY_MEMBERS_GQL,
+            variables={"input": gql_input.model_dump()},
+            parse=DeleteRegistryMembers.model_validate_json,
+        )
+        if not ((result := data.result) and result.success):
             raise ValueError(f"Failed to remove members from registry {self.name!r}")
         return self
 
@@ -681,11 +705,12 @@ class Registry:
         else:
             assert_never(id_.kind)
 
-        gql_vars = {"input": gql_input.model_dump()}
-        data = self._service_api.execute_graphql(gql_op, variables=gql_vars)
-        result = result_cls.model_validate(data).result
-
-        if not (result and result.success):
+        data = self._service_api.execute_graphql(
+            gql_op,
+            variables={"input": gql_input.model_dump()},
+            parse=result_cls.model_validate_json,
+        )
+        if not ((result := data.result) and result.success):
             raise ValueError(
                 f"Failed to update member {member!r} role to {role!r} in registry {self.name!r}"
             )

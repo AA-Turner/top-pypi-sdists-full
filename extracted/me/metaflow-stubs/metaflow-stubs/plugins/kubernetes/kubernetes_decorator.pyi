@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.36                                                                                #
-# Generated on 2026-08-05T18:17:36.325001                                                            #
+# MF version: 2.19.37                                                                                #
+# Generated on 2026-08-11T17:17:32.758616                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from ..resources_decorator import ResourcesDecorator as ResourcesDecorator
 from ..timeout_decorator import get_run_time_limit_for_task as get_run_time_limit_for_task
 from ..aws.aws_utils import get_docker_registry as get_docker_registry
 from ..aws.aws_utils import get_ec2_instance_metadata as get_ec2_instance_metadata
-from .kubernetes import KubernetesException as KubernetesException
+from .kube_utils import KubernetesException as KubernetesException
 from .kube_utils import validate_kube_labels as validate_kube_labels
 from .kube_utils import parse_kube_keyvalue_list as parse_kube_keyvalue_list
 

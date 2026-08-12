@@ -173,6 +173,7 @@ from copy import deepcopy
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.ansible.netcommon.plugins.module_utils.network.common.utils import (
+    emit_warnings,
     remove_default_spec,
 )
 
@@ -417,6 +418,7 @@ def main():
 
     check_declarative_intent_params(want, module, result)
 
+    emit_warnings(module, result)
     module.exit_json(**result)
 
 

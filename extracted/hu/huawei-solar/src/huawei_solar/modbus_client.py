@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
 import tenacity
@@ -15,9 +16,10 @@ from tenacity import (
 )
 from tmodbus import AsyncModbusClient, AsyncRtuTransport, AsyncSmartTransport, AsyncTcpTransport
 from tmodbus.exceptions import ModbusConnectionError, ModbusResponseError, TModbusError
+from tmodbus.pdu.base import BaseClientPDU
 from tmodbus.utils.crc import calculate_crc16
 
-from .exceptions import ConnectionInterruptedException, ReadException
+from .exceptions import ConnectionInterruptedException, DecodeError, ReadException
 from .modbus_pdu import (
     CompleteUploadPDU,
     LoginPDU,
@@ -39,8 +41,9 @@ DEFAULT_BAUDRATE = 9600
 DEFAULT_UNIT_ID = 0
 DEFAULT_TIMEOUT = 10  # especially the SDongle can react quite slowly
 DEFAULT_SCAN_TIMEOUT = 3  # short timeout for scanning — responding devices reply in milliseconds
-DEFAULT_WAIT = 1
+DEFAULT_WAIT_AFTER_CONNECT = 1.0
 DEFAULT_COOLDOWN_TIME = 0.05
+DEFAULT_MAX_CONSECUTIVE_TIMEOUTS = 5
 WAIT_FOR_CONNECTION_TIMEOUT = 5
 WAIT_FOR_LOGIN_TIMEOUT = 5
 
@@ -99,6 +102,67 @@ SCAN_RESPONSE_RETRY_STRATEGY = AsyncRetrying(
     stop=stop_after_attempt(2),
     reraise=True,
 )
+
+
+class TimeoutAwareSmartTransport(AsyncSmartTransport):
+    """Smart transport that forces a reconnect after repeated timeouts."""
+
+    def __init__(  # noqa: PLR0913
+        self,
+        base_transport: AsyncTcpTransport | AsyncRtuTransport,
+        *,
+        consecutive_timeouts_before_reconnect: int = DEFAULT_MAX_CONSECUTIVE_TIMEOUTS,
+        wait_between_requests: float = 0.0,
+        wait_after_connect: float = 0.0,
+        auto_reconnect: bool | AsyncRetrying = True,
+        on_reconnected: Callable[[], Awaitable[None] | None] | None = None,
+        on_connection_lost: Callable[[Exception | None], None] | None = None,
+        response_retry_strategy: AsyncRetrying | None = None,
+        retry_on_device_busy: bool = True,
+        retry_on_device_failure: bool = False,
+    ) -> None:
+        """Initialize the timeout-aware smart transport."""
+        self.consecutive_timeouts_before_reconnect = consecutive_timeouts_before_reconnect
+        self._consecutive_timeouts = 0
+        super().__init__(
+            base_transport,
+            wait_between_requests=wait_between_requests,
+            wait_after_connect=wait_after_connect,
+            auto_reconnect=auto_reconnect,
+            on_reconnected=on_reconnected,
+            on_connection_lost=on_connection_lost,
+            response_retry_strategy=response_retry_strategy,
+            retry_on_device_busy=retry_on_device_busy,
+            retry_on_device_failure=retry_on_device_failure,
+        )
+
+        # reset the amount of consecutive timeouts after reconnecting
+        base_on_reconnected = self.on_reconnected
+
+        def reset_timeouts_count_on_reconnected() -> None:
+            """Reset the consecutive timeouts count on reconnect."""
+            self._consecutive_timeouts = 0
+            if base_on_reconnected:
+                base_on_reconnected()
+
+        self.on_reconnected = reset_timeouts_count_on_reconnected
+
+    async def send_and_receive(self, unit_id: int, pdu: BaseClientPDU[RT]) -> RT:
+        """Send a request and force a reconnect after repeated timeouts."""
+        try:
+            response: RT = await super().send_and_receive(unit_id, pdu)
+        except TimeoutError:
+            self._consecutive_timeouts += 1
+            if self._consecutive_timeouts >= self.consecutive_timeouts_before_reconnect:
+                _LOGGER.warning(
+                    "Reached %d consecutive timeouts; forcing reconnect on the next request",
+                    self._consecutive_timeouts,
+                )
+                self._must_reconnect = True
+            raise
+        else:
+            self._consecutive_timeouts = 0
+            return response
 
 
 class AsyncHuaweiSolarClient(RegisterAwareModbusClient, AsyncModbusClient):
@@ -174,7 +238,7 @@ class AsyncHuaweiSolarClient(RegisterAwareModbusClient, AsyncModbusClient):
                     f"Computed CRC {calculated_crc:04x} for file {file_type} "
                     f"does not match expected value {swapped_crc:04x}"
                 )
-                raise ReadException(msg)
+                raise DecodeError(msg)
 
             return file_data
 
@@ -253,13 +317,14 @@ def create_client(
     transport: AsyncTcpTransport | AsyncRtuTransport,
     *,
     unit_id: int = DEFAULT_UNIT_ID,
-    wait_after_connect: float = 1.0,
+    wait_after_connect: float = DEFAULT_WAIT_AFTER_CONNECT,
     wait_between_requests: float = DEFAULT_COOLDOWN_TIME,
+    consecutive_timeouts_before_reconnect: int = DEFAULT_MAX_CONSECUTIVE_TIMEOUTS,
 ) -> AsyncHuaweiSolarClient:
     """Create an AsyncHuaweiSolar instance."""
     # Wrap the transport in a smart transport to add auto-reconnect and cooldown between requests
 
-    smart_transport = AsyncSmartTransport(
+    smart_transport = TimeoutAwareSmartTransport(
         transport,
         auto_reconnect=RECONNECT_RETRY_STRATEGY,
         wait_after_connect=wait_after_connect,
@@ -267,6 +332,7 @@ def create_client(
         response_retry_strategy=RESPONSE_RETRY_STRATEGY,
         retry_on_device_busy=True,
         retry_on_device_failure=True,
+        consecutive_timeouts_before_reconnect=consecutive_timeouts_before_reconnect,
     )
     return AsyncHuaweiSolarClient(smart_transport, unit_id=unit_id)
 
@@ -275,32 +341,35 @@ def create_scan_client(
     transport: AsyncTcpTransport | AsyncRtuTransport,
     *,
     unit_id: int = DEFAULT_UNIT_ID,
-    wait_after_connect: float = 1.0,
+    wait_after_connect: float = DEFAULT_WAIT_AFTER_CONNECT,
     wait_between_requests: float = DEFAULT_COOLDOWN_TIME,
+    consecutive_timeouts_before_reconnect: int = DEFAULT_MAX_CONSECUTIVE_TIMEOUTS,
 ) -> AsyncHuaweiSolarClient:
     """Create an AsyncHuaweiSolarClient optimized for device scanning.
 
     Uses no retries so non-responding unit IDs are skipped quickly instead of
     being retried multiple times with backoff.
     """
-    smart_transport = AsyncSmartTransport(
+    smart_transport = TimeoutAwareSmartTransport(
         transport,
         auto_reconnect=RECONNECT_RETRY_STRATEGY,
         wait_after_connect=wait_after_connect,
         wait_between_requests=wait_between_requests,
         response_retry_strategy=SCAN_RESPONSE_RETRY_STRATEGY,
+        consecutive_timeouts_before_reconnect=consecutive_timeouts_before_reconnect,
     )
     return AsyncHuaweiSolarClient(smart_transport, unit_id=unit_id)
 
 
-def create_tcp_client(
+def create_tcp_client(  # noqa: PLR0913
     host: str,
     port: int = DEFAULT_TCP_PORT,
     *,
     unit_id: int = DEFAULT_UNIT_ID,
     timeout: int = DEFAULT_TIMEOUT,
-    wait_after_connect: float = 1.0,
+    wait_after_connect: float = DEFAULT_WAIT_AFTER_CONNECT,
     wait_between_requests: float = DEFAULT_COOLDOWN_TIME,
+    consecutive_timeouts_before_reconnect: int = DEFAULT_MAX_CONSECUTIVE_TIMEOUTS,
 ) -> AsyncHuaweiSolarClient:
     """Create an AsyncHuaweiSolarClient connected via TCP."""
     transport = AsyncTcpTransport(host, port, timeout=timeout)
@@ -309,17 +378,19 @@ def create_tcp_client(
         unit_id=unit_id,
         wait_after_connect=wait_after_connect,
         wait_between_requests=wait_between_requests,
+        consecutive_timeouts_before_reconnect=consecutive_timeouts_before_reconnect,
     )
 
 
-def create_scan_tcp_client(
+def create_scan_tcp_client(  # noqa: PLR0913
     host: str,
     port: int = DEFAULT_TCP_PORT,
     *,
     unit_id: int = DEFAULT_UNIT_ID,
     timeout: int = DEFAULT_SCAN_TIMEOUT,
-    wait_after_connect: float = 1.0,
+    wait_after_connect: float = DEFAULT_WAIT_AFTER_CONNECT,
     wait_between_requests: float = DEFAULT_COOLDOWN_TIME,
+    consecutive_timeouts_before_reconnect: int = DEFAULT_MAX_CONSECUTIVE_TIMEOUTS,
 ) -> AsyncHuaweiSolarClient:
     """Create an AsyncHuaweiSolarClient optimized for TCP device scanning."""
     transport = AsyncTcpTransport(host, port, timeout=timeout)
@@ -328,6 +399,7 @@ def create_scan_tcp_client(
         unit_id=unit_id,
         wait_after_connect=wait_after_connect,
         wait_between_requests=wait_between_requests,
+        consecutive_timeouts_before_reconnect=consecutive_timeouts_before_reconnect,
     )
 
 
@@ -336,8 +408,9 @@ def create_rtu_client(
     *,
     baudrate: int = DEFAULT_BAUDRATE,
     unit_id: int = DEFAULT_UNIT_ID,
-    wait_after_connect: float = 1.0,
+    wait_after_connect: float = DEFAULT_WAIT_AFTER_CONNECT,
     wait_between_requests: float = DEFAULT_COOLDOWN_TIME,
+    consecutive_timeouts_before_reconnect: int = DEFAULT_MAX_CONSECUTIVE_TIMEOUTS,
 ) -> AsyncHuaweiSolarClient:
     """Create an AsyncHuaweiSolarClient connected via RTU."""
     transport = AsyncRtuTransport(port, baudrate=baudrate)
@@ -346,6 +419,7 @@ def create_rtu_client(
         unit_id=unit_id,
         wait_after_connect=wait_after_connect,
         wait_between_requests=wait_between_requests,
+        consecutive_timeouts_before_reconnect=consecutive_timeouts_before_reconnect,
     )
 
 
@@ -354,8 +428,9 @@ def create_scan_rtu_client(
     *,
     baudrate: int = DEFAULT_BAUDRATE,
     unit_id: int = DEFAULT_UNIT_ID,
-    wait_after_connect: float = 1.0,
+    wait_after_connect: float = DEFAULT_WAIT_AFTER_CONNECT,
     wait_between_requests: float = DEFAULT_COOLDOWN_TIME,
+    consecutive_timeouts_before_reconnect: int = DEFAULT_MAX_CONSECUTIVE_TIMEOUTS,
 ) -> AsyncHuaweiSolarClient:
     """Create an AsyncHuaweiSolarClient optimized for RTU device scanning."""
     transport = AsyncRtuTransport(port, baudrate=baudrate)
@@ -364,4 +439,5 @@ def create_scan_rtu_client(
         unit_id=unit_id,
         wait_after_connect=wait_after_connect,
         wait_between_requests=wait_between_requests,
+        consecutive_timeouts_before_reconnect=consecutive_timeouts_before_reconnect,
     )

@@ -42,6 +42,7 @@ AugmentedAIRuntimeServiceName = Literal["sagemaker-a2i-runtime"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

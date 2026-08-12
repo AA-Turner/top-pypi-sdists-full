@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Callable, cast
+from collections.abc import Awaitable
+from typing import Callable, TypeVar, cast
 
 from daytona_api_client_async import (
     CreateBuildInfo,
@@ -13,6 +14,7 @@ from daytona_api_client_async import (
     SnapshotsApi,
     SnapshotState,
 )
+from daytona_api_client_async.exceptions import NotFoundException
 
 from .._utils.errors import intercept_errors
 from .._utils.otel_decorator import with_instrumentation
@@ -20,9 +22,11 @@ from .._utils.stream import process_streaming_response
 from .._utils.timeout import with_timeout
 from ..common.errors import DaytonaError, DaytonaValidationError
 from ..common.image import Image
-from ..common.snapshot import CreateSnapshotParams, PaginatedSnapshots, Snapshot
+from ..common.snapshot import CreateSnapshotParams, PaginatedSnapshots, Snapshot, is_snapshot_id
 from ..internal.shared_session import SharedAiohttpSession
 from .object_storage import AsyncObjectStorage
+
+T = TypeVar("T")
 
 
 class AsyncSnapshotService:
@@ -42,12 +46,15 @@ class AsyncSnapshotService:
 
     @intercept_errors(message_prefix="Failed to list snapshots: ")
     @with_instrumentation()
-    async def list(self, page: int | None = None, limit: int | None = None) -> PaginatedSnapshots:
+    async def list(
+        self, page: int | None = None, limit: int | None = None, source_sandbox_id: str | None = None
+    ) -> PaginatedSnapshots:
         """Returns paginated list of Snapshots.
 
         Args:
             page (int | None): Page number for pagination (starting from 1).
             limit (int | None): Maximum number of items per page.
+            source_sandbox_id (str | None): Filter by the ID of the sandbox the snapshot was created from.
 
         Returns:
             PaginatedSnapshots: Paginated list of Snapshots.
@@ -67,7 +74,9 @@ class AsyncSnapshotService:
         if limit is not None and limit < 1:
             raise DaytonaValidationError("limit must be a positive integer")
 
-        response = await self.__snapshots_api.get_all_snapshots(limit=limit, page=page)
+        response = await self.__snapshots_api.get_all_snapshots(
+            limit=limit, page=page, source_sandbox_id=source_sandbox_id
+        )
         return PaginatedSnapshots(
             items=[Snapshot.from_dto(snapshot) for snapshot in response.items],
             total=response.total,
@@ -77,29 +86,28 @@ class AsyncSnapshotService:
 
     @intercept_errors(message_prefix="Failed to delete snapshot: ")
     @with_instrumentation()
-    async def delete(self, snapshot: Snapshot) -> None:
+    async def delete(self, snapshot: Snapshot | str) -> None:
         """Delete a Snapshot.
 
         Args:
-            snapshot (Snapshot): Snapshot to delete.
+            snapshot (Snapshot | str): Snapshot to delete, or its ID or name.
 
         Example:
             ```python
             async with AsyncDaytona() as daytona:
-                snapshot = await daytona.snapshot.get("test-snapshot")
-                await daytona.snapshot.delete(snapshot)
+                await daytona.snapshot.delete("test-snapshot")
                 print("Snapshot deleted")
             ```
         """
-        await self.__snapshots_api.remove_snapshot(snapshot.id)
+        await self.__call_with_resolved_id(snapshot, self.__snapshots_api.remove_snapshot)
 
     @intercept_errors(message_prefix="Failed to get snapshot: ")
     @with_instrumentation()
     async def get(self, name: str) -> Snapshot:
-        """Get a Snapshot by name.
+        """Get a Snapshot by ID or name.
 
         Args:
-            name (str): Name of the Snapshot to get.
+            name (str): ID or name of the Snapshot to get.
 
         Returns:
             Snapshot: The Snapshot object.
@@ -223,14 +231,32 @@ class AsyncSnapshotService:
         return created_snapshot if isinstance(created_snapshot, Snapshot) else Snapshot.from_dto(created_snapshot)
 
     @with_instrumentation()
-    async def activate(self, snapshot: Snapshot) -> Snapshot:
+    async def activate(self, snapshot: Snapshot | str) -> Snapshot:
         """Activate a snapshot.
         Args:
-            snapshot (Snapshot): The Snapshot instance.
+            snapshot (Snapshot | str): The Snapshot instance, or its ID or name.
         Returns:
             Snapshot: The activated Snapshot instance.
         """
-        return Snapshot.from_dto(await self.__snapshots_api.activate_snapshot(snapshot.id))
+        return Snapshot.from_dto(await self.__call_with_resolved_id(snapshot, self.__snapshots_api.activate_snapshot))
+
+    async def __call_with_resolved_id(self, snapshot: Snapshot | str, operation: Callable[[str], Awaitable[T]]) -> T:
+        """Invokes an ID-based snapshot operation, resolving the identifier with as few
+        API calls as possible: a UUID-shaped string is first tried directly as an ID
+        (snapshot names may themselves be UUID-formatted, so a miss falls back to
+        name resolution), while any other string costs one resolution call.
+        """
+        if not isinstance(snapshot, str):
+            return await operation(snapshot.id)
+
+        if is_snapshot_id(snapshot):
+            try:
+                return await operation(snapshot)
+            except NotFoundException:
+                pass
+
+        resolved = await self.__snapshots_api.get_snapshot(snapshot)
+        return await operation(resolved.id)
 
     @staticmethod
     @with_instrumentation()

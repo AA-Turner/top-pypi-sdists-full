@@ -9,11 +9,11 @@
 # or else errors will occur.
 
 - name: Find brew binary
-  command: which brew
+  ansible.builtin.command: which brew
   register: brew_which
 
 - name: Get owner of brew binary
-  stat:
+  ansible.builtin.stat:
     path: "{{ brew_which.stdout }}"
   register: brew_stat
 
@@ -49,7 +49,7 @@
       - [cmark, homebrew/core/commonmark, "formula with oldnames and tap prefix"]
       - [sipgate, clinq, "cask with old_tokens"]
       - [sipgate, homebrew/cask/clinq, "cask with old_tokens and tap prefix"]
-  include_tasks: package_names_item.yml
+  ansible.builtin.include_tasks: package_names_item.yml
   loop: "{{ packages }}"
   loop_control:
     loop_var: package

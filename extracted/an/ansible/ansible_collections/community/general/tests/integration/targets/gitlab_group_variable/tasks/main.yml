@@ -9,19 +9,19 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Install required libs
-  pip:
+  ansible.builtin.pip:
     name: python-gitlab
     state: present
 
 - name: purge all variables for check_mode test
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
     purge: true
 
 - name: add a variable value in check_mode
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -31,12 +31,12 @@
   register: gitlab_group_variable_state
 
 - name: check_mode state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state is changed
 
 - name: apply add value from check_mode test
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -46,12 +46,12 @@
   register: gitlab_group_variable_state
 
 - name: state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state is changed
 
 - name: test new format
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -61,12 +61,12 @@
   register: gitlab_group_variable_state
 
 - name: state must be not changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state is not changed
 
 - name: change protected attribute
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -77,12 +77,12 @@
   register: gitlab_group_variable_state
 
 - name: state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state is changed
 
 - name: revert protected attribute
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -93,12 +93,12 @@
   register: gitlab_group_variable_state
 
 - name: state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state is changed
 
 - name: change masked attribute
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -109,12 +109,12 @@
   register: gitlab_group_variable_state
 
 - name: state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state is changed
 
 - name: revert masked attribute by not mention it
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -124,12 +124,12 @@
   register: gitlab_group_variable_state
 
 - name: state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state is changed
 
 - name: revert again masked attribute by not mention it (idempotent)
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -139,12 +139,12 @@
   register: gitlab_group_variable_state
 
 - name: state must be not changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state is not changed
 
 - name: set both (masked and protected) attribute
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -157,12 +157,12 @@
   register: gitlab_group_variable_state
 
 - name: state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state is changed
 
 - name: set again both (masked and protected) attribute (idempotent)
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -175,12 +175,12 @@
   register: gitlab_group_variable_state
 
 - name: state must not be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state is not changed
 
 - name: revert both (masked and protected) attribute
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -191,12 +191,12 @@
   register: gitlab_group_variable_state
 
 - name: state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state is changed
 
 - name: change a variable value in check_mode again
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -206,12 +206,12 @@
   register: gitlab_group_variable_state
 
 - name: check_mode state must not be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state is not changed
 
 - name: apply again the value change from check_mode test
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -220,12 +220,12 @@
   register: gitlab_group_variable_state
 
 - name: state must not be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state is not changed
 
 - name: change environment scope
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -237,13 +237,13 @@
   when: gitlab_premium_tests is defined
 
 - name: state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state is changed
   when: gitlab_premium_tests is defined
 
 - name: apply again the environment scope change
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -255,20 +255,20 @@
   when: gitlab_premium_tests is defined
 
 - name: state must not be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state is not changed
   when: gitlab_premium_tests is defined
 
 - name: purge all variables at the beginning
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
     purge: true
 
 - name: set two test variables
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -278,7 +278,7 @@
   register: gitlab_group_variable_state
 
 - name: set two test variables state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state is changed
       - gitlab_group_variable_state.group_variable.added|length == 2
@@ -287,7 +287,7 @@
       - gitlab_group_variable_state.group_variable.updated|length == 0
 
 - name: re-set two test variables
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -297,7 +297,7 @@
   register: gitlab_group_variable_state
 
 - name: re-set two test variables state must not be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state is not changed
       - gitlab_group_variable_state.group_variable.added|length == 0
@@ -306,7 +306,7 @@
       - gitlab_group_variable_state.group_variable.updated|length == 0
 
 - name: edit one variable
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -316,7 +316,7 @@
   register: gitlab_group_variable_state
 
 - name: edit one variable state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state.changed
       - gitlab_group_variable_state.group_variable.added|length == 0
@@ -326,7 +326,7 @@
       - gitlab_group_variable_state.group_variable.updated[0] == "ACCESS_KEY_ID"
 
 - name: append one variable
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -336,7 +336,7 @@
   register: gitlab_group_variable_state
 
 - name: append one variable state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state.changed
       - gitlab_group_variable_state.group_variable.added|length == 1
@@ -346,7 +346,7 @@
       - gitlab_group_variable_state.group_variable.added[0] == "some"
 
 - name: re-set all variables
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -357,7 +357,7 @@
   register: gitlab_group_variable_state
 
 - name: re-set all variables state must not be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - not gitlab_group_variable_state.changed
       - gitlab_group_variable_state.group_variable.added|length == 0
@@ -366,7 +366,7 @@
       - gitlab_group_variable_state.group_variable.updated|length == 0
 
 - name: set one variables and purge all others
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -376,7 +376,7 @@
   register: gitlab_group_variable_state
 
 - name: set one variables and purge all others state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state.changed
       - gitlab_group_variable_state.group_variable.added|length == 0
@@ -385,7 +385,7 @@
       - gitlab_group_variable_state.group_variable.updated|length == 0
 
 - name: only one variable is left
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -395,7 +395,7 @@
   register: gitlab_group_variable_state
 
 - name: only one variable is left state must not be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - not gitlab_group_variable_state.changed
       - gitlab_group_variable_state.group_variable.added|length == 0
@@ -405,7 +405,7 @@
       - gitlab_group_variable_state.group_variable.untouched[0] == "some"
 
 - name: test integer values
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -415,7 +415,7 @@
   register: gitlab_group_variable_state
 
 - name: only one variable is left state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state.changed
       - gitlab_group_variable_state.group_variable.added|length == 0
@@ -424,7 +424,7 @@
       - gitlab_group_variable_state.group_variable.updated|length == 1
 
 - name: test float values
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -434,7 +434,7 @@
   register: gitlab_group_variable_state
 
 - name: only one variable is left state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state.changed
       - gitlab_group_variable_state.group_variable.added|length == 0
@@ -443,7 +443,7 @@
       - gitlab_group_variable_state.group_variable.updated|length == 1
 
 - name: delete the last left variable
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -453,7 +453,7 @@
   register: gitlab_group_variable_state
 
 - name: no variable is left state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state.changed
       - gitlab_group_variable_state.group_variable.added|length == 0
@@ -463,7 +463,7 @@
       - gitlab_group_variable_state.group_variable.removed[0] == "some"
 
 - name: add one variable with variable_type file
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -475,7 +475,7 @@
   register: gitlab_group_variable_state
 
 - name: append one variable state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state.changed
       - gitlab_group_variable_state.group_variable.added|length == 1
@@ -485,7 +485,7 @@
       - gitlab_group_variable_state.group_variable.added[0] == "my_test_var"
 
 - name: change variable_type attribute
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -496,12 +496,12 @@
   register: gitlab_group_variable_state
 
 - name: state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state is changed
 
 - name: revert variable_type attribute
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -512,12 +512,12 @@
   register: gitlab_group_variable_state
 
 - name: state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state is changed
 
 - name: delete the variable_type file variable
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -527,7 +527,7 @@
   register: gitlab_group_variable_state
 
 - name: no variable is left state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state.changed
       - gitlab_group_variable_state.group_variable.added|length == 0
@@ -537,7 +537,7 @@
       - gitlab_group_variable_state.group_variable.removed[0] == "my_test_var"
 
 - name: set complete page and purge existing ones
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -566,14 +566,14 @@
   register: gitlab_group_variable_state
 
 - name: complete page added state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state is changed
       - gitlab_group_variable_state.group_variable.added|length == 20
       - gitlab_group_variable_state.group_variable.untouched|length == 0
 
 - name: set complete page and keep existing ones
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -602,14 +602,14 @@
   register: gitlab_group_variable_state
 
 - name: existing page untouched state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state is changed
       - gitlab_group_variable_state.group_variable.added|length == 20
       - gitlab_group_variable_state.group_variable.untouched|length == 20
 
 - name: check that no variables are left
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -617,7 +617,7 @@
   register: gitlab_group_variable_state
 
 - name: check that no variables are untouched state must be changed
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state.changed
       - gitlab_group_variable_state.group_variable.added|length == 0
@@ -626,7 +626,7 @@
       - gitlab_group_variable_state.group_variable.updated|length == 0
 
 - name: same vars, diff scope
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -648,7 +648,7 @@
   when: gitlab_premium_tests is defined
 
 - name: verify two vars
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state.changed
       - gitlab_group_variable_state.group_variable.added|length == 2
@@ -658,7 +658,7 @@
   when: gitlab_premium_tests is defined
 
 - name: throw error when state is present but no value is given
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -668,13 +668,13 @@
   ignore_errors: true
 
 - name: verify fail
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state.failed
       - gitlab_group_variable_state is not changed
 
 - name: set a new variable to delete it later
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -685,12 +685,12 @@
   register: gitlab_group_variable_state
 
 - name: verify the change
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state.changed
 
 - name: delete variable without referencing its value
-  gitlab_group_variable:
+  community.general.gitlab_group_variable:
     api_url: "{{ gitlab_host }}"
     api_token: "{{ gitlab_login_token }}"
     group: "{{ gitlab_group_name }}"
@@ -700,7 +700,7 @@
   register: gitlab_group_variable_state
 
 - name: verify deletion
-  assert:
+  ansible.builtin.assert:
     that:
       - gitlab_group_variable_state.changed
       - gitlab_group_variable_state.group_variable.removed|length == 1

@@ -25,17 +25,19 @@ _sym_db = _symbol_database.Default()
 from sentry_protos.billing.v1 import date_pb2 as sentry__protos_dot_billing_dot_v1_dot_date__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nNsentry_protos/billing/v1/services/engagement/v1/endpoint_get_unit_grants.proto\x12/sentry_protos.billing.v1.services.engagement.v1\x1a#sentry_protos/billing/v1/date.proto\"\xc4\x01\n\x12\x45\x66\x66\x65\x63tiveUnitGrant\x12\x15\n\rline_item_uid\x18\x01 \x01(\t\x12\x16\n\x0cis_unlimited\x18\x02 \x01(\x08H\x00\x12\x0f\n\x05units\x18\x03 \x01(\x04H\x00\x12\x32\n\nstart_date\x18\x04 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.Date\x12\x30\n\x08\x65nd_date\x18\x05 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.DateB\x08\n\x06\x61mount\"+\n\x14GetUnitGrantsRequest\x12\x13\n\x0b\x63ontract_id\x18\x01 \x01(\x04\"l\n\x15GetUnitGrantsResponse\x12S\n\x06grants\x18\x01 \x03(\x0b\x32\x43.sentry_protos.billing.v1.services.engagement.v1.EffectiveUnitGrantb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nNsentry_protos/billing/v1/services/engagement/v1/endpoint_get_unit_grants.proto\x12/sentry_protos.billing.v1.services.engagement.v1\x1a#sentry_protos/billing/v1/date.proto\"\x9a\x02\n\x12\x45\x66\x66\x65\x63tiveUnitGrant\x12\x15\n\rline_item_uid\x18\x01 \x01(\t\x12\x16\n\x0cis_unlimited\x18\x02 \x01(\x08H\x00\x12\x0f\n\x05units\x18\x03 \x01(\x04H\x00\x12\x32\n\nstart_date\x18\x04 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.Date\x12\x30\n\x08\x65nd_date\x18\x05 \x01(\x0b\x32\x1e.sentry_protos.billing.v1.Date\x12T\n\x06source\x18\x06 \x01(\x0e\x32\x44.sentry_protos.billing.v1.services.engagement.v1.EffectiveUnitSourceB\x08\n\x06\x61mount\"+\n\x14GetUnitGrantsRequest\x12\x13\n\x0b\x63ontract_id\x18\x01 \x01(\x04\"l\n\x15GetUnitGrantsResponse\x12S\n\x06grants\x18\x01 \x03(\x0b\x32\x43.sentry_protos.billing.v1.services.engagement.v1.EffectiveUnitGrant*\x89\x01\n\x13\x45\x66\x66\x65\x63tiveUnitSource\x12%\n!EFFECTIVE_UNIT_SOURCE_UNSPECIFIED\x10\x00\x12\x1f\n\x1b\x45\x46\x46\x45\x43TIVE_UNIT_SOURCE_TRIAL\x10\x01\x12*\n&EFFECTIVE_UNIT_SOURCE_RECURRING_CREDIT\x10\x02\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.engagement.v1.endpoint_get_unit_grants_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
+  _globals['_EFFECTIVEUNITSOURCE']._serialized_start=609
+  _globals['_EFFECTIVEUNITSOURCE']._serialized_end=746
   _globals['_EFFECTIVEUNITGRANT']._serialized_start=169
-  _globals['_EFFECTIVEUNITGRANT']._serialized_end=365
-  _globals['_GETUNITGRANTSREQUEST']._serialized_start=367
-  _globals['_GETUNITGRANTSREQUEST']._serialized_end=410
-  _globals['_GETUNITGRANTSRESPONSE']._serialized_start=412
-  _globals['_GETUNITGRANTSRESPONSE']._serialized_end=520
+  _globals['_EFFECTIVEUNITGRANT']._serialized_end=451
+  _globals['_GETUNITGRANTSREQUEST']._serialized_start=453
+  _globals['_GETUNITGRANTSREQUEST']._serialized_end=496
+  _globals['_GETUNITGRANTSRESPONSE']._serialized_start=498
+  _globals['_GETUNITGRANTSRESPONSE']._serialized_end=606
 # @@protoc_insertion_point(module_scope)

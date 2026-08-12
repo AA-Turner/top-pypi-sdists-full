@@ -13,6 +13,7 @@ from reqif.models.reqif_data_type import (
     ReqIFDataTypeDefinitionXHTML,
     ReqIFEnumValue,
 )
+from reqif.parsers.alternative_id_parser import AlternativeIDParser
 
 
 class DataTypeParser:
@@ -84,6 +85,9 @@ class DataTypeParser:
                         embedded_value_other_content = None
                     values.append(
                         ReqIFEnumValue(
+                            alternative_id=AlternativeIDParser.parse(
+                                xml_specified_value
+                            ),
                             description=specified_value_description,
                             identifier=specified_value_identifier,
                             last_change=specified_value_last_change,
@@ -93,6 +97,7 @@ class DataTypeParser:
                         )
                     )
             return ReqIFDataTypeDefinitionEnumeration(
+                alternative_id=AlternativeIDParser.parse(data_type_xml),
                 is_self_closed=is_self_closed,
                 description=description,
                 identifier=identifier,
@@ -107,6 +112,7 @@ class DataTypeParser:
             )
 
             return ReqIFDataTypeDefinitionString(
+                alternative_id=AlternativeIDParser.parse(data_type_xml),
                 is_self_closed=is_self_closed,
                 description=description,
                 identifier=identifier,
@@ -120,6 +126,7 @@ class DataTypeParser:
             min_value = attributes["MIN"] if "MIN" in attributes else None
 
             return ReqIFDataTypeDefinitionInteger(
+                alternative_id=AlternativeIDParser.parse(data_type_xml),
                 is_self_closed=is_self_closed,
                 description=description,
                 identifier=identifier,
@@ -135,6 +142,7 @@ class DataTypeParser:
             min_value = attributes["MIN"] if "MIN" in attributes else None
 
             return ReqIFDataTypeDefinitionReal(
+                alternative_id=AlternativeIDParser.parse(data_type_xml),
                 is_self_closed=is_self_closed,
                 accuracy=accuracy,
                 description=description,
@@ -147,6 +155,7 @@ class DataTypeParser:
 
         if data_type_xml.tag == "DATATYPE-DEFINITION-XHTML":
             return ReqIFDataTypeDefinitionXHTML(
+                alternative_id=AlternativeIDParser.parse(data_type_xml),
                 is_self_closed=is_self_closed,
                 description=description,
                 identifier=identifier,
@@ -156,6 +165,7 @@ class DataTypeParser:
 
         if data_type_xml.tag == "DATATYPE-DEFINITION-DATE":
             return ReqIFDataTypeDefinitionDateIdentifier(
+                alternative_id=AlternativeIDParser.parse(data_type_xml),
                 is_self_closed=is_self_closed,
                 description=description,
                 identifier=identifier,
@@ -165,6 +175,7 @@ class DataTypeParser:
 
         if data_type_xml.tag == "DATATYPE-DEFINITION-BOOLEAN":
             return ReqIFDataTypeDefinitionBoolean(
+                alternative_id=AlternativeIDParser.parse(data_type_xml),
                 is_self_closed=is_self_closed,
                 description=description,
                 identifier=identifier,
@@ -195,10 +206,16 @@ class DataTypeParser:
                 output += f' LONG-NAME="{escaped_long_name}"'
             if data_type_definition.max_length:
                 output += f' MAX-LENGTH="{data_type_definition.max_length}"'
-            if data_type_definition.is_self_closed:
+            if (
+                data_type_definition.is_self_closed
+                and data_type_definition.alternative_id is None
+            ):
                 output += "/>\n"
             else:
                 output += ">\n"
+                output += AlternativeIDParser.unparse(
+                    data_type_definition.alternative_id, "          "
+                )
                 output += "        </DATATYPE-DEFINITION-STRING>\n"
             return output
         if isinstance(data_type_definition, ReqIFDataTypeDefinitionBoolean):
@@ -214,10 +231,16 @@ class DataTypeParser:
             if data_type_definition.long_name is not None:
                 escaped_long_name = lxml_escape_for_html(data_type_definition.long_name)
                 output += f' LONG-NAME="{escaped_long_name}"'
-            if data_type_definition.is_self_closed:
+            if (
+                data_type_definition.is_self_closed
+                and data_type_definition.alternative_id is None
+            ):
                 output += "/>\n"
             else:
                 output += ">\n"
+                output += AlternativeIDParser.unparse(
+                    data_type_definition.alternative_id, "          "
+                )
                 output += "        </DATATYPE-DEFINITION-BOOLEAN>\n"
             return output
         if isinstance(data_type_definition, ReqIFDataTypeDefinitionInteger):
@@ -236,10 +259,16 @@ class DataTypeParser:
                 output += f' MAX="{data_type_definition.max_value}"'
             if data_type_definition.min_value is not None:
                 output += f' MIN="{data_type_definition.min_value}"'
-            if data_type_definition.is_self_closed:
+            if (
+                data_type_definition.is_self_closed
+                and data_type_definition.alternative_id is None
+            ):
                 output += "/>\n"
             else:
                 output += ">\n"
+                output += AlternativeIDParser.unparse(
+                    data_type_definition.alternative_id, "          "
+                )
                 output += "        </DATATYPE-DEFINITION-INTEGER>\n"
             return output
         if isinstance(data_type_definition, ReqIFDataTypeDefinitionReal):
@@ -265,7 +294,16 @@ class DataTypeParser:
             if data_type_definition.min_value is not None:
                 output += f' MIN="{data_type_definition.min_value}"'
 
-            output += "/>\n"
+            # Unlike the other branches this one has no is_self_closed check, so
+            # an alternative_id is the only thing that can force the open form.
+            if data_type_definition.alternative_id is None:
+                output += "/>\n"
+            else:
+                output += ">\n"
+                output += AlternativeIDParser.unparse(
+                    data_type_definition.alternative_id, "          "
+                )
+                output += "        </DATATYPE-DEFINITION-REAL>\n"
             return output
         if isinstance(data_type_definition, ReqIFDataTypeDefinitionEnumeration):
             output = "        <DATATYPE-DEFINITION-ENUMERATION"
@@ -280,10 +318,16 @@ class DataTypeParser:
             if data_type_definition.long_name is not None:
                 escaped_long_name = lxml_escape_for_html(data_type_definition.long_name)
                 output += f' LONG-NAME="{escaped_long_name}"'
-            if data_type_definition.is_self_closed:
+            if (
+                data_type_definition.is_self_closed
+                and data_type_definition.alternative_id is None
+            ):
                 output += "/>\n"
             else:
                 output += ">\n"
+            output += AlternativeIDParser.unparse(
+                data_type_definition.alternative_id, "          "
+            )
 
             if data_type_definition.values is not None:
                 output += "          <SPECIFIED-VALUES>\n"
@@ -299,6 +343,9 @@ class DataTypeParser:
                         escaped_long_name = lxml_escape_for_html(value.long_name)
                         output += f' LONG-NAME="{escaped_long_name}"'
                     output += ">\n"
+                    output += AlternativeIDParser.unparse(
+                        value.alternative_id, "              "
+                    )
 
                     if value.key is not None:
                         output += "              <PROPERTIES>\n"
@@ -328,10 +375,16 @@ class DataTypeParser:
                 output += f' LAST-CHANGE="{data_type_definition.last_change}"'
             if data_type_definition.long_name:
                 output += f' LONG-NAME="{data_type_definition.long_name}"'
-            if data_type_definition.is_self_closed:
+            if (
+                data_type_definition.is_self_closed
+                and data_type_definition.alternative_id is None
+            ):
                 output += "/>\n"
             else:
                 output += ">\n"
+                output += AlternativeIDParser.unparse(
+                    data_type_definition.alternative_id, "          "
+                )
                 output += "        </DATATYPE-DEFINITION-DATE>\n"
             return output
         if isinstance(data_type_definition, ReqIFDataTypeDefinitionXHTML):
@@ -348,10 +401,16 @@ class DataTypeParser:
             if data_type_definition.long_name is not None:
                 escaped_long_name = lxml_escape_for_html(data_type_definition.long_name)
                 output += f' LONG-NAME="{escaped_long_name}"'
-            if data_type_definition.is_self_closed:
+            if (
+                data_type_definition.is_self_closed
+                and data_type_definition.alternative_id is None
+            ):
                 output += "/>\n"
             else:
                 output += ">\n"
+                output += AlternativeIDParser.unparse(
+                    data_type_definition.alternative_id, "          "
+                )
                 output += "        </DATATYPE-DEFINITION-XHTML>\n"
             return output
 

@@ -227,7 +227,10 @@ from ansible.module_utils.common.text.converters import to_text
 from ansible_collections.ansible.netcommon.plugins.module_utils.network.common.parsing import (
     Conditional,
 )
-from ansible_collections.ansible.netcommon.plugins.module_utils.network.common.utils import to_lines
+from ansible_collections.ansible.netcommon.plugins.module_utils.network.common.utils import (
+    emit_warnings,
+    to_lines,
+)
 
 from ansible_collections.arista.eos.plugins.module_utils.network.eos.eos import (
     run_commands,
@@ -311,6 +314,7 @@ def main():
         {"stdout": responses, "stdout_lines": list(to_lines(responses))},
     )
 
+    emit_warnings(module, result)
     module.exit_json(**result)
 
 

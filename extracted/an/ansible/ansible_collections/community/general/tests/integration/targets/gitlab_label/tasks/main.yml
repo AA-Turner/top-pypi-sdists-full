@@ -9,7 +9,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Install required libs
-  pip:
+  ansible.builtin.pip:
     name: python-gitlab
     state: present
 
@@ -19,7 +19,7 @@
   ###
 
     - name: Create {{ gitlab_project_group }}
-      gitlab_group:
+      community.general.gitlab_group:
         api_url: "{{ gitlab_host }}"
         validate_certs: true
         api_token: "{{ gitlab_api_token }}"
@@ -27,14 +27,14 @@
         state: present
 
     - name: Purge all group labels for check_mode test
-      gitlab_label:
+      community.general.gitlab_label:
         api_url: "{{ gitlab_host }}"
         api_token: "{{ gitlab_api_token }}"
         group: "{{ gitlab_project_group }}"
         purge: true
 
     - name: Group label - Add a label in check_mode
-      gitlab_label:
+      community.general.gitlab_label:
         api_token: "{{ gitlab_api_token }}"
         api_url: "{{ gitlab_host }}"
         group: "{{ gitlab_project_group }}"
@@ -45,12 +45,12 @@
       register: gitlab_group_label_state
 
     - name: Group label - Check_mode state must be changed
-      assert:
+      ansible.builtin.assert:
         that:
           - gitlab_group_label_state is changed
 
     - name: Group label - Create label {{ gitlab_first_label }} and {{ gitlab_second_label }}
-      gitlab_label:
+      community.general.gitlab_label:
         api_token: "{{ gitlab_api_token }}"
         api_url: "{{ gitlab_host }}"
         group: "{{ gitlab_project_group }}"
@@ -65,7 +65,7 @@
       register: gitlab_group_label_create
 
     - name: Group label - Test Label Created
-      assert:
+      ansible.builtin.assert:
         that:
           - gitlab_group_label_create is changed
           - gitlab_group_label_create.labels.added|length == 2
@@ -76,7 +76,7 @@
           - gitlab_group_label_create.labels.added[1] == "{{ gitlab_second_label }}"
 
     - name: Group label - Create Label ( Idempotency test )
-      gitlab_label:
+      community.general.gitlab_label:
         api_token: "{{ gitlab_api_token }}"
         api_url: "{{ gitlab_host }}"
         group: "{{ gitlab_project_group }}"
@@ -89,12 +89,12 @@
       register: gitlab_group_label_create_idempotence
 
     - name: Group label - Test Create Label is Idempotent
-      assert:
+      ansible.builtin.assert:
         that:
           - gitlab_group_label_create_idempotence is not changed
 
     - name: Group label - Update Label {{ gitlab_first_label }} changing color
-      gitlab_label:
+      community.general.gitlab_label:
         api_token: "{{ gitlab_api_token }}"
         api_url: "{{ gitlab_host }}"
         group: "{{ gitlab_project_group }}"
@@ -105,7 +105,7 @@
       register: gitlab_group_label_update
 
     - name: Group label - Test Label Updated
-      assert:
+      ansible.builtin.assert:
         that:
           - gitlab_group_label_update.labels.added|length == 0
           - gitlab_group_label_update.labels.untouched|length == 0
@@ -114,7 +114,7 @@
           - gitlab_group_label_update.labels.updated[0] == "{{ gitlab_first_label }}"
 
     - name: Group label - Change label {{ gitlab_second_label }} name to {{ gitlab_second_label_new_name }}
-      gitlab_label:
+      community.general.gitlab_label:
         api_token: "{{ gitlab_api_token }}"
         api_url: "{{ gitlab_host }}"
         group: "{{ gitlab_project_group }}"
@@ -125,7 +125,7 @@
       register: gitlab_group_label_new_name
 
     - name: Group label - Test Label name changed
-      assert:
+      ansible.builtin.assert:
         that:
           - gitlab_group_label_new_name.labels.added|length == 0
           - gitlab_group_label_new_name.labels.untouched|length == 0
@@ -134,7 +134,7 @@
           - gitlab_group_label_new_name.labels.updated[0] == "{{ gitlab_second_label }}"
 
     - name: Group label - Change label name back to {{ gitlab_second_label }}
-      gitlab_label:
+      community.general.gitlab_label:
         api_token: "{{ gitlab_api_token }}"
         api_url: "{{ gitlab_host }}"
         group: "{{ gitlab_project_group }}"
@@ -145,7 +145,7 @@
       register: gitlab_group_label_orig_name
 
     - name: Group label - Test Label name changed back
-      assert:
+      ansible.builtin.assert:
         that:
           - gitlab_group_label_orig_name.labels.added|length == 0
           - gitlab_group_label_orig_name.labels.untouched|length == 0
@@ -154,7 +154,7 @@
           - gitlab_group_label_orig_name.labels.updated[0] == "{{ gitlab_second_label_new_name }}"
 
     - name: Group label - Update Label Test ( Additions )
-      gitlab_label:
+      community.general.gitlab_label:
         api_token: "{{ gitlab_api_token }}"
         api_url: "{{ gitlab_host }}"
         group: "{{ gitlab_project_group }}"
@@ -166,7 +166,7 @@
       register: gitlab_group_label_update_additions
 
     - name: Group label - Test Label Updated ( Additions )
-      assert:
+      ansible.builtin.assert:
         that:
           - gitlab_group_label_update_additions.labels.added|length == 0
           - gitlab_group_label_update_additions.labels.untouched|length == 0
@@ -175,7 +175,7 @@
           - gitlab_group_label_update_additions.labels.updated[0] == "{{ gitlab_second_label }}"
 
     - name: Group label - Delete Label {{ gitlab_second_label }}
-      gitlab_label:
+      community.general.gitlab_label:
         api_token: "{{ gitlab_api_token }}"
         api_url: "{{ gitlab_host }}"
         group: "{{ gitlab_project_group }}"
@@ -185,7 +185,7 @@
       register: gitlab_group_label_delete
 
     - name: Group label - Test label is deleted
-      assert:
+      ansible.builtin.assert:
         that:
           - gitlab_group_label_delete is changed
           - gitlab_group_label_delete.labels.added|length == 0
@@ -195,7 +195,7 @@
           - gitlab_group_label_delete.labels.removed[0] == "{{ gitlab_second_label }}"
 
     - name: Group label - Create label {{ gitlab_second_label }} again purging the other
-      gitlab_label:
+      community.general.gitlab_label:
         api_token: "{{ gitlab_api_token }}"
         api_url: "{{ gitlab_host }}"
         group: "{{ gitlab_project_group }}"
@@ -207,7 +207,7 @@
       register: gitlab_group_label_create_purging
 
     - name: Group label - Test Label Created again
-      assert:
+      ansible.builtin.assert:
         that:
           - gitlab_group_label_create_purging is changed
           - gitlab_group_label_create_purging.labels.added|length == 1
@@ -222,7 +222,7 @@
   ###
 
     - name: Create {{ gitlab_project_name }}
-      gitlab_project:
+      community.general.gitlab_project:
         api_url: "{{ gitlab_host }}"
         validate_certs: true
         api_token: "{{ gitlab_api_token }}"
@@ -233,14 +233,14 @@
         state: present
 
     - name: Purge all labels for check_mode test
-      gitlab_label:
+      community.general.gitlab_label:
         api_url: "{{ gitlab_host }}"
         api_token: "{{ gitlab_api_token }}"
         project: "{{ gitlab_project_group }}/{{ gitlab_project_name }}"
         purge: true
 
     - name: Add a label in check_mode
-      gitlab_label:
+      community.general.gitlab_label:
         api_token: "{{ gitlab_api_token }}"
         api_url: "{{ gitlab_host }}"
         project: "{{ gitlab_project_group }}/{{ gitlab_project_name }}"
@@ -251,12 +251,12 @@
       register: gitlab_first_label_state
 
     - name: Check_mode state must be changed
-      assert:
+      ansible.builtin.assert:
         that:
           - gitlab_first_label_state is changed
 
     - name: Create label {{ gitlab_first_label }} and {{ gitlab_second_label }}
-      gitlab_label:
+      community.general.gitlab_label:
         api_token: "{{ gitlab_api_token }}"
         api_url: "{{ gitlab_host }}"
         project: "{{ gitlab_project_group }}/{{ gitlab_project_name }}"
@@ -271,7 +271,7 @@
       register: gitlab_first_label_create
 
     - name: Test Label Created
-      assert:
+      ansible.builtin.assert:
         that:
           - gitlab_first_label_create is changed
           - gitlab_first_label_create.labels.added|length == 2
@@ -282,7 +282,7 @@
           - gitlab_first_label_create.labels.added[1] == "{{ gitlab_second_label }}"
 
     - name: Create Label ( Idempotency test )
-      gitlab_label:
+      community.general.gitlab_label:
         api_token: "{{ gitlab_api_token }}"
         api_url: "{{ gitlab_host }}"
         project: "{{ gitlab_project_group }}/{{ gitlab_project_name }}"
@@ -295,12 +295,12 @@
       register: gitlab_first_label_create_idempotence
 
     - name: Test Create Label is Idempotent
-      assert:
+      ansible.builtin.assert:
         that:
           - gitlab_first_label_create_idempotence is not changed
 
     - name: Update Label {{ gitlab_first_label }} changing color
-      gitlab_label:
+      community.general.gitlab_label:
         api_token: "{{ gitlab_api_token }}"
         api_url: "{{ gitlab_host }}"
         project: "{{ gitlab_project_group }}/{{ gitlab_project_name }}"
@@ -311,7 +311,7 @@
       register: gitlab_first_label_update
 
     - name: Test Label Updated
-      assert:
+      ansible.builtin.assert:
         that:
           - gitlab_first_label_update.labels.added|length == 0
           - gitlab_first_label_update.labels.untouched|length == 0
@@ -320,7 +320,7 @@
           - gitlab_first_label_update.labels.updated[0] == "{{ gitlab_first_label }}"
 
     - name: Change label {{ gitlab_second_label }} name to {{ gitlab_second_label_new_name }}
-      gitlab_label:
+      community.general.gitlab_label:
         api_token: "{{ gitlab_api_token }}"
         api_url: "{{ gitlab_host }}"
         project: "{{ gitlab_project_group }}/{{ gitlab_project_name }}"
@@ -331,7 +331,7 @@
       register: gitlab_first_label_new_name
 
     - name: Test Label name changed
-      assert:
+      ansible.builtin.assert:
         that:
           - gitlab_first_label_new_name.labels.added|length == 0
           - gitlab_first_label_new_name.labels.untouched|length == 0
@@ -340,7 +340,7 @@
           - gitlab_first_label_new_name.labels.updated[0] == "{{ gitlab_second_label }}"
 
     - name: Change label name back to {{ gitlab_second_label }}
-      gitlab_label:
+      community.general.gitlab_label:
         api_token: "{{ gitlab_api_token }}"
         api_url: "{{ gitlab_host }}"
         project: "{{ gitlab_project_group }}/{{ gitlab_project_name }}"
@@ -351,7 +351,7 @@
       register: gitlab_first_label_orig_name
 
     - name: Test Label name changed back
-      assert:
+      ansible.builtin.assert:
         that:
           - gitlab_first_label_orig_name.labels.added|length == 0
           - gitlab_first_label_orig_name.labels.untouched|length == 0
@@ -360,7 +360,7 @@
           - gitlab_first_label_orig_name.labels.updated[0] == "{{ gitlab_second_label_new_name }}"
 
     - name: Update Label Test ( Additions )
-      gitlab_label:
+      community.general.gitlab_label:
         api_token: "{{ gitlab_api_token }}"
         api_url: "{{ gitlab_host }}"
         project: "{{ gitlab_project_group }}/{{ gitlab_project_name }}"
@@ -372,7 +372,7 @@
       register: gitlab_first_label_update_additions
 
     - name: Test Label Updated ( Additions )
-      assert:
+      ansible.builtin.assert:
         that:
           - gitlab_first_label_update_additions.labels.added|length == 0
           - gitlab_first_label_update_additions.labels.untouched|length == 0
@@ -381,7 +381,7 @@
           - gitlab_first_label_update_additions.labels.updated[0] == "{{ gitlab_second_label }}"
 
     - name: Delete Label {{ gitlab_second_label }}
-      gitlab_label:
+      community.general.gitlab_label:
         api_token: "{{ gitlab_api_token }}"
         api_url: "{{ gitlab_host }}"
         project: "{{ gitlab_project_group }}/{{ gitlab_project_name }}"
@@ -391,7 +391,7 @@
       register: gitlab_first_label_delete
 
     - name: Test label is deleted
-      assert:
+      ansible.builtin.assert:
         that:
           - gitlab_first_label_delete is changed
           - gitlab_first_label_delete.labels.added|length == 0
@@ -401,7 +401,7 @@
           - gitlab_first_label_delete.labels.removed[0] == "{{ gitlab_second_label }}"
 
     - name: Create label {{ gitlab_second_label }} again purging the other
-      gitlab_label:
+      community.general.gitlab_label:
         api_token: "{{ gitlab_api_token }}"
         api_url: "{{ gitlab_host }}"
         project: "{{ gitlab_project_group }}/{{ gitlab_project_name }}"
@@ -413,7 +413,7 @@
       register: gitlab_first_label_create_purging
 
     - name: Test Label Created again
-      assert:
+      ansible.builtin.assert:
         that:
           - gitlab_first_label_create_purging is changed
           - gitlab_first_label_create_purging.labels.added|length == 1
@@ -425,7 +425,7 @@
 
   always:
     - name: Delete Labels
-      gitlab_label:
+      community.general.gitlab_label:
         api_token: "{{ gitlab_api_token }}"
         api_url: "{{ gitlab_host }}"
         project: "{{ gitlab_project_group }}/{{ gitlab_project_name }}"
@@ -437,7 +437,7 @@
       register: gitlab_first_label_always_delete
 
     - name: Test label are deleted
-      assert:
+      ansible.builtin.assert:
         that:
           - gitlab_first_label_always_delete is changed
           - gitlab_first_label_always_delete.labels.added|length == 0
@@ -446,7 +446,7 @@
           - gitlab_first_label_always_delete.labels.updated|length == 0
 
     - name: Clean up {{ gitlab_project_name }}
-      gitlab_project:
+      community.general.gitlab_project:
         api_url: "{{ gitlab_host }}"
         validate_certs: false
         api_token: "{{ gitlab_api_token }}"
@@ -455,7 +455,7 @@
         state: absent
 
     - name: Clean up {{ gitlab_project_group }}
-      gitlab_group:
+      community.general.gitlab_group:
         api_url: "{{ gitlab_host }}"
         validate_certs: true
         api_token: "{{ gitlab_api_token }}"

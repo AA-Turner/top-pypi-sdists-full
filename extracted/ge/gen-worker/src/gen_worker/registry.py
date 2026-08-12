@@ -28,11 +28,14 @@ from .api.tree import derive_components, validate_no_sibling_parts
 from .discovery.names import slugify_name
 from .discovery.walk import find_endpoints
 from .families.base import GenerationDefaults
+from .models.tensor_layout_contract import LAYOUT_KEY_ANY_COMPONENT
 from .warmup import validate_class_warmup
 import dataclasses
 from .api.compile_axis import warm_guidance_values
 from .cell_key import facts_digest
-from .api.export_contract import register_export_declaration, registered_entry
+from .api.export_contract import (
+    declares_export_contract, register_export_declaration, registered_entry,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -409,6 +412,44 @@ def _validate_compile_arms(
     )
 
 
+def _validate_slot_layout_keys(
+    owner: str,
+    slots: Dict[str, Slot],
+    slot_components: Dict[str, Dict[str, str]],
+) -> None:
+    """Every `Slot(layouts=...)` key is `"*"` or a real component path.
+
+    §1.33 pins the DEMAND per (slot, component path), and the path vocabulary
+    is the DERIVED tree the manifest already publishes — so a key that matches
+    no component is not a stricter declaration, it is a silently absent one.
+    The handles themselves were validated at the Slot constructor; only the
+    keys need the tree, and the tree only exists here.
+    """
+    for name, slot in slots.items():
+        declared = getattr(slot, "layouts", None)
+        if not declared:
+            continue
+        tree = slot_components.get(name) or {}
+        for key in declared:
+            if key == LAYOUT_KEY_ANY_COMPONENT:
+                continue
+            if key in tree:
+                continue
+            if not tree:
+                raise ValueError(
+                    f"{owner}: slot {name!r} declares layouts[{key!r}] but "
+                    f"{slot.pipeline_cls.__name__} is not introspectable, so "
+                    "no component tree is derived — a self-loading slot can "
+                    f"only declare {LAYOUT_KEY_ANY_COMPONENT!r}."
+                )
+            raise ValueError(
+                f"{owner}: slot {name!r} declares layouts[{key!r}], which is "
+                f"not a component of {slot.pipeline_cls.__name__}. Its derived "
+                f"tree is: {', '.join(sorted(tree))} (or "
+                f"{LAYOUT_KEY_ANY_COMPONENT!r} for the whole tree)."
+            )
+
+
 def _slot_is_family_agnostic(
     name: str, slot: Slot, slots: Dict[str, Slot],
 ) -> bool:
@@ -513,6 +554,10 @@ def _spec_for_handler(
             for name, slot in slots.items()
         ) if tree
     }
+    # §1.33 / pgw#1143: the DEMAND's component keys are checked against the
+    # tree that was just derived. A key matching nothing is the failure mode
+    # to prevent — it reads as a declaration and gates nothing.
+    _validate_slot_layout_keys(owner, slots, slot_components)
     payload_axes = extract_payload_axes(owner, payload_type)
     ret = hints.get("return")
     if ret is None:
@@ -701,7 +746,7 @@ def _apply_class_unions(specs: List[EndpointSpec]) -> List[EndpointSpec]:
 
 
 def register_declared_exports(specs: Sequence[EndpointSpec]) -> Tuple[str, ...]:
-    """pgw#805: a ``compile=`` block that carries graph CLASSES *is* its
+    """pgw#805: a ``compile=`` block that declares an EXPORT CONTRACT *is* its
     family's export declaration — register it at collection time.
 
     Without this, ``export_declaration(family)`` resolves only when somebody
@@ -728,12 +773,12 @@ def register_declared_exports(specs: Sequence[EndpointSpec]) -> Tuple[str, ...]:
             continue
         seen.add(id(compile_decl))
         family = str(getattr(compile_decl, "family", "") or "").strip()
-        if not family or not getattr(compile_decl, "classes", ()):
+        # pgw#1107: the same INTENT question the decorator asks — a dynamo-only
+        # `compile=` block declares no export contract and is registered
+        # nowhere; anything reaching for the export vocabulary is held to
+        # carrying classes by `register_export_declaration`.
+        if not family or not declares_export_contract(compile_decl):
             continue
-        # pgw#853: `registered_entry`, NOT `export_declaration` — reading the
-        # registry back through the evaluating accessor would detonate a
-        # blocked family's thunk inside endpoint COLLECTION, which is the
-        # exact blast radius this issue exists to remove.
         if registered_entry(family) is compile_decl:
             continue
         try:

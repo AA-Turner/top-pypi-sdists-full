@@ -37,6 +37,18 @@ def import_databricks():
     return databricks
 
 
+@import_helper(text="You can install it using 'pip install databricks-sdk'")
+def import_databricks_sdk():
+    from databricks.sdk.core import Config, oauth_service_principal
+
+    return Config, oauth_service_principal
+
+
+AUTH_PAT = "pat"
+AUTH_OAUTH_M2M = "oauth-m2m"
+AUTH_AZURE_SP_M2M = "azure-sp-m2m"
+
+
 @attrs.define(frozen=False)
 class Dialect(BaseDialect):
     name = "Databricks"
@@ -133,6 +145,61 @@ class Databricks(ThreadedDatabase):
         self.default_schema = kw.get("schema", "default")
         self.catalog = kw.get("catalog", "hive_metastore")
 
+    def _require(self, key: str) -> str:
+        value = self._args.get(key)
+        if not value:
+            auth_method = self._args.get("auth_method", AUTH_PAT)
+            raise ValueError(f"{self.name}: '{key}' is required for auth_method '{auth_method}'")
+        return value
+
+    def _pat_kwargs(self) -> Dict[str, Any]:
+        return {"access_token": self._require("access_token")}
+
+    def _oauth_m2m_kwargs(self) -> Dict[str, Any]:
+        Config, oauth_service_principal = import_databricks_sdk()
+        hostname = self._args["server_hostname"]
+        client_id = self._require("databricks_client_id")
+        client_secret = self._require("databricks_client_secret")
+
+        def credentials_provider():
+            provider = oauth_service_principal(
+                Config(host=f"https://{hostname}", client_id=client_id, client_secret=client_secret)
+            )
+            if provider is None:
+                raise ConnectionError(f"{self.name}: OAuth is not available on {hostname}")
+            return provider
+
+        return {"credentials_provider": credentials_provider}
+
+    def _azure_sp_m2m_kwargs(self) -> Dict[str, Any]:
+        return {
+            "auth_type": AUTH_AZURE_SP_M2M,
+            "azure_client_id": self._require("azure_client_id"),
+            "azure_client_secret": self._require("azure_client_secret"),
+            "azure_tenant_id": self._require("azure_tenant_id"),
+        }
+
+    def _auth_kwargs(self) -> Dict[str, Any]:
+        """Credential kwargs for ``databricks.sql.connect``.
+
+        Raises:
+            ValueError: on an unknown ``auth_method`` or a missing credential.
+        """
+        # Callables cannot travel in the connection config: `Connect` caches on
+        # json.dumps of it. Providers are built here, from plain strings.
+        auth_method = self._args.get("auth_method", AUTH_PAT)
+        builder = {
+            AUTH_PAT: self._pat_kwargs,
+            AUTH_OAUTH_M2M: self._oauth_m2m_kwargs,
+            AUTH_AZURE_SP_M2M: self._azure_sp_m2m_kwargs,
+        }.get(auth_method)
+        if builder is None:
+            raise ValueError(
+                f"{self.name}: unknown auth_method '{auth_method}'. "
+                f"Expected one of {AUTH_PAT}, {AUTH_OAUTH_M2M}, {AUTH_AZURE_SP_M2M}"
+            )
+        return builder()
+
     def create_connection(self):
         databricks = import_databricks()
 
@@ -140,8 +207,8 @@ class Databricks(ThreadedDatabase):
             return databricks.sql.connect(
                 server_hostname=self._args["server_hostname"],
                 http_path=self._args["http_path"],
-                access_token=self._args["access_token"],
                 catalog=self.catalog,
+                **self._auth_kwargs(),
             )
         except databricks.sql.exc.Error as e:
             raise ConnectionError(*e.args) from e

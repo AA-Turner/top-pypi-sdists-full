@@ -12,8 +12,10 @@ class ReqIFSpecRelationType:
         long_name: Optional[str] = None,
         is_self_closed: bool = True,
         attribute_definitions: Optional[List[SpecAttributeDefinition]] = None,
+        alternative_id: Optional[str] = None,
     ):
         self.identifier: str = identifier
+        self.alternative_id: Optional[str] = alternative_id
         self.description: Optional[str] = description
         self.last_change: Optional[str] = last_change
         self.long_name: Optional[str] = long_name

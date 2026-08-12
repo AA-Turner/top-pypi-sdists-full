@@ -10,7 +10,7 @@
 
 - block:
     - name: Create temporary playbook files
-      tempfile:
+      ansible.builtin.tempfile:
         state: file
         suffix: temp
       loop: "{{ tests }}"
@@ -20,7 +20,7 @@
       register: temporary_playbook_files
 
     - name: Set temporary playbook file content
-      copy:
+      ansible.builtin.copy:
         content: "{{ test.playbook }}"
         dest: "{{ temporary_playbook_files.results[test_idx].path }}"
       loop: "{{ tests }}"
@@ -30,7 +30,7 @@
         label: "{{ test.name }}"
 
     - name: Collect outputs
-      command: "ansible-playbook -i {{ inventory }} {{ playbook }} {{ test.extra_cli_arguments | default('') }}"
+      ansible.builtin.command: "ansible-playbook -i {{ inventory }} {{ playbook }} {{ test.extra_cli_arguments | default('') }}"
       environment: "{{ test.environment }}"
       loop: "{{ tests }}"
       loop_control:
@@ -48,7 +48,7 @@
           {%- endfor -%}"
 
     - name: Assert test output equals expected output
-      assert:
+      ansible.builtin.assert:
         that: result.output.differences | length == 0
       loop: "{{ outputs.results | callback_results_extractor }}"
       loop_control:
@@ -58,7 +58,7 @@
 
   always:
     - name: Remove temporary playbooks
-      file:
+      ansible.builtin.file:
         path: "{{ temporary_file.path }}"
         state: absent
       loop: "{{ temporary_playbook_files.results }}"

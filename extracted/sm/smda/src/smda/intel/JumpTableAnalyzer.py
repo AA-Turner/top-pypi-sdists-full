@@ -2,7 +2,13 @@ import logging
 import re
 import struct
 
+from smda.intel.definitions import RET_INS
+
 LOGGER = logging.getLogger(__name__)
+
+_DIRECT_TABLE_RE = re.compile(r"[a-z0-9]{2,3}, dword ptr \[[^ ]+ \+ 0x[0-9a-f]+\]")
+_X64_LEA_TABLE_RE = re.compile(r"[a-z0-9]{2,3}, \[rip (\+|\-) 0x[0-9a-f]+\]")
+_X64_BONUS_OFFSET_RE = re.compile(r"[a-z0-9]{2,3},.*0x[0-9a-f]+\]")
 
 
 class JumpTableAnalyzer:
@@ -29,6 +35,11 @@ class JumpTableAnalyzer:
         jmp     rcx
     """
 
+    # Deliberately register-only. The pattern-B bound check above compares a stack slot, but
+    # widening this to any `cmp <mem>, <imm>` matches unrelated compares in the backtrack
+    # window, and _findJumpTableSize takes the first hit without tying it to the jump index:
+    # measured on the bundled mirai_x64 fixture, that enables a bogus direct table and costs
+    # one recovered function. Recognizing pattern B needs index tracking, not a wider regex.
     RE_CMP_SIZE = re.compile(r"[a-z0-9]{2,4}, (([0-9])|(0x[0-9a-f]+))")
 
     def __init__(self, disassembler):
@@ -58,7 +69,7 @@ class JumpTableAnalyzer:
     def _findJumpTableSize(self, backtracked):
         jumptable_size = 0
         for instr in backtracked[::-1]:
-            if instr[2].split(" ")[-1].startswith("ret"):
+            if instr[2].split(" ")[-1] in RET_INS:
                 break
             if instr[2] == "cmp" and self.RE_CMP_SIZE.match(instr[3]):
                 jumptable_size = int(instr[3].split(",")[-1].strip(), base=16) + 1
@@ -70,8 +81,8 @@ class JumpTableAnalyzer:
         register = jump_instruction_op_str.lower()
         data_ref_instruction_addr = None
         off_jumptable = None
-        for instr in backtracked[:0:-1]:
-            if instr[2] == "mov" and re.match(r"[a-z0-9]{2,3}, dword ptr \[[^ ]+ \+ 0x[0-9a-f]+\]", instr[3]):
+        for instr in backtracked[::-1]:
+            if instr[2] == "mov" and _DIRECT_TABLE_RE.match(instr[3]):
                 data_ref_instruction_addr = instr[0]
                 off_jumptable = self.disassembler.getReferencedAddr(instr[3])
                 state.addDataRef(data_ref_instruction_addr, off_jumptable, size=4)
@@ -88,7 +99,7 @@ class JumpTableAnalyzer:
     def _x64Handler(self, state, backtracked, target_register=None):
         off_jumptable = None
         for instr in backtracked[::-1]:
-            if instr[2] == "lea" and re.match(r"[a-z0-9]{2,3}, \[rip (\+|\-) 0x[0-9a-f]+\]", instr[3]):
+            if instr[2] == "lea" and _X64_LEA_TABLE_RE.match(instr[3]):
                 if target_register and target_register not in instr[3]:
                     continue
                 data_ref_instruction_addr = instr[0]
@@ -103,7 +114,7 @@ class JumpTableAnalyzer:
     def _getx64BonusOffset(self, backtracked):
         bonus_offset = 0
         for instr in backtracked[::-1][:3]:
-            if instr[2] == "mov" and re.match(r"[a-z0-9]{2,3},.*0x[0-9a-f]+\]", instr[3]):
+            if instr[2] == "mov" and _X64_BONUS_OFFSET_RE.match(instr[3]):
                 bonus_offset = self.disassembler.getReferencedAddr(instr[3])
                 break
         return bonus_offset
@@ -115,11 +126,19 @@ class JumpTableAnalyzer:
                 raw_entry_bytes = self.disassembly.getBytes(off_jumptable + index * 4, 4)
                 if raw_entry_bytes is None or len(raw_entry_bytes) < 4:
                     continue
-                entry = struct.unpack("I", raw_entry_bytes)[0]
+                entry = struct.unpack("<I", raw_entry_bytes)[0]
                 jump_targets.add(entry)
         return sorted(jump_targets)
 
-    def _extractRelativeTableOffsets(self, jumptable_size, off_jumptable, alternative_base=None, bonus_offset=0):
+    def _extractRelativeTableOffsets(
+        self,
+        jumptable_size,
+        off_jumptable,
+        alternative_base=None,
+        bonus_offset=0,
+        state=None,
+        jump_instruction_address=None,
+    ):
         jumptable_size = jumptable_size if jumptable_size else 0xFF
         jump_targets = set()
         jump_base = alternative_base if alternative_base else off_jumptable
@@ -145,21 +164,32 @@ class JumpTableAnalyzer:
                 if entry:
                     target = (jump_base + entry) & self.disassembler.getBitMask()
                     jump_targets.add(target)
-                    # state.addDataRef(off_jumptable, rebased + index * 4, size=4)
+                    if state is not None:
+                        # Claim the entry as data. `rebased` is an image offset, so the address
+                        # has to be rebuilt from off_jumptable -- without this the table bytes
+                        # stay unclaimed and the gap scan seeds function candidates inside them.
+                        state.addDataRef(
+                            jump_instruction_address,
+                            off_jumptable + bonus_offset + index * 4,
+                            size=4,
+                        )
                 elif not alternative_base:
                     break
         return sorted(jump_targets)
 
     def _resolveExplicitTable(self, jump_instruction_address, state, jumptable_address, jumptable_size=None):
-        jumptable_size = jumptable_size if jumptable_size is not None else 0xFF
+        # _findJumpTableSize reports an unrecovered bound as 0, not None, so testing against
+        # None here read "zero entries" and abandoned the table -- mirror the truthiness test
+        # _extractRelativeTableOffsets uses, and let the per-entry image bound stop the scan.
+        jumptable_size = jumptable_size if jumptable_size else 0xFF
         jumptable_addresses = []
         bitness = self.disassembly.binary_info.bitness
         if bitness == 32:
             entry_size = 4
-            entry_format = "I"
+            entry_format = "<I"
         elif bitness == 64:
             entry_size = 8
-            entry_format = "Q"
+            entry_format = "<Q"
         else:
             LOGGER.warning("Unsupported %s-bit jump table analysis", bitness)
             return jumptable_addresses
@@ -208,17 +238,29 @@ class JumpTableAnalyzer:
                 if "rsi" in backtracked[::-1][0][3]:
                     alternative_base = self._x64Handler(state, backtracked, "rsi")
                 table_offsets = self._extractRelativeTableOffsets(
-                    jumptable_size, off_jumptable, alternative_base=alternative_base
+                    jumptable_size,
+                    off_jumptable,
+                    alternative_base=alternative_base,
+                    state=state,
+                    jump_instruction_address=jump_instruction_address,
                 )
             elif backtracked_sequence.startswith(("lea", "add-add", "add-shr")):
                 jumptable_size = self._findJumpTableSize(backtracked)
                 off_jumptable = self._x64Handler(state, backtracked)
-                table_offsets = self._extractRelativeTableOffsets(jumptable_size, off_jumptable)
+                table_offsets = self._extractRelativeTableOffsets(
+                    jumptable_size, off_jumptable, state=state, jump_instruction_address=jump_instruction_address
+                )
             elif backtracked_sequence.startswith("add-mov"):
                 jumptable_size = self._findJumpTableSize(backtracked)
                 off_jumptable = self._x64Handler(state, backtracked)
                 bonus = self._getx64BonusOffset(backtracked)
-                table_offsets = self._extractRelativeTableOffsets(jumptable_size, off_jumptable, bonus_offset=bonus)
+                table_offsets = self._extractRelativeTableOffsets(
+                    jumptable_size,
+                    off_jumptable,
+                    bonus_offset=bonus,
+                    state=state,
+                    jump_instruction_address=jump_instruction_address,
+                )
         # if False and off_jumptable and table_offsets:
         #     print("  Found jump table: 0x%x -> %d" % (off_jumptable, len(table_offsets)))
         #     for offset in sorted(list(set(table_offsets))):

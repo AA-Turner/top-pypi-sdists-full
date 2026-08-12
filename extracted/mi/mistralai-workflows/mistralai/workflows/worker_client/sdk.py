@@ -672,20 +672,14 @@ class PrivateWorkerClient(BaseSDK):
     def heartbeat(
         self,
         *,
+        deployment_name: str,
+        worker_name: str,
         workflow_registration_refs: Optional[
             Union[
                 List[models.WorkflowRegistrationRefInput],
                 List[models.WorkflowRegistrationRefInputTypedDict],
             ]
         ] = None,
-        workflow_version_refs: Optional[
-            Union[
-                List[models.WorkflowRegistrationRefInput],
-                List[models.WorkflowRegistrationRefInputTypedDict],
-            ]
-        ] = None,
-        deployment_name: OptionalNullable[str] = UNSET,
-        worker_name: OptionalNullable[str] = UNSET,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -695,10 +689,9 @@ class PrivateWorkerClient(BaseSDK):
 
         Lightweight heartbeat to refresh worker activity TTL.
 
-        :param workflow_registration_refs: List of workflow registration references to heartbeat
-        :param workflow_version_refs: Deprecated: use workflow_registration_refs
         :param deployment_name: Name of the deployment this worker belongs to
         :param worker_name: Human-readable name of this worker process (hostname or pod name)
+        :param workflow_registration_refs: List of workflow registration references to heartbeat
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -717,10 +710,6 @@ class PrivateWorkerClient(BaseSDK):
         request = models.WorkerHeartbeatRequest(
             workflow_registration_refs=utils.get_pydantic_model(
                 workflow_registration_refs,
-                Optional[List[models.WorkflowRegistrationRefInput]],
-            ),
-            workflow_version_refs=utils.get_pydantic_model(
-                workflow_version_refs,
                 Optional[List[models.WorkflowRegistrationRefInput]],
             ),
             deployment_name=deployment_name,
@@ -791,20 +780,14 @@ class PrivateWorkerClient(BaseSDK):
     async def heartbeat_async(
         self,
         *,
+        deployment_name: str,
+        worker_name: str,
         workflow_registration_refs: Optional[
             Union[
                 List[models.WorkflowRegistrationRefInput],
                 List[models.WorkflowRegistrationRefInputTypedDict],
             ]
         ] = None,
-        workflow_version_refs: Optional[
-            Union[
-                List[models.WorkflowRegistrationRefInput],
-                List[models.WorkflowRegistrationRefInputTypedDict],
-            ]
-        ] = None,
-        deployment_name: OptionalNullable[str] = UNSET,
-        worker_name: OptionalNullable[str] = UNSET,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -814,10 +797,9 @@ class PrivateWorkerClient(BaseSDK):
 
         Lightweight heartbeat to refresh worker activity TTL.
 
-        :param workflow_registration_refs: List of workflow registration references to heartbeat
-        :param workflow_version_refs: Deprecated: use workflow_registration_refs
         :param deployment_name: Name of the deployment this worker belongs to
         :param worker_name: Human-readable name of this worker process (hostname or pod name)
+        :param workflow_registration_refs: List of workflow registration references to heartbeat
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -836,10 +818,6 @@ class PrivateWorkerClient(BaseSDK):
         request = models.WorkerHeartbeatRequest(
             workflow_registration_refs=utils.get_pydantic_model(
                 workflow_registration_refs,
-                Optional[List[models.WorkflowRegistrationRefInput]],
-            ),
-            workflow_version_refs=utils.get_pydantic_model(
-                workflow_version_refs,
                 Optional[List[models.WorkflowRegistrationRefInput]],
             ),
             deployment_name=deployment_name,
@@ -1938,8 +1916,8 @@ class PrivateWorkerClient(BaseSDK):
             List[models.WorkflowSpecWithTaskQueue],
             List[models.WorkflowSpecWithTaskQueueTypedDict],
         ],
-        deployment_name: OptionalNullable[str] = UNSET,
-        worker_name: OptionalNullable[str] = UNSET,
+        deployment_name: str,
+        worker_name: str,
         deployment_location: OptionalNullable[
             Union[models.DeploymentLocation, models.DeploymentLocationTypedDict]
         ] = UNSET,
@@ -2048,8 +2026,8 @@ class PrivateWorkerClient(BaseSDK):
             List[models.WorkflowSpecWithTaskQueue],
             List[models.WorkflowSpecWithTaskQueueTypedDict],
         ],
-        deployment_name: OptionalNullable[str] = UNSET,
-        worker_name: OptionalNullable[str] = UNSET,
+        deployment_name: str,
+        worker_name: str,
         deployment_location: OptionalNullable[
             Union[models.DeploymentLocation, models.DeploymentLocationTypedDict]
         ] = UNSET,

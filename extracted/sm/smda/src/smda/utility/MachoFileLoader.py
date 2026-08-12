@@ -1,6 +1,5 @@
 import logging
 import struct
-from functools import lru_cache
 
 from smda.SmdaConfig import SmdaConfig
 from smda.utility.common import mergeCodeAreas
@@ -86,17 +85,14 @@ def align(v, alignment):
         return v + (alignment - remainder)
 
 
-@lru_cache(maxsize=16)
 def _get_sorted_sections(macho_file):
     return sorted(macho_file.sections, key=lambda section: section.size, reverse=True)
 
 
-@lru_cache(maxsize=16)
 def _get_sorted_segments(macho_file):
     return sorted(macho_file.segments, key=lambda segment: segment.file_size, reverse=True)
 
 
-@lru_cache(maxsize=16)
 def _calculate_base_address(macho_file):
     base_addr = 0
     if not macho_file:
@@ -115,7 +111,6 @@ def _calculate_base_address(macho_file):
     return base_addr
 
 
-@lru_cache(maxsize=16)
 def _calculate_boundaries(macho_file):
     # find min and max virtual addresses.
     max_virtual_address = 0
@@ -349,7 +344,8 @@ class MachoFileLoader:
                 if section.alignment and section_size % section.alignment != 0:
                     section_size += section.alignment - (section_size % section.alignment)
                 section_end = section_start + section_size
-                code_areas.append([section_start, section_end])
+                if section_end > section_start:
+                    code_areas.append([section_start, section_end])
         # Mach-O commonly marks the whole __TEXT segment executable even though
         # it also contains constants and strings. Prefer precise instruction
         # sections when present; use executable segments only as a fallback for
@@ -363,7 +359,8 @@ class MachoFileLoader:
                 continue
             segment_start = segment.virtual_address
             segment_size = segment.virtual_size
-            code_areas.append([segment_start, segment_start + segment_size])
+            if segment_size:
+                code_areas.append([segment_start, segment_start + segment_size])
         return MachoFileLoader.mergeCodeAreas(code_areas)
 
     @staticmethod

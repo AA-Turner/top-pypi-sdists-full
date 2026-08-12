@@ -5,12 +5,12 @@ from chalk.streams.base import StreamSource
 from chalk.utils.duration import Duration
 
 if TYPE_CHECKING:
-    from pydantic import BaseModel
+    from pydantic import BaseModel, Field
 else:
     try:
-        from pydantic.v1 import BaseModel
+        from pydantic.v1 import BaseModel, Field
     except ImportError:
-        from pydantic import BaseModel
+        from pydantic import BaseModel, Field
 
 _KINESIS_STREAM_NAME_NAME = "KINESIS_STREAM_NAME"
 _KINESIS_STREAM_ARN_NAME = "KINESIS_STREAM_ARN"
@@ -58,12 +58,12 @@ class KinesisSource(StreamSource, BaseModel, frozen=True):
     AWS access key id credential
     """
 
-    aws_secret_access_key: Optional[str] = None
+    aws_secret_access_key: Optional[str] = Field(default=None, repr=False)
     """
     AWS secret access key credential
     """
 
-    aws_session_token: Optional[str] = None
+    aws_session_token: Optional[str] = Field(default=None, repr=False)
     """
     AWS access key id credential
     """

@@ -21,15 +21,18 @@ code_files = ["."]  # consider all Python files in the collection
 run_isort = false
 run_black = false
 run_ruff_autofix = true
-ruff_autofix_config = "ruff.toml"
+ruff_autofix_config = "ruff-plugins.toml"
+ruff_autofix_modules_config = "ruff-modules.toml"
 ruff_autofix_select = [
     "I",
     "RUF022",
 ]
 run_ruff_check = true
-ruff_check_config = "ruff.toml"
+ruff_check_config = "ruff-plugins.toml"
+ruff_check_modules_config = "ruff-modules.toml"
 run_ruff_format = true
-ruff_format_config = "ruff.toml"
+ruff_format_config = "ruff-plugins.toml"
+ruff_format_modules_config = "ruff-modules.toml"
 run_flake8 = false
 run_pylint = false
 run_yamllint = true
@@ -93,6 +96,8 @@ no_trailing_whitespace_skip_directories = [
 name = "consul"
 pattern = "^consul_.*$"
 exclusions = [
+    # The consul_acl_bootstrap module does not have a 'token' option, as opposed
+    # to all other consul modules. Therefore it is not part of the action group.
     "consul_acl_bootstrap",
 ]
 doc_fragment = "community.general._consul.actiongroup_consul"
@@ -112,6 +117,8 @@ doc_fragment = "community.general._scaleway.actiongroup_scaleway"
 
 [sessions.build_import_check]
 run_galaxy_importer = true
+
+[sessions.ansible_lint]
 
 [sessions.ansible_test_sanity]
 include_devel = true
@@ -212,7 +219,7 @@ ansible_core = "2.21"
 target = [ "azp/posix/1/", "azp/posix/2/", "azp/posix/3/" ]
 docker = [
     "fedora43",
-    # "alpine323",
+    "alpine323",
     "ubuntu2204",
     "ubuntu2404",
 ]
@@ -239,7 +246,7 @@ docker = [
     "fedora44",
     "ubuntu2604",
     "ubuntu2404",
-    "alpine323",
+    "alpine324",
 ]
 
 [[sessions.ansible_test_integration.groups.sessions]]
@@ -276,7 +283,7 @@ docker = "quay.io/ansible-community/test-image:archlinux"
 ansible_core = "devel"
 target = [ "azp/posix/vm/" ]
 remote = [
-    "alpine/3.23",
+    "alpine/3.24",
     # "fedora/44",
     "ubuntu/26.04",
     "ubuntu/24.04",

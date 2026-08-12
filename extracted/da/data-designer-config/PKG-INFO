@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: data-designer-config
-Version: 0.9.0
+Version: 0.9.1
 Summary: Configuration layer for DataDesigner synthetic data generation
 License-Expression: Apache-2.0
 Classifier: Development Status :: 4 - Beta

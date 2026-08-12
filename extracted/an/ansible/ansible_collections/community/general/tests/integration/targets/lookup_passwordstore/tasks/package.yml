@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Include distribution specific variables
-  include_vars: "{{ lookup('first_found', params) }}"
+  ansible.builtin.include_vars: "{{ lookup('first_found', params) }}"
   vars:
     params:
       files:
@@ -23,12 +23,12 @@
 - block:
   # OpenSUSE Leap>=15.0 don't include password-store in main repo
     - name: SUSE | Add security:privacy repo
-      template:
+      ansible.builtin.template:
         src: security-privacy.repo.j2
         dest: /etc/zypp/repos.d/security:privacy.repo
 
     - name: SUSE | Install package
-      package:
+      ansible.builtin.package:
         name: password-store
         state: present
         update_cache: true
@@ -80,16 +80,16 @@
   when: ansible_facts.distribution == 'MacOSX'
   block:
     - name: MACOS | Find brew binary
-      command: which brew
+      ansible.builtin.command: which brew
       register: brew_which
 
     - name: MACOS | Get owner of brew binary
-      stat:
+      ansible.builtin.stat:
         path: "{{ brew_which.stdout }}"
       register: brew_stat
 
     - name: MACOS | Install package
-      homebrew:
+      community.general.homebrew:
         name:
           - gnupg2
           - pass

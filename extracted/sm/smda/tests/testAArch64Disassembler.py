@@ -573,8 +573,9 @@ class TestAArch64PltResolution(unittest.TestCase):
                 self.api_targets = []
                 self.call_targets = []
 
-            def _handleApiTarget(self, from_addr, to_addr, dereferenced):
+            def _handleApiTarget(self, from_addr, to_addr, dereferenced, slot=None):
                 self.api_targets.append((from_addr, to_addr, dereferenced))
+                self.disassembly.addImportSlot(slot, "GLIBC_2.2.5", "puts")
                 return ("GLIBC_2.2.5", "puts")
 
             def _handleCallTarget(self, state, from_addr, to_addr):
@@ -1472,7 +1473,7 @@ class TestAArch64StaticFixture(unittest.TestCase):
         self.assertEqual(self.report.oep, 0x534)
         self.assertEqual(len(self.report.xcfg), 278)
         self.assertEqual(sum(1 for f in self.report.getFunctions() for _ in f.getInstructions()), 19881)
-        self.assertEqual(sum(1 for f in self.report.getFunctions() for _ in f.getBlocks()), 3525)
+        self.assertEqual(sum(1 for f in self.report.getFunctions() for _ in f.getBlocks()), 3497)
         self.assertIsNotNone(self.report.getFunction(0x400534))
 
     def test_real_fixture_gap_scan_recovery(self):
@@ -1670,6 +1671,21 @@ class TestAArch64Analyzers(unittest.TestCase):
         self.assertIn(0x401020, disassembly.apis)
         self.assertEqual(disassembly.apis[0x401020]["api_name"], "puts")
         self.assertFalse(fake_state.leaf)
+        # the slot the pointer was loaded from is what reaches imported_functions
+        self.assertEqual(disassembly.import_slots, {0x401010: ("GLIBC_2.2.5", "puts")})
+
+    def test_aarch64_indexed_load_reports_no_single_import_slot(self):
+        from capstone import CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN, Cs
+
+        from smda.aarch64.analyzers import AArch64IndirectCallAnalyzer
+
+        capstone = Cs(CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN)
+        capstone.detail = True
+        # ldr x8, [x9, x10] addresses a table, not one slot, so there is nothing to record
+        decoded = [next(capstone.disasm(w.to_bytes(4, "little"), 0x401000 + i * 4)) for i, w in enumerate([0xF86A6928])]
+        analyzer = AArch64IndirectCallAnalyzer(SimpleNamespace(disassembly=None, capstone=capstone))
+
+        self.assertIsNone(analyzer._loadSlotFor(decoded, "x8"))
 
     def test_aarch64_indirect_call_clears_stale_register_after_unknown_mov(self):
         from capstone import CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN, Cs
@@ -2226,6 +2242,13 @@ class TestAArch64Analyzers(unittest.TestCase):
             for block_start, succs in (function.blockrefs or {}).items():
                 if len(succs) >= 16:
                     multi.append((function.offset, block_start, len(succs)))
+                    if function.offset == 0x100000460 and block_start == 0x100000480:
+                        # Regression: relative table entries were rebased on the table's
+                        # own address instead of the adr anchor, pushing every target
+                        # +0xE8 into udf padding / table data. The 16 real case bodies
+                        # are spaced 0xC apart starting at the adr anchor target.
+                        expected = [0x10000049C + i * 0xC for i in range(16)]
+                        self.assertEqual(sorted(succs), expected)
         self.assertGreaterEqual(len(multi), 1, f"expected >=1 16-way JT block, got {multi}")
         self.assertTrue(any(degree == 16 for _, _, degree in multi), multi)
 

@@ -90,6 +90,11 @@ class UvProvider(BinProvider):
     # tool mode may accept an explicit ``uv_tool_bin_dir`` override or leave it unset.
     bin_dir: Path | None = Field(default=None, validation_alias="uv_tool_bin_dir")
 
+    @staticmethod
+    def _runtime_site_packages(venv_root: Path) -> Path:
+        python_lib = f"python{sys.version_info.major}.{sys.version_info.minor}"
+        return venv_root / "lib" / python_lib / "site-packages"
+
     def env_projection_target(self, source_path: Path) -> Path | None:
         """Uv-managed venv entrypoints are safe to expose through env/bin."""
         if self.install_root is None:
@@ -115,9 +120,8 @@ class UvProvider(BinProvider):
         }
         if self.install_root:
             venv_root = self.install_root / "venv"
-            python_lib = f"python{sys.version_info.major}.{sys.version_info.minor}"
             env["VIRTUAL_ENV"] = str(venv_root)
-            site_packages = venv_root / "lib" / python_lib / "site-packages"
+            site_packages = self._runtime_site_packages(venv_root)
             if site_packages.is_dir():
                 env["PYTHONPATH"] = ":" + str(site_packages)
             # `uv` can install side dependencies into package-scoped venvs under
@@ -132,7 +136,7 @@ class UvProvider(BinProvider):
                     package_bin = package_venv / "bin"
                     if package_bin.is_dir():
                         env["PATH"] = f"{env.get('PATH', '')}:{package_bin}"
-                    site_packages = package_venv / "lib" / python_lib / "site-packages"
+                    site_packages = self._runtime_site_packages(package_venv)
                     if site_packages.is_dir():
                         package_paths.append(str(site_packages))
             if package_paths:
@@ -322,7 +326,20 @@ class UvProvider(BinProvider):
         )
 
     def _cache_args(self, *, no_cache: bool = False) -> list[str]:
-        return ["--no-cache"]
+        return ["--no-cache"] if no_cache else []
+
+    def _cache_context(self, bin_name: BinName) -> str:
+        provider_config = json.loads(super()._cache_context(bin_name))
+        provider_config["runtime_python"] = {
+            "executable": str(Path(sys.executable).absolute()),
+            "cache_tag": sys.implementation.cache_tag,
+        }
+        return json.dumps(
+            provider_config,
+            default=str,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
 
     @property
     def tool_dir(self) -> Path:
@@ -366,25 +383,6 @@ class UvProvider(BinProvider):
             self.PATH = self._merge_PATH(default_bin, PATH=self.PATH, prepend=True)
         super().setup_PATH(no_cache=no_cache)
 
-    @log_method_call(include_result=True)
-    def exec(
-        self,
-        bin_name,
-        cmd=(),
-        cwd: Path | str = ".",
-        quiet=False,
-        should_log_command: bool = True,
-        **kwargs,
-    ):
-        return super().exec(
-            bin_name=bin_name,
-            cmd=cmd,
-            cwd=cwd,
-            quiet=quiet,
-            should_log_command=should_log_command,
-            **kwargs,
-        )
-
     @log_method_call()
     def setup(
         self,
@@ -417,11 +415,19 @@ class UvProvider(BinProvider):
 
     def _managed_install_euid(self) -> int:
         """Return the uid that should own uv-managed package environments."""
+        owner_paths = (self.install_root,)
+        if self.install_root is not None and self.install_root.is_dir():
+            existing_owner = super().detect_euid(
+                owner_paths=owner_paths,
+                preserve_root=True,
+            )
+            if existing_owner != 0:
+                return existing_owner
         sudo_uid = self._sudo_managed_install_euid()
         if sudo_uid is not None:
             return sudo_uid
         return super().detect_euid(
-            owner_paths=(self.install_root, self.tool_dir, self.bin_dir),
+            owner_paths=owner_paths,
             preserve_root=True,
         )
 
@@ -486,6 +492,29 @@ class UvProvider(BinProvider):
             if root not in deduped:
                 deduped.append(root)
         return deduped
+
+    def _managed_path_matches_runtime(
+        self,
+        bin_name: BinName,
+        abspath: Path,
+    ) -> bool:
+        resolved_abspath = abspath.expanduser().resolve(strict=False)
+        for venv_root in self._managed_venv_roots(bin_name):
+            try:
+                resolved_abspath.relative_to(
+                    venv_root.resolve(strict=False),
+                )
+            except ValueError:
+                continue
+            runtime_site_packages = self._runtime_site_packages(venv_root)
+            if not runtime_site_packages.is_dir():
+                return False
+            if not resolved_abspath.is_relative_to(
+                (venv_root / "lib").resolve(strict=False),
+            ):
+                return True
+            return resolved_abspath.is_relative_to(runtime_site_packages.resolve())
+        return True
 
     def _ensure_venv(self, root: Path | None = None, *, no_cache: bool = False) -> None:
         """Create a managed uv virtualenv on first use when install_root is pinned."""
@@ -563,8 +592,6 @@ class UvProvider(BinProvider):
             gid = os.getegid()
 
         paths = [
-            install_root.parent.parent,
-            install_root.parent,
             root.parent,
             root,
             root / "venv",
@@ -691,6 +718,21 @@ class UvProvider(BinProvider):
                 return package_name
         return str(bin_name)
 
+    def cached_binary_state_mismatch(
+        self,
+        bin_name: BinName,
+        cached_record: Mapping[str, object],
+    ) -> bool:
+        cached_abspath = cached_record.get("abspath")
+        return (
+            super().cached_binary_state_mismatch(bin_name, cached_record)
+            or not isinstance(cached_abspath, str)
+            or not self._managed_path_matches_runtime(
+                bin_name,
+                Path(cached_abspath),
+            )
+        )
+
     def get_cache_info(
         self,
         bin_name: BinName,
@@ -702,12 +744,28 @@ class UvProvider(BinProvider):
 
         package_name = self._package_name_for_bin(str(bin_name))
         normalized_name = package_name.lower().replace("-", "_")
+        venv_roots = self._managed_venv_roots(str(bin_name))
+        owning_venv = next(
+            (
+                venv_root
+                for venv_root in venv_roots
+                if Path(abspath)
+                .resolve(strict=False)
+                .is_relative_to(
+                    venv_root.resolve(strict=False),
+                )
+            ),
+            venv_roots[0] if venv_roots else self.install_root / "venv",
+        )
+        venv_python = owning_venv / "bin" / "python"
+        if venv_python.exists():
+            cache_info["fingerprint_paths"].append(venv_python)
         metadata_files = sorted(
-            ((self.install_root / "venv") / "lib").glob(
+            (owning_venv / "lib").glob(
                 f"python*/site-packages/{normalized_name}*.dist-info/METADATA",
             ),
         ) or sorted(
-            ((self.install_root / "venv") / "lib").glob(
+            (owning_venv / "lib").glob(
                 f"python*/site-packages/{normalized_name}*.dist-info/PKG-INFO",
             ),
         )
@@ -1107,7 +1165,10 @@ class UvProvider(BinProvider):
     ) -> HostBinPath | None:
         try:
             abspath = super().default_abspath_handler(bin_name, **context)
-            if abspath:
+            if abspath and self._managed_path_matches_runtime(
+                str(bin_name),
+                Path(abspath),
+            ):
                 return TypeAdapter(HostBinPath).validate_python(abspath)
         except (OSError, RuntimeError, ValueError) as err:
             logger.debug("uv provider host-path probe failed for %s: %s", bin_name, err)
@@ -1121,6 +1182,8 @@ class UvProvider(BinProvider):
             assert installer_binary.loaded_abspath
 
             for venv_root in self._managed_venv_roots(str(bin_name)):
+                if not self._runtime_site_packages(venv_root).is_dir():
+                    continue
                 proc = self.exec(
                     bin_name=installer_binary.loaded_abspath,
                     cmd=[
@@ -1155,6 +1218,10 @@ class UvProvider(BinProvider):
                         if normalized_package_name not in module_names:
                             module_names.append(normalized_package_name)
                 for location in site_packages_locations:
+                    if location.resolve(strict=False) != self._runtime_site_packages(
+                        venv_root,
+                    ).resolve(strict=False):
+                        continue
                     for module_name in module_names:
                         for module_candidate in (
                             location / module_name / "__init__.py",

@@ -41,6 +41,7 @@ RuntimeforBedrockDataAutomationServiceName = Literal["bedrock-data-automation-ru
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

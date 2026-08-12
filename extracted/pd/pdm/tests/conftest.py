@@ -10,6 +10,14 @@ from urllib.parse import unquote, urlparse
 import pytest
 from unearth.vcs import Git, vcs_support
 
+os.environ.pop("FORCE_COLOR", None)
+os.environ.update(
+    CI="1",
+    COLUMNS="120",
+    NO_COLOR="1",
+    PDM_CHECK_UPDATE="0",
+)
+
 from pdm.models.auth import keyring
 from pdm.project import Project
 from tests import FIXTURES
@@ -17,8 +25,6 @@ from tests import FIXTURES
 if TYPE_CHECKING:
     from pdm.pytest import IndexesDefinition
 
-
-os.environ.update(CI="1", PDM_CHECK_UPDATE="0")
 
 pytest_plugins = [
     "pdm.pytest",
@@ -137,7 +143,6 @@ def fixture_project(project_no_init: Project, request: pytest.FixtureRequest, lo
 @pytest.fixture()
 def vcs(monkeypatch):
     monkeypatch.setattr(vcs_support, "_registry", {"git": MockGit})
-    return
 
 
 @pytest.fixture(params=[False, True])

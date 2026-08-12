@@ -87,6 +87,14 @@ KIND_SHAPE_GAP = "shape_gap"
 # ``detail`` naming the identifiers (ref/function/label/request) + the
 # exception. Fail-soft BEHAVIOR is unchanged — these are confessions.
 KIND_SERVE_DEGRADE = "serve_degrade"
+# pgw#1142 / §4.32 item 4: the OPERATOR's eager-only order changed state on this
+# worker. Two phases, both transitions and neither a degradation:
+# `eager_only_engaged` (compiled serving suppressed — armed cells stay armed and
+# are not called) and `eager_only_released`. Deliberately its own kind rather
+# than a `serve_degrade` phase: every other member of that kind is something
+# that went wrong, and an operator exercising a supported control must not land
+# in a defect population the fleet reads as breakage.
+KIND_SERVE_POSTURE = "serve_posture"
 KIND_LORA_HYGIENE = "lora_hygiene"
 # pgw#794: the serve-side adapter-fidelity gate. `phase=refused` is a
 # fail-CLOSED decision (the request also gets a typed error); `phase=degraded`
@@ -126,9 +134,42 @@ KIND_COMPONENT_MISS = "component_miss"
 # frame_std_min, so ie#634's "corr 0.29 was uploaded and billed" is countable
 # hub-side instead of invisible.
 KIND_OUTPUT_INTEGRITY = "output_integrity"
+# pgw#1117 / th#1777: the pre-stage envelope precondition refused a slot load.
+# `phase=refused` — deterministic and fail-CLOSED: the bound artifact weighs
+# more, as it will load, than the release's declared `vram_gb` envelope, so
+# nothing was staged and no GPU time was spent. `detail` carries BOTH numbers
+# and the artifact digest, which is the whole point: ie#642's OOM banked
+# `CUDA out of memory` and sent an operator measuring the model, when the fact
+# that mattered was that the binding pointed at an fp32 archive clone.
+KIND_ENVELOPE_REFUSAL = "artifact_envelope_exceeded"
 KIND_ROTATION_PRELOAD = "rotation_preload"
 KIND_CAPABILITY_RENEWAL = "capability_renewal"
 KIND_RESIDENCY_FAULT = "residency_fault"
+# pgw#1104: a serve-time recipe reported the lane it APPLIED to the weights
+# (`gen_worker.report_applied_lane`), and `metrics.lane` now follows it instead
+# of the binding. `phase` is the component, `detail` carries the applied lane
+# body, the module counts and the BOUND lane it diverged from — so "which pods
+# serve a lane their checkpoint does not name" is one query, not an inference
+# from allocated-bytes rows.
+KIND_APPLIED_LANE = "applied_lane"
+# pgw#1043 §PRODUCTIZATION: the ATTENTION path setup() actually installed
+# (`gen_worker.report_applied_attention`). A third axis beside `lane` and
+# `serving_mode`, for the same reason those two are separate: the lane string
+# is a numerics descriptor and cannot say which key blocks were read, nor carry
+# the MEASURED density the wall is a function of. `phase` is the component;
+# `detail` carries mode, k, block size, density, selector and the bound index
+# artifact — so "which pods served sparse, at what density, off which head" is
+# one query.
+KIND_APPLIED_ATTENTION = "applied_attention"
+# pgw#1116: the boot-time adopt decision (§4.27 steps 1-3). EVERY boot of a
+# compiled family emits exactly one of these — hit, miss, and each named
+# refusal — because the alternative is what pgw#1108's pod proof measured: a
+# merged fix and a published wheel both sailed past a boot-adopt that never
+# called the hub, since all of `BootAdoptOutcome`'s eight refusals presented
+# identically as "a pod that quietly self-minted". `phase` is the gate token
+# (`boot_adopt.REASONS`, countable hub-side); `detail` names family, function,
+# derived key and the sentence; `duration_ms` is the derivation's own wall.
+KIND_BOOT_ADOPT = "boot_adopt"
 # th#1322: JIT (dynamo/inductor) compile duration, as a typed numeric event.
 # It used to be `logger.info("compiled %s in %.0fs")` and nothing else, so on a
 # hub-spawned pod (no stdout, pgw#760) the one number an AOT-vs-JIT comparison
@@ -146,6 +187,15 @@ KIND_JIT_COMPILE = "jit_compile"
 # imported it. `phase=minted` carries the roll-up, `phase=entry:<name>` one
 # declared graph class, `phase=stage:<name>` a mint-wide span (package/seal).
 KIND_AOT_MINT = "aot_mint_phases"
+# pgw#1134: a MEASURE-ONLY run (`gen_worker.measure_child`) — an operator
+# exporting and compiling a declared class set to find out what it costs, so a
+# declared mint blocker whose exit criterion is a number can be closed with
+# one. Deliberately NOT `aot_mint_phases`: nothing was minted, nothing was
+# published, and a measurement counted as a mint would be the first row of a
+# lie. `phase` is the outcome (`measured` / `measured_export` / a
+# `measure_child.REASONS` token), `duration_ms` the run's wall, `detail` the
+# peaks in the mint's own vocabulary.
+KIND_MEASURE_ONLY = "measure_only"
 # th#1322: the roll-up phase both mint routes report their TOTAL under. A
 # reader groups on (kind, phase) and must never sum a roll-up together with
 # its own children.
@@ -172,7 +222,7 @@ HEARTBEAT_INTERVAL_S = 60.0
 # Minimum evidence advance (process CPU seconds) per interval for a heartbeat:
 # a hung (blocked/deadlocked) call stops accruing CPU and the beat stops with
 # it, which is exactly the silence the hub enforces on.
-_EVIDENCE_EPS = 0.05
+EVIDENCE_EPS = 0.05
 
 _lock = threading.Lock()
 _seq = 0
@@ -297,6 +347,13 @@ class Activity:
             error=error, detail=detail,
             updated_at_unix_ms=int(time.time() * 1000),
         ))
+
+    @property
+    def phase_name(self) -> str:
+        """The phase this activity is reporting right now (pgw#1118). Read by
+        the setup boundary to name WHICH pass failed, so a warm/compile fault
+        can be typed as the release's instead of the caller's."""
+        return self._phase
 
     def phase(self, phase: str, step: int = 0, total: int = 0) -> None:
         self._phase, self._step, self._total = phase, step, total
@@ -609,7 +666,7 @@ def _process_io_evidence() -> float:
     return (io.read_bytes + io.write_bytes) / (1 << 20)
 
 
-def _default_evidence() -> float:
+def default_evidence() -> float:
     """Combined default watchdog evidence: process+live-children CPU
     seconds PLUS process disk I/O megabytes. Either source alone advancing
     proves genuine life: a network download followed by on-disk model load
@@ -628,7 +685,7 @@ class watchdog:
     hub's stall rule takes it from there.
 
     Default evidence is process+children CPU seconds plus process disk I/O
-    (see _default_evidence); pass a monotonic callable (e.g.
+    (see default_evidence); pass a monotonic callable (e.g.
     compile-wall-seconds) for calls with a better signal."""
 
     def __init__(
@@ -640,7 +697,7 @@ class watchdog:
     ) -> None:
         self._act = act
         self._interval = interval_s
-        self._evidence = evidence or _default_evidence
+        self._evidence = evidence or default_evidence
         self._stop = threading.Event()
         self._thread = threading.Thread(
             target=self._run, name="activity-watchdog", daemon=True,
@@ -656,7 +713,7 @@ class watchdog:
                 now = self._evidence()
             except Exception:
                 continue
-            if now - last >= _EVIDENCE_EPS:
+            if now - last >= EVIDENCE_EPS:
                 last = now
                 # gw#621: evidence advance is ALSO a registry counter, so the
                 # 10s beat reports it and the hub sees a moving number

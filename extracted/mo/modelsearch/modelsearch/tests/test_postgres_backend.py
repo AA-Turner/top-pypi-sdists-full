@@ -10,7 +10,7 @@ from django.test.utils import override_settings
 from modelsearch.models import IndexEntry
 from modelsearch.query import Fuzzy, Phrase
 from modelsearch.test.testapp import models
-from modelsearch.tests.test_backends import BackendTests
+from modelsearch.tests.test_backends import BackendTests, BackendTestSetupMixin
 
 
 @unittest.skipUnless(
@@ -316,14 +316,11 @@ class TestPostgresSearchBackend(BackendTests, TestCase):
         }
     }
 )
-class TestPostgresFuzzyThreshold(TestCase):
+class TestPostgresFuzzyThreshold(BackendTestSetupMixin, TestCase):
     """Test configurable fuzzy similarity threshold."""
 
     fixtures = ["search"]
     backend_path = "modelsearch.backends.database.postgres.postgres"
-
-    def setUp(self):
-        BackendTests.setUp(self)
 
     def test_fuzzy_threshold_from_settings(self):
         """
@@ -353,14 +350,11 @@ class TestPostgresFuzzyThreshold(TestCase):
         }
     }
 )
-class TestPostgresFuzzyPrefixBoost(TestCase):
+class TestPostgresFuzzyPrefixBoost(BackendTestSetupMixin, TestCase):
     """Test configurable fuzzy prefix boost."""
 
     fixtures = ["search"]
     backend_path = "modelsearch.backends.database.postgres.postgres"
-
-    def setUp(self):
-        BackendTests.setUp(self)
 
     def test_backend_has_prefix_boost_attribute(self):
         """Test that the backend has the fuzzy_prefix_boost attribute."""
@@ -412,14 +406,11 @@ class TestPostgresFuzzyPrefixBoost(TestCase):
         }
     }
 )
-class TestPostgresFuzzyLevenshtein(TestCase):
+class TestPostgresFuzzyLevenshtein(BackendTestSetupMixin, TestCase):
     """Test Levenshtein distance fuzzy search algorithm."""
 
     fixtures = ["search"]
     backend_path = "modelsearch.backends.database.postgres.postgres"
-
-    def setUp(self):
-        BackendTests.setUp(self)
 
     def test_backend_has_algorithm_attribute(self):
         """Test that the backend has the fuzzy_algorithm attribute."""
@@ -584,13 +575,13 @@ class TestPostgresFuzzyLevenshteinRanking(TestCase):
         }
     }
 )
-class TestPostgresFuzzyUnaccent(TestCase):
+class TestPostgresFuzzyUnaccent(BackendTestSetupMixin, TestCase):
     """Test accent-insensitive fuzzy search using Fuzzy(unaccent=True)."""
 
     backend_path = "modelsearch.backends.database.postgres.postgres"
 
     def setUp(self):
-        BackendTests.setUp(self)
+        super().setUp()
         models.Book.objects.all().delete()
 
     def _create_and_index(self, titles):
@@ -658,12 +649,12 @@ class TestPostgresFuzzyUnaccent(TestCase):
         }
     }
 )
-class TestPostgresLanguageTextSearch(TestCase):
+class TestPostgresLanguageTextSearch(BackendTestSetupMixin, TestCase):
     backend_path = "modelsearch.backends.database.postgres.postgres"
 
     def setUp(self):
         # get search backend by backend_path
-        BackendTests.setUp(self)
+        super().setUp()
 
         book = models.Book.objects.create(
             title="Nu is beter dan nooit",

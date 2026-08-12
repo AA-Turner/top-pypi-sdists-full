@@ -10,7 +10,7 @@
 
 # Create basic CSV file
 - name: Create unique CSV file
-  copy:
+  ansible.builtin.copy:
     content: &users_content |
       name,uid,gid,gecos
       dag,500,500,Dag Wieërs
@@ -19,12 +19,12 @@
 
 # Read a CSV file and access user 'dag'
 - name: Read users from CSV file and return a dictionary
-  read_csv:
+  community.general.read_csv:
     path: "{{ remote_tmp_dir }}/users_unique.csv"
     key: name
   register: users_unique
 
-- assert:
+- ansible.builtin.assert:
     that:
       - users_unique.dict.dag.name == 'dag'
       - users_unique.dict.dag.gecos == 'Dag Wieërs'
@@ -37,11 +37,11 @@
 
 # Read a CSV file and access the first item
 - name: Read users from CSV file and return a list
-  read_csv:
+  community.general.read_csv:
     path: "{{ remote_tmp_dir }}/users_unique.csv"
   register: users_unique
 
-- assert:
+- ansible.builtin.assert:
     that:
       - users_unique.list.0.name == 'dag'
       - users_unique.list.0.gecos == 'Dag Wieërs'
@@ -55,7 +55,7 @@
 
 # Create basic CSV file using semi-colon
 - name: Create non-unique CSV file using semi-colon
-  copy:
+  ansible.builtin.copy:
     content: |
       name;uid;gid;gecos
       dag;500;500;Dag Wieërs
@@ -65,14 +65,14 @@
 
 # Read a CSV file and access user 'dag'
 - name: Read users from CSV file and return a dictionary
-  read_csv:
+  community.general.read_csv:
     path: "{{ remote_tmp_dir }}/users_nonunique.csv"
     key: name
     unique: false
     delimiter: ';'
   register: users_nonunique
 
-- assert:
+- ansible.builtin.assert:
     that:
       - users_nonunique.dict.dag.name == 'dag'
       - users_nonunique.dict.dag.gecos == 'Dag Wieers'
@@ -86,13 +86,13 @@
 
 # Read a CSV file using an non-existing dialect
 - name: Read users from CSV file and return a dictionary
-  read_csv:
+  community.general.read_csv:
     path: "{{ remote_tmp_dir }}/users_nonunique.csv"
     dialect: placebo
   register: users_placebo
   ignore_errors: true
 
-- assert:
+- ansible.builtin.assert:
     that:
       - users_placebo is failed
       - users_placebo.msg == "Dialect 'placebo' is not supported by your version of python."
@@ -100,7 +100,7 @@
 
 # Create basic CSV file without header
 - name: Create unique CSV file without header
-  copy:
+  ansible.builtin.copy:
     content: |
       dag,500,500,Dag Wieërs
       jeroen,501,500,Jeroen Hoekx
@@ -108,13 +108,13 @@
 
 # Read a CSV file and access user 'dag'
 - name: Read users from CSV file and return a dictionary
-  read_csv:
+  community.general.read_csv:
     path: "{{ remote_tmp_dir }}/users_noheader.csv"
     key: name
     fieldnames: name,uid,gid,gecos
   register: users_noheader
 
-- assert:
+- ansible.builtin.assert:
     that:
       - users_noheader.dict.dag.name == 'dag'
       - users_noheader.dict.dag.gecos == 'Dag Wieërs'
@@ -128,7 +128,7 @@
 
 # Create broken file
 - name: Create unique CSV file
-  copy:
+  ansible.builtin.copy:
     content: |
       name,uid,gid,gecos
       dag,500,500,Dag Wieërs
@@ -137,21 +137,21 @@
 
 # Read a broken CSV file using strict
 - name: Read users from a broken CSV file
-  read_csv:
+  community.general.read_csv:
     path: "{{ remote_tmp_dir }}/users_broken.csv"
     key: name
     strict: true
   register: users_broken
   ignore_errors: true
 
-- assert:
+- ansible.builtin.assert:
     that:
       - users_broken is failed
       - "'Unable to process file' in users_broken.msg"
 
 # Create basic CSV file with BOM
 - name: Create unique CSV file with BOM
-  copy:
+  ansible.builtin.copy:
     content: "{{ bom + content }}"
     dest: "{{ remote_tmp_dir }}/users_bom.csv"
   vars:
@@ -160,11 +160,11 @@
 
  # Read a CSV file and access the first item
 - name: Read users from CSV file and return a list
-  read_csv:
+  community.general.read_csv:
     path: "{{ remote_tmp_dir }}/users_bom.csv"
   register: users_bom
 
-- assert:
+- ansible.builtin.assert:
     that:
       - users_bom.list.0.name == 'dag'
       - users_bom.list.0.gecos == 'Dag Wieërs'

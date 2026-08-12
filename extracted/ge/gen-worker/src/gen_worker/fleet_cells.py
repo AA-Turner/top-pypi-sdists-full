@@ -34,9 +34,14 @@ every claimed key axis against its own records and pins the token to
 exactly this cell key; the endpoint-scoped ``cell_store`` row is stamped
 hub-side from the token claim, never from anything this module sends.
 
-cozy-local NEVER uses this module (its self-mint stays local-store-only in
-the cozy-local cell store module — user-controlled hardware is untrusted tier by
-definition); the local CLI path does not construct a publisher.
+cozy-local USES this module since pgw#1127, through ``local_serve``, with
+``publisher=None`` — one arming brain, two sinks. What it never has is a
+PUBLISHER: user-controlled hardware is untrusted tier by definition, so its
+cells land in ``local_cell_store`` (``local_keep_reason`` -> ``no_publish_sink``)
+and its obligation ends at :func:`keep_self_mint_local`. That absence is
+pinned structurally by ``tests/test_local_serve_no_publisher_pgw1127.py``,
+not by this paragraph: before pgw#1127 the local CLI armed JIT through
+``local_cells`` and never reached the local store at all.
 
 Mint failures keep the pre-self-mint miss policy: plain lanes serve eager,
 quantized (w8a8/w4a4) lanes keep their typed fail-closed refusal.
@@ -56,13 +61,15 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
+from typing import (
+    Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple)
 
 
 from . import activity as activity_mod
 from . import aot_identity, aot_serve, artifact_meta, cell_key, env_seal
 from . import boot_phases as boot_mod
 from . import local_cell_store
+from . import serve_posture
 from . import compile_cache as cc
 from .cell_adopt import AdoptOutcome, CellAdoption, EagerPhase
 from .models.chunk_cas import sha256_file
@@ -72,7 +79,8 @@ from .procsplit import broker
 from .models import loading, provision
 from .request_context._helpers import _decode_unverified_jwt_claims
 from .convert.hub import HubPublishError
-from .api.export_contract import export_declaration
+from .api.export_contract import (
+    blocker_refusal, export_declaration, open_blockers)
 from .models import lora_lifted
 
 logger = logging.getLogger(__name__)
@@ -117,7 +125,14 @@ class SelfMint:
 #: arm token must never pass ``cell_key.is_key`` / the hub's
 #: ``compilecache.IsCellKey``, because it is NOT a cell key — see
 #: :class:`ArmIdentity`.
-ARM_SCHEME = "arm1"
+#:
+#: The digit is the token's FACT-SET SCHEMA, and it is the memo-invalidation
+#: mechanism (pgw#1113): ``arm2`` states the compile SUBJECT, ``arm1`` did
+#: not, so an ``arm1-`` memo answers a question no ``arm2`` reader is asking.
+#: A stale-schema entry is therefore unaddressable by construction rather
+#: than misreadable, and :func:`arm_from_local_store` sweeps the predecessor
+#: files once per process instead of leaving them to accumulate silently.
+ARM_SCHEME = "arm2"
 
 
 @dataclass(frozen=True)
@@ -156,17 +171,76 @@ class ArmIdentity:
         return f"{ARM_SCHEME}-{digest[:56]}"
 
 
-#: The facts an :class:`ArmIdentity` states, in report order. ``envelope``
-#: and ``toolchain`` use the exported key's own derivations
+#: The ENVIRONMENT half of an :class:`ArmIdentity` — the facts a delegated
+#: child re-derives in its own process and RECORDS on the cell it hands back.
+#: ``envelope`` and ``toolchain`` use the exported key's own derivations
 #: (``cell_key.envelope_digest`` / ``cell_key.facts_digest``), ``lane`` the
-#: one lane label (``cc.execution_lane_label``) — the pgw#1042 divergence
-#: check compares exactly these, so an axis that fails to survive the
-#: parent->child boundary is refused BY NAME at the handback seam.
+#: one lane label (``cc.execution_lane_label``) — :func:`arm_axis_divergence`
+#: compares exactly these, so an axis that fails to survive the parent->child
+#: boundary is refused BY NAME at the handback seam.
 #: ``graph`` is deliberately absent: it exists only after the export, and
 #: comparing a declared-facts stand-in against the traced fact is the
 #: phantom divergence this type retires.
-ARM_FACTS = ("family", "format", "lane", "sm", "envelope", "env_seal",
-             "toolchain")
+ARM_ENVIRONMENT_FACTS = ("family", "format", "lane", "sm", "envelope",
+                         "env_seal", "toolchain")
+
+#: The SUBJECT half (pgw#1113): WHAT this obligation compiles, as opposed to
+#: what runtime it compiles on. ``subject`` is the resolved slot identity
+#: (:func:`cell_key.subject_digest` — which slot, which checkpoint refs,
+#: which snapshot digest); ``targets``/``dynamic``/``regional`` are the rest
+#: of ``cc.declared_compile_facts`` the token could not previously see.
+#:
+#: These are NOT compared at the handback seam, and that is the asymmetry
+#: this issue is about rather than an omission: a cell records no subject and
+#: must not, because one cell legally serves every checkpoint whose graph it
+#: is. The subject splits the OBLIGATION — which pipe owes which mint, which
+#: pending they may share, which memo row answers them — and the cell's own
+#: key, which is the traced computation, is what says the computation matches.
+ARM_SUBJECT_FACTS = ("subject", "targets", "dynamic", "regional")
+
+#: Every fact in the token, in report order.
+ARM_FACTS = ARM_ENVIRONMENT_FACTS + ARM_SUBJECT_FACTS
+
+#: The pipeline attribute carrying the resolved :class:`cell_key.SlotSubject`
+#: set the executor built this object from (pgw#1113). Stamped beside the
+#: execution lane, read here for the same reason the lane is read here rather
+#: than threaded through six call sites: the pipe is the one handle every arm
+#: site holds. A pipeline the worker did not resolve carries none, and
+#: :func:`cell_key.subject_digest` answers "" for it — honestly narrower, not
+#: silently equal to some other subject.
+ARM_SUBJECT_ATTR = "_cozy_arm_subject"
+
+
+def stamp_arm_subject(
+    pipe: Any, slot: str, refs: Sequence[str], snapshot_digest: str = "",
+) -> None:
+    """Record that ``pipe`` was resolved from ``slot`` at ``refs``.
+
+    Additive per slot: a shared-component pipeline serving two slots ends up
+    stating both. Best effort — a pipeline object that refuses attributes
+    leaves the subject unstated, which is the pre-pgw#1113 posture and never
+    an exception on a serving path.
+    """
+    subject = cell_key.SlotSubject(
+        slot=str(slot or ""),
+        refs=tuple(str(ref) for ref in refs if str(ref or "")),
+        snapshot_digest=str(snapshot_digest or ""),
+    )
+    known = {sub.slot: sub for sub in pipeline_arm_subject(pipe)}
+    known[subject.slot] = subject
+    try:
+        setattr(pipe, ARM_SUBJECT_ATTR,
+                tuple(sorted(known.values(), key=lambda s: s.slot)))
+    except Exception:  # noqa: BLE001 — a stamp is never worth a failed boot
+        logger.debug("fleet-cells: pipeline refused the arm subject stamp",
+                     exc_info=True)
+
+
+def pipeline_arm_subject(pipe: Any) -> Tuple[cell_key.SlotSubject, ...]:
+    """The resolved subject stamped on ``pipe``, or ``()``."""
+    stamped = getattr(pipe, ARM_SUBJECT_ATTR, None) or ()
+    return tuple(
+        sub for sub in stamped if isinstance(sub, cell_key.SlotSubject))
 
 
 def declared_envelope_block(cfg: Any) -> Dict[str, Any]:
@@ -188,8 +262,18 @@ def declared_envelope_block(cfg: Any) -> Dict[str, Any]:
     }
 
 
-def arm_identity(family: str, weight_lane: str, lora_bucket: int, cfg: Any) -> ArmIdentity:
-    """This runtime's :class:`ArmIdentity` for one owed (family, lane) mint.
+def arm_identity(
+    family: str, weight_lane: str, lora_bucket: int, cfg: Any,
+    subject: Iterable[cell_key.SlotSubject] = (),
+) -> ArmIdentity:
+    """This runtime's :class:`ArmIdentity` for one owed mint.
+
+    ``subject`` is WHAT is being compiled (pgw#1113): the resolved slots of
+    the pipeline this obligation is for. Without it the token named a
+    (family, lane) pair and nothing else, so two `@endpoint` classes sharing
+    one ``Compile``, or two slots of one class bound to different
+    checkpoints, computed ONE token — one pending, one child, one local-store
+    memo row — and the first of them to arm handed its cell to the others.
 
     Raises :class:`ValueError` when the runtime cannot state a fact (no
     CUDA => no ``sm``): a worker that cannot state its obligation identity
@@ -200,6 +284,14 @@ def arm_identity(family: str, weight_lane: str, lora_bucket: int, cfg: Any) -> A
         raise ValueError(
             "cannot state the compute capability (sm) of this runtime; no "
             "mint obligation can be opened without it")
+    # ONE derivation of the declaration's facts (``cc.declared_compile_facts``
+    # is the canonical form the cozy-local store verdict and the JIT semantic
+    # tag already read), so the obligation and the contract cannot disagree
+    # about what was declared. ``targets`` keeps DECLARATION ORDER: the child
+    # picks its compile target first-match (``mint_child.pick_compile_target``),
+    # so the order is meaning, not presentation.
+    declared = cc.declared_compile_facts(
+        cfg, lora_bucket_override=int(lora_bucket or 0))
     facts = {
         "family": str(family or ""),
         "format": str(cc.ARTIFACT_FORMAT),
@@ -209,6 +301,11 @@ def arm_identity(family: str, weight_lane: str, lora_bucket: int, cfg: Any) -> A
         "envelope": cell_key.envelope_digest(declared_envelope_block(cfg)),
         "env_seal": env_seal.seal_digest(env_seal.effective_seal()),
         "toolchain": cell_key.facts_digest(dict(cc.toolchain_digest())),
+        "subject": cell_key.subject_digest(subject),
+        "targets": ",".join(str(t) for t in declared["targets"]),
+        "dynamic": json.dumps(
+            declared["dynamic"], sort_keys=True, separators=(",", ":")),
+        "regional": "1" if declared["regional"] else "0",
     }
     return ArmIdentity(facts=tuple(sorted(facts.items())))
 
@@ -223,9 +320,11 @@ class PendingSelfMint:
     delivered-cell path once the child's cell earns adoption.
 
     One instance may be SHARED by several pipelines of one record whose
-    facts compute the same obligation identity (the qwen edit shape: two
-    lanes, one family cell). ``_state`` memoizes the adopt outcome so
-    sibling candidates converge on one publish.
+    facts compute the same obligation identity — which since pgw#1113
+    includes the SUBJECT (which slot, resolved to which checkpoint), so
+    sharing means "provably the same thing to compile", not "the same family
+    on the same card". ``_state`` memoizes the adopt outcome so sibling
+    candidates converge on one publish.
 
     pgw#1010: a DYNAMO miss no longer builds one of these. The JIT recipe
     keeps its serving role (intake, ``compile_cache.arm_jit_intake``) and
@@ -1107,6 +1206,7 @@ def enable_compiled(
     delegate: Optional[bool] = None,
     delivered_ref: str = "",
     delivered_digest: str = "",
+    boot_local_key: str = "",
 ) -> ArmOutcome:
     """Fleet arming policy, plus the adoption ledger every exit shares.
 
@@ -1117,12 +1217,22 @@ def enable_compiled(
     frame that made it, which is why the successful ones were narrated and the
     measured ones never sent.
     """
+    if serve_posture.eager_only():
+        # pgw#1142 / §4.32 item 4. `arming_block` would refuse every arm below
+        # anyway, but the policy would first resolve, download and materialize
+        # a cell to hand to a gate that has already decided — and on a MISS it
+        # would open a self-mint whose child re-derives the refusal minutes and
+        # a full compile later. The order is answered where it costs nothing,
+        # and it is answered with a token, not a bare False.
+        logger.info("fleet-cells: %s", serve_posture.block())
+        return ArmOutcome(
+            armed=False, eager_reason=EagerPhase.OPERATOR_EAGER_ONLY)
     adoptions: List[CellAdoption] = []
     outcome = _arming_policy(
         pipe, cfg, cache_dir, artifact,
         publisher=publisher, delegate=delegate,
         delivered_ref=delivered_ref, delivered_digest=delivered_digest,
-        adoptions=adoptions,
+        adoptions=adoptions, boot_local_key=boot_local_key,
     )
     if not adoptions:
         return outcome
@@ -1166,6 +1276,18 @@ def arm_ordered(
     ``stage_artifact`` via ``expected``. ``dynamo`` arms JIT intake.
     ``eager_only`` arms nothing, by order.
     """
+    if serve_posture.eager_only():
+        # pgw#1142 / §4.32 item 4: the operator's order outranks the hub's
+        # Plan, and this is the only place in the ORDERED path where that is
+        # true. It is not a refusal — `OrderedArmError` would fail the attempt
+        # typed, and the operator asked for eager service, not for the function
+        # to go down — so the order is obeyed the way `eager_only` below is
+        # obeyed: arm nothing, serve eager, say which of the two eager orders
+        # it was.
+        logger.info("arm-ordered: %s", serve_posture.block())
+        return ArmOutcome(
+            armed=False, eager_reason=EagerPhase.OPERATOR_EAGER_ONLY)
+
     bucket = int(getattr(cfg, "lora_bucket", 0) or 0)
     if bucket and not cc.has_compile_target(pipe, cfg):
         bucket = 0  # bare component slot (gw#627): branchless-eager, not an error
@@ -1271,6 +1393,7 @@ def _arming_policy(
     delivered_ref: str,
     delivered_digest: str,
     adoptions: List[CellAdoption],
+    boot_local_key: str = "",
 ) -> ArmOutcome:
     """Fleet arming policy (gw#587): delivered cell first, self-mint on miss.
 
@@ -1440,7 +1563,8 @@ def _arming_policy(
 
     try:
         arm_key = arm_identity(
-            family, loading.pipeline_weight_lane(pipe), bucket, cfg)
+            family, loading.pipeline_weight_lane(pipe), bucket, cfg,
+            subject=pipeline_arm_subject(pipe))
         key = arm_key.token
     except Exception as exc:  # noqa: BLE001 — obligation facts must be statable
         logger.warning("fleet-cells: self-mint identity computation failed (%s)", exc)
@@ -1505,9 +1629,26 @@ def _arming_policy(
         # This process already minted and ADOPTED this exact cell — re-arm
         # the same artifact through the same AOT gates instead of paying a
         # second export for bytes that are already on this disk.
+        #
+        # pgw#1113: through `_arm_exported_cell`, which is THE gate every cell
+        # this machine produced for itself passes, and not the bare
+        # `provision.arm_aot` that stood here. This was the one branch that
+        # armed a pipe from another pipe's artifact while skipping
+        # `arm_axis_divergence` entirely — and since the arm token is what
+        # decides "this exact cell", a token that could not name its subject
+        # made "another pipe" and "this pipe" the same sentence. The token now
+        # names the subject, so the branch is reached far less often; when it
+        # is reached it now earns the arm the same way every other
+        # self-produced cell does.
         try:
-            armed_ready = bool(provision.arm_aot(
-                pipe, cfg, cache_dir, Path(finalized_prior.artifact), bucket))
+            armed_ready, _meta, refusal = _arm_exported_cell(
+                pipe, cfg, cache_dir, bucket,
+                Path(finalized_prior.artifact), arm_key)
+            if not armed_ready:
+                logger.warning(
+                    "fleet-cells: the in-process finalized cell for key=%s "
+                    "did not re-arm (%s%s); falling through to a fresh mint",
+                    key, refusal[0], f": {refusal[1]}" if refusal[1] else "")
         except Exception as exc:  # noqa: BLE001 — fall back to a fresh mint
             logger.warning(
                 "fleet-cells: re-arm from the in-process finalized cell "
@@ -1530,14 +1671,19 @@ def _arming_policy(
     # single missing-file stat on a miss, so the trusted-fleet path — which
     # never stores anything locally — pays a stat and nothing else.
     local_prior = arm_from_local_store(
-        pipe, cfg, cache_dir, bucket, arm_key, family)
+        pipe, cfg, cache_dir, bucket, arm_key, family,
+        boot_local_key=boot_local_key)
     if local_prior is not None:
         return ArmOutcome(
             armed=True, self_mint=local_prior, selection_bug=selection_bug)
 
-    # Sibling pipes of one record whose axes compute the SAME key share one
-    # child mint (the qwen edit shape: two lanes, one family cell) — the
-    # first arm registers the pending and every sharer adopts its cell.
+    # Pipes whose obligation identity is the SAME token share one child mint:
+    # same runtime, same declaration AND same subject — the same slot resolved
+    # to the same checkpoint — so there is one computation to buy and one
+    # pending to open. pgw#1113 deleted the premise this comment used to
+    # state ("the qwen edit shape: two lanes, one family cell"): two lanes are
+    # one cell only when the graph says so, and the graph does not exist yet
+    # here. The obligation names its subject instead of assuming one.
     with _PENDING_LOCK:
         existing = _PENDING.get(key)
     if existing is not None:
@@ -1598,8 +1744,8 @@ def arm_axis_divergence(
     arm_key: ArmIdentity, meta: Mapping[str, Any],
 ) -> str:
     """'' when the child's cell-metadata states the parent's obligation
-    identity on every pre-trace fact (:data:`ARM_FACTS`), else the FIRST
-    diverging fact with both values (pgw#1042).
+    identity on every ENVIRONMENT fact (:data:`ARM_ENVIRONMENT_FACTS`), else
+    the FIRST diverging fact with both values (pgw#1042).
 
     A delegated child re-derives every environment-shaped fact in its own
     process, so a fact that fails to survive the boundary (the measured
@@ -1610,6 +1756,14 @@ def arm_axis_divergence(
     it exists only post-trace, and comparing a declared-facts stand-in
     against the traced fact was the attempt-28 phantom divergence
     (pgw#1059). Every compared fact uses the SAME derivation on both sides.
+
+    :data:`ARM_SUBJECT_FACTS` are equally deliberately NOT compared
+    (pgw#1113). A cell records no subject and must not: the key is the traced
+    computation, so one cell legally serves every checkpoint whose graph it
+    is, and demanding the cell restate the checkpoint it was minted from
+    would refuse exactly the reuse the membership axiom exists to allow. The
+    subject splits the obligation on THIS side of the boundary; what crosses
+    it is compared here.
     """
     envelope_block = meta.get(cell_key.EXPORT_ENVELOPE_KEY)
     child: Dict[str, str] = {
@@ -1627,7 +1781,7 @@ def arm_axis_divergence(
         "toolchain": cell_key.facts_digest(dict(meta.get("toolchain") or {})),
     }
     parent = arm_key.facts_dict()
-    for fact in ARM_FACTS:
+    for fact in ARM_ENVIRONMENT_FACTS:
         if parent.get(fact, "") != child.get(fact, ""):
             return (f"{fact}: child cell states {child.get(fact, '')!r}, "
                     f"this runtime computed {parent.get(fact, '')!r}")
@@ -1681,8 +1835,16 @@ def local_keep_reason(publisher: Optional[CellPublisher]) -> str:
 def _arm_exported_cell(
     pipe: Any, cfg: Any, cache_dir: Optional[Path], bucket: int,
     artifact: Path, arm_key: Optional[ArmIdentity],
+    *, verify_numerics: bool = False,
 ) -> Tuple[bool, Optional[Dict[str, Any]], Tuple[str, str]]:
     """THE gate every cell this machine produced for itself must pass.
+
+    ``verify_numerics`` (§4.32) is set by ONE caller —
+    :func:`adopt_delegated_mint`, the pod that just minted these bytes and is
+    about to publish them. The other three routes here are ADOPTIONS of bytes
+    already proven at their own mint (an in-process finalized cell, the local
+    store's, a fresh child mint being re-armed), and adoption runs no quality
+    gate.
 
     pgw#1096 extracted this from :func:`adopt_delegated_mint` so the two
     self-produced sources — a child process's fresh mint, and this machine's
@@ -1694,7 +1856,8 @@ def _arm_exported_cell(
     Two checks, in this order:
 
     1. **key-axis divergence** (pgw#1042) — the cell's recorded metadata must
-       state THIS runtime on every pre-trace axis (:data:`ARM_FACTS`), refused
+       state THIS runtime on every pre-trace environment axis
+       (:data:`ARM_ENVIRONMENT_FACTS`), refused
        by fact name. This is what makes a toolchain/sm/envelope move an honest
        refusal instead of a wrong arm;
     2. **the AOT arm** (pgw#805) — ``provision.arm_aot``: lifted-binding
@@ -1742,7 +1905,9 @@ def _arm_exported_cell(
             f"the cell (stamped key {stamped}) does not describe this "
             f"runtime: {divergence}"))
     try:
-        outcome = provision.arm_aot(pipe, cfg, cache_dir, artifact, bucket, meta)
+        outcome = provision.arm_aot(
+            pipe, cfg, cache_dir, artifact, bucket, meta,
+            verify_numerics=verify_numerics)
         if outcome:
             return True, meta, ("", "")
         refusal = (outcome.reason or "unclassified_arm_refusal",
@@ -1765,26 +1930,79 @@ def _arm_exported_cell(
     return False, meta, refusal
 
 
+#: One sweep per process: the store is this machine's, the predecessor
+#: entries are finite, and re-listing a directory on every arm buys nothing.
+_MEMO_SWEPT = False
+
+
+def _sweep_superseded_memos_once() -> None:
+    """Discard memo rows written under a superseded arm-token schema.
+
+    pgw#1113 states the cost up front: the subject facts change every token,
+    so every machine with a local store pays ONE re-mint per family, once.
+    That cost is the point — an entry keyed by a token that could not state
+    what it was compiling is exactly the row that could hand this pipeline
+    another checkpoint's cell — but it must be spent EXPLICITLY, in a counted
+    line, not discovered later as a store full of unreadable files.
+    """
+    global _MEMO_SWEPT
+    if _MEMO_SWEPT:
+        return
+    _MEMO_SWEPT = True
+    try:
+        local_cell_store.sweep_superseded_memos(ARM_SCHEME)
+    except Exception:  # noqa: BLE001 — a cache sweep is never fatal
+        logger.debug("fleet-cells: memo sweep failed", exc_info=True)
+
+
+#: pgw#1127: how this machine ADDRESSED the cell it armed. Two routes into one
+#: CAS, and the difference is what a refusal is allowed to do about it.
+ROUTE_MEMO = "memo"
+ROUTE_BOOT_KEY = "boot_key"
+
+
 def arm_from_local_store(
     pipe: Any, cfg: Any, cache_dir: Optional[Path], bucket: int,
-    arm_key: ArmIdentity, family: str,
+    arm_key: ArmIdentity, family: str, boot_local_key: str = "",
 ) -> Optional[SelfMint]:
     """§4.28 step 3: arm from THIS MACHINE's own store, before minting anything.
 
-    Paul's compile-once-run-forever, at the one place a miss is decided. The
-    machine derives its pre-trace identity (milliseconds), the memo names the
-    ``ck1`` key its last mint of that identity produced, the store hands back
-    the digest-verified artifact, and :func:`_arm_exported_cell` — the SAME
-    gate the child's own cell passes — decides. No network is touched on this
-    path at all: a cozy-local box with no hub reachable arms exactly as well as
-    one online, which is what "fully offline-capable" means.
+    Paul's compile-once-run-forever, at the one place a miss is decided. No
+    network is touched on this path at all: a box with no hub reachable arms
+    exactly as well as one online, which is what "fully offline-capable" means.
 
-    ``None`` = no usable local cell; the caller mints, honestly. Every refusal
-    is loud and DROPS the entry, so a corrupted or stale cell costs one re-mint
-    and never two.
+    TWO ROUTES, ONE CAS, ONE GATE (pgw#1127 S2). Both end at
+    :func:`_arm_exported_cell`, the gate a child's fresh mint also passes, so a
+    stored cell is never more trusted than a freshly minted one and never less.
+
+    * :data:`ROUTE_MEMO` — the pre-trace ``ArmIdentity`` (milliseconds), through
+      the memo this machine's own mint wrote for that exact token. The fast
+      path, and the only one before pgw#1127.
+    * :data:`ROUTE_BOOT_KEY` — the ``ck1`` key §4.27's boot derivation produced
+      and ``local_cell_store`` answered on. This is what makes an arm-token
+      SCHEME BUMP cost a trace instead of a mint: `sweep_superseded_memos`
+      deletes the shortcut and leaves the CELLS under their own keys, so after
+      the sweep the memo misses and the derived key still addresses the cell it
+      used to name. On a fleet pod both routes are one stat on an empty store.
+
+    A refusal on the memo route DROPS the entry — this machine wrote that memo
+    for this exact identity, so a cell that will not arm under it is stale.
+    A refusal on the boot-key route does NOT: that hit is an inference about
+    which pipe owns the bytes, and destroying another pipe's cell to punish a
+    wrong guess would turn one honest re-mint into two.
+
+    ``None`` = no usable local cell; the caller mints, honestly.
     """
+    _sweep_superseded_memos_once()
+    route = ROUTE_MEMO
     try:
         local = local_cell_store.lookup_for_arm(arm_key.token)
+        if local is None and boot_local_key:
+            # The memo is a SHORTCUT, never an authority (§4.28) — so when it
+            # has nothing to say, the address the boot derived is asked
+            # directly. Same store, same key space, same gate below.
+            route = ROUTE_BOOT_KEY
+            local = local_cell_store.lookup(boot_local_key)
     except Exception as exc:  # noqa: BLE001 — a cache read must never be fatal
         logger.warning("fleet-cells: local cell store unreadable (%s)", exc)
         return None
@@ -1793,21 +2011,36 @@ def arm_from_local_store(
     armed, meta, (reason, detail) = _arm_exported_cell(
         pipe, cfg, cache_dir, bucket, local.artifact, arm_key)
     if not armed:
+        dropped = route == ROUTE_MEMO
         logger.warning(
-            "fleet-cells: the local store's cell for %s (key=%s) did not arm "
-            "(%s%s); dropping it and minting", family, local.key, reason,
-            f": {detail}" if detail else "")
-        local_cell_store.drop(local.key)
+            "fleet-cells: the local store's cell for %s (key=%s, route=%s) did "
+            "not arm (%s%s); %s and minting", family, local.key, route, reason,
+            f": {detail}" if detail else "",
+            "dropping it" if dropped else "leaving it in place")
+        if dropped:
+            local_cell_store.drop(local.key)
         activity_mod.emit_event(
             "local_cell_refused",
-            f"family={family} arm_key={arm_key.token} cell_key={local.key}: "
-            f"this machine's own stored cell did not arm "
-            f"({reason}{': ' + detail if detail else ''}); it has been dropped "
-            f"from the local store and this boot mints a fresh one",
+            f"family={family} arm_key={arm_key.token} cell_key={local.key} "
+            f"route={route}: this machine's own stored cell did not arm "
+            f"({reason}{': ' + detail if detail else ''}); it has been "
+            + ("dropped from the local store" if dropped else
+               "LEFT in the local store — a boot-key hit is an inference "
+               "about which pipe owns the bytes, not a memo this machine "
+               "wrote for this arm")
+            + " and this boot mints a fresh one",
             phase=reason,
         )
         return None
     key = str((meta or {}).get("cell_key") or "").strip() or local.key
+    if route == ROUTE_BOOT_KEY:
+        # The shortcut, REPAIRED. The cell just proved it arms under this arm
+        # token, so the memo the sweep deleted (or that a re-keyed graph left
+        # pointing elsewhere) can be rewritten from evidence instead of from a
+        # mint. This is the whole cost argument for the derived-key route: with
+        # it an arm-scheme bump costs one TRACE per family per machine; without
+        # it, one MINT.
+        local_cell_store.note_memo(arm_key.token, local.key)
     aot_serve.note_aot_key(key)
     minted = SelfMint(
         family=family, cell_key=key,
@@ -1821,13 +2054,17 @@ def arm_from_local_store(
         _FINALIZED[arm_key.token] = minted
     logger.info(
         "fleet-cells: armed %s from THIS MACHINE's local cell store "
-        "(key=%s, %.1f MB) — no mint, no hub, no network (§4.28)",
-        family, key, local.bytes / 1e6)
+        "(key=%s, %.1f MB, route=%s) — no mint, no hub, no network (§4.28)",
+        family, key, local.bytes / 1e6, route)
     activity_mod.emit_event(
         "local_cell_armed",
-        f"family={family} arm_key={arm_key.token} cell_key={key}: this "
-        f"machine minted this cell on an earlier boot and stored it locally; "
-        f"it arms from disk with no mint and no publish route",
+        f"family={family} arm_key={arm_key.token} cell_key={key} "
+        f"route={route}: this machine minted this cell on an earlier boot and "
+        f"stored it locally; it arms from disk with no mint and no publish "
+        f"route"
+        + (" — addressed by the key THIS BOOT derived, so the arm-token memo "
+           "was not needed and has been rewritten from the proven arm"
+           if route == ROUTE_BOOT_KEY else ""),
         phase="local_store_hit",
     )
     return minted
@@ -1865,10 +2102,17 @@ def adopt_delegated_mint(
     # the reasons this call site used to compute inline are unchanged, and the
     # $2.72 lesson (attempt 26: a 36/36 mint refused by three events that all
     # said "could not adopt") is kept there rather than repeated here.
+    # §4.32 THE MINT-TIME GATE, and this is the only site that arms it: this
+    # process compiled these bytes and is about to publish them to every pod
+    # that will ever adopt this key. It runs the freshly compiled artifact and
+    # the eager forward it was traced from on the same feed, and it is STRICT —
+    # identical or refuse, no gray band — because an adopter runs no gate that
+    # could re-check what ships. A refusal below unwraps, serves eager, emits
+    # `self_mint_abort` to the hub and publishes nothing.
     armed, meta, refusal = _arm_exported_cell(
         pipe, pending.cfg, pending.cache_dir,
         int(getattr(pending.cfg, "lora_bucket", 0) or 0),
-        pending.target, pending.arm_key)
+        pending.target, pending.arm_key, verify_numerics=True)
     if not armed:
         reason, detail = refusal
         # pgw#999: `phase` is the countable column, so it carries the CLASS —
@@ -2028,8 +2272,11 @@ def publish_self_mint(pending: "PendingSelfMint") -> None:
         # Runtime assertion (gw#587): every fleet cell miss must produce a
         # publish attempt. A fleet worker minting with no usable sink is a
         # wiring defect (file_base_url/worker JWT absent at arming time),
-        # not a policy choice — loud, greppable, alarm-adjacent. (cozy-local
-        # legitimately has no publisher, but it never enters this module.)
+        # not a policy choice — loud, greppable, alarm-adjacent. cozy-local
+        # DOES enter this module since pgw#1127, and it must never enter
+        # HERE: it ends its obligation at :func:`keep_self_mint_local`, whose
+        # whole point is that a machine with no sink by design is not a
+        # machine that lost its sink by accident.
         logger.warning(
             "fleet-cells: SELF_MINT_WITHOUT_PUBLISH_SINK family=%s — cell "
             "stays local to this pod; the fleet store gains nothing",
@@ -2046,6 +2293,55 @@ def publish_self_mint(pending: "PendingSelfMint") -> None:
         )
         mark_terminus(pending, TERMINUS_WITHHELD)
         shutil.rmtree(pending.mint_root, ignore_errors=True)
+
+
+def keep_self_mint_local(pending: "PendingSelfMint") -> None:
+    """§4.28 terminus for a machine that has NO sink by design (cozy-local).
+
+    The cell is already in this machine's own store — ``adopt_delegated_mint``
+    put it there under its stamped ``ck1`` key before any publish could be
+    attempted — so all that is left is to END the obligation (pgw#815: a
+    pending that reaches the end of a boot carrying no terminus VANISHED) and
+    drop the capture directory.
+
+    Deliberately NOT :func:`publish_self_mint`. That function's sinkless branch
+    is a WIRING ALARM — a fleet pod whose ``file_base_url``/JWT went missing —
+    and firing it on cozy-local would make the one machine §4.28 was written
+    about permanently indistinguishable from a broken pod. It also takes a
+    publisher, and this one cannot: the local serve entry's never-publish
+    property is pinned structurally by
+    ``tests/test_local_serve_no_publisher_pgw1127.py``, and a terminus that
+    accepted a sink would be the hole that fence exists to close.
+    """
+    state = pending._state
+    if state.get("publish_resolved"):
+        return
+    state["publish_resolved"] = True
+    if state.get("minted") is None:
+        activity_mod.emit_event(
+            "self_mint_publish_withheld",
+            f"family={pending.family} key={pending.arm_token}: this machine "
+            f"has no publish sink and nothing was packed for this pending, so "
+            f"there is no cell to keep either",
+            phase="nothing_to_publish",
+        )
+        mark_terminus(pending, TERMINUS_ABANDONED)
+        shutil.rmtree(pending.mint_root, ignore_errors=True)
+        return
+    logger.info(
+        "fleet-cells: %s stays on THIS MACHINE (key=%s) — it has no publish "
+        "sink by design, and its own store is where every later run finds it "
+        "(§4.28)", pending.family, pending.arm_token)
+    activity_mod.emit_event(
+        "self_mint_publish_withheld",
+        f"family={pending.family} key={pending.arm_token}: this machine mints "
+        f"for ITSELF (§4.28) — the cell is in its own store, addressed by the "
+        f"same ck1 key the hub store would use, and no publish was attempted "
+        f"because no sink exists to attempt one against",
+        phase=KEEP_NO_PUBLISHER,
+    )
+    mark_terminus(pending, TERMINUS_WITHHELD)
+    shutil.rmtree(pending.mint_root, ignore_errors=True)
 
 
 def withhold_self_mint_publish(pending: "PendingSelfMint", reason: str) -> None:
@@ -2225,31 +2521,13 @@ def mint_recipe(
                 "out-of-process minting is unavailable and an AOTI export "
                 "has no eager tier to serve from while it compiles"))
 
-    # pgw#853: THIS is where a declaration is allowed to refuse. A family with
-    # open mint blockers (ltx/qwen/z-image) registers a THUNK, so its refusal
-    # arrives here — as a typed `self_mint_skipped` carrying every word of the
-    # blocker text — instead of as an ImportError that takes the endpoint
-    # down at boot. A refusal to MINT is not a refusal to IMPORT.
-    #
-    # pgw#996: the STATIC half of this refusal (unresolved MINT_BLOCKERS) is
-    # already recorded by the build gate, so no pod discovers it for the first
-    # time. The branch survives because the other half is genuinely a pod
-    # fact: ltx-2.3's thunk reads `LTX_SERVING_TIER` off the environment, and
-    # an unknown tier there is a MintRefused the image could not have known.
-    try:
-        decl = export_declaration(family)
-    except Exception as exc:  # noqa: BLE001 — serving outranks compiling
-        # Deliberately `Exception`, not `BaseException`: this runs INSIDE the
-        # serving process, where swallowing a KeyboardInterrupt/cancellation
-        # would be its own defect. Every refusal shape the declarations
-        # actually raise (MintRefused, DeclarationError, ImportError) is an
-        # Exception. The import boundary is the other way round — see
-        # `import_export_declaration`, which runs at BOOT and catches
-        # everything, because there nothing outranks the endpoint coming up.
-        return _decline(
-            "declaration_refused",
-            f"family {family!r}'s export declaration refuses to mint "
-            f"({type(exc).__name__}): {exc}")
+    # pgw#853 put the refusal HERE rather than at import, because a refusal to
+    # MINT is not a refusal to IMPORT. pgw#1107 retired the thunk that carried
+    # it: the accessor is now a registry read that cannot raise, and the
+    # refusal arrives below as DATA (`open_blockers`) under its own phase. The
+    # `try/except` that used to wrap this call went with it — a gate that can
+    # no longer fire is a decorative one.
+    decl = export_declaration(family)
 
     if decl is None:
         return _decline(
@@ -2257,6 +2535,15 @@ def mint_recipe(
             f"family {family!r} registered no export declaration (a "
             f"`compile=` block carrying graph classes, pgw#739/#758) — the "
             f"class set a multi-graph cell covers is undeclared")
+
+    # pgw#1115: the refusal, as DATA. A `Compile` carrying unresolved
+    # `blockers=` declines here under its own phase, naming the ids — the one
+    # form the fold onto `@endpoint(compile=)` can carry, and since pgw#1107
+    # the only one. Serving is untouched: this pod serves eager exactly as it
+    # did.
+    blocked = open_blockers(decl)
+    if blocked:
+        return _decline("declaration_blocked", blocker_refusal(family, blocked))
 
     # CYCLE: aot_mint imports CellPublisher from this module at module scope,
     # so this direction of the pair must stay deferred.

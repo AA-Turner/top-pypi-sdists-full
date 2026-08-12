@@ -4,13 +4,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Setup test fixture
-  copy:
+  ansible.builtin.copy:
     src: fixtures/ansible-xml-namespaced-beers.xml
     dest: /tmp/ansible-xml-namespaced-beers.xml
 
 
 - name: Remove namespaced '/bus:business/rat:rating'
-  xml:
+  community.general.xml:
     path: /tmp/ansible-xml-namespaced-beers.xml
     xpath: /bus:business/rat:rating
     namespaces:
@@ -22,10 +22,10 @@
   register: remove_namespaced_element
 
 - name: Add trailing newline
-  shell: echo "" >> /tmp/ansible-xml-namespaced-beers.xml
+  ansible.builtin.shell: echo "" >> /tmp/ansible-xml-namespaced-beers.xml
 
 - name: Compare to expected result
-  copy:
+  ansible.builtin.copy:
     src: results/test-remove-element.xml
     dest: /tmp/ansible-xml-namespaced-beers.xml
   check_mode: true
@@ -33,8 +33,8 @@
   register: comparison
 
 - name: Test expected result
-  assert:
+  ansible.builtin.assert:
     that:
       - remove_namespaced_element is changed
       - comparison is not changed  # identical
-  # command: diff -u {{ role_path }}/results/test-remove-element.xml /tmp/ansible-xml-namespaced-beers.xml
+  # ansible.builtin.command: diff -u {{ role_path }}/results/test-remove-element.xml /tmp/ansible-xml-namespaced-beers.xml

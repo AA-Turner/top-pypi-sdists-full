@@ -76,6 +76,7 @@ S3TablesServiceName = Literal["s3tables"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

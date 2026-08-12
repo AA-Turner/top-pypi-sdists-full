@@ -4,10 +4,12 @@ from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
+from temporalio.converter import DataConverter
 from temporalio.testing import WorkflowEnvironment
 
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.dependencies.dependency_injector import DependencyInjector
+from mistralai.workflows.core.temporal.payload_converter import MistralWorkflowsPayloadConverter
 
 
 @pytest.fixture(scope="session")
@@ -87,4 +89,11 @@ async def temporal_env() -> AsyncGenerator[WorkflowEnvironment, None]:
     without requiring a running Temporal server.
     """
     async with await WorkflowEnvironment.start_time_skipping() as env:
+        yield env
+
+
+@pytest_asyncio.fixture
+async def temporal_env_with_converter() -> AsyncGenerator[WorkflowEnvironment, None]:
+    data_converter = DataConverter(payload_converter_class=MistralWorkflowsPayloadConverter)
+    async with await WorkflowEnvironment.start_time_skipping(data_converter=data_converter) as env:
         yield env

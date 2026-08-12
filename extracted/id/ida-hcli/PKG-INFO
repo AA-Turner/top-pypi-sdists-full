@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ida-hcli
-Version: 0.19.0
+Version: 0.19.2
 Summary: HCLI - Hex-Rays CLI Utility
 Author-email: Hex-Rays SA <support@hex-rays.com>
 License-Expression: MIT
@@ -12,9 +12,9 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: click
-Requires-Dist: rich
+Requires-Dist: rich>=14.1
 Requires-Dist: rich-click
-Requires-Dist: httpx
+Requires-Dist: httpx<1
 Requires-Dist: pydantic>=2.11.0
 Requires-Dist: platformdirs
 Requires-Dist: packaging

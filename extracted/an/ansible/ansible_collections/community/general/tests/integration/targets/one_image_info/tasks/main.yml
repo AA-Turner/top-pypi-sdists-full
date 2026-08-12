@@ -10,7 +10,7 @@
 
 # Checks for existence
 - name: Get info by ID
-  one_image_info:
+  community.general.one_image_info:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
@@ -18,12 +18,12 @@
   register: result
 
 - name: Assert that image is present
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
 
 - name: Get info by list of ID
-  one_image_info:
+  community.general.one_image_info:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
@@ -34,12 +34,12 @@
   register: result
 
 - name: Assert that image is present
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
 
 - name: Get info by list of ID
-  one_image_info:
+  community.general.one_image_info:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
@@ -47,24 +47,24 @@
   register: result
 
 - name: Assert that image is present
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
 
 - name: Gather all info
-  one_image_info:
+  community.general.one_image_info:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
   register: result
 
 - name: Assert that images are present
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
 
 - name: Gather info by regex
-  one_image_info:
+  community.general.one_image_info:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
@@ -72,12 +72,12 @@
   register: result
 
 - name: Assert that images are present
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
 
 - name: Gather info by regex and ignore upper/lower cases
-  one_image_info:
+  community.general.one_image_info:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
@@ -85,13 +85,13 @@
   register: result
 
 - name: Assert that images are present
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
 
 # Updating an image
 - name: Clone image without name
-  one_image_info:
+  community.general.one_image_info:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
@@ -100,12 +100,12 @@
   register: result
 
 - name: Assert that image is cloned
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
 
 - name: Clone image with name
-  one_image_info:
+  community.general.one_image_info:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
@@ -115,12 +115,12 @@
   register: result
 
 - name: Assert that image is cloned
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
 
 - name: Disable image
-  one_image_info:
+  community.general.one_image_info:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
@@ -129,12 +129,12 @@
   register: result
 
 - name: Assert that network is disabled
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
 
 - name: Enable image
-  one_image_info:
+  community.general.one_image_info:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
@@ -143,12 +143,12 @@
   register: result
 
 - name: Assert that network is enabled
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
 
 - name: Make image persistent
-  one_image_info:
+  community.general.one_image_info:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
@@ -157,12 +157,12 @@
   register: result
 
 - name: Assert that network is persistent
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
 
 - name: Make image non-persistent
-  one_image_info:
+  community.general.one_image_info:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
@@ -171,13 +171,13 @@
   register: result
 
 - name: Assert that network is non-persistent
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
 
 # Testing errors
 - name: Try to use name and ID a the same time
-  one_image_info:
+  community.general.one_image_info:
     api_url: "{{ opennebula_url }}"
     api_username: "{{ opennebula_username }}"
     api_password: "{{ opennebula_password }}"
@@ -187,6 +187,6 @@
   ignore_errors: true
 
 - name: Assert that network not changed
-  assert:
+  ansible.builtin.assert:
     that:
       - result is failed

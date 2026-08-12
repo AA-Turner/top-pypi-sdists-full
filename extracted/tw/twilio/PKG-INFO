@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: twilio
-Version: 9.10.9
+Version: 9.11.0
 Summary: Twilio API client and TwiML generator
 Home-page: https://github.com/twilio/twilio-python/
 Author: Twilio
@@ -61,9 +61,6 @@ The Python library documentation can be found [here][libdocs].
 
 This library supports the following Python implementations:
 
-- Python 3.7
-- Python 3.8
-- Python 3.9
 - Python 3.10
 - Python 3.11
 - Python 3.12
@@ -131,7 +128,7 @@ After a brief delay, you will receive the text message on your phone.
 > It's okay to hardcode your credentials when testing locally, but you should use environment variables to keep them secret before committing any code or deploying to production. Check out [How to Set Environment Variables](https://www.twilio.com/blog/2017/01/how-to-set-environment-variables.html) for more information.
 
 ## OAuth Feature for Twilio APIs
-We are introducing Client Credentials Flow-based OAuth 2.0 authentication. This feature is currently in beta and its implementation is subject to change.
+We are introducing Client Credentials Flow-based OAuth 2.0 authentication.
 
 API examples [here](https://github.com/twilio/twilio-python/blob/main/examples/public_oauth.py)
 

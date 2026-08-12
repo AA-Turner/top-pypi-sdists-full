@@ -13,9 +13,11 @@ from .site_manager import SiteManager
 from .data_exchange_manager import DataExchangeManager
 from .device_config_manager import DeviceConfigManager
 from .vrrp_interface_manager import VRRPInterfaceManager
+from .dhcp_relay_interface_manager import DhcpRelayInterfaceManager
 from .lag_interface_manager import LagInterfaceManager
 from .site_to_site_vpn_manager import SiteToSiteVpnManager
 from .static_routes_manager import StaticRoutesManager
+from .ospfv2_manager import OSPFv2Manager
 from .ntp_manager import NtpManager
 from .traffic_policy_manager import TrafficPolicyManager
 from .security_policy_manager import SecurityPolicyManager
@@ -23,6 +25,7 @@ from .device_system_manager import DeviceSystemManager
 from .edge_services_manager import EdgeServicesManager
 from .prefix_and_port_list import PrefixAndPortListManager
 from .macsec_manager import MacsecManager
+from .nat_policy_manager import NatPolicyManager
 from .logger import setup_logger
 from .exceptions import GraphiantPlaybookError
 
@@ -85,6 +88,7 @@ class GraphiantConfig:
             self.data_exchange = DataExchangeManager(self.config_utils)
             self.device_config = DeviceConfigManager(self.config_utils)
             self.vrrp_interfaces = VRRPInterfaceManager(self.config_utils)
+            self.dhcp_relay_interfaces = DhcpRelayInterfaceManager(self.config_utils)
             self.lag_interfaces = LagInterfaceManager(self.config_utils)
             self.site_to_site_vpn = SiteToSiteVpnManager(self.config_utils)
             self.static_routes = StaticRoutesManager(self.config_utils)
@@ -95,6 +99,8 @@ class GraphiantConfig:
             self.edge_services = EdgeServicesManager(self.config_utils)
             self.prefix_port_list = PrefixAndPortListManager(self.config_utils)
             self.macsec = MacsecManager(self.config_utils)
+            self.nat_policy = NatPolicyManager(self.config_utils)
+            self.ospfv2 = OSPFv2Manager(self.config_utils)
 
             LOG.info("GraphiantConfig class initialized successfully with all managers")
 
@@ -118,6 +124,7 @@ class GraphiantConfig:
             "data_exchange": hasattr(self, "data_exchange") and self.data_exchange is not None,
             "device_config": hasattr(self, "device_config") and self.device_config is not None,
             "vrrp_interfaces": hasattr(self, "vrrp_interfaces") and self.vrrp_interfaces is not None,
+            "dhcp_relay_interfaces": hasattr(self, "dhcp_relay_interfaces") and self.dhcp_relay_interfaces is not None,
             "config_utils": hasattr(self, "config_utils") and self.config_utils is not None,
             "lag_interfaces": hasattr(self, "lag_interfaces") and self.lag_interfaces is not None,
             "site_to_site_vpn": hasattr(self, "site_to_site_vpn") and self.site_to_site_vpn is not None,
@@ -129,4 +136,6 @@ class GraphiantConfig:
             "edge_services": hasattr(self, "edge_services") and self.edge_services is not None,
             "prefix_port_list": hasattr(self, "prefix_port_list") and self.prefix_port_list is not None,
             "macsec": hasattr(self, "macsec") and self.macsec is not None,
+            "nat_policy": hasattr(self, "nat_policy") and self.nat_policy is not None,
+            "ospfv2": hasattr(self, "ospfv2") and self.ospfv2 is not None,
         }

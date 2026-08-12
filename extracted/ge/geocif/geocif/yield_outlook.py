@@ -237,7 +237,7 @@ def _query_predictions(db_path, table, model, experiment_name="default"):
         # multi-season countries (e.g. Somalia: 1=Gu, 2=Deyr); single-season
         # / older DBs lack it and stay on the pre-season code path.
         optional_cols = [
-            c for c in ("lower CI", "upper CI", "Area (ha)", "Stage Window Display", "Season")
+            c for c in ("lower CI", "upper CI", "alpha", "Area (ha)", "Stage Window Display", "Season")
             if c in table_cols
         ]
         extra_select = (
@@ -1217,6 +1217,129 @@ _MONTHLY_HISTORY_COLS = [
     "Predicted Yield (tn per ha)", "Observed Yield (tn per ha)",
     "lower CI", "upper CI", "Area (ha)", "Stage Window Display",
 ]
+
+
+_STATE_FIPS = {
+    "alabama": "01", "alaska": "02", "arizona": "04", "arkansas": "05",
+    "california": "06", "colorado": "08", "connecticut": "09",
+    "delaware": "10", "district of columbia": "11", "florida": "12",
+    "georgia": "13", "hawaii": "15", "idaho": "16", "illinois": "17",
+    "indiana": "18", "iowa": "19", "kansas": "20", "kentucky": "21",
+    "louisiana": "22", "maine": "23", "maryland": "24", "massachusetts": "25",
+    "michigan": "26", "minnesota": "27", "mississippi": "28", "missouri": "29",
+    "montana": "30", "nebraska": "31", "nevada": "32", "new hampshire": "33",
+    "new jersey": "34", "new mexico": "35", "new york": "36",
+    "north carolina": "37", "north dakota": "38", "ohio": "39",
+    "oklahoma": "40", "oregon": "41", "pennsylvania": "42",
+    "rhode island": "44", "south carolina": "45", "south dakota": "46",
+    "tennessee": "47", "texas": "48", "utah": "49", "vermont": "50",
+    "virginia": "51", "washington": "53", "west virginia": "54",
+    "wisconsin": "55", "wyoming": "56",
+}
+
+_STATE_EXPORT_COLS = [
+    "crop", "year", "state_name", "state_fips", "units", "model",
+    "observed_yield", "predicted_yield", "lower_ci", "upper_ci",
+    "alpha", "ci_coverage",
+]
+
+
+def _write_state_export(df_pred_store, season_bounds, dir_outlook, parser=None):
+    """Flat per-state yield export, one row per (crop, year, state).
+
+    Gated by ``[ML] state_export``. Mirrors the county-level product's
+    schema at admin-1: snake_case columns, FIPS as a zero-padded string
+    (so Alabama stays "01" instead of collapsing to 1), and the latest
+    stage per group — the same ``use_latest_stage`` rule the maps use.
+
+    Yields are in the crop's DISPLAY units (``[ML] yield_display``, already
+    applied at the query boundary in ``run``), stated per row in ``units``
+    so the file is unambiguous. ``alpha`` is the miscoverage rate carried
+    from the DB; ``ci_coverage`` is the derived 1 - alpha. CI columns are
+    only populated for years the run computed them for — that is 2026 only
+    unless ``[ML] estimate_ci_for_all = True``.
+
+    One file per (country, model), alongside the monthly history.
+    Extension path for admin-2: add county_name/county_fips and a 5-digit
+    ``fips`` = state+county from a county lookup; the row rule is unchanged.
+    """
+    by_country_model = {}
+    for (country, crop, model), df in df_pred_store.items():
+        if df is None or df.empty or "Stage Window Display" not in df.columns:
+            continue
+        part = df.copy()
+        part["Crop"] = crop
+        by_country_model.setdefault((country, model), []).append(part)
+
+    written = []
+    for (country, model), parts in by_country_model.items():
+        out = _add_calendar_columns(pd.concat(parts, ignore_index=True),
+                                    season_bounds)
+        years = pd.to_numeric(out["Harvest Year"], errors="coerce")
+        if years.dropna().empty:
+            continue
+
+        plant_num = out["Planting Month"].map(_MONTH_NUM)
+        pred_num = out["Prediction Month"].map(_MONTH_NUM)
+        out = out.assign(_yr=years, _step=(pred_num - plant_num) % 12)
+        # latest stage per crop x region x season x year
+        grp = [c for c in ("Crop", "Region", "Season", "_yr") if c in out.columns]
+        out = (out.sort_values(grp + ["_step"], kind="mergesort")
+                  .groupby(grp, as_index=False, dropna=False)
+                  .tail(1))
+
+        def _num(col):
+            return (pd.to_numeric(out[col], errors="coerce")
+                    if col in out.columns else pd.Series(np.nan, index=out.index))
+
+        regions = out["Region"].astype(str).str.strip()
+        alpha = _num("alpha")
+        if alpha.isna().all() and parser is not None:
+            # DB predates alpha being carried through _query_predictions;
+            # fall back to the run's configured value so the file stays
+            # self-describing rather than silently unlabelled.
+            try:
+                alpha = alpha.fillna(parser.getfloat("ML", "alpha"))
+            except Exception:
+                pass
+        flat = pd.DataFrame({
+            "crop": out["Crop"].astype(str).values,
+            "year": out["_yr"].astype("Int64").values,
+            "state_name": regions.values,
+            "state_fips": [
+                _STATE_FIPS.get(r.lower().replace("_", " "), "")
+                for r in regions
+            ],
+            "units": [
+                _yield_display_for(parser, c)[0] for c in out["Crop"]
+            ],
+            "model": model,
+            "observed_yield": _num(_CANON_OBS).round(4).values,
+            "predicted_yield": _num(_CANON_PRED).round(4).values,
+            "lower_ci": _num("lower CI").round(4).values,
+            "upper_ci": _num("upper CI").round(4).values,
+            "alpha": alpha.values,
+            "ci_coverage": (1 - alpha).round(3).values,
+        })[_STATE_EXPORT_COLS].sort_values(
+            ["crop", "state_name", "year"], kind="mergesort"
+        )
+
+        missing_fips = sorted(set(flat.loc[flat["state_fips"] == "", "state_name"]))
+        if missing_fips:
+            logger.warning(
+                f"State export: no FIPS for {missing_fips} — blank in output"
+            )
+
+        path = (dir_outlook /
+                f"{country}_{model}_state_yields_"
+                f"{int(years.min())}_{int(years.max())}.csv")
+        flat.to_csv(path, index=False)
+        logger.info(
+            f"State export CSV saved to {path} ({len(flat):,} rows, "
+            f"{int(flat['lower_ci'].notna().sum())} with CI)"
+        )
+        written.append(path)
+    return written
 
 
 def _write_monthly_history(df_pred_store, season_bounds, dir_outlook):
@@ -4777,6 +4900,16 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             _write_monthly_history(df_pred_store, season_bounds, dir_outlook)
         except Exception as e:  # never let an export kill a completed run
             logger.warning(f"Monthly history CSV export failed: {e}")
+
+        # Flat per-state export ([ML] state_export, default False). Placed
+        # here because this point is reached even in runs that die later in
+        # the post-plot diagnostics phase.
+        if parser.getboolean("ML", "state_export", fallback=False):
+            try:
+                _write_state_export(df_pred_store, season_bounds, dir_outlook,
+                                    parser=parser)
+            except Exception as e:
+                logger.warning(f"State export CSV failed: {e}")
 
         # Long-format CSV — one row per (region, year, model) including
         # ensemble + every active blend

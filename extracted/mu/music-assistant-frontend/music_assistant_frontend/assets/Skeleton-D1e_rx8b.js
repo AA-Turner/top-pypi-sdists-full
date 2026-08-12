@@ -1,1 +1,0 @@
-import{Li as e,Nr as t,Pi as n,Qr as r,kr as i}from"./lucide-DCjBhVSj.js";import{S as a}from"./index-BsGz3q-V.js";var o=t({__name:`Skeleton`,props:{class:{type:[Boolean,null,String,Object,Array]}},setup(t){let o=t;return(t,s)=>(r(),i(`div`,{"data-slot":`skeleton`,class:e(n(a)(`animate-pulse rounded-md bg-accent`,o.class))},null,2))}});export{o as t};

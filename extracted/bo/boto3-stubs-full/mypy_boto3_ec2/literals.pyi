@@ -3772,6 +3772,7 @@ EC2ServiceName = Literal["ec2"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

@@ -75,6 +75,10 @@ from mistralai.workflows.core.tracing._temporal_tracing_interceptor import (
 from mistralai.workflows.core.tracing.init_tracing import init_tracing
 from mistralai.workflows.core.utils.health_server import HealthServer
 from mistralai.workflows.core.worker_client import get_worker_client
+from mistralai.workflows.core.worker_registrations import (
+    build_worker_registrations,
+    set_worker_registrations,
+)
 from mistralai.workflows.core.workflow import ClassType
 from mistralai.workflows.exceptions import ErrorCode, WorkflowsException
 from mistralai.workflows.models import WorkflowSpecWithTaskQueue
@@ -115,8 +119,8 @@ class WorkerConfig(BaseModel):
 async def _register_workflow_specs(
     worker_client: PrivateWorkerClient,
     workflow_definitions: list[WorkflowSpecWithTaskQueue],
-    deployment_name: str | None = None,
-    worker_name: str | None = None,
+    deployment_name: str,
+    worker_name: str,
     deployment_location: DeploymentLocation | None = None,
 ) -> WorkflowSpecsRegisterResponse:
     try:
@@ -151,8 +155,8 @@ async def _worker_heartbeat(
     workflow_definitions: list[WorkflowSpecWithTaskQueue],
     workflow_registration_refs: list[WorkflowRegistrationRef],
     interval: int,
-    deployment_name: str | None = None,
-    worker_name: str | None = None,
+    deployment_name: str,
+    worker_name: str,
     deployment_location: DeploymentLocation | None = None,
 ) -> None:
     refs = list(workflow_registration_refs)
@@ -207,6 +211,7 @@ async def _worker_heartbeat(
                     )
                     for ref in response.workflow_registration_refs
                 ]
+                set_worker_registrations(build_worker_registrations(workflow_definitions, refs))
             except Exception as exc:
                 logger.error("Full re-registration also failed", **extract_error_context(exc), exc_info=exc)
     except Exception as exc:
@@ -214,7 +219,7 @@ async def _worker_heartbeat(
         raise WorkflowsException(code=ErrorCode.WORKER_REGISTRATION_ERROR, message="Fail to heartbeat worker")
 
 
-def _is_deployment_controller_managed_error(exc: Exception) -> bool:
+def _is_deployment_controller_managed_error(exc: BaseException) -> bool:
     """Whether current-version registration was rejected because a deployment manager owns it.
 
     When the Temporal Worker Controller manages a deployment it claims the ManagerIdentity,
@@ -227,6 +232,37 @@ def _is_deployment_controller_managed_error(exc: Exception) -> bool:
     )
 
 
+_AUTO_REGISTER_RETRY_BUDGET_SECONDS = 120
+
+
+@tenacity.retry(
+    # retry_if_exception_type(Exception) excludes BaseException: tenacity captures those too, and
+    # retrying through the CancelledError raised on worker shutdown would stall it.
+    retry=tenacity.retry_if_exception_type(Exception)
+    & tenacity.retry_if_exception(lambda exc: not _is_deployment_controller_managed_error(exc)),
+    before_sleep=lambda retry_state: logger.debug(
+        "Waiting for worker deployment to be available",
+        attempt=retry_state.attempt_number,
+    ),
+    stop=tenacity.stop_after_delay(_AUTO_REGISTER_RETRY_BUDGET_SECONDS),
+    wait=tenacity.wait_exponential(multiplier=0.25, max=2.5),
+    reraise=True,
+)
+async def _set_current_deployment_version(
+    temporal_client: TemporalClient,
+    namespace: str,
+    deployment_name: str,
+    build_id: str,
+) -> None:
+    await temporal_client.workflow_service.set_worker_deployment_current_version(
+        wsv1.SetWorkerDeploymentCurrentVersionRequest(
+            namespace=namespace,
+            deployment_name=deployment_name,
+            build_id=build_id,
+        )
+    )
+
+
 async def _auto_register_as_current_version(
     temporal_client: TemporalClient,
     namespace: str,
@@ -236,9 +272,12 @@ async def _auto_register_as_current_version(
     """
     Auto-register worker as current version for manual/local deployments.
 
-    Retries until successful, as the Worker Deployment may not exist yet when the worker first starts.
-    Once registered successfully, the task completes. Stands down without retrying if the deployment
-    is owned by a manager (e.g. the Temporal Worker Controller), which is the expected state there.
+    Retries until successful, as the Worker Deployment does not exist until this worker has polled
+    its task queue at least once. Backoff starts short because that first poll usually lands within
+    a second, and only widens if the deployment is genuinely slow to appear.
+
+    Stands down without retrying if the deployment is owned by a manager (e.g. the Temporal Worker
+    Controller), which is the expected state there.
 
     Args:
         temporal_client: Temporal client instance
@@ -246,57 +285,32 @@ async def _auto_register_as_current_version(
         deployment_name: Worker deployment name
         build_id: Build ID to set as current
     """
-    retry_count = 0
-    max_retries = 48  # 2 minutes worth of retries (2.5s intervals)
-
-    while retry_count < max_retries:
-        try:
-            await asyncio.sleep(2.5)  # Wait 2.5s before each attempt
-
-            set_request = wsv1.SetWorkerDeploymentCurrentVersionRequest(
-                namespace=namespace,
-                deployment_name=deployment_name,
-                build_id=build_id,
-            )
-            await temporal_client.workflow_service.set_worker_deployment_current_version(set_request)
-
+    try:
+        await _set_current_deployment_version(temporal_client, namespace, deployment_name, build_id)
+    except Exception as exc:
+        if _is_deployment_controller_managed_error(exc):
             logger.info(
-                "Successfully auto-registered worker as current version",
+                "Skipping worker current-version auto-registration: deployment is controller-managed",
                 deployment_name=deployment_name,
                 build_id=build_id,
-                retry_count=retry_count,
             )
-            return  # Success - exit the function
+            return
 
-        except Exception as exc:
-            if _is_deployment_controller_managed_error(exc):
-                logger.info(
-                    "Skipping worker current-version auto-registration: deployment is controller-managed",
-                    deployment_name=deployment_name,
-                    build_id=build_id,
-                )
-                return
+        logger.error(
+            "Failed to auto-register worker as current version within the retry budget",
+            **extract_error_context(exc),
+            deployment_name=deployment_name,
+            build_id=build_id,
+            retry_budget_seconds=_AUTO_REGISTER_RETRY_BUDGET_SECONDS,
+            exc_info=exc,
+        )
+        return
 
-            retry_count += 1
-            if retry_count >= max_retries:
-                logger.error(
-                    "Failed to auto-register worker as current version after max retries",
-                    **extract_error_context(exc),
-                    deployment_name=deployment_name,
-                    build_id=build_id,
-                    max_retries=max_retries,
-                    exc_info=exc,
-                )
-                return
-
-            logger.debug(
-                "Waiting for worker deployment to be available",
-                deployment_name=deployment_name,
-                build_id=build_id,
-                retry_count=retry_count,
-                max_retries=max_retries,
-                **extract_error_context(exc),
-            )
+    logger.info(
+        "Successfully auto-registered worker as current version",
+        deployment_name=deployment_name,
+        build_id=build_id,
+    )
 
 
 def _get_workflow_definitions(workflows: list[ClassType], task_queue: str) -> List[WorkflowSpecWithTaskQueue]:
@@ -659,6 +673,7 @@ async def _run_worker(workflows: List[ClassType]) -> None:
                 "Some workflows are already registered by another worker. "
                 "Please use a custom task queue or set `ALLOW_MULTIPLE_WORKERS` to True"
             )
+        set_worker_registrations(build_worker_registrations(workflow_definitions, response.workflow_registration_refs))
         async with (
             worker_client,
             asyncio.TaskGroup() as tg,
@@ -756,6 +771,7 @@ async def _run_worker(workflows: List[ClassType]) -> None:
             finally:
                 logger.info("Worker shutting down, cleaning up resources")
                 set_worker_service_client(None)
+                set_worker_registrations({})
                 register_task.cancel()
                 if auto_register_task:
                     auto_register_task.cancel()

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
-Name: ibm_db
-Version: 3.2.9
+Metadata-Version: 2.1
+Name: ibm-db
+Version: 3.3.0
 Summary: Python DBI driver for DB2 (LUW, zOS, i5)
 Home-page: http://pypi.python.org/pypi/ibm_db/
 Download-URL: http://code.google.com/p/ibm-db/downloads/list
@@ -38,18 +38,6 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Database :: Front-Ends
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: download-url
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: platform
-Dynamic: summary
 
 # Python support for IBM Db2 for LUW and IBM Db2 for z/OS
 
@@ -61,9 +49,10 @@ Provides Python interface for connecting to IBM Db2 for LUW and IBM Db2 for z/OS
 
 ## Components
 
-1. The **ibm_db** contains:
-   - **ibm_db** driver: Python driver for IBM Db2 for LUW and IBM Db2 for z/OS databases. Uses the IBM Data Server Driver for ODBC and CLI APIs to connect to IBM Db2 for LUW.
-   - **ibm_db_dbi**: Python driver for IBM Db2 for LUW that complies to the DB-API 2.0 specification.
+The **ibm_db** contains:
+
+- **ibm_db** driver: Python driver for IBM Db2 for LUW and IBM Db2 for z/OS databases. Uses the IBM Data Server Driver for ODBC and CLI APIs to connect to IBM Db2 for LUW.
+- **ibm_db_dbi**: Python driver for IBM Db2 for LUW that complies to the DB-API 2.0 specification.
 
 ## <a name="api"></a> API Documentation
 
@@ -71,12 +60,22 @@ For more information on the APIs supported by ibm_db, please refer to below link
 
 https://github.com/ibmdb/python-ibmdb/wiki/APIs
 
+For the asyncio APIs, please refer to [ASYNC_APIs_WIKI.md](ASYNC_APIs_WIKI.md).
+
 <a name="prereq"></a>
 
 ## Pre-requisites
 
 Install Python 3.9 <= 3.14. The minimum python version supported by driver is python 3.9 and the latest version supported is python 3.14.
 MacOS arm64 is supported Python 3.9 onwards.
+
+When using an external clidriver, **ibm_db_dbi** must be compiled against the headers and libraries of that clidriver to function properly.
+Therefore, it is not recommended to use the precompiled `ibm_db` wheel with an external clidriver.
+
+Compiling `ibm_db` for your clidriver requires:
+
+- A GCC compiler to compile the native C/C++ code used by `ibm_db`
+- ODBC header files from your clidriver (usually located in `clidriver/include`). Note that not all external clidrivers provide these files.
 
 ### To install ibm_db on z/OS system
 
@@ -102,12 +101,12 @@ If you face problems due to missing python header files while installing the dri
 
 If you have installed `DB2_RTC*` i.e. **DB2 Runtime Client** and want `ibm_db` to use it instead of clidriver, please read [this comment](https://github.com/ibmdb/python-ibmdb/issues/1023#issuecomment-3062805368) and take action.
 
-- clidriver v12.1 on Linux uses x86_64_v2 instruction set which is not supported by cibuildwheel and wheel image creation [fails](https://github.com/pypa/manylinux/issues/1725) using v12.1 clidriver. So, default version of clidriver on Linux platform is v11.5.9 only.
+- clidriver v12.1 on Linux requires glibc >= 2.34 and a CPU supporting the x86_64-v2 instruction set (e.g. Ubuntu 21.10+, RHEL 9+, Debian 12+, Fedora 35+ on hardware from 2009 onwards). Official Linux wheels on PyPI are now built with v12.1 clidriver using the `manylinux_2_34` image (see [pypa/manylinux#1725](https://github.com/pypa/manylinux/issues/1725) for background).
 
-- You can force installation of ibm_db on Linux with clidriver v12.1 using below commands:
+- If your system does not meet the glibc/CPU requirement above, install ibm_db from source with the older v11.5.9 clidriver instead:
 
 ```
-export CLIDRIVER_VERSION=v12.1.0
+export CLIDRIVER_VERSION=v11.5.9
 pip install ibm_db --no-binary :all: --no-cache-dir
 ```
 
@@ -148,7 +147,7 @@ This will install ibm_db and ibm_db_dbi module.
 - If `db2cli validate` command works in your system and installed db2 client/server
   has `include` directory, ibm_db installation from souce distribution will not download clidriver, but it will use the existing client/server from the system.
 
-- To inforce auto downloading of clidriver _OR_ to make setting of environment variable `IBM_DB_HOME` or `IBM_DB_INSTALLER_URL` or `CLIDRIVER_VERSION` effective; install ibm_db from source distribution usin below command:
+- To enforce auto downloading of clidriver _OR_ to make setting of environment variable `IBM_DB_HOME` or `IBM_DB_INSTALLER_URL` or `CLIDRIVER_VERSION` effective; install ibm_db from source distribution using below command:
 
 ```
 pip install ibm_db --no-binary :all: --no-cache-dir
@@ -519,9 +518,9 @@ conn = ibm_db.connect(connStr,'','')
 
 - For MacOSx64(Intel processor) and Linuxx64, **db2connect license of version 11.5** is required.
 
-- clidriver v12.1 on Linux uses x86_64_v2 instruction set which is not supported by `cibuildwheel` and wheel image creation [fails](https://github.com/pypa/manylinux/issues/1725) using v12.1 clidriver. So, default version of clidriver on Linux platform is v11.5.9 only.
+- clidriver v12.1 on Linux requires glibc >= 2.34 and a CPU supporting the x86_64-v2 instruction set (see [pypa/manylinux#1725](https://github.com/pypa/manylinux/issues/1725) for background). Official Linux wheels on PyPI are built with v12.1 clidriver using the `manylinux_2_34` image.
 
-- For activating server side license, you can purchase either `Db2 Connect Unlimited Edition for System zÂ®` or `Db2 Connect Unlimited Edition for System iÂ®` license from IBM.
+- For activating server side license, you can purchase either `Db2 Connect Unlimited Edition for System z®` or `Db2 Connect Unlimited Edition for System i®` license from IBM.
 
 - Ask your DBA to run db2connectactivate utility on Server to activate db2connect license.
 
@@ -726,9 +725,8 @@ pip3 install ibm_db --no-build-isolation
 # Testing
 
 Tests displaying Python ibm_db driver code examples are located in the ibm_db_tests
-directory. A valid config.py will need to be created to configure your Db2
-settings. A config.py.sample exists that can be copied and modified for your
-environment.
+directory. A valid config.py will need to be configured for your Db2
+settings. Update the config.json with your database connection details.
 
 - Set Environment Variables DB2_USER, DB2_PASSWD accordingly.
 
@@ -797,29 +795,38 @@ later of Db2. While Db2 v8.x is fully supported, two of the tests
 (test_195.py and test_52949.py) utilize XML functionality. These tests will
 fail on version 8.x of Db2.
 
-## Running the driver testsuite on Linux
+## Running the driver testsuite
 
-In order to run the entire python driver testsuite on Linux, run this
-command at the command prompt:
-
-```
-  python ibmdb_tests.py
-```
-
-To run a single test, set the environment variable, **SINGLE_PYTHON_TEST**, to
-the test filename you would like to run, followed by the previous command.
-
-## Running the driver testsuite on Windows
-
-In order to run the entire python driver testsuite on Windows, run this
-command at the command prompt:
+Run the entire testsuite (sync + async):
 
 ```
   python ibmdb_tests.py
 ```
 
-To run a single test, set the environment variable, **SINGLE_PYTHON_TEST**, to
-the test filename you would like to run, followed by the previous command.
+Run only sync or async tests, or a single test file:
+
+```
+  python ibmdb_tests.py --async                                # Run only async tests
+  python ibmdb_tests.py --sync                                 # Run only sync tests
+  python ibmdb_tests.py --async --test test_05_async_fetch.py   # Run a single async test
+  python ibmdb_tests.py --sync  --test test_006_ConnPassingOpts.py  # Run a single sync test
+```
+
+Legacy: To run a single test, set the environment variable **SINGLE_PYTHON_TEST**:
+
+```
+  Windows:
+  set SINGLE_PYTHON_TEST=test_006_ConnPassingOpts.py
+
+  Other platforms:
+  export SINGLE_PYTHON_TEST=test_006_ConnPassingOpts.py
+```
+
+Then run:
+
+```
+  python ibmdb_tests.py
+```
 
 ## Known Limitations for the Python driver
 

@@ -89,6 +89,7 @@ async def create_test_worker_with_events(
     workflows: List[Type],
     activities: List[Callable] | None = None,
     task_queue: str = "test-task-queue",
+    interceptors: List | None = None,
 ) -> AsyncGenerator[Worker, None]:
     """Create a test worker with full event support including task events.
 
@@ -125,7 +126,7 @@ async def create_test_worker_with_events(
         task_queue=task_queue,
         workflows=workflows,
         activities=all_activities,
-        interceptors=[EventInterceptor()],
+        interceptors=[*(interceptors or []), EventInterceptor()],
         workflow_runner=SandboxedWorkflowRunner(
             restrictions=get_sandbox_restrictions(),
         ),

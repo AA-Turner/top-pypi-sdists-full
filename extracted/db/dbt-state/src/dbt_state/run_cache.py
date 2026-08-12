@@ -1637,6 +1637,11 @@ class RunCache:
             node_contract_hash=node_contract_hash,
             profile_name=self._config.profile_name,
             project_id=self._run_cache_config.dbt_project_id,
+            node_database_representation=(
+                f"{node.database}.{node.schema}.{node.alias}"
+                if node.database and node.schema and node.alias
+                else None
+            ),
         )
 
     def _node_execution_type(self, node: ModelOrSnapshotOrTestNode) -> str:

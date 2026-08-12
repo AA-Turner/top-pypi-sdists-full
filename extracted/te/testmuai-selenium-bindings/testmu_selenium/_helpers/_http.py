@@ -27,6 +27,12 @@ class TransientHTTPError(Exception):
         super().__init__(self.message)
 
 
+class KaneAICreditsExhausted(Exception):
+    """Raised when an AI call is refused because the organization is out of credits."""
+
+    kaneai_error_code = "INSUFFICIENT_CREDITS"
+
+
 def _is_transient_http_error(status_code: int) -> bool:
     """Check if the HTTP status code is a transient error that should be retried."""
     return status_code in TRANSIENT_HTTP_STATUS_CODES
@@ -99,9 +105,30 @@ def make_http_request_with_retry(
                 "%s -> %s completed in %.2fs (status: %s)",
                 method, url, elapsed_time, response.status_code,
             )
+        # Terminal, so it must be raised before the transient-retry check.
+        _raise_if_insufficient_credits(response)
         if _is_transient_http_error(response.status_code):
             raise TransientHTTPError(
                 response.status_code,
                 f"Transient HTTP error: {response.status_code} for {method} {url}",
             )
         return response
+
+
+def _raise_if_insufficient_credits(response) -> None:
+    """Raise if the response is a 403 for exhausted credits.
+
+    No retry can succeed once credits are exhausted, so the run stops here rather
+    than continuing to issue calls that will all be refused.
+    """
+    if response is None or getattr(response, "status_code", None) != 403:
+        return
+    try:
+        body = response.json()
+    except Exception:
+        return
+    if isinstance(body, dict) and body.get("error_code") == "INSUFFICIENT_CREDITS":
+        print("[KANEAI][CREDITS] ERROR: Organization KaneAI credits exhausted — AI step blocked. Recharge credits to resume runs.")
+        raise KaneAICreditsExhausted(
+            body.get("message") or "Organization KaneAI credits exhausted."
+        )

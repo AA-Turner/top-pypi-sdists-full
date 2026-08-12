@@ -262,6 +262,24 @@ def test_update_customers_idempotent_no_change() -> None:
     mgr.gsdk.edit_data_exchange_customer.assert_not_called()
 
 
+def test_update_customers_accepts_admin_emails_plural() -> None:
+    """
+    Regression: "invite.adminEmails" (plural, matching the API field name directly) must
+    be accepted as an alternative to the legacy "invite.adminEmail" (singular).
+    """
+    mgr = _make_manager()
+    mgr.config_utils.render_config_file.return_value = {
+        "data_exchange_customers": [{"name": "FinanceInc", "invite": {"adminEmails": ["new@example.com"]}}]
+    }
+    mgr.gsdk.get_data_exchange_customer_by_name.return_value = _make_customer()
+    mgr.gsdk.get_data_exchange_customer_details.return_value = _customer_details(["old@example.com"])
+
+    result = mgr.update_customers("dummy.yaml")
+
+    assert result["changed"] is True
+    mgr.gsdk.edit_data_exchange_customer.assert_called_once()
+
+
 def test_update_customers_idempotent_order_invariant() -> None:
     mgr = _make_manager()
     mgr.config_utils.render_config_file.return_value = _update_customers_config(["b@example.com", "a@example.com"])
@@ -433,11 +451,13 @@ def test_update_services_preserves_site_structure_in_payload() -> None:
 
     call_args = mgr.gsdk.edit_data_exchange_service.call_args[0]
     payload = call_args[1]
-    # GET returns "sites" key; PUT must use "site" key
-    assert "site" in payload["policy"]
-    assert "sites" not in payload["policy"]
+    # GET returns "sites" key; the update payload now uses "sites" directly too (the
+    # generic PUT schema's key — gsdk.edit_data_exchange_service no longer needs a
+    # "site" (singular) -> "sites" translation for payloads built this way).
+    assert "sites" in payload["policy"]
+    assert "site" not in payload["policy"]
     # Inner sites array should be preserved from GET response
-    assert payload["policy"]["site"] == [{"sites": [13379, 13378], "siteLists": []}]
+    assert payload["policy"]["sites"] == [{"sites": [13379, 13378], "siteLists": []}]
 
 
 # ---- create_services diff_plan test ----
@@ -530,6 +550,468 @@ def test_create_services_no_diff_plan_when_existing_matches() -> None:
     assert result["diff_plan"] == []
 
 
+def _site_device_map(lan_segment_id: int, sites_to_devices: dict) -> dict:
+    """Build a get_lan_segment_site_device_map()-shaped response.
+
+    sites_to_devices: {site_id: [device_id, ...]}
+    """
+    return {
+        "lanSegmentIds": {
+            str(lan_segment_id): {
+                "siteIds": {
+                    str(site_id): {
+                        "lanSegmentExists": [
+                            {"deviceId": device_id, "hostname": f"device-{device_id}", "siteId": site_id}
+                            for device_id in device_ids
+                        ]
+                    }
+                    for site_id, device_ids in sites_to_devices.items()
+                }
+            }
+        }
+    }
+
+
+# ---- _validate_sites_and_devices_for_lan_segment tests ----
+
+
+def test_validate_sites_no_lan_segment_is_noop() -> None:
+    mgr = _make_manager()
+    mgr._validate_sites_and_devices_for_lan_segment({}, "svc1")  # pylint: disable=protected-access
+    mgr.gsdk.get_lan_segment_site_device_map.assert_not_called()
+
+
+def test_validate_sites_no_selected_sites_is_noop() -> None:
+    mgr = _make_manager()
+    mgr._validate_sites_and_devices_for_lan_segment(  # pylint: disable=protected-access
+        {"serviceLanSegment": 517853}, "svc1"
+    )
+    mgr.gsdk.get_lan_segment_site_device_map.assert_not_called()
+
+
+def test_validate_sites_success() -> None:
+    mgr = _make_manager()
+    mgr.gsdk.get_lan_segment_site_device_map.return_value = _site_device_map(517853, {4497: [30000061440]})
+    mgr._validate_sites_and_devices_for_lan_segment(  # pylint: disable=protected-access
+        {
+            "serviceLanSegment": 517853,
+            "sites": [{"sites": [4497], "siteLists": []}],
+            "natTranslationMode": {"centralized": {"prefixes": {"30000061440": {"prefixes": ["10.0.0.0/31"]}}}},
+        },
+        "svc1",
+    )
+
+
+def test_validate_sites_uses_shared_cache() -> None:
+    mgr = _make_manager()
+    mgr.gsdk.get_lan_segment_site_device_map.return_value = _site_device_map(517853, {4497: [30000061440]})
+    cache: dict = {}
+    for _attempt in range(2):
+        mgr._validate_sites_and_devices_for_lan_segment(  # pylint: disable=protected-access
+            {"serviceLanSegment": 517853, "sites": [{"sites": [4497], "siteLists": []}]},
+            "svc1",
+            site_map_cache=cache,
+        )
+    mgr.gsdk.get_lan_segment_site_device_map.assert_called_once()
+
+
+# ---- _resolve_nat_translation_device_ids tests ----
+
+
+def test_resolve_nat_translation_no_nat_mode() -> None:
+    mgr = _make_manager()
+    mgr._resolve_nat_translation_device_ids({}, "svc1")  # pylint: disable=protected-access
+    mgr.gsdk.get_device_id.assert_not_called()
+
+
+def test_resolve_nat_translation_resolves_device_names() -> None:
+    mgr = _make_manager()
+    mgr.gsdk.get_device_id.side_effect = {
+        "edge-1-sdktest": 30000061440,
+        "edge-2-sdktest": 30000061439,
+    }.get
+    policy_config = {
+        "natTranslationMode": {
+            "centralized": {
+                "prefixes": {
+                    "edge-1-sdktest": {"prefixes": ["162.131.7.64/31"]},
+                    "edge-2-sdktest": {"prefixes": ["162.131.7.66/31"]},
+                }
+            }
+        }
+    }
+
+    mgr._resolve_nat_translation_device_ids(policy_config, "svc1")  # pylint: disable=protected-access
+
+    resolved = policy_config["natTranslationMode"]["centralized"]["prefixes"]
+    assert resolved == {
+        "30000061440": {"prefixes": ["162.131.7.64/31"]},
+        "30000061439": {"prefixes": ["162.131.7.66/31"]},
+    }
+
+
+def test_resolve_nat_translation_device_not_found_raises() -> None:
+    mgr = _make_manager()
+    mgr.gsdk.get_device_id.return_value = None
+    policy_config = {
+        "natTranslationMode": {"centralized": {"prefixes": {"missing-edge": {"prefixes": ["10.0.0.0/31"]}}}}
+    }
+
+    with pytest.raises(ConfigurationError, match="missing-edge"):
+        mgr._resolve_nat_translation_device_ids(policy_config, "svc1")  # pylint: disable=protected-access
+
+
+# ---- _validate_nat_pool_prefixes_unique tests ----
+
+
+def test_validate_nat_pool_prefixes_no_nat_mode_is_noop() -> None:
+    mgr = _make_manager()
+    mgr._validate_nat_pool_prefixes_unique({}, "svc1")  # pylint: disable=protected-access
+
+
+def test_validate_nat_pool_prefixes_unique_passes() -> None:
+    mgr = _make_manager()
+    policy_config = {
+        "natTranslationMode": {
+            "centralized": {
+                "prefixes": {
+                    "30000061440": {"prefixes": ["162.131.7.64/31"]},
+                    "30000061439": {"prefixes": ["162.131.7.66/31"]},
+                }
+            }
+        }
+    }
+    mgr._validate_nat_pool_prefixes_unique(policy_config, "svc1")  # pylint: disable=protected-access
+
+
+def test_validate_nat_pool_prefixes_duplicate_raises_with_device_names() -> None:
+    mgr = _make_manager()
+    policy_config = {
+        "natTranslationMode": {
+            "centralized": {
+                "prefixes": {
+                    "30000061440": {"prefixes": ["162.131.7.64/31"]},
+                    "30000061439": {"prefixes": ["162.131.7.64/31"]},
+                }
+            }
+        }
+    }
+    device_names_by_id = {30000061440: "edge-1-sdktest", 30000061439: "edge-2-sdktest"}
+
+    with pytest.raises(ConfigurationError, match="edge-1-sdktest.*edge-2-sdktest|edge-2-sdktest.*edge-1-sdktest"):
+        mgr._validate_nat_pool_prefixes_unique(  # pylint: disable=protected-access
+            policy_config, "svc1", device_names_by_id=device_names_by_id
+        )
+
+
+# ---- _validate_cidr_prefixes / _validate_service_prefixes_are_cidr tests ----
+
+
+def test_validate_cidr_prefixes_valid_passes() -> None:
+    mgr = _make_manager()
+    mgr._validate_cidr_prefixes(  # pylint: disable=protected-access
+        ["162.131.7.68/31", "10.48.52.152/31"], "svc1", "prefixTags"
+    )
+
+
+def test_validate_cidr_prefixes_host_bits_set_raises_with_hint() -> None:
+    mgr = _make_manager()
+    with pytest.raises(ConfigurationError, match=r"162\.131\.7\.69/31.*162\.131\.7\.68/31"):
+        mgr._validate_cidr_prefixes(  # pylint: disable=protected-access
+            ["162.131.7.69/31"], "svc1", "natTranslationMode.centralized"
+        )
+
+
+def test_validate_service_prefixes_are_cidr_checks_prefix_tags_and_nat_mode() -> None:
+    mgr = _make_manager()
+    policy_config = {
+        "prefixTags": [{"prefix": "10.48.52.152/31"}],
+        "natTranslationMode": {"centralized": {"prefixes": {"30000061440": {"prefixes": ["162.131.7.69/31"]}}}},
+    }
+    with pytest.raises(ConfigurationError, match="natTranslationMode.centralized prefix '162.131.7.69/31'"):
+        mgr._validate_service_prefixes_are_cidr(policy_config, "svc1")  # pylint: disable=protected-access
+
+
+# ---- create_services: client_to_server ----
+
+
+def test_create_services_client_to_server_resolves_nat_and_creates() -> None:
+    mgr = _make_manager()
+    mgr.config_utils.render_config_file.return_value = {
+        "data_exchange_services": [
+            {
+                "serviceName": "de-c2s-1",
+                "type": "client_to_server",
+                "policy": {
+                    "serviceLanSegment": 517853,
+                    "prefixTags": [{"prefix": "10.48.52.152/31"}],
+                    "sites": [{"sites": [4497], "siteLists": []}],
+                    "natTranslationMode": {
+                        "centralized": {"prefixes": {"edge-1-sdktest": {"prefixes": ["162.131.7.64/31"]}}}
+                    },
+                },
+            }
+        ]
+    }
+    mgr.gsdk.get_global_routing_policy_summaries.return_value = []
+    mgr.gsdk.get_data_exchange_service_by_name.return_value = None  # doesn't exist yet
+    mgr.gsdk.get_device_id.return_value = 30000061440
+    mgr.gsdk.get_lan_segment_site_device_map.return_value = _site_device_map(
+        517853, {4497: [30000061440]}
+    )
+
+    result = mgr.create_services("dummy.yaml")
+
+    assert result["changed"] is True
+    assert "de-c2s-1" in result["created"]
+    mgr.gsdk.create_data_exchange_services.assert_called_once()
+    (sent_config,) = mgr.gsdk.create_data_exchange_services.call_args[0]
+    nat_prefixes = sent_config["policy"]["natTranslationMode"]["centralized"]["prefixes"]
+    assert nat_prefixes == {"30000061440": {"prefixes": ["162.131.7.64/31"]}}
+
+
+def test_create_services_client_to_server_diff_plan_drift_on_nat_translation_mode() -> None:
+    """Existing client_to_server service with a changed NAT pool shows drift (use update_services)."""
+    mgr = _make_manager()
+    mgr.config_utils.render_config_file.return_value = {
+        "data_exchange_services": [
+            {
+                "serviceName": "de-c2s-1",
+                "type": "client_to_server",
+                "policy": {
+                    "serviceLanSegment": 517853,
+                    "prefixTags": [{"prefix": "10.48.52.152/31"}],
+                    "sites": [{"sites": [4497], "siteLists": []}],
+                    "natTranslationMode": {
+                        "centralized": {
+                            "prefixes": {
+                                "edge-1-sdktest": {"prefixes": ["162.131.7.64/31", "162.131.7.70/31"]}
+                            }
+                        }
+                    },
+                },
+            }
+        ]
+    }
+    mgr.gsdk.get_global_routing_policy_summaries.return_value = []
+    mgr.gsdk.get_data_exchange_service_by_name.return_value = _make_existing_service()
+    mgr.gsdk.get_data_exchange_service_details.return_value = _c2s_service_details(
+        nat_prefixes={"30000061440": {"prefixes": ["162.131.7.64/31"]}}  # only one prefix currently on the API
+    )
+    mgr.gsdk.get_device_id.return_value = 30000061440
+
+    result = mgr.create_services("dummy.yaml", diff_mode=True)
+
+    assert result["changed"] is False
+    assert "de-c2s-1" in result["skipped"]
+    assert "de-c2s-1" in result["drifted"]
+    assert len(result["diff_plan"]) == 1
+    entry = result["diff_plan"][0]
+    assert entry["device"] == "de-c2s-1"
+    assert "natTranslationMode" in entry["branch"]
+    assert "update_services" in entry["branch"]
+    assert entry["before"]["natTranslationMode"]["centralized"]["prefixes"] == {
+        "30000061440": {"prefixes": ["162.131.7.64/31"]}
+    }
+    assert entry["after"]["natTranslationMode"]["centralized"]["prefixes"] == {
+        "30000061440": {"prefixes": ["162.131.7.64/31", "162.131.7.70/31"]}
+    }
+    mgr.gsdk.create_data_exchange_services.assert_not_called()
+
+
+def test_create_services_client_to_server_no_drift_when_nat_translation_mode_matches() -> None:
+    """Existing client_to_server service with unchanged NAT pool produces no diff_plan entry."""
+    mgr = _make_manager()
+    mgr.config_utils.render_config_file.return_value = {
+        "data_exchange_services": [
+            {
+                "serviceName": "de-c2s-1",
+                "type": "client_to_server",
+                "policy": {
+                    "serviceLanSegment": 517853,
+                    "prefixTags": [{"prefix": "10.48.52.152/31"}],
+                    "sites": [{"sites": [4497], "siteLists": []}],
+                    "natTranslationMode": {
+                        "centralized": {"prefixes": {"edge-1-sdktest": {"prefixes": ["162.131.7.64/31"]}}}
+                    },
+                },
+            }
+        ]
+    }
+    mgr.gsdk.get_global_routing_policy_summaries.return_value = []
+    mgr.gsdk.get_data_exchange_service_by_name.return_value = _make_existing_service()
+    mgr.gsdk.get_data_exchange_service_details.return_value = _c2s_service_details(
+        nat_prefixes={"30000061440": {"prefixes": ["162.131.7.64/31"]}}
+    )
+    mgr.gsdk.get_device_id.return_value = 30000061440
+
+    result = mgr.create_services("dummy.yaml", diff_mode=True)
+
+    assert result["changed"] is False
+    assert "de-c2s-1" in result["skipped"]
+    assert result["drifted"] == []
+    assert result["diff_plan"] == []
+
+
+def test_create_services_client_to_server_site_not_on_lan_segment_raises() -> None:
+    mgr = _make_manager()
+    mgr.config_utils.render_config_file.return_value = {
+        "data_exchange_services": [
+            {
+                "serviceName": "de-c2s-2",
+                "type": "client_to_server",
+                "policy": {
+                    "serviceLanSegment": 517853,
+                    "prefixTags": [{"prefix": "10.48.52.152/31"}],
+                    "sites": [{"sites": [9999], "siteLists": []}],  # not on this LAN segment
+                },
+            }
+        ]
+    }
+    mgr.gsdk.get_global_routing_policy_summaries.return_value = []
+    mgr.gsdk.get_data_exchange_service_by_name.return_value = None
+    mgr.gsdk.get_lan_segment_site_device_map.return_value = _site_device_map(517853, {4497: [30000061440]})
+
+    with pytest.raises(ConfigurationError, match="not part of LAN segment"):
+        mgr.create_services("dummy.yaml")
+    mgr.gsdk.create_data_exchange_services.assert_not_called()
+
+
+def test_create_services_client_to_server_device_not_on_site_raises() -> None:
+    mgr = _make_manager()
+    mgr.config_utils.render_config_file.return_value = {
+        "data_exchange_services": [
+            {
+                "serviceName": "de-c2s-3",
+                "type": "client_to_server",
+                "policy": {
+                    "serviceLanSegment": 517853,
+                    "prefixTags": [{"prefix": "10.48.52.152/31"}],
+                    "sites": [{"sites": [4497], "siteLists": []}],
+                    "natTranslationMode": {
+                        "centralized": {"prefixes": {"edge-9-sdktest": {"prefixes": ["162.131.7.64/31"]}}}
+                    },
+                },
+            }
+        ]
+    }
+    mgr.gsdk.get_global_routing_policy_summaries.return_value = []
+    mgr.gsdk.get_data_exchange_service_by_name.return_value = None
+    mgr.gsdk.get_device_id.return_value = 99999999999  # edge-9-sdktest resolves, but isn't on site 4497
+    mgr.gsdk.get_lan_segment_site_device_map.return_value = _site_device_map(517853, {4497: [30000061440]})
+
+    with pytest.raises(ConfigurationError, match="do not belong to the selected site"):
+        mgr.create_services("dummy.yaml")
+    mgr.gsdk.create_data_exchange_services.assert_not_called()
+
+
+# ---- update_services: client_to_server ----
+
+
+def _c2s_service_details(
+    service_id: int = 101,
+    prefix_tags: list | None = None,
+    nat_prefixes: dict | None = None,
+) -> dict:
+    if prefix_tags is None:
+        prefix_tags = [{"prefix": "10.48.52.152/31"}]
+    if nat_prefixes is None:
+        nat_prefixes = {"30000061440": {"prefixes": ["162.131.7.64/31"]}}
+    return {
+        "id": service_id,
+        "policy": {
+            "serviceName": "de-c2s-1",
+            "serviceType": "client_to_server",
+            "policy": {
+                "serviceLanSegment": 517853,
+                "sites": [{"sites": [4497], "siteLists": []}],
+                "description": "de_c2s_1_description",
+                "prefixTags": prefix_tags,
+                "natTranslationMode": {"centralized": {"prefixes": nat_prefixes}},
+            },
+        },
+    }
+
+
+def _c2s_update_config(policy_overrides: dict, service_name: str = "de-c2s-1") -> dict:
+    return {
+        "data_exchange_services": [
+            {"serviceName": service_name, "type": "client_to_server", "policy": policy_overrides}
+        ]
+    }
+
+
+def test_update_services_client_to_server_requires_prefix_tags_or_nat() -> None:
+    mgr = _make_manager()
+    mgr.config_utils.render_config_file.return_value = _c2s_update_config({})
+    mgr.gsdk.get_data_exchange_service_by_name.return_value = _make_existing_service()
+    mgr.gsdk.get_data_exchange_service_details.return_value = _c2s_service_details()
+
+    with pytest.raises(ConfigurationError, match="prefixTags.*natTranslationMode"):
+        mgr.update_services("dummy.yaml")
+
+
+def test_update_services_client_to_server_idempotent_no_change() -> None:
+    mgr = _make_manager()
+    mgr.config_utils.render_config_file.return_value = _c2s_update_config(
+        {"natTranslationMode": {"centralized": {"prefixes": {"edge-1-sdktest": {"prefixes": ["162.131.7.64/31"]}}}}}
+    )
+    mgr.gsdk.get_data_exchange_service_by_name.return_value = _make_existing_service()
+    mgr.gsdk.get_data_exchange_service_details.return_value = _c2s_service_details()
+    mgr.gsdk.get_device_id.return_value = 30000061440  # same device ID already on the service
+
+    result = mgr.update_services("dummy.yaml")
+
+    assert result["changed"] is False
+    assert "de-c2s-1" in result["skipped"]
+    mgr.gsdk.edit_data_exchange_service.assert_not_called()
+
+
+def test_update_services_client_to_server_applies_nat_change() -> None:
+    mgr = _make_manager()
+    mgr.config_utils.render_config_file.return_value = _c2s_update_config(
+        {"natTranslationMode": {"centralized": {"prefixes": {"edge-1-sdktest": {"prefixes": ["162.131.7.68/31"]}}}}}
+    )
+    mgr.gsdk.get_data_exchange_service_by_name.return_value = _make_existing_service(service_id=101)
+    mgr.gsdk.get_data_exchange_service_details.return_value = _c2s_service_details()
+    mgr.gsdk.get_device_id.return_value = 30000061440
+    mgr.gsdk.get_lan_segment_site_device_map.return_value = _site_device_map(517853, {4497: [30000061440]})
+
+    result = mgr.update_services("dummy.yaml")
+
+    assert result["changed"] is True
+    assert "de-c2s-1" in result["updated"]
+    mgr.gsdk.edit_data_exchange_service.assert_called_once()
+    sid, payload = mgr.gsdk.edit_data_exchange_service.call_args[0]
+    assert sid == 101
+    assert "id" not in payload
+    assert "type" not in payload["policy"]
+    assert payload["policy"]["natTranslationMode"]["centralized"]["prefixes"] == {
+        "30000061440": {"prefixes": ["162.131.7.68/31"]}
+    }
+    # prefixTags not provided in desired config -> preserved from current
+    assert payload["policy"]["prefixTags"] == [{"prefix": "10.48.52.152/31"}]
+
+
+def test_update_services_client_to_server_applies_prefix_tags_change() -> None:
+    mgr = _make_manager()
+    new_tags = [{"prefix": "10.48.52.154/31"}]
+    mgr.config_utils.render_config_file.return_value = _c2s_update_config({"prefixTags": new_tags})
+    mgr.gsdk.get_data_exchange_service_by_name.return_value = _make_existing_service(service_id=101)
+    mgr.gsdk.get_data_exchange_service_details.return_value = _c2s_service_details()
+
+    result = mgr.update_services("dummy.yaml")
+
+    assert result["changed"] is True
+    sid, payload = mgr.gsdk.edit_data_exchange_service.call_args[0]
+    assert payload["policy"]["prefixTags"] == new_tags
+    # natTranslationMode not provided in desired config -> preserved from current
+    assert payload["policy"]["natTranslationMode"]["centralized"]["prefixes"] == {
+        "30000061440": {"prefixes": ["162.131.7.64/31"]}
+    }
+    mgr.gsdk.get_device_id.assert_not_called()  # no natTranslationMode in desired config -> nothing to resolve
+
+
 # ---- delete_customers tests ----
 
 
@@ -600,9 +1082,11 @@ def test_delete_customers_empty_config_returns_unchanged() -> None:
 def _make_acceptance_with_peers(*vpn_profiles: str) -> dict:
     """Build a minimal acceptance config using ipsecGatewayPeers."""
     return {
-        "siteToSiteVpn": {
-            "ipsecGatewayPeers": {
-                "remotePeers": [{"name": f"peer-{i}", "vpnProfile": vp} for i, vp in enumerate(vpn_profiles, 1)]
+        "policy": {
+            "siteToSiteVpn": {
+                "ipsecGatewayPeers": {
+                    "remotePeers": [{"name": f"peer-{i}", "vpnProfile": vp} for i, vp in enumerate(vpn_profiles, 1)]
+                }
             }
         }
     }
@@ -638,6 +1122,169 @@ def test_validate_vpn_profiles_deduplicates_across_peers() -> None:
     mgr.gsdk.get_global_ipsec_profiles.assert_called_once()
 
 
+# ---- _normalize_acceptance_shape: legacy flat shape -> current policy-nested shape ----
+#
+# accept_invitation must keep accepting acceptance configs written in the pre-26.7.0 flat shape
+# (top-level siteInformation/nat/policy-as-a-list/siteToSiteVpn/globalObjectOps) — see
+# sample_data_exchange_acceptance_legacy.yaml — without requiring a config migration, so this is
+# a backward-compatible alias like site/sites, adminEmail/adminEmails, and nat/natTranslationMode,
+# not a breaking change.
+
+
+def test_normalize_acceptance_shape_translates_legacy_flat_structure() -> None:
+    legacy = {
+        "customerName": "FinanceInc",
+        "serviceName": "de-service-1",
+        "siteInformation": [{"sites": ["site-sjc-sdktest"], "siteLists": []}],
+        "nat": [{"prefix": "10.1.1.0/24", "tag": "s-1-prefix1"}],
+        "policy": [{"lanSegment": "customer-1-segment", "consumerPrefixes": ["10.101.0.0/24"]}],
+        "siteToSiteVpn": {"region": "us-central-1 (Chicago)", "emails": ["finance@financeinc.com"]},
+        "globalObjectOps": {"gw-2-sdktest": {"routingPolicyOps": {"Policy-Clt1-Primary": "Attach"}}},
+        "routingPolicyTable": [],
+    }
+
+    normalized = DataExchangeManager._normalize_acceptance_shape(legacy)  # pylint: disable=protected-access
+
+    assert normalized["customerName"] == "FinanceInc"
+    assert normalized["serviceName"] == "de-service-1"
+    assert normalized["routingPolicyTable"] == []
+    assert "siteInformation" not in normalized
+    assert "nat" not in normalized
+    assert "siteToSiteVpn" not in normalized
+    assert "globalObjectOps" not in normalized
+    policy = normalized["policy"]
+    assert policy["sites"] == [{"sites": ["site-sjc-sdktest"], "siteLists": []}]
+    assert policy["consumerLanSegments"] == [
+        {"lanSegment": "customer-1-segment", "consumerPrefixes": ["10.101.0.0/24"]}
+    ]
+    assert policy["natTranslationMode"] == {"peerToPeer": {"prefixes": [{"prefix": "10.1.1.0/24"}]}}
+    assert policy["siteToSiteVpn"] == {"region": "us-central-1 (Chicago)", "emails": ["finance@financeinc.com"]}
+    assert policy["globalObjectOps"] == {"gw-2-sdktest": {"routingPolicyOps": {"Policy-Clt1-Primary": "Attach"}}}
+
+
+def test_normalize_acceptance_shape_drops_legacy_only_nat_fields() -> None:
+    """Legacy "tag"/"translatedPrefix" nat fields are not real API fields — only prefix and
+    outsideNatPrefix carry over to natTranslationMode.peerToPeer.prefixes."""
+    legacy = {
+        "customerName": "FinanceInc",
+        "serviceName": "de-service-1",
+        "nat": [{"prefix": "10.1.1.0/24", "tag": "s-1-prefix1", "translatedPrefix": None}],
+    }
+
+    normalized = DataExchangeManager._normalize_acceptance_shape(legacy)  # pylint: disable=protected-access
+
+    assert normalized["policy"]["natTranslationMode"]["peerToPeer"]["prefixes"] == [{"prefix": "10.1.1.0/24"}]
+
+
+def test_normalize_acceptance_shape_passes_through_current_shape_unchanged() -> None:
+    current = {
+        "customerName": "FinanceInc",
+        "serviceName": "de-service-1",
+        "policy": {"sites": [{"sites": ["site-sjc-sdktest"], "siteLists": []}]},
+    }
+
+    normalized = DataExchangeManager._normalize_acceptance_shape(current)  # pylint: disable=protected-access
+
+    assert normalized is current
+
+
+def test_normalize_acceptance_shape_leaves_config_without_policy_or_legacy_keys_unchanged() -> None:
+    """No "policy" and none of the legacy keys either — nothing to translate; downstream
+    validation raises its own clear error rather than this function guessing."""
+    config = {"customerName": "FinanceInc", "serviceName": "de-service-1"}
+
+    normalized = DataExchangeManager._normalize_acceptance_shape(config)  # pylint: disable=protected-access
+
+    assert normalized is config
+
+
+# ---- _validate_prefixes_for_acceptances tests ----
+
+
+def test_validate_prefixes_for_acceptances_valid_passes() -> None:
+    mgr = _make_manager()
+    acceptances = [
+        {
+            "customerName": "FinanceBank-001",
+            "serviceName": "de-service-1",
+            "policy": {
+                "natTranslationMode": {
+                    "peerToPeer": {"prefixes": [{"prefix": "10.1.1.0/24", "outsideNatPrefix": "170.1.1.0/24"}]}
+                },
+                "consumerLanSegments": [{"consumerPrefixes": ["10.101.1.0/24"]}],
+                "siteToSiteVpn": {
+                    "ipsecGatewayDetails": {"routing": {"static": {"destinationPrefix": ["10.150.0.0/24"]}}}
+                },
+            },
+        }
+    ]
+    mgr._validate_prefixes_for_acceptances(acceptances)  # pylint: disable=protected-access
+
+
+def test_validate_prefixes_for_acceptances_invalid_nat_prefix_raises() -> None:
+    mgr = _make_manager()
+    acceptances = [
+        {
+            "customerName": "FinanceBank-001",
+            "serviceName": "de-service-1",
+            "policy": {"natTranslationMode": {"peerToPeer": {"prefixes": [{"prefix": "10.1.1.1/24"}]}}},
+        }
+    ]
+    with pytest.raises(ConfigurationError, match="natTranslationMode.peerToPeer.prefixes prefix '10.1.1.1/24'"):
+        mgr._validate_prefixes_for_acceptances(acceptances)  # pylint: disable=protected-access
+
+
+def test_validate_prefixes_for_acceptances_invalid_consumer_prefix_raises() -> None:
+    mgr = _make_manager()
+    acceptances = [
+        {
+            "customerName": "FinanceBank-001",
+            "serviceName": "de-service-1",
+            "policy": {"consumerLanSegments": [{"consumerPrefixes": ["10.101.1.1/24"]}]},
+        }
+    ]
+    with pytest.raises(ConfigurationError, match="consumerLanSegments.consumerPrefixes prefix '10.101.1.1/24'"):
+        mgr._validate_prefixes_for_acceptances(acceptances)  # pylint: disable=protected-access
+
+
+def test_validate_prefixes_for_acceptances_invalid_destination_prefix_ipsec_gateway_details_raises() -> None:
+    mgr = _make_manager()
+    acceptances = [
+        {
+            "customerName": "FinanceBank-001",
+            "serviceName": "de-service-1",
+            "policy": {
+                "siteToSiteVpn": {
+                    "ipsecGatewayDetails": {"routing": {"static": {"destinationPrefix": ["10.150.0.1/24"]}}}
+                }
+            },
+        }
+    ]
+    with pytest.raises(ConfigurationError, match="destinationPrefix prefix '10.150.0.1/24'"):
+        mgr._validate_prefixes_for_acceptances(acceptances)  # pylint: disable=protected-access
+
+
+def test_validate_prefixes_for_acceptances_invalid_destination_prefix_ipsec_gateway_peers_raises() -> None:
+    mgr = _make_manager()
+    acceptances = [
+        {
+            "customerName": "FinanceBank-001",
+            "serviceName": "de-service-1",
+            "policy": {
+                "siteToSiteVpn": {
+                    "ipsecGatewayPeers": {
+                        "remotePeers": [
+                            {"name": "peer-1", "routing": {"static": {"destinationPrefix": ["10.150.0.1/24"]}}}
+                        ]
+                    }
+                }
+            },
+        }
+    ]
+    with pytest.raises(ConfigurationError, match=r"remotePeers\[peer-1\].*destinationPrefix.*'10\.150\.0\.1/24'"):
+        mgr._validate_prefixes_for_acceptances(acceptances)  # pylint: disable=protected-access
+
+
 # ---- _fill_missing_tunnel_values: multi-peer tests ----
 
 
@@ -656,13 +1303,15 @@ def test_fill_missing_tunnel_values_multi_peer_fills_all_peers() -> None:
     mgr.gsdk.get_preshared_key.return_value = "secret"
 
     config = {
-        "siteToSiteVpn": {
-            "ipsecGatewayPeers": {"remotePeers": [_peer("peer-1"), _peer("peer-2")]}
+        "policy": {
+            "siteToSiteVpn": {
+                "ipsecGatewayPeers": {"remotePeers": [_peer("peer-1"), _peer("peer-2")]}
+            }
         }
     }
     mgr._fill_missing_tunnel_values(config, region_id=1, lan_segment_id=2)  # pylint: disable=protected-access
 
-    peers = config["siteToSiteVpn"]["ipsecGatewayPeers"]["remotePeers"]
+    peers = config["policy"]["siteToSiteVpn"]["ipsecGatewayPeers"]["remotePeers"]
     for peer in peers:
         for tunnel_key in ("tunnel1", "tunnel2"):
             assert peer[tunnel_key]["insideIpv4Cidr"] == "10.0.0.0/30"
@@ -673,21 +1322,31 @@ def test_fill_missing_tunnel_values_already_set_not_overwritten() -> None:
     """Pre-filled tunnel values are preserved when not null; no portal calls made."""
     mgr = _make_manager()
     config = {
-        "siteToSiteVpn": {
-            "ipsecGatewayPeers": {
-                "remotePeers": [
-                    {
-                        "name": "peer-1",
-                        "tunnel1": {"insideIpv4Cidr": "192.168.1.0/30", "insideIpv6Cidr": "::1/127", "psk": "existing"},
-                        "tunnel2": {"insideIpv4Cidr": "192.168.2.0/30", "insideIpv6Cidr": "::2/127", "psk": "existing"},
-                    }
-                ]
+        "policy": {
+            "siteToSiteVpn": {
+                "ipsecGatewayPeers": {
+                    "remotePeers": [
+                        {
+                            "name": "peer-1",
+                            "tunnel1": {
+                                "insideIpv4Cidr": "192.168.1.0/30",
+                                "insideIpv6Cidr": "::1/127",
+                                "psk": "existing",
+                            },
+                            "tunnel2": {
+                                "insideIpv4Cidr": "192.168.2.0/30",
+                                "insideIpv6Cidr": "::2/127",
+                                "psk": "existing",
+                            },
+                        }
+                    ]
+                }
             }
         }
     }
     mgr._fill_missing_tunnel_values(config, region_id=1, lan_segment_id=2)  # pylint: disable=protected-access
 
-    peer = config["siteToSiteVpn"]["ipsecGatewayPeers"]["remotePeers"][0]
+    peer = config["policy"]["siteToSiteVpn"]["ipsecGatewayPeers"]["remotePeers"][0]
     assert peer["tunnel1"]["insideIpv4Cidr"] == "192.168.1.0/30"
     assert peer["tunnel1"]["psk"] == "existing"
     mgr.gsdk.get_ipsec_inside_subnet.assert_not_called()
@@ -700,17 +1359,19 @@ def test_fill_missing_tunnel_values_already_set_not_overwritten() -> None:
 def _acceptance_with_bgp(customer_name: str, md5_password=None) -> dict:
     return {
         "customerName": customer_name,
-        "siteToSiteVpn": {
-            "ipsecGatewayPeers": {
-                "routing": {"bgp": {"md5Password": md5_password}},
-                "remotePeers": [
-                    {
-                        "name": "peer-1",
-                        "tunnel1": {"psk": None},
-                        "tunnel2": {"psk": None},
-                    }
-                ],
-            }
+        "policy": {
+            "siteToSiteVpn": {
+                "ipsecGatewayPeers": {
+                    "routing": {"bgp": {"md5Password": md5_password}},
+                    "remotePeers": [
+                        {
+                            "name": "peer-1",
+                            "tunnel1": {"psk": None},
+                            "tunnel2": {"psk": None},
+                        }
+                    ],
+                }
+            },
         },
     }
 
@@ -722,7 +1383,7 @@ def test_inject_vault_md5_fills_null() -> None:
     mgr._inject_vault_secrets(  # pylint: disable=protected-access
         acceptance, vault_bgp_md5={"FinanceInc": "secret-md5"}, vault_psk={}
     )
-    bgp = acceptance["siteToSiteVpn"]["ipsecGatewayPeers"]["routing"]["bgp"]
+    bgp = acceptance["policy"]["siteToSiteVpn"]["ipsecGatewayPeers"]["routing"]["bgp"]
     assert bgp["md5Password"] == {"md5_password": "secret-md5"}
 
 
@@ -733,7 +1394,7 @@ def test_inject_vault_md5_yaml_wins_if_non_null() -> None:
     mgr._inject_vault_secrets(  # pylint: disable=protected-access
         acceptance, vault_bgp_md5={"FinanceInc": "vault-value"}, vault_psk={}
     )
-    bgp = acceptance["siteToSiteVpn"]["ipsecGatewayPeers"]["routing"]["bgp"]
+    bgp = acceptance["policy"]["siteToSiteVpn"]["ipsecGatewayPeers"]["routing"]["bgp"]
     assert bgp["md5Password"] == {"md5_password": "yaml-value"}
 
 
@@ -745,7 +1406,7 @@ def test_normalize_md5_plain_string_wrapped() -> None:
     mgr = _make_manager()
     acceptance = _acceptance_with_bgp("FinanceInc", md5_password="plain-secret")
     mgr._normalize_bgp_md5_password(acceptance)  # pylint: disable=protected-access
-    bgp = acceptance["siteToSiteVpn"]["ipsecGatewayPeers"]["routing"]["bgp"]
+    bgp = acceptance["policy"]["siteToSiteVpn"]["ipsecGatewayPeers"]["routing"]["bgp"]
     assert bgp["md5Password"] == {"md5_password": "plain-secret"}
 
 
@@ -754,7 +1415,7 @@ def test_normalize_md5_camel_key_converted() -> None:
     mgr = _make_manager()
     acceptance = _acceptance_with_bgp("FinanceInc", md5_password={"md5Password": "camel-secret"})
     mgr._normalize_bgp_md5_password(acceptance)  # pylint: disable=protected-access
-    bgp = acceptance["siteToSiteVpn"]["ipsecGatewayPeers"]["routing"]["bgp"]
+    bgp = acceptance["policy"]["siteToSiteVpn"]["ipsecGatewayPeers"]["routing"]["bgp"]
     assert bgp["md5Password"] == {"md5_password": "camel-secret"}
 
 
@@ -763,7 +1424,7 @@ def test_normalize_md5_snake_key_unchanged() -> None:
     mgr = _make_manager()
     acceptance = _acceptance_with_bgp("FinanceInc", md5_password={"md5_password": "snake-secret"})
     mgr._normalize_bgp_md5_password(acceptance)  # pylint: disable=protected-access
-    bgp = acceptance["siteToSiteVpn"]["ipsecGatewayPeers"]["routing"]["bgp"]
+    bgp = acceptance["policy"]["siteToSiteVpn"]["ipsecGatewayPeers"]["routing"]["bgp"]
     assert bgp["md5Password"] == {"md5_password": "snake-secret"}
 
 
@@ -772,7 +1433,7 @@ def test_normalize_md5_null_unchanged() -> None:
     mgr = _make_manager()
     acceptance = _acceptance_with_bgp("FinanceInc", md5_password=None)
     mgr._normalize_bgp_md5_password(acceptance)  # pylint: disable=protected-access
-    bgp = acceptance["siteToSiteVpn"]["ipsecGatewayPeers"]["routing"]["bgp"]
+    bgp = acceptance["policy"]["siteToSiteVpn"]["ipsecGatewayPeers"]["routing"]["bgp"]
     assert bgp["md5Password"] is None
 
 
@@ -783,7 +1444,7 @@ def test_inject_vault_md5_no_vault_key_stays_null() -> None:
     mgr._inject_vault_secrets(  # pylint: disable=protected-access
         acceptance, vault_bgp_md5={}, vault_psk={}
     )
-    bgp = acceptance["siteToSiteVpn"]["ipsecGatewayPeers"]["routing"]["bgp"]
+    bgp = acceptance["policy"]["siteToSiteVpn"]["ipsecGatewayPeers"]["routing"]["bgp"]
     assert bgp["md5Password"] is None
 
 
@@ -795,7 +1456,7 @@ def test_inject_vault_psk_fills_null_tunnels() -> None:
     mgr._inject_vault_secrets(  # pylint: disable=protected-access
         acceptance, vault_bgp_md5={}, vault_psk=vault_psk
     )
-    peer = acceptance["siteToSiteVpn"]["ipsecGatewayPeers"]["remotePeers"][0]
+    peer = acceptance["policy"]["siteToSiteVpn"]["ipsecGatewayPeers"]["remotePeers"][0]
     assert peer["tunnel1"]["psk"] == "psk-t1"
     assert peer["tunnel2"]["psk"] == "psk-t2"
 
@@ -804,12 +1465,12 @@ def test_inject_vault_psk_yaml_wins_if_non_null() -> None:
     """YAML psk is preserved when non-null; vault not applied."""
     mgr = _make_manager()
     acceptance = _acceptance_with_bgp("FinanceInc")
-    acceptance["siteToSiteVpn"]["ipsecGatewayPeers"]["remotePeers"][0]["tunnel1"]["psk"] = "yaml-psk"
+    acceptance["policy"]["siteToSiteVpn"]["ipsecGatewayPeers"]["remotePeers"][0]["tunnel1"]["psk"] = "yaml-psk"
     vault_psk = {"FinanceInc": {"peer-1": {"tunnel1": "vault-psk", "tunnel2": "vault-psk"}}}
     mgr._inject_vault_secrets(  # pylint: disable=protected-access
         acceptance, vault_bgp_md5={}, vault_psk=vault_psk
     )
-    peer = acceptance["siteToSiteVpn"]["ipsecGatewayPeers"]["remotePeers"][0]
+    peer = acceptance["policy"]["siteToSiteVpn"]["ipsecGatewayPeers"]["remotePeers"][0]
     assert peer["tunnel1"]["psk"] == "yaml-psk"   # YAML wins
     assert peer["tunnel2"]["psk"] == "vault-psk"  # null → vault fills
 
@@ -821,7 +1482,7 @@ def test_inject_vault_psk_no_vault_key_stays_null_for_api_fill() -> None:
     mgr._inject_vault_secrets(  # pylint: disable=protected-access
         acceptance, vault_bgp_md5={}, vault_psk={}
     )
-    peer = acceptance["siteToSiteVpn"]["ipsecGatewayPeers"]["remotePeers"][0]
+    peer = acceptance["policy"]["siteToSiteVpn"]["ipsecGatewayPeers"]["remotePeers"][0]
     assert peer["tunnel1"]["psk"] is None
     assert peer["tunnel2"]["psk"] is None
 
@@ -829,10 +1490,116 @@ def test_inject_vault_psk_no_vault_key_stays_null_for_api_fill() -> None:
 def test_inject_vault_no_op_when_no_ipsec_peers() -> None:
     """No error and no changes when acceptance has no ipsecGatewayPeers."""
     mgr = _make_manager()
-    acceptance = {"customerName": "Acme", "siteToSiteVpn": {}}
+    acceptance = {"customerName": "Acme", "policy": {"siteToSiteVpn": {}}}
     mgr._inject_vault_secrets(  # pylint: disable=protected-access
         acceptance,
         vault_bgp_md5={"Acme": "md5"},
         vault_psk={"Acme": {"peer-1": {"tunnel1": "psk"}}},
     )
-    assert acceptance["siteToSiteVpn"] == {}
+    assert acceptance["policy"]["siteToSiteVpn"] == {}
+
+
+# ---- match_service_to_customers: client_to_server support ----
+
+
+def _matches_config(consumer_prefixes=None, nat=None, nat_translation_mode=None) -> dict:
+    match_entry = {
+        "customerName": "FinanceInc",
+        "serviceName": "de-partner-to-org-service-1",
+        "servicePrefixes": [{"prefix": "10.48.52.152/31", "tag": "-"}],
+    }
+    if consumer_prefixes is not None:
+        match_entry["consumerPrefixes"] = consumer_prefixes
+    if nat is not None:
+        match_entry["nat"] = nat
+    if nat_translation_mode is not None:
+        match_entry["natTranslationMode"] = nat_translation_mode
+    return {"data_exchange_matches": [match_entry]}
+
+
+def test_match_service_to_customers_client_to_server_sends_consumer_prefixes() -> None:
+    """
+    Regression: client_to_server matches must send "consumerPrefixes" (not "nat") in
+    the service config passed to gsdk.match_service_to_customer.
+    """
+    mgr = _make_manager()
+    mgr.config_utils.render_config_file.return_value = _matches_config(consumer_prefixes=["10.101.2.0/24"])
+    mgr.gsdk.get_data_exchange_customer_by_name.return_value = MagicMock(id=4072)
+    mgr.gsdk.get_data_exchange_service_by_name.return_value = MagicMock(id=8418, type="client_to_server")
+    mgr.gsdk.get_matched_services_for_customer.return_value = []
+    mgr.gsdk.match_service_to_customer.return_value = MagicMock(match_id=6535, timestamp=None)
+
+    result = mgr.match_service_to_customers("matches.yaml")
+
+    mgr.gsdk.match_service_to_customer.assert_called_once()
+    (match_payload,) = mgr.gsdk.match_service_to_customer.call_args[0]
+    assert match_payload["service"]["consumerPrefixes"] == ["10.101.2.0/24"]
+    assert "nat" not in match_payload["service"]
+    assert result["matched"] == ["de-partner-to-org-service-1->FinanceInc"]
+
+
+def test_match_service_to_customers_client_to_server_requires_consumer_prefixes() -> None:
+    mgr = _make_manager()
+    mgr.config_utils.render_config_file.return_value = _matches_config()
+    mgr.gsdk.get_data_exchange_customer_by_name.return_value = MagicMock(id=4072)
+    mgr.gsdk.get_data_exchange_service_by_name.return_value = MagicMock(id=8418, type="client_to_server")
+    mgr.gsdk.get_matched_services_for_customer.return_value = []
+
+    with pytest.raises(ConfigurationError):
+        mgr.match_service_to_customers("matches.yaml")
+
+    mgr.gsdk.match_service_to_customer.assert_not_called()
+
+
+def test_match_service_to_customers_peering_still_sends_nat() -> None:
+    """Regression: peering_service matches must be unaffected by the new branch."""
+    mgr = _make_manager()
+    mgr.config_utils.render_config_file.return_value = _matches_config(
+        nat=[{"prefix": "10.101.1.0/24", "outsideNatPrefix": "170.101.1.0/24"}]
+    )
+    mgr.gsdk.get_data_exchange_customer_by_name.return_value = MagicMock(id=4071)
+    mgr.gsdk.get_data_exchange_service_by_name.return_value = MagicMock(id=8417, type="peering_service")
+    mgr.gsdk.get_matched_services_for_customer.return_value = []
+    mgr.gsdk.match_service_to_customer.return_value = MagicMock(match_id=6532, timestamp=None)
+
+    mgr.match_service_to_customers("matches.yaml")
+
+    (match_payload,) = mgr.gsdk.match_service_to_customer.call_args[0]
+    assert match_payload["service"]["nat"] == [{"prefix": "10.101.1.0/24", "outsideNatPrefix": "170.101.1.0/24"}]
+    assert "consumerPrefixes" not in match_payload["service"]
+
+
+def test_match_service_to_customers_peering_accepts_nat_translation_mode_directly() -> None:
+    """
+    Regression: "natTranslationMode" (the new-shape key) must be accepted as an
+    alternative to "nat", passed through as-is (not re-wrapped, "nat" key absent).
+    """
+    nat_translation_mode = {"peerToPeer": {"prefixes": [{"prefix": "10.101.1.0/24"}]}}
+    mgr = _make_manager()
+    mgr.config_utils.render_config_file.return_value = _matches_config(nat_translation_mode=nat_translation_mode)
+    mgr.gsdk.get_data_exchange_customer_by_name.return_value = MagicMock(id=4071)
+    mgr.gsdk.get_data_exchange_service_by_name.return_value = MagicMock(id=8417, type="peering_service")
+    mgr.gsdk.get_matched_services_for_customer.return_value = []
+    mgr.gsdk.match_service_to_customer.return_value = MagicMock(match_id=6532, timestamp=None)
+
+    mgr.match_service_to_customers("matches.yaml")
+
+    (match_payload,) = mgr.gsdk.match_service_to_customer.call_args[0]
+    assert match_payload["service"]["natTranslationMode"] == nat_translation_mode
+    assert "nat" not in match_payload["service"]
+
+
+def test_match_service_to_customers_peering_validates_nat_translation_mode_prefixes() -> None:
+    """Regression: the "natTranslationMode" path gets the same CIDR validation as "nat"."""
+    mgr = _make_manager()
+    mgr.config_utils.render_config_file.return_value = _matches_config(
+        nat_translation_mode={"peerToPeer": {"prefixes": [{"prefix": "10.101.1.1/24"}]}}
+    )
+    mgr.gsdk.get_data_exchange_customer_by_name.return_value = MagicMock(id=4071)
+    mgr.gsdk.get_data_exchange_service_by_name.return_value = MagicMock(id=8417, type="peering_service")
+    mgr.gsdk.get_matched_services_for_customer.return_value = []
+
+    with pytest.raises(ConfigurationError, match="natTranslationMode.peerToPeer.prefixes prefix '10.101.1.1/24'"):
+        mgr.match_service_to_customers("matches.yaml")
+
+    mgr.gsdk.match_service_to_customer.assert_not_called()

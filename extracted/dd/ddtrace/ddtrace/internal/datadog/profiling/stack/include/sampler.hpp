@@ -45,6 +45,14 @@ class Sampler
     // The mutex + condition variable pair is used to avoid the "lost wake-up" race condition
     // where stop() could miss the notification and hang forever (or until timeout).
     std::atomic<bool> thread_running{ false };
+    // Whether the sampler is currently active. Unlike thread_running (which tracks
+    // the thread's actual lifecycle) this is set synchronously in start/stop, so
+    // it is not subject to the sampling-thread startup race.
+    // It becomes false in stop and also when the sampling thread aborts on an
+    // unexpected exception, since the sampler is then no longer active.
+    // prefork reads this to decide whether to restart the sampler after fork,
+    // ensuring a sampler that stopped due to an error is not silently restarted.
+    std::atomic<bool> sampler_active_{ false };
     std::mutex thread_exit_mutex;
     std::condition_variable thread_exit_cv;
 
@@ -73,6 +81,10 @@ class Sampler
     std::minstd_rand rng{ std::random_device{}() };
     std::vector<PyThreadState> thread_candidates;
     void adapt_sampling_interval();
+
+    // Captures one sampling cycle across all threads (or a reservoir-sampled subset thereof
+    // when max_threads_per_sample is set).
+    void capture_samples(microsecond_t wall_time_us);
 
     // Rolling window for p_stable: ring buffer of process_delta values (us CPU per adapt window).
     // p_stable is the p-th percentile of this buffer, giving a stable estimate of app CPU usage
@@ -141,13 +153,17 @@ class Sampler
     }
     void set_max_threads_per_sample(unsigned int value) { max_threads_per_sample = value; }
 
+    // Set the absolute overhead floor as "core percent" units (1 = 0.01 core = 10 mcores).
+    // Converted to us of CPU budget per adaptation window.
     void set_baseline_core_pct(double value)
     {
         baseline_cpu_us_per_adapt_window = value * 0.01 * g_adaptive_sampling_interval_us;
     }
 
+    // Set the rolling window duration (seconds) over which p_stable is computed.
     void set_p_stable_window_s(uint32_t value) { p_stable_window_s = value; }
 
+    // Set the percentile (0–100) used to compute p_stable from the rolling window.
     void set_p_stable_percentile(double percentile) { p_stable_percentile_frac = percentile / 100.0; }
 
     void set_fast_copy_warmup_seconds(double value) { fast_copy_warmup_seconds = value; }
@@ -161,8 +177,9 @@ class Sampler
     // Restart the sampling thread in the parent after fork
     void postfork_parent();
 
-    // Restart the sampler after fork if it was running
-    void restart_after_fork();
+    // Restart the sampler after fork if it was running.
+    // Returns true if start() was invoked and succeeded.
+    bool restart_after_fork();
 };
 
 void

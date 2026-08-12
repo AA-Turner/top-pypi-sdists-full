@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Copy a compressed file
-  copy:
+  ansible.builtin.copy:
     src: "{{ item.orig }}"
     dest: "{{ item.new }}"
     remote_src: true
@@ -13,17 +13,17 @@
     - { orig: "{{ remote_tmp_dir }}/file.txt.gz", new: "{{ remote_tmp_dir }}/dest" }
 
 - name: Decompress a file without specifying destination
-  decompress:
+  community.general.decompress:
     src: "{{ remote_tmp_dir }}/dest.txt.gz"
     remove: true
 
 - name: Decompress a file which lacks extension without specifying destination
-  decompress:
+  community.general.decompress:
     src: "{{ remote_tmp_dir }}/dest"
     remove: true
 
 - name: Stat result files
-  stat:
+  ansible.builtin.stat:
     path: "{{ remote_tmp_dir }}/{{ filename }}"
   loop:
     - dest.txt
@@ -33,7 +33,7 @@
   register: result_files_stat
 
 - name: Test that file exists
-  assert:
+  ansible.builtin.assert:
     that:
       - item.stat.exists
     quiet: true
@@ -42,7 +42,7 @@
     label: "{{ item.stat.path }}"
 
 - name: Delete test files
-  file:
+  ansible.builtin.file:
     path: "{{ filename }}"
     state: absent
   loop:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ddtrace
-Version: 4.12.2
+Version: 4.13.0
 Summary: Datadog APM client library
 Author-email: "Datadog, Inc." <dev@datadoghq.com>
 License: LICENSE.BSD3
@@ -37,6 +37,8 @@ Provides-Extra: opentracing
 Requires-Dist: opentracing<3,>=2; extra == "opentracing"
 Provides-Extra: opentelemetry
 Requires-Dist: opentelemetry-exporter-otlp<2,>=1; extra == "opentelemetry"
+Provides-Extra: openfeature
+Requires-Dist: openfeature-sdk<1,>=0.8; extra == "openfeature"
 Dynamic: license-file
 
 # `ddtrace`

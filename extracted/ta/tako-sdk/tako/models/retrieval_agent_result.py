@@ -41,8 +41,9 @@ class RetrievalAgentResult(BaseModel):
     structured_output_citations: Optional[Dict[str, List[StrictInt]]] = Field(default=None, description="Best-effort field-path -> citation-index map joining the top-level citations registry (same [n] index space as the answer). Absent when status is 'failed'.")
     unfilled_fields: Optional[List[StrictStr]] = Field(default=None, description="Dot-separated paths of unfilled dataset slots; present only if status is 'partial'.")
     structured_output_error: Optional[ErrorObject] = Field(default=None, description="Why structured output failed; present only if status is 'failed'.")
+    refusal_code: Optional[StrictStr] = Field(default=None, description="Set when Tako rejected the query before the agent ran. Null on normal runs. Tako can add new codes, so accept a code you do not recognize. The current code is 'rejected_input_classifier'.")
     request_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["answer", "cards", "citations", "metadata", "structured_output", "structured_output_status", "structured_output_citations", "unfilled_fields", "structured_output_error", "request_id"]
+    __properties: ClassVar[List[str]] = ["answer", "cards", "citations", "metadata", "structured_output", "structured_output_status", "structured_output_citations", "unfilled_fields", "structured_output_error", "refusal_code", "request_id"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -138,6 +139,11 @@ class RetrievalAgentResult(BaseModel):
         if self.structured_output_error is None and "structured_output_error" in self.model_fields_set:
             _dict['structured_output_error'] = None
 
+        # set to None if refusal_code (nullable) is None
+        # and model_fields_set contains the field
+        if self.refusal_code is None and "refusal_code" in self.model_fields_set:
+            _dict['refusal_code'] = None
+
         # set to None if request_id (nullable) is None
         # and model_fields_set contains the field
         if self.request_id is None and "request_id" in self.model_fields_set:
@@ -164,6 +170,7 @@ class RetrievalAgentResult(BaseModel):
             "structured_output_citations": obj.get("structured_output_citations"),
             "unfilled_fields": obj.get("unfilled_fields"),
             "structured_output_error": ErrorObject.from_dict(obj["structured_output_error"]) if obj.get("structured_output_error") is not None else None,
+            "refusal_code": obj.get("refusal_code"),
             "request_id": obj.get("request_id")
         })
         return _obj

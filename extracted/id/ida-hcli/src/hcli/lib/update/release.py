@@ -6,10 +6,8 @@ import logging
 import re
 import shutil
 import tempfile
-import typing
 from collections.abc import Callable
 from pathlib import Path
-from typing import ClassVar
 from urllib.parse import urlparse
 
 import httpx
@@ -23,10 +21,9 @@ from hcli.lib.util.io import NoSpaceError, check_free_space
 class GitHubRepo:
     user: str
     repo: str
-    token: str = ""
 
     @classmethod
-    def from_url(cls, url: str, token: str = "") -> "GitHubRepo":
+    def from_url(cls, url: str) -> "GitHubRepo":
         """
         Create a GitHubRepo from a URL like:
         - https://github.com/user/repo
@@ -49,7 +46,7 @@ class GitHubRepo:
         except ValueError:
             raise ValueError(f"Invalid GitHub URL: {url}")
 
-        return cls(user=user, repo=repo, token=token)
+        return cls(user=user, repo=repo)
 
 
 @dataclasses.dataclass
@@ -68,52 +65,6 @@ class ReleaseAsset:
             or self.size is None
             or self.size <= 0
         )
-
-
-class AuthSession:
-    header: ClassVar[dict[str, str]] = {}
-
-    @classmethod
-    def init(cls, repo: GitHubRepo):
-        if cls.header or not repo.token:
-            return
-        cls.header = {"Authorization": f"Bearer {repo.token}"}
-
-
-def check_and_download_updates(
-    repo: GitHubRepo,
-    compatibility_spec: SimpleSpec | None = None,
-    current_version: Version | None = None,
-    assets_mask=re.compile(".*"),
-    downloads_dir=Path(),
-    download_callback: Callable[[ReleaseAsset, int], None] | None = None,
-):
-    if download_callback is None:
-        download_callback = default_download_callback
-    if current_version is None:
-        current_version = Version("0.0.0")
-    AuthSession.init(repo)
-    if compatibility_spec is None:
-        logging.info("No compatibility requirements set")
-        download_version = get_latest_version(repo)
-    else:
-        logging.info(f"Compatibility requirement: '{compatibility_spec}'")
-        download_version = get_compatible_version(repo, compatibility_spec)
-
-    if download_version is None:
-        compatible = " compatible" if compatibility_spec is not None else ""
-        logging.warning(f"No newer{compatible} versions available.")
-        return
-
-    if is_already_installed(download_version, current_version, compatibility_spec):
-        return
-    tag_name = getattr(download_version, "_origin_tag_name", str(download_version))
-    assets = get_assets(repo, tag_name, assets_mask)
-    if not assets:
-        logging.error("No assets found")
-        return
-    download_assets(repo, assets, out_dir=downloads_dir, callback=download_callback)
-    logging.info("Done!")
 
 
 def get_compatible_version(repo: GitHubRepo, compatibility_spec: SimpleSpec, include_dev: bool = False):
@@ -142,22 +93,6 @@ def is_dev_version(version_string: str) -> bool:
     return any(indicator in version_lower for indicator in dev_indicators)
 
 
-def download_assets(
-    repo: GitHubRepo,
-    assets: typing.Iterable[ReleaseAsset],
-    out_dir=Path(),
-    block_size=2**20,
-    callback: Callable[[ReleaseAsset, int], None] = lambda *_: None,
-):
-    logging.info(f"Start downloading assets: {tuple(asset.name for asset in assets)}")
-    for asset in assets:
-
-        def _make_cb(a: ReleaseAsset) -> Callable[[int, int], None]:
-            return lambda downloaded, _: callback(a, downloaded)
-
-        download_asset(repo, asset, out_dir, block_size, _make_cb(asset))
-
-
 def download_asset(
     repo: GitHubRepo,
     asset: ReleaseAsset,
@@ -174,8 +109,7 @@ def download_asset(
     asset_url = f"{ENV.HCLI_GITHUB_API_URL}/repos/{repo.user}/{repo.repo}/releases/assets/{asset.asset_id}"
 
     # Set proper headers for asset download
-    headers = AuthSession.header.copy()
-    headers["Accept"] = "application/octet-stream"
+    headers = {"Accept": "application/octet-stream"}
 
     check_free_space(out_dir, asset.size)
 
@@ -205,14 +139,6 @@ def download_asset(
         raise
 
 
-def default_download_callback(asset: ReleaseAsset, downloaded: int):
-    logging.info(
-        f"'{asset.name}' downloading progress: "
-        f"{downloaded // 2**13}/{asset.size // 2**13}kb "
-        f"({100 * downloaded / asset.size:.2f}%)"
-    )
-
-
 def get_available_versions(repo: GitHubRepo, process_tag: Callable[[str], Version | None] | None = None):
     if process_tag is None:
         process_tag = parse_tag
@@ -220,9 +146,7 @@ def get_available_versions(repo: GitHubRepo, process_tag: Callable[[str], Versio
     request_url = f"{ENV.HCLI_GITHUB_API_URL}/repos/{repo.user}/{repo.repo}/releases"
     page_size = 100
     for i in itertools.count(1):
-        data = json.loads(
-            httpx.get(request_url, params={"page": i, "per_page": page_size}, headers=AuthSession.header).text
-        )
+        data = json.loads(httpx.get(request_url, params={"page": i, "per_page": page_size}).text)
         if "message" in data or not isinstance(data, list):
             break
         for release in data:
@@ -240,36 +164,6 @@ def get_available_versions(repo: GitHubRepo, process_tag: Callable[[str], Versio
             break
 
 
-def get_latest_version(
-    repo: GitHubRepo, process_tag: Callable[[str], Version | None] | None = None, include_dev: bool = False
-):
-    if process_tag is None:
-        process_tag = parse_tag
-
-    if include_dev:
-        # Use the existing logic for latest release (which might be dev)
-        logging.info(f"Searching for latest release in 'https://github.com/{repo.user}/{repo.repo}/'...")
-        request_url = f"{ENV.HCLI_GITHUB_API_URL}/repos/{repo.user}/{repo.repo}/releases/latest"
-        data = json.loads(httpx.get(request_url, headers=AuthSession.header).text)
-        if "message" in data:
-            return
-        tag_name = data.get("tag_name")
-        if tag_name is None:
-            return
-        version = process_tag(tag_name)
-        if version is not None:
-            version._origin_tag_name = tag_name
-        return version
-    else:
-        # Search through all releases to find latest stable
-        logging.info(f"Searching for latest stable release in 'https://github.com/{repo.user}/{repo.repo}/'...")
-        for version in get_available_versions(repo, process_tag):
-            tag_name = getattr(version, "_origin_tag_name", str(version))
-            if not is_dev_version(tag_name):
-                return version
-        return None
-
-
 def parse_tag(tag_name: str) -> Version | None:
     try:
         return Version(tag_name.lstrip("v").strip())
@@ -280,7 +174,7 @@ def parse_tag(tag_name: str) -> Version | None:
 def get_assets(repo: GitHubRepo, tag_name: str, assets_mask=re.compile(".*")):
     logging.info(f"Searching for assets by tag '{tag_name}' and mask: '{assets_mask.pattern}'")
     request_url = f"{ENV.HCLI_GITHUB_API_URL}/repos/{repo.user}/{repo.repo}/releases/tags/{tag_name}"
-    data = json.loads(httpx.get(request_url, headers=AuthSession.header).text)
+    data = json.loads(httpx.get(request_url).text)
     if "message" in data:
         return []
     assets = data.get("assets")
@@ -295,19 +189,6 @@ def get_assets(repo: GitHubRepo, tag_name: str, assets_mask=re.compile(".*")):
         for asset in assets
     )
     return tuple(asset for asset in assets if asset.is_valid and assets_mask.match(asset.name) is not None)
-
-
-def is_already_installed(latest: Version, current: Version, compatibility_spec: SimpleSpec | None):
-    if current < latest:
-        return False
-    logging.info(f"Latest version is already installed: {current}")
-    if current > latest:
-        still_compatible = compatibility_spec is None or compatibility_spec.match(current)
-        logging.warning(
-            f"Current version newer than latest found ({latest})"
-            + (", but still compatible." if still_compatible else ", and incompatible!")
-        )
-    return True
 
 
 def update_asset(repo: GitHubRepo, asset: ReleaseAsset, binary_path: Path) -> None:

@@ -36,7 +36,7 @@ async def test_heartbeat_retries_on_transient_error(client: PrivateWorkerClient,
 
     with patch.object(client.sdk_configuration.async_client, "send", send_mock):
         with patch("mistralai.workflows.worker_client.utils.retries.asyncio.sleep", new_callable=AsyncMock):
-            await client.heartbeat_async(workflow_registration_refs=[])
+            await client.heartbeat_async(workflow_registration_refs=[], deployment_name="test", worker_name="test")
 
     assert send_mock.call_count == 2
 
@@ -49,7 +49,7 @@ async def test_heartbeat_does_not_retry_on_client_errors(client: PrivateWorkerCl
 
     with patch.object(client.sdk_configuration.async_client, "send", send_mock):
         with pytest.raises((SDKDefaultError, Exception)):
-            await client.heartbeat_async(workflow_registration_refs=[])
+            await client.heartbeat_async(workflow_registration_refs=[], deployment_name="test", worker_name="test")
 
     assert send_mock.call_count == 1
 
@@ -69,7 +69,7 @@ async def test_heartbeat_respects_retry_after_header(client: PrivateWorkerClient
 
     with patch.object(client.sdk_configuration.async_client, "send", send_mock):
         with patch("mistralai.workflows.worker_client.utils.retries.asyncio.sleep", side_effect=capture_sleep):
-            await client.heartbeat_async(workflow_registration_refs=[])
+            await client.heartbeat_async(workflow_registration_refs=[], deployment_name="test", worker_name="test")
 
     assert sleep_calls[0] == pytest.approx(7.0)
 
@@ -81,6 +81,6 @@ async def test_heartbeat_retries_on_network_error(client: PrivateWorkerClient) -
 
     with patch.object(client.sdk_configuration.async_client, "send", send_mock):
         with patch("mistralai.workflows.worker_client.utils.retries.asyncio.sleep", new_callable=AsyncMock):
-            await client.heartbeat_async(workflow_registration_refs=[])
+            await client.heartbeat_async(workflow_registration_refs=[], deployment_name="test", worker_name="test")
 
     assert send_mock.call_count == 2

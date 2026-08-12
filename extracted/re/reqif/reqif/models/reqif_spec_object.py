@@ -34,8 +34,10 @@ class ReqIFSpecObject:  # pylint: disable=too-many-instance-attributes
         last_change: Optional[str] = None,
         long_name: Optional[str] = None,
         xml_node: Optional[Any] = None,
+        alternative_id: Optional[str] = None,
     ):
         self.identifier: str = identifier
+        self.alternative_id: Optional[str] = alternative_id
         self.attributes: List[SpecObjectAttribute] = attributes
         self.spec_object_type: str = spec_object_type
 

@@ -474,6 +474,7 @@ def _detect(
     types_exclude: list[str] | None,
     strict: bool = False,
     restored_types: list[str] | None = None,
+    cancel_token: object | None = None,
 ) -> tuple[list[PatternMatch], list[str], dict, dict]:
     """Run the full detection pipeline (L1 regex + L1b person + L2 NER + L3 LLM + merge).
 
@@ -507,8 +508,12 @@ def _detect(
     # ``hobby`` — also tagged LAYER_REGEX), the internal L1 hints, and validator
     # ``near_misses``. detect_l1 takes the ORIGINAL text (it normalizes internally).
     t0 = time.perf_counter()
+    # ``cancel_token`` (a ``_core.CancelToken`` or None) opts L1 into cooperative
+    # cancellation: a token tripped from another thread makes this scan raise
+    # ``_core.ScanAborted`` at its next poll boundary, reclaiming the CPU. None (the
+    # default and every non-server caller) is byte-identical to the old no-token call.
     layer1, person, regions, job_titles, framework, l1_hints, near_misses = _core.detect_l1(
-        text, langs, names or []
+        text, langs, names or [], cancel_token=cancel_token
     )
     timing["layer_1_ms"] = (time.perf_counter() - t0) * 1000
     entities.extend(layer1)
@@ -792,6 +797,51 @@ def redact(
         (redacted_text, key, details) when detailed=True.
         RedactReport when report=True.
     """
+    return _redact_impl(
+        text,
+        key=key,
+        lang=lang,
+        mode=mode,
+        salt=salt,
+        config=config,
+        names=names,
+        detailed=detailed,
+        report=report,
+        with_types=with_types,
+        profile=profile,
+        types=types,
+        types_exclude=types_exclude,
+        unified_prefix=unified_prefix,
+        strict=strict,
+        cancel_token=None,
+        _pre_detected=_pre_detected,
+    )
+
+
+def _redact_impl(
+    text: str,
+    *,
+    key: dict | str | None = None,
+    lang: str | list[str] = "zh",
+    mode: str = "fast",
+    salt: int | bytes | None = None,
+    config: dict | str | None = None,
+    names: list[str] | None = None,
+    detailed: bool = False,
+    report: bool = False,
+    with_types: bool = False,
+    profile: str | None = None,
+    types: list[str] | None = None,
+    types_exclude: list[str] | None = None,
+    unified_prefix: str | None = None,
+    strict: bool = False,
+    cancel_token: object | None = None,
+    _pre_detected: "list[PatternMatch] | None" = None,
+):
+    """Internal full redact pipeline; ``cancel_token`` opts the L1 scan into
+    cooperative cancellation for the HTTP server. Public ``redact()`` wraps this
+    with ``cancel_token=None``.
+    """
     if not isinstance(text, str):
         raise TypeError(f"text must be a string, got {type(text).__name__}")
 
@@ -931,6 +981,7 @@ def redact(
             types_exclude=types_exclude,
             strict=strict,
             restored_types=_restored_types,
+            cancel_token=cancel_token,
         )
 
     warn_coverage_restored(_restored_types)

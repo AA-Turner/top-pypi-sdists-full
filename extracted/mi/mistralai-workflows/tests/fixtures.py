@@ -408,3 +408,25 @@ class ReportsTimeoutOverrideParent:
             execution_timeout=timedelta(minutes=30),
             wait=True,
         )
+
+
+class CANParams(BaseModel):
+    iteration: int
+
+
+@workflow.define(name="test-events-retrying-workflow")
+class RetryingWorkflow:
+    @workflow.entrypoint
+    async def run(self) -> str:
+        if temporalio.workflow.info().attempt == 1:
+            raise ApplicationError("Intentional failure on first attempt", non_retryable=False)
+        return "done"
+
+
+@workflow.define(name="test-events-can-workflow")
+class ContinueAsNewWorkflow:
+    @workflow.entrypoint
+    async def run(self, params: CANParams) -> str:
+        if params.iteration < 1:
+            workflow.continue_as_new(CANParams(iteration=params.iteration + 1))
+        return "done"

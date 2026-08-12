@@ -23,11 +23,6 @@ from ._base import (
 
 # pyright: reportPrivateUsage=false, reportIncompatibleMethodOverride=false, reportReturnType=false, reportUnnecessaryCast=false, reportUnnecessaryComparison=false
 
-try:
-    import polars as pl
-except ImportError:
-    pl = None
-
 
 def _coerce_decimal(x: Any) -> str:
     """Convert x to the normalized string form of its Decimal value.
@@ -59,7 +54,7 @@ class DecimalFeatureConverter(
     _primitive_type_value: ClassVar[Type[str]] = str
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.large_utf8()
     _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(large_utf8=pb.EmptyMessage())
-    _polars_dtype_value: ClassVar[Any] = pl.Utf8() if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None
 
     _coerce_fn = staticmethod(_coerce_decimal)
     _use_fast_path: ClassVar[bool] = False  # fast path skips _coerce_fn; Decimal needs normalization

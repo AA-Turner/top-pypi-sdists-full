@@ -969,6 +969,58 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         )
         self.assertTrue(result["changed"], f"Expected restore to change the service, got: {result}")
 
+    def test_create_data_exchange_services_client_to_server(self):
+        """
+        Create a client_to_server Data Exchange service (NAT pools).
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        graphiant_config.data_exchange.create_services(
+            "de_workflows_configs/sample_data_exchange_services_client_to_server.yaml"
+        )
+
+    def test_create_data_exchange_services_client_to_server_idempotent(self):
+        """
+        Create the client_to_server service again with the same config — must be skipped (no change).
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.data_exchange.create_services(
+            "de_workflows_configs/sample_data_exchange_services_client_to_server.yaml"
+        )
+        self.assertFalse(result["changed"], f"Expected no change on idempotent create_services, got: {result}")
+        self.assertTrue(result["skipped"], f"Expected service to be skipped, got: {result}")
+        self.assertFalse(result["created"], f"Expected no new services to be created, got: {result}")
+
+    def test_update_data_exchange_services_client_to_server(self):
+        """
+        Update the client_to_server service's prefixTags and NAT pools (natTranslationMode).
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.data_exchange.update_services(
+            "de_workflows_configs/sample_data_exchange_services_client_to_server_update.yaml"
+        )
+        self.assertTrue(result["changed"], f"Expected update to change the service, got: {result}")
+
+    def test_update_data_exchange_services_client_to_server_idempotent(self):
+        """
+        Update the client_to_server service again with the same config — must be skipped (no change).
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.data_exchange.update_services(
+            "de_workflows_configs/sample_data_exchange_services_client_to_server_update.yaml"
+        )
+        self.assertFalse(result["changed"], f"Expected no change on idempotent update, got: {result}")
+        self.assertTrue(result["skipped"], f"Expected service to be skipped, got: {result}")
+
+    def test_update_data_exchange_services_client_to_server_restore(self):
+        """
+        Restore the client_to_server service's prefixTags/NAT pools to their original values.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.data_exchange.update_services(
+            "de_workflows_configs/sample_data_exchange_services_client_to_server.yaml"
+        )
+        self.assertTrue(result["changed"], f"Expected restore to change the service, got: {result}")
+
     def test_delete_data_exchange_services(self):
         """
         Delete Data Exchange Services.
@@ -986,6 +1038,27 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         )
         self.assertFalse(result["changed"], f"Expected no change on idempotent delete_services, got: {result}")
         self.assertTrue(result["skipped"], f"Expected services to be skipped, got: {result}")
+        self.assertFalse(result["deleted"], f"Expected no services to be deleted, got: {result}")
+
+    def test_delete_data_exchange_services_client_to_server(self):
+        """
+        Delete the client_to_server Data Exchange service.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        graphiant_config.data_exchange.delete_services(
+            "de_workflows_configs/sample_data_exchange_services_client_to_server.yaml"
+        )
+
+    def test_delete_data_exchange_services_client_to_server_idempotent(self):
+        """
+        Delete the client_to_server service again — already deleted, must be skipped (no change).
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.data_exchange.delete_services(
+            "de_workflows_configs/sample_data_exchange_services_client_to_server.yaml"
+        )
+        self.assertFalse(result["changed"], f"Expected no change on idempotent delete_services, got: {result}")
+        self.assertTrue(result["skipped"], f"Expected service to be skipped, got: {result}")
         self.assertFalse(result["deleted"], f"Expected no services to be deleted, got: {result}")
 
     def test_create_data_exchange_customers(self):
@@ -1006,6 +1079,37 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         self.assertFalse(result["changed"], f"Expected no change on idempotent create_customers, got: {result}")
         self.assertTrue(result["skipped"], f"Expected customers to be skipped, got: {result}")
         self.assertFalse(result["created"], f"Expected no new customers to be created, got: {result}")
+
+    def test_update_data_exchange_customers(self):
+        """
+        Update Data Exchange Customer's invite.adminEmails (adds a second email).
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.data_exchange.update_customers(
+            "de_workflows_configs/sample_data_exchange_customers_update.yaml"
+        )
+        self.assertTrue(result["changed"], f"Expected update to change the customer, got: {result}")
+
+    def test_update_data_exchange_customers_idempotent(self):
+        """
+        Update Data Exchange Customer again with same config — should be skipped (no change).
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.data_exchange.update_customers(
+            "de_workflows_configs/sample_data_exchange_customers_update.yaml"
+        )
+        self.assertFalse(result["changed"], f"Expected no change on idempotent update, got: {result}")
+        self.assertTrue(result["skipped"], f"Expected customer to be skipped, got: {result}")
+
+    def test_update_data_exchange_customers_restore(self):
+        """
+        Restore Data Exchange Customer's invite.adminEmails to its original single-email value.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.data_exchange.update_customers(
+            "de_workflows_configs/sample_data_exchange_customers.yaml"
+        )
+        self.assertTrue(result["changed"], f"Expected restore to change the customer, got: {result}")
 
     def test_get_data_exchange_customers_summary(self):
         """
@@ -1032,6 +1136,32 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         )
         self.assertFalse(result["changed"], f"Expected no change on idempotent match, got: {result}")
         self.assertTrue(result["skipped"], f"Expected matches to be skipped, got: {result}")
+        self.assertFalse(result["matched"], f"Expected no new matches to be created, got: {result}")
+        self.assertFalse(result["failed"], f"Expected no match failures, got: {result}")
+
+    def test_match_data_exchange_service_to_customers_client_to_server(self):
+        """
+        Match a client_to_server Data Exchange service to a customer via consumerPrefixes
+        (no NAT translation at match time — that's producer-side, set at service creation).
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.data_exchange.match_service_to_customers(
+            "de_workflows_configs/sample_data_exchange_matches_client_to_server.yaml"
+        )
+        LOG.info("Match client_to_server service to customer result: %s", result)
+        self.assertTrue(result["matched"], f"Expected a new match to be created, got: {result}")
+        self.assertFalse(result["failed"], f"Expected no match failures, got: {result}")
+
+    def test_match_data_exchange_service_to_customers_client_to_server_idempotent(self):
+        """
+        Match the client_to_server service to the customer again — already-matched, must be skipped.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.data_exchange.match_service_to_customers(
+            "de_workflows_configs/sample_data_exchange_matches_client_to_server.yaml"
+        )
+        self.assertFalse(result["changed"], f"Expected no change on idempotent match, got: {result}")
+        self.assertTrue(result["skipped"], f"Expected match to be skipped, got: {result}")
         self.assertFalse(result["matched"], f"Expected no new matches to be created, got: {result}")
         self.assertFalse(result["failed"], f"Expected no match failures, got: {result}")
 
@@ -1150,6 +1280,32 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         self.assertEqual(len(result["results"]), 1)
         self.assertEqual(result["results"][0]["status"], "check_mode")
 
+    def test_accept_data_exchange_invitation_legacy_shape_check_mode(self):
+        """
+        Accept Data Exchange Service Invitation using the legacy flat config shape (requires
+        consumer/proxy tenant creds). Targets the exact same customer/service as
+        sample_data_exchange_acceptance.yaml, just written in the old shape, to prove
+        accept_invitation auto-translates it to the same resolved payload — not a breaking
+        change. Check mode only: does not call the real API.
+        Expected: changed=True (would accept), total_accepted=1, status="check_mode", no failures.
+        """
+        graphiant_config = graphiant_config_from_read_config(check_mode=True)
+        vault_bgp_md5, vault_psk = self._acceptance_vault(graphiant_config)
+        config_file = "de_workflows_configs/sample_data_exchange_acceptance_legacy.yaml"
+        matches_file = "de_workflows_configs/output/sample_data_exchange_matches_responses_latest.json"
+
+        result = graphiant_config.data_exchange.accept_invitation(
+            config_file, matches_file, vault_bgp_md5=vault_bgp_md5, vault_psk=vault_psk
+        )
+        LOG.info("Accept invitation (legacy shape, check mode) result: %s", result)
+
+        self.assertTrue(result["changed"], "check_mode: expected changed=True (would have accepted)")
+        self.assertEqual(result["total_processed"], 1)
+        self.assertEqual(result["total_accepted"], 1)
+        self.assertEqual(result["total_skipped"], 0)
+        self.assertEqual(len(result["results"]), 1)
+        self.assertEqual(result["results"][0]["status"], "check_mode")
+
     def test_accept_data_exchange_invitation(self):
         """
         Accept Data Exchange Service Invitation — live mode (requires consumer/proxy tenant creds).
@@ -1186,6 +1342,74 @@ class TestGraphiantPlaybooks(unittest.TestCase):
             config_file, matches_file, vault_bgp_md5=vault_bgp_md5, vault_psk=vault_psk
         )
         LOG.info("Accept invitation (idempotent) result: %s", result)
+
+        self.assertFalse(result["changed"], "Expected changed=False when already accepted")
+        self.assertEqual(result["total_processed"], 1)
+        self.assertEqual(result["total_accepted"], 0)
+        self.assertEqual(result["total_skipped"], 1)
+        self.assertEqual(result["results"][0]["status"], "skipped")
+
+    def test_accept_data_exchange_invitation_client_to_server_check_mode(self):
+        """
+        Accept a client_to_server Data Exchange Service Invitation in check mode
+        (requires consumer/proxy tenant creds). Same payload shape as peering_service,
+        except policy.natTranslationMode is omitted (client_to_server NAT is producer-side).
+        Expected: changed=True (would accept), total_accepted=1, status="check_mode", no failures.
+        """
+        graphiant_config = graphiant_config_from_read_config(check_mode=True)
+        vault_bgp_md5, vault_psk = self._acceptance_vault(graphiant_config)
+        config_file = "de_workflows_configs/sample_data_exchange_acceptance_client_to_server.yaml"
+        matches_file = "de_workflows_configs/output/sample_data_exchange_matches_client_to_server_responses_latest.json"
+
+        result = graphiant_config.data_exchange.accept_invitation(
+            config_file, matches_file, vault_bgp_md5=vault_bgp_md5, vault_psk=vault_psk
+        )
+        LOG.info("Accept client_to_server invitation (check mode) result: %s", result)
+
+        self.assertTrue(result["changed"], "check_mode: expected changed=True (would have accepted)")
+        self.assertEqual(result["total_processed"], 1)
+        self.assertEqual(result["total_accepted"], 1)
+        self.assertEqual(result["total_skipped"], 0)
+        self.assertEqual(len(result["results"]), 1)
+        self.assertEqual(result["results"][0]["status"], "check_mode")
+
+    def test_accept_data_exchange_invitation_client_to_server(self):
+        """
+        Accept a client_to_server Data Exchange Service Invitation — live mode
+        (requires consumer/proxy tenant creds).
+        Expected: changed=True, total_accepted=1, total_skipped=0, status="success".
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        vault_bgp_md5, vault_psk = self._acceptance_vault(graphiant_config)
+        config_file = "de_workflows_configs/sample_data_exchange_acceptance_client_to_server.yaml"
+        matches_file = "de_workflows_configs/output/sample_data_exchange_matches_client_to_server_responses_latest.json"
+
+        result = graphiant_config.data_exchange.accept_invitation(
+            config_file, matches_file, vault_bgp_md5=vault_bgp_md5, vault_psk=vault_psk
+        )
+        LOG.info("Accept client_to_server invitation result: %s", result)
+
+        self.assertTrue(result["changed"], "Expected changed=True on first acceptance")
+        self.assertEqual(result["total_processed"], 1)
+        self.assertEqual(result["total_accepted"], 1)
+        self.assertEqual(result["total_skipped"], 0)
+        self.assertEqual(len(result["results"]), 1)
+        self.assertEqual(result["results"][0]["status"], "success")
+
+    def test_accept_data_exchange_invitation_client_to_server_idempotent(self):
+        """
+        Accept the client_to_server invitation again — already accepted (requires
+        consumer/proxy tenant creds). Expected: changed=False, total_skipped=1 (idempotent).
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        vault_bgp_md5, vault_psk = self._acceptance_vault(graphiant_config)
+        config_file = "de_workflows_configs/sample_data_exchange_acceptance_client_to_server.yaml"
+        matches_file = "de_workflows_configs/output/sample_data_exchange_matches_client_to_server_responses_latest.json"
+
+        result = graphiant_config.data_exchange.accept_invitation(
+            config_file, matches_file, vault_bgp_md5=vault_bgp_md5, vault_psk=vault_psk
+        )
+        LOG.info("Accept client_to_server invitation (idempotent) result: %s", result)
 
         self.assertFalse(result["changed"], "Expected changed=False when already accepted")
         self.assertEqual(result["total_processed"], 1)
@@ -1303,6 +1527,34 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         result2 = graphiant_config.static_routes.deconfigure("sample_static_route.yaml")
         LOG.info("Deconfigure static routes result (idempotency check): %s", result2)
         assert result2['changed'] is False, "Deconfigure static routes idempotency failed"
+
+    def test_configure_ospfv2(self):
+        """
+        Configure OSPFv2.
+
+        Second run should be idempotent (changed=False) if desired state already matches.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+
+        result = graphiant_config.ospfv2.configure("sample_ospfv2.yaml")
+        LOG.info("Configure OSPFv2 result: %s", result)
+        result2 = graphiant_config.ospfv2.configure("sample_ospfv2.yaml")
+        LOG.info("Configure OSPFv2 result (idempotency check): %s", result2)
+        assert result2['changed'] is False, "Configure OSPFv2 idempotency failed"
+
+    def test_deconfigure_ospfv2(self):
+        """
+        Deconfigure (delete) OSPFv2 listed in the YAML file.
+
+        Second run should be idempotent (changed=False) when OSPFv2 is already absent.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+
+        result = graphiant_config.ospfv2.deconfigure("sample_ospfv2.yaml")
+        LOG.info("Deconfigure OSPFv2 result: %s", result)
+        result2 = graphiant_config.ospfv2.deconfigure("sample_ospfv2.yaml")
+        LOG.info("Deconfigure OSPFv2 result (idempotency check): %s", result2)
+        assert result2['changed'] is False, "Deconfigure OSPFv2 idempotency failed"
 
     def test_configure_global_ntp(self):
         """
@@ -2012,6 +2264,281 @@ class TestGraphiantPlaybooks(unittest.TestCase):
         LOG.info("Deconfigure port lists result (idempotency check): %s", result2)
         assert result2["changed"] is False, "Deconfigure port lists idempotency failed"
 
+    def test_configure_dhcp_relay_interfaces(self):
+        """
+        Configure DHCP relay on main interfaces and subinterfaces for multiple devices.
+        Prerequisite: interfaces configured via sample_interface_config.yaml.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.dhcp_relay_interfaces.configure("sample_dhcp_relay_config.yaml")
+        LOG.info("Configure DHCP relay interfaces result: %s", result)
+        result = graphiant_config.dhcp_relay_interfaces.configure("sample_dhcp_relay_config.yaml")
+        LOG.info("Configure DHCP relay interfaces result (rerun check): %s", result)
+        assert result['changed'] is False, "Configure DHCP relay interfaces idempotency failed"
+
+    def test_deconfigure_dhcp_relay_interfaces(self):
+        """
+        Deconfigure DHCP relay from main interfaces and subinterfaces for multiple devices.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+        result = graphiant_config.dhcp_relay_interfaces.deconfigure("sample_dhcp_relay_config.yaml")
+        LOG.info("Deconfigure DHCP relay interfaces result: %s", result)
+        result = graphiant_config.dhcp_relay_interfaces.deconfigure("sample_dhcp_relay_config.yaml")
+        LOG.info("Deconfigure DHCP relay interfaces result (idempotency check): %s", result)
+        assert result['changed'] is False, "Deconfigure DHCP relay interfaces idempotency failed"
+
+    @staticmethod
+    def _load_dhcp_relay_from_yaml(graphiant_config, config_yaml_file):
+        """Return {device_name: {"interfaces": [...]}} from dhcp_relay_config YAML list."""
+        cfg = graphiant_config.config_utils.render_config_file(config_yaml_file) or {}
+        raw = cfg.get("dhcp_relay_config") or []
+        by_name = {}
+        for entry in raw:
+            if not isinstance(entry, dict):
+                continue
+            for device_name, device_cfg in entry.items():
+                by_name[device_name] = device_cfg if isinstance(device_cfg, dict) else {}
+        return by_name
+
+    def _dhcp_relay_context(self, graphiant_config):
+        """Resolve device and interface list from sample_dhcp_relay_config.yaml."""
+        by_name = self._load_dhcp_relay_from_yaml(graphiant_config, config_yaml_file="sample_dhcp_relay_config.yaml")
+        if not by_name:
+            raise KeyError("No dhcp_relay_config entries in sample_dhcp_relay_config.yaml")
+        device = next(iter(by_name))
+        interfaces = by_name[device].get("interfaces") or []
+        if not interfaces:
+            raise KeyError(f"No interfaces in dhcp_relay_config for {device!r}")
+        return {
+            "device": device,
+            "interfaces": interfaces,
+            "first_interface": interfaces[0],
+        }
+
+    def test_configure_dhcp_relay_interfaces_module_params(self):
+        """Configure DHCP relay using module_params only (no YAML file)."""
+        graphiant_config = graphiant_config_from_read_config()
+        ctx = self._dhcp_relay_context(graphiant_config)
+        module_params = {
+            "device": ctx["device"],
+            "interfaces": ctx["interfaces"],
+        }
+        result = graphiant_config.dhcp_relay_interfaces.configure(module_params=module_params)
+        LOG.info("Configure DHCP relay via module_params result: %s", result)
+        result = graphiant_config.dhcp_relay_interfaces.configure(module_params=module_params)
+        LOG.info("Configure DHCP relay via module_params (idempotency check): %s", result)
+        assert result["changed"] is False, "Configure DHCP relay module_params idempotency failed"
+
+    def test_deconfigure_dhcp_relay_interfaces_module_params(self):
+        """Deconfigure DHCP relay using module_params only (no YAML file)."""
+        graphiant_config = graphiant_config_from_read_config()
+        ctx = self._dhcp_relay_context(graphiant_config)
+        module_params = {
+            "device": ctx["device"],
+            "interfaces": ctx["interfaces"],
+        }
+        result = graphiant_config.dhcp_relay_interfaces.deconfigure(module_params=module_params)
+        LOG.info("Deconfigure DHCP relay via module_params result: %s", result)
+        result = graphiant_config.dhcp_relay_interfaces.deconfigure(module_params=module_params)
+        LOG.info("Deconfigure DHCP relay via module_params (idempotency check): %s", result)
+        assert result["changed"] is False, "Deconfigure DHCP relay module_params idempotency failed"
+
+    def test_configure_dhcp_relay_interfaces_module_params_override(self):
+        """Configure DHCP relay from YAML with a module_params override for one device."""
+        graphiant_config = graphiant_config_from_read_config()
+        ctx = self._dhcp_relay_context(graphiant_config)
+        first_iface = ctx["first_interface"]
+        # Override: use only the first IPv4 relay server (subset of what the YAML specifies).
+        override_servers = (first_iface.get("dhcpRelayIpv4") or [])[:1]
+        module_params = {
+            "device": ctx["device"],
+            "interfaces": [{**first_iface, "dhcpRelayIpv4": override_servers}],
+        }
+        result = graphiant_config.dhcp_relay_interfaces.configure(
+            "sample_dhcp_relay_config.yaml",
+            module_params=module_params,
+        )
+        LOG.info("Configure DHCP relay YAML + module_params override result: %s", result)
+        result = graphiant_config.dhcp_relay_interfaces.configure(
+            "sample_dhcp_relay_config.yaml",
+            module_params=module_params,
+        )
+        LOG.info("Configure DHCP relay YAML + module_params override (idempotency check): %s", result)
+        assert result["changed"] is False, "Configure DHCP relay module_params override idempotency failed"
+
+    def test_configure_dhcp_relay_per_interface_state_absent(self):
+        """Per-interface state: absent removes relay from one entry while others are configured normally."""
+        graphiant_config = graphiant_config_from_read_config()
+        ctx = self._dhcp_relay_context(graphiant_config)
+        interfaces = ctx["interfaces"]
+        if len(interfaces) < 2:
+            self.skipTest("Need at least 2 interface entries in sample_dhcp_relay_config.yaml for this test")
+        # Configure the first interface normally, mark the second absent.
+        module_params = {
+            "device": ctx["device"],
+            "interfaces": [
+                interfaces[0],
+                {**interfaces[1], "state": "absent"},
+            ],
+        }
+        result = graphiant_config.dhcp_relay_interfaces.configure(module_params=module_params)
+        LOG.info("Per-interface state: absent result: %s", result)
+        # Idempotency: second run should report no changes.
+        result = graphiant_config.dhcp_relay_interfaces.configure(module_params=module_params)
+        LOG.info("Per-interface state: absent (idempotency check): %s", result)
+        assert result["changed"] is False, "Per-interface state: absent idempotency failed"
+
+    def test_configure_dhcp_relay_per_af_state_absent(self):
+        """Per-AF state: absent removes only the specified address family, leaving the other intact."""
+        graphiant_config = graphiant_config_from_read_config()
+        ctx = self._dhcp_relay_context(graphiant_config)
+        first_iface = ctx["first_interface"]
+        if not first_iface.get("dhcpRelayIpv4"):
+            self.skipTest("First interface in sample_dhcp_relay_config.yaml has no dhcpRelayIpv4")
+        # Remove IPv4 relay only; leave IPv6 untouched.
+        module_params = {
+            "device": ctx["device"],
+            "interfaces": [{
+                "name": first_iface["name"],
+                "vlan": first_iface.get("vlan"),
+                "dhcpRelayIpv4": {"state": "absent"},
+            }],
+        }
+        result = graphiant_config.dhcp_relay_interfaces.configure(module_params=module_params)
+        LOG.info("Per-AF state: absent result: %s", result)
+        # Idempotency: second run should report no changes.
+        result = graphiant_config.dhcp_relay_interfaces.configure(module_params=module_params)
+        LOG.info("Per-AF state: absent (idempotency check): %s", result)
+        assert result["changed"] is False, "Per-AF state: absent idempotency failed"
+
+    _NAT_POLICY_CONFIG_FILE = "sample_device_nat_policies.yaml"
+
+    @staticmethod
+    def _load_nat_policy_from_yaml(graphiant_config, config_yaml_file):
+        """Return {device_name: config_dict} from natPolicyObject YAML list."""
+        cfg = graphiant_config.config_utils.render_config_file(config_yaml_file) or {}
+        raw = cfg.get("natPolicyObject") or []
+        by_name = {}
+        for entry in raw:
+            if not isinstance(entry, dict):
+                continue
+            for device_name, device_cfg in entry.items():
+                by_name[device_name] = device_cfg if isinstance(device_cfg, dict) else {}
+        return by_name
+
+    def _nat_policy_context(self, graphiant_config):
+        """Resolve device name and config from sample_device_nat_policies.yaml."""
+        by_name = self._load_nat_policy_from_yaml(graphiant_config, self._NAT_POLICY_CONFIG_FILE)
+        if not by_name:
+            raise KeyError(f"No natPolicyObject entries in {self._NAT_POLICY_CONFIG_FILE}")
+        device = next(iter(by_name))
+        return {"device": device, "device_cfg": by_name[device]}
+
+    def test_configure_device_nat_policy(self):
+        """
+        Configure device-level NAT policy rulesets (edge.natPolicy.natRulesets).
+
+        Second run should be idempotent (changed=False) if desired state already matches.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+
+        result = graphiant_config.nat_policy.configure(self._NAT_POLICY_CONFIG_FILE)
+        LOG.info("Configure device-level NAT policy result: %s", result)
+        result2 = graphiant_config.nat_policy.configure(self._NAT_POLICY_CONFIG_FILE)
+        LOG.info("Configure device-level NAT policy result (idempotency check): %s", result2)
+        assert result2['changed'] is False, "Configure device-level NAT policy idempotency failed"
+
+    def test_deconfigure_device_nat_policy(self):
+        """
+        Deconfigure (delete) device-level NAT policy rulesets listed in the YAML file.
+
+        Second run should be idempotent (changed=False) when rulesets are already absent.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+
+        result = graphiant_config.nat_policy.deconfigure(self._NAT_POLICY_CONFIG_FILE)
+        LOG.info("Deconfigure device-level NAT policy result: %s", result)
+        result2 = graphiant_config.nat_policy.deconfigure(self._NAT_POLICY_CONFIG_FILE)
+        LOG.info("Deconfigure device-level NAT policy result (idempotency check): %s", result2)
+        assert result2['changed'] is False, "Deconfigure device-level NAT policy idempotency failed"
+
+    def test_attach_nat_policy_lan_segments(self):
+        """
+        Attach NAT ruleset reference on LAN segments (edge.segments.*.natRuleset).
+
+        Uses ``sample_device_nat_policies.yaml``. Second run is idempotent when
+        the portal already shows the same ruleset name on the segment.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+
+        result = graphiant_config.nat_policy.attach_to_lan_segments(self._NAT_POLICY_CONFIG_FILE)
+        LOG.info("Attach NAT policy to LAN segments result: %s", result)
+        result2 = graphiant_config.nat_policy.attach_to_lan_segments(self._NAT_POLICY_CONFIG_FILE)
+        LOG.info("Attach NAT policy to LAN segments (idempotency check): %s", result2)
+        assert result2['changed'] is False, "Attach LAN segment NAT policy idempotency failed"
+
+    def test_detach_nat_policy_lan_segments(self):
+        """
+        Clear NAT ruleset reference on LAN segments listed in the YAML file.
+
+        Second run should be idempotent (changed=False) when references are already cleared.
+        """
+        graphiant_config = graphiant_config_from_read_config()
+
+        result = graphiant_config.nat_policy.detach_from_lan_segments(self._NAT_POLICY_CONFIG_FILE)
+        LOG.info("Detach NAT policy from LAN segments result: %s", result)
+        result2 = graphiant_config.nat_policy.detach_from_lan_segments(self._NAT_POLICY_CONFIG_FILE)
+        LOG.info("Detach NAT policy from LAN segments (idempotency check): %s", result2)
+        assert result2['changed'] is False, "Detach LAN segment NAT policy idempotency failed"
+
+    def test_configure_device_nat_policy_module_params(self):
+        """Configure NAT policy rulesets using module_params only (no YAML file)."""
+        graphiant_config = graphiant_config_from_read_config()
+        ctx = self._nat_policy_context(graphiant_config)
+        module_params = {
+            "device": ctx["device"],
+            "natRulesets": ctx["device_cfg"].get("natRulesets"),
+        }
+        result = graphiant_config.nat_policy.configure(module_params=module_params)
+        LOG.info("Configure NAT policy via module_params result: %s", result)
+        result2 = graphiant_config.nat_policy.configure(module_params=module_params)
+        LOG.info("Configure NAT policy via module_params (idempotency check): %s", result2)
+        assert result2['changed'] is False, "Configure NAT policy module_params idempotency failed"
+
+    def test_deconfigure_device_nat_policy_module_params(self):
+        """Deconfigure NAT policy rulesets using module_params only (no YAML file)."""
+        graphiant_config = graphiant_config_from_read_config()
+        ctx = self._nat_policy_context(graphiant_config)
+        module_params = {
+            "device": ctx["device"],
+            "natRulesets": ctx["device_cfg"].get("natRulesets"),
+        }
+        result = graphiant_config.nat_policy.deconfigure(module_params=module_params)
+        LOG.info("Deconfigure NAT policy via module_params result: %s", result)
+        result2 = graphiant_config.nat_policy.deconfigure(module_params=module_params)
+        LOG.info("Deconfigure NAT policy via module_params (idempotency check): %s", result2)
+        assert result2['changed'] is False, "Deconfigure NAT policy module_params idempotency failed"
+
+    def test_configure_device_nat_policy_module_params_override(self):
+        """Configure NAT policy from YAML with a module_params override for one device."""
+        graphiant_config = graphiant_config_from_read_config()
+        ctx = self._nat_policy_context(graphiant_config)
+        module_params = {
+            "device": ctx["device"],
+            "natRulesets": ctx["device_cfg"].get("natRulesets"),
+        }
+        result = graphiant_config.nat_policy.configure(
+            self._NAT_POLICY_CONFIG_FILE,
+            module_params=module_params,
+        )
+        LOG.info("Configure NAT policy YAML + module_params override result: %s", result)
+        result2 = graphiant_config.nat_policy.configure(
+            self._NAT_POLICY_CONFIG_FILE,
+            module_params=module_params,
+        )
+        LOG.info("Configure NAT policy YAML + module_params override (idempotency check): %s", result2)
+        assert result2['changed'] is False, "Configure NAT policy module_params override idempotency failed"
+
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()
@@ -2114,6 +2641,13 @@ if __name__ == '__main__':
     suite.addTest(TestGraphiantPlaybooks('test_enable_vrrp_interfaces'))
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_vrrp_interfaces'))
 
+    # DHCP Relay Interface Configuration Management
+    suite.addTest(TestGraphiantPlaybooks('test_configure_dhcp_relay_interfaces'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_dhcp_relay_interfaces'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_dhcp_relay_interfaces_module_params'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_dhcp_relay_interfaces_module_params'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_dhcp_relay_interfaces_module_params_override'))
+
     # LAG Interface Configuration Management
     suite.addTest(TestGraphiantPlaybooks('test_configure_lag_interfaces'))
     suite.addTest(TestGraphiantPlaybooks('test_update_lacp_configs'))
@@ -2154,7 +2688,7 @@ if __name__ == '__main__':
     # Deconfigure prefix and port list
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_prefix_and_port_list'))
 
-    # Global Configuration Management and BGP Peering
+    # Global Configuration Management, BGP Peering and BGP Aggregation
     suite.addTest(TestGraphiantPlaybooks('test_configure_global_config_prefix_lists'))
     suite.addTest(TestGraphiantPlaybooks('test_configure_global_config_bgp_filters'))
     suite.addTest(TestGraphiantPlaybooks('test_configure_bgp_peering'))
@@ -2194,9 +2728,22 @@ if __name__ == '__main__':
     suite.addTest(TestGraphiantPlaybooks('test_update_data_exchange_services'))
     suite.addTest(TestGraphiantPlaybooks('test_update_data_exchange_services_idempotent'))
     suite.addTest(TestGraphiantPlaybooks('test_update_data_exchange_services_restore'))
+    #   client_to_server service type (NAT pools)
+    suite.addTest(TestGraphiantPlaybooks('test_create_data_exchange_services_client_to_server'))
+    suite.addTest(TestGraphiantPlaybooks('test_create_data_exchange_services_client_to_server_idempotent'))
+    suite.addTest(TestGraphiantPlaybooks('test_get_data_exchange_services_summary'))
+    suite.addTest(TestGraphiantPlaybooks('test_update_data_exchange_services_client_to_server'))
+    suite.addTest(TestGraphiantPlaybooks('test_update_data_exchange_services_client_to_server_idempotent'))
+    suite.addTest(TestGraphiantPlaybooks('test_update_data_exchange_services_client_to_server_restore'))
     suite.addTest(TestGraphiantPlaybooks('test_create_data_exchange_customers'))
+    suite.addTest(TestGraphiantPlaybooks('test_create_data_exchange_customers_idempotent'))
+    suite.addTest(TestGraphiantPlaybooks('test_update_data_exchange_customers'))
+    suite.addTest(TestGraphiantPlaybooks('test_update_data_exchange_customers_idempotent'))
+    suite.addTest(TestGraphiantPlaybooks('test_update_data_exchange_customers_restore'))
     suite.addTest(TestGraphiantPlaybooks('test_get_data_exchange_customers_summary'))
     suite.addTest(TestGraphiantPlaybooks('test_match_data_exchange_service_to_customers'))
+    suite.addTest(TestGraphiantPlaybooks('test_match_data_exchange_service_to_customers_client_to_server'))
+    suite.addTest(TestGraphiantPlaybooks('test_match_data_exchange_service_to_customers_client_to_server_idempotent'))
     suite.addTest(TestGraphiantPlaybooks('test_get_data_exchange_customers_summary'))
     suite.addTest(TestGraphiantPlaybooks('test_get_data_exchange_services_summary'))
 
@@ -2213,15 +2760,22 @@ if __name__ == '__main__':
     # suite.addTest(TestGraphiantPlaybooks("test_configure_data_exchange_global_lan_segments"))
     # suite.addTest(TestGraphiantPlaybooks("test_configure_vpn_profiles"))
     # suite.addTest(TestGraphiantPlaybooks("test_accept_data_exchange_invitation_check_mode"))
+    # suite.addTest(TestGraphiantPlaybooks("test_accept_data_exchange_invitation_legacy_shape_check_mode"))
     # suite.addTest(TestGraphiantPlaybooks("test_accept_data_exchange_invitation"))
     # suite.addTest(TestGraphiantPlaybooks("test_accept_data_exchange_invitation_idempotent"))
     # suite.addTest(TestGraphiantPlaybooks('test_accept_data_exchange_invitation_scale_check_mode'))
+    #   client_to_server acceptance (requires the client_to_server service/match from above)
+    # suite.addTest(TestGraphiantPlaybooks("test_accept_data_exchange_invitation_client_to_server_check_mode"))
+    # suite.addTest(TestGraphiantPlaybooks("test_accept_data_exchange_invitation_client_to_server"))
+    # suite.addTest(TestGraphiantPlaybooks("test_accept_data_exchange_invitation_client_to_server_idempotent"))
     # -------------------------------------------------------------------------------------------- #
 
     suite.addTest(TestGraphiantPlaybooks('test_delete_data_exchange_customers_scale'))
     suite.addTest(TestGraphiantPlaybooks('test_delete_data_exchange_services_scale'))
     suite.addTest(TestGraphiantPlaybooks('test_delete_data_exchange_customers'))
     suite.addTest(TestGraphiantPlaybooks('test_delete_data_exchange_services'))
+    suite.addTest(TestGraphiantPlaybooks('test_delete_data_exchange_services_client_to_server'))
+    suite.addTest(TestGraphiantPlaybooks('test_delete_data_exchange_services_client_to_server_idempotent'))
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_global_config_graphiant_filters'))
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_global_config_prefix_lists'))
 
@@ -2268,6 +2822,27 @@ if __name__ == '__main__':
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_edge_services'))
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_prefix_and_port_list'))
 
+    # Device NAT Policy Management Tests
+    suite.addTest(TestGraphiantPlaybooks('test_configure_device_nat_policy'))
+    suite.addTest(TestGraphiantPlaybooks('test_attach_nat_policy_lan_segments'))
+    suite.addTest(TestGraphiantPlaybooks('test_detach_nat_policy_lan_segments'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_device_nat_policy'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_device_nat_policy_module_params'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_device_nat_policy_module_params_override'))
+    suite.addTest(TestGraphiantPlaybooks('test_attach_nat_policy_lan_segments'))
+    suite.addTest(TestGraphiantPlaybooks('test_detach_nat_policy_lan_segments'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_device_nat_policy_module_params'))
+
+    # OSPFv2 Management Tests
+    # Pre-req: LAN segments referenced by OSPF
+    suite.addTest(TestGraphiantPlaybooks('test_configure_global_lan_segments'))
+    # Pre-req: creates lan-1-test/lan-7-test etc.
+    suite.addTest(TestGraphiantPlaybooks('test_configure_interfaces'))
+    suite.addTest(TestGraphiantPlaybooks('test_configure_ospfv2'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_ospfv2'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_interfaces'))
+    suite.addTest(TestGraphiantPlaybooks('test_deconfigure_global_lan_segments'))
+
     # To deconfigure all interfaces
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_interfaces'))
 
@@ -2290,4 +2865,5 @@ if __name__ == '__main__':
     suite.addTest(TestGraphiantPlaybooks('test_configure_backbone_syslog_targets'))
     suite.addTest(TestGraphiantPlaybooks('test_deconfigure_backbone_syslog_targets'))
     '''
+
     unittest.TextTestRunner(verbosity=2).run(suite)

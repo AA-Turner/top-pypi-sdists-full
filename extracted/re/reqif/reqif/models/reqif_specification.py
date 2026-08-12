@@ -19,8 +19,10 @@ class ReqIFSpecification:  # pylint: disable=too-many-instance-attributes
         specification_type: Optional[str] = None,
         children: Optional[List[ReqIFSpecHierarchy]] = None,
         xml_node: Optional[Any] = None,
+        alternative_id: Optional[str] = None,
     ):
         self.identifier: str = identifier
+        self.alternative_id: Optional[str] = alternative_id
         self.description: Optional[str] = description
         self.last_change: Optional[str] = last_change
         self.long_name: Optional[str] = long_name

@@ -296,6 +296,57 @@ async def test_summarise_workflow_retries_on_json_decode_error():
     assert client.chat.complete_async.call_count == 3
 
 
+async def test_summarise_workflow_keeps_valid_nodes_when_one_is_malformed():
+    """A bare type string for one node must not discard the valid summaries."""
+    wire = _wire(_node("a", name="fetch_data"), _node("b", type_="human_input", name="await_review"))
+    payload = {"node_0": {"short": "Fetch data", "long": "Fetches data."}, "node_1": "human_input"}
+    client = _mock_client(payload)
+
+    result = await summarise_workflow(wire, client=client)
+
+    assert result.status == "ready"
+    assert "a" in result.summaries
+    assert "b" not in result.summaries
+    assert result.summaries["a"].short == "Fetch data"
+    # "b" is malformed → corrective retry fires, but mock returns the same payload
+    # each time, so we exhaust retries and return "a" best-effort.
+    assert client.chat.complete_async.call_count == 3
+
+
+async def test_summarise_workflow_corrective_retry_recovers_malformed_node():
+    """A bare-string entry on attempt 1 is corrected on attempt 2 via corrective retry."""
+    wire = _wire(_node("a", name="fetch_data"), _node("b", name="await_review"))
+    bad = {"node_0": {"short": "Fetch data", "long": "Fetches data."}, "node_1": "human_input"}
+    good = {
+        "node_0": {"short": "Fetch data", "long": "Fetches data."},
+        "node_1": {"short": "Await review", "long": "Waits."},
+    }
+    bad_resp = MagicMock()
+    bad_resp.choices[0].message.content = json.dumps(bad)
+    good_resp = MagicMock()
+    good_resp.choices[0].message.content = json.dumps(good)
+    client = MagicMock()
+    client.chat.complete_async = AsyncMock(side_effect=[bad_resp, good_resp])
+
+    result = await summarise_workflow(wire, client=client)
+
+    assert result.status == "ready"
+    assert result.summaries["a"].short == "Fetch data"
+    assert result.summaries["b"].short == "Await review"
+    assert client.chat.complete_async.call_count == 2
+
+
+async def test_summarise_workflow_retries_on_non_object_json():
+    """A valid-JSON-but-non-object response (e.g. a bare string) is retried, not crashed."""
+    wire = _wire(_node("a"))
+    client = _mock_client(json.dumps("human_input"))
+
+    with pytest.raises(SummariseError):
+        await summarise_workflow(wire, client=client)
+
+    assert client.chat.complete_async.call_count == 3
+
+
 async def test_summarise_workflow_raises_on_api_error():
     wire = _wire(_node("a"))
     client = MagicMock()

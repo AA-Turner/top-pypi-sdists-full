@@ -136,6 +136,7 @@ ApplicationAutoScalingServiceName = Literal["application-autoscaling"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

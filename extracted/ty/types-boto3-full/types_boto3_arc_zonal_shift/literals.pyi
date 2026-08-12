@@ -59,6 +59,7 @@ ARCZonalShiftServiceName = Literal["arc-zonal-shift"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

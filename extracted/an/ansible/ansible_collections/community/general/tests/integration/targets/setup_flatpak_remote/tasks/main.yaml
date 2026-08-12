@@ -14,14 +14,14 @@
       ansible_facts.distribution == 'Ubuntu' and not ansible_facts.distribution_major_version | int < 16
   block:
     - name: Copy repo into place
-      unarchive:
+      ansible.builtin.unarchive:
         src: repo.tar.xz
         dest: '{{ remote_tmp_dir }}'
         owner: root
         group: root
         mode: '0644'
     - name: Create deterministic link to temp directory
-      file:
+      ansible.builtin.file:
         state: link
         src: '{{ remote_tmp_dir }}/'
         path: /tmp/flatpak

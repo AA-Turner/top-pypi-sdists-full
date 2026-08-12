@@ -30,11 +30,6 @@ from ._base import (
 
 # pyright: reportPrivateUsage=false, reportIncompatibleMethodOverride=false, reportReturnType=false, reportUnnecessaryCast=false, reportUnnecessaryComparison=false
 
-try:
-    import polars as pl
-except ImportError:
-    pl = None
-
 _TIMEDELTA_PA_TYPE = pa.duration("us")
 _TIMEDELTA_NULL_PROTO = pb.ArrowType(duration=pb.TIME_UNIT_MICROSECOND)
 
@@ -64,7 +59,7 @@ class TimedeltaFeatureConverter(
     _primitive_type_value: ClassVar[Type[timedelta]] = timedelta
     _pyarrow_dtype_value: ClassVar[pa.DataType] = _TIMEDELTA_PA_TYPE
     _proto_arrow_type: ClassVar[pb.ArrowType] = _TIMEDELTA_NULL_PROTO
-    _polars_dtype_value: ClassVar[Any] = pl.Duration("us") if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None
 
     _coerce_fn = staticmethod(_coerce_timedelta)
     _use_fast_path = False

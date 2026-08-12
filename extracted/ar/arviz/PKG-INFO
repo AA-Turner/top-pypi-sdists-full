@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arviz
-Version: 1.2.0
+Version: 1.3.0
 Summary: Expose features from _ArviZverse_ refactored packages together in the ``arviz`` namespace.
 Author-email: ArviZ team <arvizdevs@gmail.com>
 Requires-Python: >=3.12
@@ -17,9 +17,9 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
-Requires-Dist: arviz_base>=1.2.0,<1.3.0
-Requires-Dist: arviz_stats[xarray]>=1.2.0,<1.3.0
-Requires-Dist: arviz_plots>=1.2.0,<1.3.0
+Requires-Dist: arviz_base>=1.3.0,<1.4.0
+Requires-Dist: arviz_stats[xarray]>=1.3.0,<1.4.0
+Requires-Dist: arviz_plots>=1.3.0,<1.4.0
 Requires-Dist: arviz_plots[bokeh] ; extra == "bokeh"
 Requires-Dist: build ; extra == "check"
 Requires-Dist: pre-commit ; extra == "check"
@@ -103,7 +103,7 @@ conda install -c conda-forge arviz arviz-plots
 The latest development version can be installed from the main branch using pip:
 
 ```
-pip install git+git://github.com/arviz-devs/arviz.git
+pip install git+https://github.com/arviz-devs/arviz.git
 ```
 
 Another option is to clone the repository and install using git and setuptools:
@@ -173,12 +173,21 @@ ArviZ wishes to maintain a positive community. Additional details
 can be found in the [Code of Conduct](https://www.arviz.org/en/latest/CODE_OF_CONDUCT.html)
 
 ## Donations
-ArviZ is a non-profit project under NumFOCUS umbrella. If you want to support ArviZ financially, you can donate [here](https://numfocus.org/donate-to-arviz).
+ArviZ is a non-profit project under [NumFOCUS](https://numfocus.org) umbrella. If you want to support ArviZ financially, you can donate [here](https://numfocus.org/donate-to-arviz).
 
 ## Sponsors and Institutional Partners
+
+[The ArviZ project website](https://www.arviz.org/en/latest/sponsors_partners.html) has more information about each sponsor and institutional partner and the support they provide.
+
+### Institutional partners
+
+ArviZ is currently supported by the following institutional partners:
+
 [![Aalto University](https://raw.githubusercontent.com/arviz-devs/arviz-project/refs/heads/main/cards/Aalto-black-text.png)](https://www.aalto.fi/en)
 [![FCAI](https://raw.githubusercontent.com/arviz-devs/arviz-project/refs/heads/main/cards/FCAI.png)](https://fcai.fi/)
-[![NumFOCUS](https://raw.githubusercontent.com/arviz-devs/arviz-project/refs/heads/main/sphinx/NumFocus.png)](https://numfocus.org)
+[![FCAI](https://raw.githubusercontent.com/arviz-devs/arviz-project/refs/heads/main/cards/FCAI.png)](https://fcai.fi/)
+[![ELLIS Finland](https://raw.githubusercontent.com/arviz-devs/arviz-project/refs/heads/main/cards/ellis_finland.png)](https://www.ellisinstitute.fi/)
 
-[The ArviZ project website](https://www.arviz.org/en/latest/sponsors_partners.html) has more information about each sponsor and the support they provide.
+### Sponsors
+ArviZ currently has no Sponsors.
 

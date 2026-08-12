@@ -4,12 +4,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: install supervisor
-  package:
+  ansible.builtin.package:
     name: supervisor
     state: present
 
 - name: disable supervisord system service
-  service:
+  ansible.builtin.service:
     name: '{{ supervisor_service_name }}'
     state: stopped
     enabled: false

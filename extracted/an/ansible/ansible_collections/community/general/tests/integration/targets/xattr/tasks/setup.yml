@@ -4,11 +4,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Install
-  package:
+  ansible.builtin.package:
     name: attr
     state: present
 
 - name: Create file
-  file:
+  ansible.builtin.file:
     path: "{{ test_file }}"
     state: touch

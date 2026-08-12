@@ -359,6 +359,8 @@ def run_from_cli_args(cli_args: 'CliArgs', client_factory: ClientFactory) -> Non
             mycli.prompt_format = cli_args.prompt or params[0] or mycli.prompt_format
         if params := dsn_params.get('ssh_jump'):
             cli_args.ssh_jump = cli_args.ssh_jump or params[0]
+        if params := dsn_params.get('boundary_id'):
+            cli_args.boundary_id = cli_args.boundary_id or params[0]
         if params := dsn_params.get('vault_address'):
             cli_args.vault_address = cli_args.vault_address or params[0]
         if params := dsn_params.get('vault_mount'):
@@ -369,6 +371,10 @@ def run_from_cli_args(cli_args: 'CliArgs', client_factory: ClientFactory) -> Non
             cli_args.vault_password_field = cli_args.vault_password_field or params[0]
         if params := dsn_params.get('vault_username_field'):
             cli_args.vault_username_field = cli_args.vault_username_field or params[0]
+
+    if cli_args.ssh_jump and cli_args.boundary_id:
+        click.secho('Error: --ssh-jump and --boundary-id are incompatible.', err=True, fg='red')
+        sys.exit(1)
 
     keepalive_ticks = cli_args.keepalive_ticks if cli_args.keepalive_ticks is not None else mycli.default_keepalive_ticks
     ssl_mode = cli_args.ssl_mode or mycli.ssl_mode
@@ -521,6 +527,7 @@ def run_from_cli_args(cli_args: 'CliArgs', client_factory: ClientFactory) -> Non
             vault_password_field=cli_args.vault_password_field,
             vault_username_field=cli_args.vault_username_field,
             vault_username_from_vault=vault_username_from_vault,
+            boundary_target_id=cli_args.boundary_id,
         )
 
         if combined_init_cmd:

@@ -10,7 +10,7 @@ import xarray as xr
 from arviz_base import dataset_to_dataarray, rcParams
 from xarray_einstats.stats import logsumexp
 
-from arviz_stats.loo.helper_loo import (
+from arviz_stats.loo.loo_helper import (
     _get_log_likelihood_i,
     _get_r_eff,
     _get_r_eff_i,
@@ -21,7 +21,6 @@ from arviz_stats.loo.helper_loo import (
     _shift_and_scale,
     _warn_pareto_k,
 )
-from arviz_stats.sampling_diagnostics import ess
 from arviz_stats.utils import ELPDData
 
 SplitMomentMatch = namedtuple("SplitMomentMatch", ["lwi", "lwfi", "log_liki", "reff"])
@@ -35,8 +34,8 @@ LooMomentMatchResult = namedtuple(
 def loo_moment_match(
     data,
     loo_orig,
-    log_prob_upars_fn,
-    log_lik_i_upars_fn,
+    log_prob_upars_fn=None,
+    log_lik_i_upars_fn=None,
     upars=None,
     var_name=None,
     reff=None,
@@ -45,6 +44,7 @@ def loo_moment_match(
     split=True,
     cov=True,
     pointwise=None,
+    model=None,
 ):
     r"""Compute moment matching for problematic observations in PSIS-LOO-CV.
 
@@ -67,26 +67,28 @@ def loo_moment_match(
     loo_orig : ELPDData
         An existing ELPDData object from a previous `loo` result. Must contain
         pointwise Pareto k values (`pointwise=True` must have been used).
-    log_prob_upars_fn : callable
+    log_prob_upars_fn : callable, optional
         Function that computes the log probability density of the full posterior
         distribution evaluated at unconstrained parameter draws.
         The function signature is ``log_prob_upars_fn(upars)`` where ``upars``
         is a :class:`~xarray.DataArray` of unconstrained parameter draws with dimensions
         ``chain``, ``draw``, and a parameter dimension. It should return a
         :class:`~xarray.DataArray` with dimensions ``chain``, ``draw``.
-    log_lik_i_upars_fn : callable
+        If not provided, must be auto-built from ``model``.
+    log_lik_i_upars_fn : callable, optional
         Function that computes the log-likelihood of a single left-out observation
         evaluated at unconstrained parameter draws.
         The function signature is ``log_lik_i_upars_fn(upars, i)`` where ``upars``
         is a :class:`~xarray.DataArray` of unconstrained parameter draws and ``i``
         is the integer index of the left-out observation. It should return a
         :class:`~xarray.DataArray` with dimensions ``chain``, ``draw``.
+        If not provided, must be auto-built from ``model``.
     upars : DataArray, optional
         Posterior draws transformed to the unconstrained parameter space. Must have
         ``chain`` and ``draw`` dimensions, plus one additional dimension containing all
         parameters. Parameter names can be provided as coordinate values on this
         dimension. If not provided, will attempt to use the ``unconstrained_posterior``
-        group from the input data if available.
+        group from the input data if available, or auto-build from ``model``.
     var_name : str, optional
         The name of the variable in log_likelihood group storing the pointwise log
         likelihood data to use for loo computation.
@@ -109,6 +111,10 @@ def loo_moment_match(
         ``rcParams["stats.ic_pointwise"]``. Moment matching always requires
         pointwise data from ``loo_orig``. This argument controls whether the returned
         object includes pointwise data.
+    model : Model, optional
+        A model object. Curently supported models are PyMC and Bambi.
+        If provided, it will be used to auto-build ``log_prob_upars_fn``,
+        ``log_lik_i_upars_fn``, and ``upars`` if any of them are not provided.
 
     Returns
     -------
@@ -165,6 +171,34 @@ def loo_moment_match(
             "Please compute the initial LOO with pointwise=True."
         )
 
+    # Auto-build moment matching functions from model if provided
+    if model is not None and (
+        log_prob_upars_fn is None or log_lik_i_upars_fn is None or upars is None
+    ):
+        from arviz_stats.loo.loo_moment_match_helper import mm_from_pymc
+
+        ## if model is Bambi's, re-center the intercept so it matches the PyMC value variable
+        re_center_intercept = getattr(model, "_re_center_intercept", None)
+        if re_center_intercept is not None:
+            data = re_center_intercept(data)
+            model = model.backend.model
+
+        auto_log_prob, auto_log_lik_i, auto_upars = mm_from_pymc(
+            data, model=model, var_name=var_name
+        )
+        if log_prob_upars_fn is None:
+            log_prob_upars_fn = auto_log_prob
+        if log_lik_i_upars_fn is None:
+            log_lik_i_upars_fn = auto_log_lik_i
+        if upars is None:
+            upars = auto_upars
+
+    if log_prob_upars_fn is None or log_lik_i_upars_fn is None:
+        raise ValueError(
+            "Both log_prob_upars_fn and log_lik_i_upars_fn are required for moment matching. "
+            "Pass them explicitly or provide model to build them automatically."
+        )
+
     sample_dims = ["chain", "draw"]
 
     if upars is None:
@@ -192,6 +226,8 @@ def loo_moment_match(
         param_dim_name = param_dim_list[0]
     else:
         raise ValueError("upars must have at most one dimension besides 'chain' and 'draw'.")
+
+    upars = upars.transpose(*sample_dims, param_dim_name)
 
     loo_data = deepcopy(loo_orig)
     loo_data.method = "loo_moment_match"
@@ -629,9 +665,6 @@ def _loo_moment_match_i(
     var_name,
 ):
     """Compute moment matching for a single observation."""
-    n_chains = upars.sizes["chain"]
-    n_draws = upars.sizes["draw"]
-
     log_liki = _get_log_likelihood_i(log_likelihood, i, obs_dims).squeeze(drop=True)
 
     if isinstance(r_eff, xr.DataArray):
@@ -639,9 +672,7 @@ def _loo_moment_match_i(
     elif r_eff is not None:
         reff_i = r_eff
     else:
-        liki = np.exp(log_liki)
-        liki_reshaped = liki.values.reshape(n_chains, n_draws).T
-        ess_val = ess(liki_reshaped, method="mean").item()
+        ess_val = np.exp(log_liki).azstats.ess(method="mean")
         reff_i = ess_val / n_samples if n_samples > 0 else 1.0
 
     original_ki = ks[i]
@@ -826,9 +857,7 @@ def _loo_moment_match_i(
         final_lwfi = lwfi
         final_ki = ki
 
-        liki_final = np.exp(final_log_liki)
-        liki_final_reshaped = liki_final.values.reshape(n_chains, n_draws).T
-        ess_val_final = ess(liki_final_reshaped, method="mean").item()
+        ess_val_final = np.exp(final_log_liki).azstats.ess(method="mean")
         reff_i = ess_val_final / n_samples if n_samples > 0 else 1.0
 
     lwi_vals = final_lwi.values.flatten()

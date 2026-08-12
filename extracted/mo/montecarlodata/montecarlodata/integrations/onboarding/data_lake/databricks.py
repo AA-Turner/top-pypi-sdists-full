@@ -1,18 +1,13 @@
 from typing import Optional
 
+from montecarlodata.collector.validation import CollectorValidationService
 from montecarlodata.config import Config
 from montecarlodata.errors import complain_and_abort, manage_errors
 from montecarlodata.integrations.keys import IntegrationKeyService
 from montecarlodata.integrations.onboarding.base import BaseOnboardingService
-from montecarlodata.integrations.onboarding.fields import (
-    EXPECTED_DATABRICKS_SQL_WAREHOUSE_GQL_RESPONSE_FIELD,
-)
-from montecarlodata.queries.onboarding import (
-    DatabricksSqlWarehouseOnboardingQueries,
-)
 
 
-class DatabricksOnboardingService(BaseOnboardingService):
+class DatabricksOnboardingService(CollectorValidationService, BaseOnboardingService):
     def __init__(
         self,
         config: Config,
@@ -56,9 +51,14 @@ class DatabricksOnboardingService(BaseOnboardingService):
 
     @manage_errors
     def onboard_databricks_sql_warehouse(self, **kwargs):
-        # Onboard
-        self.onboard(
-            validation_query=DatabricksSqlWarehouseOnboardingQueries.test_credentials.query,
-            validation_response=EXPECTED_DATABRICKS_SQL_WAREHOUSE_GQL_RESPONSE_FIELD,
-            **kwargs,
-        )
+        """
+        Onboard a Databricks SQL warehouse connection by validating and adding a connection.
+
+        Runs all supported v2 validations for the connection type and, if they all pass,
+        stores a temp credentials key and adds the connection. If the --skip-validation flag
+        is used no validations are run and just a temp key is returned; --validate-only runs
+        the validations without adding the connection.
+        """
+        key = self.test_new_credentials(**kwargs)
+        if key:
+            self.add_connection(key, **kwargs)

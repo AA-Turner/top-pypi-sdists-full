@@ -30,14 +30,15 @@ from pydantic_core import to_jsonable_python
 
 class ContentItem(BaseModel):
     """
-    A single downloadable artifact.  It inherits `content_format`, `cost`, the payload fields (`data`, `records`, `dataset`, `total_rows`, `truncated`), and the presigned `url` and `expires_at` from ResultContent. URL mode populates `url` and `expires_at`. INLINE mode populates one of the payload fields and leaves `url` and `expires_at` null. A `quote_only` request yields a third shape: `cost` (plus `export_pricing` for a card) with every payload and url field null and `content_format` null — the price of the export, with nothing fetched or charged.
+    A single downloadable artifact.  It inherits `content_format`, `cost`, the payload fields (`data`, `records`, `dataset`, `total_rows`, `truncated`), and the presigned `url` and `expires_at` from ResultContent. URL mode populates `url` and `expires_at`. INLINE mode populates one of the payload fields and leaves `url` and `expires_at` null. A `quote_only` request yields a third shape: `cost` (plus `export_pricing` for a card) with every payload and url field null and `content_format` null — the price of the export, with nothing fetched or charged.  `card_data_schema` is the one field that does NOT follow that rule: a card_json quote and a card_json `url` delivery both return it beside a null `card_data`, because the shape is what those two shapes have to offer. Test `content_format` for null to tell a quote from a delivery; a null payload field cannot do it.
     """ # noqa: E501
     content_format: Optional[ContentsFormat] = Field(default=None, description="Serialization of the returned card data: 'csv', 'json_records', 'json_compact', or 'card_json'. Null for web text (always returned as raw text) and for a quote-only response (nothing was serialized).")
-    cost: Optional[Union[StrictFloat, StrictInt]] = Field(default=0.0, description="Price of this item in USD. On a /contents response this is the amount actually billed. On a quote_only response it is a prospective /contents export price, because Tako fetched nothing and billed nothing. On a search or answer downloadable card it is also a prospective price, unless Tako returned more rows than the free row allowance; then it is the amount this response billed for the card. Use export_pricing on its own to price a /contents export of the same card. Do not add this value to that result: a billed inline card uses the caller's own inline free row allowance, and export_pricing uses the /contents free row allowance.")
+    cost: Optional[Union[StrictFloat, StrictInt]] = Field(default=0.0, description="Price of this item in USD. On a /contents response this is the amount actually billed. On a quote_only response it is a prospective /contents export price, because Tako fetched nothing and billed nothing. On a search or answer downloadable card it is also a prospective price, unless Tako returned more rows than the free row allowance; then it is the amount this response billed for the card. Use export_pricing on its own to price a /contents export of the same card. Do not add this value to that result: they are two prices for the same rows, not two charges.")
     data: Optional[StrictStr] = Field(default=None, description="Inline payload as text: card data serialized to CSV, or a web page's extracted text. Set only for the 'csv' card format and for web text; null otherwise.")
     records: Optional[List[Dict[str, Optional[RowsInnerInner]]]] = Field(default=None, description="Inline card data as verbose JSON: a list of row objects keyed by column name. Set only when content_format is 'json_records'.")
     dataset: Optional[TakoDataset] = Field(default=None, description="Inline card data as a compact TakoDataset (typed column headers plus positional row arrays). Set only when content_format is 'json_compact'.")
-    card_data: Optional[Dict[str, Any]] = Field(default=None, description="Inline card data as a card-type-specific JSON object. The 'card_type' field inside the object names its shape. Set only when content_format is 'card_json'. A card_json request returns the complete payload: 'max_rows' sets the price but does not truncate it. A card whose record array is unbounded caps that array at the platform export ceiling and reports 'truncated': true. The payload then also carries the true count for its record array. Card types without a card_json shape return 422 on /contents and fall back to 'json_compact' on search and answer include_contents.")
+    card_data: Optional[Dict[str, Any]] = Field(default=None, description="Inline card data as a card-type-specific JSON object. The 'card_type' field inside the object names its shape. Set only when content_format is 'card_json'. Tako truncates the record rows in the object to 'max_rows', the same cap every other format takes, and bills the rows it returns. A card whose record array is unbounded caps that array at the platform export ceiling and reports 'truncated': true. The payload then also carries the true count for its record array. Card types without a card_json shape return 422 on /contents and fall back to 'json_compact' on search and answer include_contents.")
+    card_data_schema: Optional[Dict[str, Any]] = Field(default=None, description="JSON Schema for the object in 'card_data'. Read it to learn the shape of the payload without parsing the payload. Tako sets this whenever content_format is 'card_json'. It is also set in 'url' delivery mode and on a Contents quote, where 'card_data' is null and the shape is all Tako returns. A search or answer card that you did not ask to inline carries a price but no schema. The 'title' field and the 'card_type' default inside the schema name the shape. The schema describes the payload type, so 'card_data' can omit a field the schema declares: Tako drops a measure the provider did not supply. Null for every other content_format and for web text.")
     url: Optional[StrictStr] = Field(default=None, description="Presigned download URL for the content, returned in 'url' delivery mode. Null for inline delivery and for quotes; pair with expires_at.")
     expires_at: Optional[StrictStr] = Field(default=None, description="ISO-8601 timestamp after which the presigned url stops working. Null whenever url is null.")
     total_rows: Optional[StrictInt] = Field(default=None, description="True total number of rows in the card's data, independent of how many rows were returned. Compare with truncated to tell whether more rows are available via a larger max_rows. Null for web text.")
@@ -45,7 +46,7 @@ class ContentItem(BaseModel):
     export_pricing: Optional[ExportPricing] = Field(default=None, description="Rate card for a downloadable card CSV, so a caller can compute a full export's cost before fetching. Null for web text and other non-downloadable content.")
     manifest: Optional[List[ColumnDescriptor]] = Field(default=None, description="Per-column metadata, one entry per exported column, in column order: entry i describes column i (CSV header i, json_records key i, or dataset.columns[i]). Each entry carries name (the column header), dtype, unit, metric, and entity. Null for web or quote responses that carry no tabular columns.")
     source_url: StrictStr = Field(description="The originating result URL from the request.")
-    __properties: ClassVar[List[str]] = ["content_format", "cost", "data", "records", "dataset", "card_data", "url", "expires_at", "total_rows", "truncated", "export_pricing", "manifest", "source_url"]
+    __properties: ClassVar[List[str]] = ["content_format", "cost", "data", "records", "dataset", "card_data", "card_data_schema", "url", "expires_at", "total_rows", "truncated", "export_pricing", "manifest", "source_url"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -133,6 +134,11 @@ class ContentItem(BaseModel):
         if self.card_data is None and "card_data" in self.model_fields_set:
             _dict['card_data'] = None
 
+        # set to None if card_data_schema (nullable) is None
+        # and model_fields_set contains the field
+        if self.card_data_schema is None and "card_data_schema" in self.model_fields_set:
+            _dict['card_data_schema'] = None
+
         # set to None if url (nullable) is None
         # and model_fields_set contains the field
         if self.url is None and "url" in self.model_fields_set:
@@ -179,6 +185,7 @@ class ContentItem(BaseModel):
                 ] if obj.get("records") is not None else None,
             "dataset": TakoDataset.from_dict(obj["dataset"]) if obj.get("dataset") is not None else None,
             "card_data": obj.get("card_data"),
+            "card_data_schema": obj.get("card_data_schema"),
             "url": obj.get("url"),
             "expires_at": obj.get("expires_at"),
             "total_rows": obj.get("total_rows"),

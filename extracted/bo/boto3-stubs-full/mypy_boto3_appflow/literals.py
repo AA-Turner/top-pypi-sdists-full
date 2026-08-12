@@ -476,6 +476,7 @@ AppflowServiceName = Literal["appflow"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

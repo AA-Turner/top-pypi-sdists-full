@@ -11,90 +11,90 @@
 
 # Test preparation
 - name: Uninstall Rested to ensure consistent starting point
-  mas:
+  community.general.mas:
     id: 421879749
     state: absent
   become: true
 
 - name: Determine whether the app is installed
-  stat:
+  ansible.builtin.stat:
     path: /Applications/Rested.app
   register: install_status
 
 - name: Ensure the app is uninstalled
-  assert:
+  ansible.builtin.assert:
     that:
       - install_status.stat.exists == false
 
 - name: Wait until the OS-internal cache was updated
-  pause:
+  ansible.builtin.pause:
     seconds: 5
 
 # Installation
 - name: Check if Rested needs to be installed
-  mas:
+  community.general.mas:
     id: 421879749
     state: present
   register: install_check
   check_mode: true
 
 - name: Ensure that the status would have changed
-  assert:
+  ansible.builtin.assert:
     that:
       - install_check is changed
       - install_check.msg == "Installed 1 app(s)"
 
 - name: Determine whether the app is installed
-  stat:
+  ansible.builtin.stat:
     path: /Applications/Rested.app
   register: install_status
 
 - name: Ensure the app is not yet installed
-  assert:
+  ansible.builtin.assert:
     that:
       - install_status.stat.exists == false
 
 - name: Install Rested
-  mas:
+  community.general.mas:
     id: 421879749
     state: present
   register: install
 
 - name: Ensure that the status changed
-  assert:
+  ansible.builtin.assert:
     that:
       - install is changed
       - install.msg == "Installed 1 app(s)"
 
 - name: Determine whether the app is installed
-  stat:
+  ansible.builtin.stat:
     path: /Applications/Rested.app
   register: install_status
 
 - name: Ensure the app is installed
-  assert:
+  ansible.builtin.assert:
     that:
       - install_status.stat.exists == true
 
 - name: Wait until the OS-internal cache was updated
-  pause:
+  ansible.builtin.pause:
     seconds: 5
 
 - name: Install Rested again
-  mas:
+  community.general.mas:
     id: 421879749
     state: present
   register: install_again
 
 - name: Ensure that the status is unchanged (already installed)
-  assert:
+  ansible.builtin.assert:
     that:
       - install_again is not changed
       - "'msg' not in install_again"
 
 # Uninstallation
 - name: Check if Rested needs to be uninstalled
-  mas:
+  community.general.mas:
     id: 421879749
     state: absent
   register: uninstall_check
@@ -102,57 +102,57 @@
   check_mode: true
 
 - name: Ensure that the status would have changed
-  assert:
+  ansible.builtin.assert:
     that:
       - uninstall_check is changed
       - uninstall_check.msg == "Uninstalled 1 app(s)"
 
 - name: Determine whether the app is installed
-  stat:
+  ansible.builtin.stat:
     path: /Applications/Rested.app
   register: install_status
 
 - name: Ensure the app is not yet uninstalled
-  assert:
+  ansible.builtin.assert:
     that:
       - install_status.stat.exists == true
 
 - name: Uninstall Rested
-  mas:
+  community.general.mas:
     id: 421879749
     state: absent
   register: uninstall
   become: true
 
 - name: Ensure that the status changed
-  assert:
+  ansible.builtin.assert:
     that:
       - uninstall is changed
       - uninstall.msg == "Uninstalled 1 app(s)"
 
 - name: Determine whether the app is installed
-  stat:
+  ansible.builtin.stat:
     path: /Applications/Rested.app
   register: uninstall_status
 
 - name: Ensure the app is uninstalled
-  assert:
+  ansible.builtin.assert:
     that:
       - uninstall_status.stat.exists == false
 
 - name: Wait until the OS-internal cache was updated
-  pause:
+  ansible.builtin.pause:
     seconds: 5
 
 - name: Uninstall Rested again
-  mas:
+  community.general.mas:
     id: 421879749
     state: absent
   register: uninstall_again
   become: true
 
 - name: Ensure that the status is unchanged (already uninstalled)
-  assert:
+  ansible.builtin.assert:
     that:
       - uninstall_again is not changed
       - "'msg' not in uninstall_again"

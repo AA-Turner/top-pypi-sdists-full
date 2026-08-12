@@ -1795,6 +1795,30 @@ class FixOrderProperties(QuantConnect.Orders.OrderProperties):
 class BloombergFixOrderProperties(QuantConnect.Orders.FixOrderProperties):
     """Contains additional properties and settings for an order submitted to Fix Bloomberg"""
 
+    @property
+    def locate_broker(self) -> str:
+        """
+        The broker the shares are borrowed from for a short sale.
+        Reads and writes fix tag LocateBroker 5700 in FixOrderProperties.additional_properties.
+        """
+        ...
+
+    @locate_broker.setter
+    def locate_broker(self, value: str) -> None:
+        ...
+
+    @property
+    def locate_reqd(self) -> str:
+        """
+        Whether a locate is required for the short sale, "Y" or "N".
+        Reads and writes fix tag LocateReqd 114 in FixOrderProperties.additional_properties.
+        """
+        ...
+
+    @locate_reqd.setter
+    def locate_reqd(self, value: str) -> None:
+        ...
+
 
 class StopLimitOrder(QuantConnect.Orders.Order):
     """Stop Market Order Type Definition"""

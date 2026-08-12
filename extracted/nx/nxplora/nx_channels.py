@@ -841,6 +841,35 @@ def gmail_profile() -> dict:
     })
 
 
+def _social_dispatch(tool: str, payload: dict) -> dict:
+    """Run a social WRITE tool server-side, with the operator's own grant.
+
+    Same shape as gmail_profile() above, against the social world. The token never
+    comes near this machine: /api/worlds/social/dispatch resolves it from Nexplora's
+    vault, calls the platform, and returns what the platform said.
+
+    That is the only honest way for the CLI to publish on a
+    _NexploraOAuthBridgedChannel. Those channels deliberately hold NO local token —
+    one grant, visible on web and here — so a local HTTP call has nothing to
+    authenticate with. This is what `server_execution_available` was always naming.
+
+    Auth: /api/worlds/social/dispatch is bearer-first (requireSocialWorkspaceAccess
+    → requireWorkspaceAccessBearerFirst), so the CLI's own JWT is accepted and the
+    workspace membership wall still applies server-side.
+    """
+    who = _google_whoami()  # generic /api/oauth/whoami despite the name
+    if not who.get("ok"):
+        return {"ok": False, "detail": "not_signed_in", "hint": "run /login first"}
+    workspace_id = who.get("workspace_id")
+    if not workspace_id:
+        return {"ok": False, "detail": "no_workspace"}
+    return _bos_post("/api/worlds/social/dispatch", {
+        "workspace_id": workspace_id,
+        "tool": tool,
+        "payload": payload,
+    })
+
+
 class ChannelConnector:
     """Base connector. Subclasses implement the platform's OAuth + capabilities.
     Token shape stored in Keychain (JSON): {access_token, refresh_token?,
@@ -1029,15 +1058,52 @@ class SnapchatChannel(_BosBridgedChannel, ChannelConnector):
 
 
 class XChannel(_NexploraOAuthBridgedChannel, ChannelConnector):
-    """X — one Nexplora OAuth grant visible on web and in NX."""
+    """X — one Nexplora OAuth grant visible on web and in NX.
+
+    Publishing is LIVE, and the route is deliberately server-side. This channel
+    holds no local token by design (that is the whole point of one grant across
+    web and CLI), so publish_text hands the text to
+    /api/worlds/social/dispatch → social.x.tweet_create, which resolves the
+    operator's own credential from the vault and calls X.
+
+    This refused for a long time, and the refusal was honest at the time: the
+    grant carried read scopes only and nothing on the server mapped a name onto
+    the tweet_create tool. Both are fixed — connects now request tweet.write from
+    every surface, and `x_post` reaches the tool — so the refusal would now be the
+    dishonest answer.
+    """
 
     name = "x"
     display_name = "X (Twitter)"
-    can_publish = False
-    scopes = ["tweet.read", "users.read", "offline.access"]
+    can_publish = True
+    server_execution_available = True
+    # Mirrors what the server actually asks for (lib/desk/supply-channels.ts).
+    # Informational here — a bridged channel connects through
+    # /api/integrations/connect, so the server composes the real scope set — but
+    # an operator reads this list, so a stale one is a wrong claim either way.
+    scopes = ["tweet.read", "users.read", "offline.access", "tweet.write"]
 
     def publish_text(self, message: str, **_) -> dict:
-        return self.preflight("publish")
+        pre = self.preflight("publish")
+        if not pre.get("ok"):
+            return pre
+        text = (message or "").strip()
+        if not text:
+            return {"ok": False, "detail": "empty_message",
+                    "hint": "give the post some text"}
+        out = _social_dispatch("x_post", {"text": text})
+        if not out.get("ok"):
+            return out
+        # Report the platform's own id, or say plainly that we could not confirm.
+        # A bare ok:True on a response with no id would be this CLI's version of
+        # the false green the web surface just had removed.
+        tweet = (out.get("result") or {}).get("tweet") or {}
+        post_id = tweet.get("id")
+        if not post_id:
+            return {"ok": False, "detail": "unconfirmed",
+                    "hint": "X accepted the call but returned no post id — check the timeline before resending."}
+        return {"ok": True, "id": str(post_id),
+                "url": f"https://x.com/i/web/status/{post_id}"}
 
 
 class LinkedInChannel(_NexploraOAuthBridgedChannel, ChannelConnector):

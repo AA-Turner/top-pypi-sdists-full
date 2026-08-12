@@ -108,6 +108,7 @@ TextractServiceName = Literal["textract"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

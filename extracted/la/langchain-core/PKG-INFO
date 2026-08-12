@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: langchain-core
-Version: 1.5.3
+Version: 1.5.4
 Summary: Building applications with LLMs through composability
 Project-URL: Homepage, https://docs.langchain.com/
 Project-URL: Documentation, https://reference.langchain.com/python/langchain_core/
@@ -11,6 +11,7 @@ Project-URL: Twitter, https://x.com/langchain_oss
 Project-URL: Slack, https://www.langchain.com/join-community
 Project-URL: Reddit, https://www.reddit.com/r/LangChain/
 License: MIT
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License

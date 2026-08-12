@@ -47,6 +47,14 @@ class ProviderInformation(metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
+    def is_zone_id_equal_to_zone_name(self) -> bool:
+        """
+        Whether the zone ID is equal to the zone's name (FQDN).
+
+        If ``True``, implies that ``get_zone_id_type()`` returns ``str``.
+        """
+
+    @abc.abstractmethod
     def get_record_id_type(self) -> AnsibleType:
         """
         Return the (short) type for record IDs, like ``'int'`` or ``'str'``.
@@ -117,5 +125,11 @@ class ProviderInformation(metaclass=abc.ABCMeta):
         Returns a boolean.
 
         This return value is only used if txt_record_handling does not return 'decoded'.
+        """
+        return False
+
+    def txt_decode_lenient_from_api(self) -> bool:
+        """
+        Whether TXT records send from the API should be decoded with lenient=True.
         """
         return False

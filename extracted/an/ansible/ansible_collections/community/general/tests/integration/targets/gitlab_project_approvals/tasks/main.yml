@@ -9,12 +9,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Install required libs
-  pip:
+  ansible.builtin.pip:
     name: python-gitlab
     state: present
 
 - name: Set project approval settings
-  gitlab_project_approvals:
+  community.general.gitlab_project_approvals:
     api_url: "{{ gitlab_api_url }}"
     validate_certs: false
     api_token: "{{ gitlab_api_token }}"
@@ -29,12 +29,12 @@
     require_reauthentication_to_approve: true
   register: approval_result
 
-- assert:
+- ansible.builtin.assert:
     that:
       - approval_result is changed
 
 - name: Re-run project approval for idempotency
-  gitlab_project_approvals:
+  community.general.gitlab_project_approvals:
     api_url: "{{ gitlab_api_url }}"
     validate_certs: false
     api_token: "{{ gitlab_api_token }}"
@@ -49,12 +49,12 @@
     require_reauthentication_to_approve: true
   register: approval_result_idem
 
-- assert:
+- ansible.builtin.assert:
     that:
       - approval_result_idem is not changed
 
 - name: Reset project approval settings
-  gitlab_project_approvals:
+  community.general.gitlab_project_approvals:
     api_url: "{{ gitlab_api_url }}"
     validate_certs: false
     api_token: "{{ gitlab_api_token }}"
@@ -69,6 +69,6 @@
     require_reauthentication_to_approve: false
   register: approval_result
 
-- assert:
+- ansible.builtin.assert:
     that:
       - approval_result is changed

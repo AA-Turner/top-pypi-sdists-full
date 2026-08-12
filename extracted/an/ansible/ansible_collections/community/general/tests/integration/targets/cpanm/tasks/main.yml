@@ -4,11 +4,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: bail out for non-supported platforms
-  meta: end_play
+  ansible.builtin.meta: end_play
   when: ansible_facts.os_family != 'Debian'
 
 - name: install perl development package for Red Hat family
-  package:
+  ansible.builtin.package:
     name:
       - perl-devel
       - perl-App-cpanminus
@@ -17,7 +17,7 @@
   when: ansible_facts.os_family == "RedHat"
 
 - name: install perl development package for Debian family
-  package:
+  ansible.builtin.package:
     name:
       - cpanminus
     state: present
@@ -25,31 +25,31 @@
   when: ansible_facts.os_family == "Debian"
 
 - name: install a Perl package
-  cpanm:
+  community.general.cpanm:
     name: JSON
     notest: true
   register: install_perl_package_result
 
 - name: assert package is installed
-  assert:
+  ansible.builtin.assert:
     that:
       - install_perl_package_result is changed
       - install_perl_package_result is not failed
 
 - name: install same Perl package
-  cpanm:
+  community.general.cpanm:
     name: JSON
     notest: true
   register: install_same_perl_package_result
 
 - name: assert same package is installed
-  assert:
+  ansible.builtin.assert:
     that:
       - install_same_perl_package_result is not changed
       - install_same_perl_package_result is not failed
 
 - name: install a Perl package with version operator
-  cpanm:
+  community.general.cpanm:
     name: JSON
     version: "@4.01"
     notest: true
@@ -57,7 +57,7 @@
   register: install_perl_package_with_version_op_result
 
 - name: assert package with version operator is installed
-  assert:
+  ansible.builtin.assert:
     that:
       - install_perl_package_with_version_op_result is changed
       - install_perl_package_with_version_op_result is not failed

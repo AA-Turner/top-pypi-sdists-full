@@ -36,7 +36,11 @@ dev = [
 [tool.hatch.version]
 path = "langgraph_runtime_inmem/__init__.py"
 
+[tool.hatch.build.targets.wheel]
+core-metadata-version = "2.4"
+
 [tool.hatch.build.targets.sdist]
+core-metadata-version = "2.4"
 exclude = [
     "tests/",
     "docs/",

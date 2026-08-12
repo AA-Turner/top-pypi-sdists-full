@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiosonic
-Version: 1.0.4
+Version: 1.0.5
 Summary: Async HTTP/WebSocket client
 License: MIT
 License-File: LICENSE
@@ -26,7 +26,7 @@ Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Networking
 Requires-Dist: charset-normalizer (>=2.0.0,<4.0.0)
-Requires-Dist: h2 (>=4.1.0,<5.0.0)
+Requires-Dist: h2 (>=4.4.1,<5.0.0)
 Requires-Dist: onecache (>=0.8.1,<0.9.0)
 Project-URL: Homepage, https://aiosonic.readthedocs.io/en/latest/
 Project-URL: Repository, https://github.com/sonic182/aiosonic

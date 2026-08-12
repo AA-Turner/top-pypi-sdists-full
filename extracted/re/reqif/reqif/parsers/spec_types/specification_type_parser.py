@@ -2,6 +2,7 @@ from typing import Dict, Optional
 
 from reqif.helpers.lxml import lxml_is_self_closed_tag
 from reqif.models.reqif_specification_type import ReqIFSpecificationType
+from reqif.parsers.alternative_id_parser import AlternativeIDParser
 from reqif.parsers.attribute_definition_parser import AttributeDefinitionParser
 
 
@@ -44,6 +45,7 @@ class SpecificationTypeParser:
                 )
 
         return ReqIFSpecificationType(
+            alternative_id=AlternativeIDParser.parse(specification_type_xml),
             description=description,
             identifier=spec_type_id,
             last_change=spec_last_change,
@@ -70,11 +72,13 @@ class SpecificationTypeParser:
         has_attributes = (
             spec_type.spec_attributes is not None and len(spec_type.spec_attributes) > 0
         )
-        if spec_type.is_self_closed and not has_attributes:
+        has_children = has_attributes or spec_type.alternative_id is not None
+        if spec_type.is_self_closed and not has_children:
             output += "/>\n"
             return output
         else:
             output += ">\n"
+        output += AlternativeIDParser.unparse(spec_type.alternative_id, "          ")
 
         if spec_type.spec_attributes is not None:
             output += "          <SPEC-ATTRIBUTES>\n"

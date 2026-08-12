@@ -25,14 +25,7 @@ from ._base import (
     _unwrap_scalar_value,
     FeatureConverter,
 )
-from chalk.features._encoding.pyarrow import pyarrow_to_polars
-
 # pyright: reportPrivateUsage=false, reportIncompatibleMethodOverride=false, reportReturnType=false, reportUnnecessaryCast=false, reportUnnecessaryComparison=false
-
-try:
-    import polars as pl
-except ImportError:
-    pl = None
 
 _EPOCH = date(1970, 1, 1)
 
@@ -91,7 +84,7 @@ class Date32FeatureConverter(
     _primitive_type_value: ClassVar[Type[date]] = date
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.date32()
     _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(date32=pb.EmptyMessage())
-    _polars_dtype_value: ClassVar[Any] = pyarrow_to_polars(pa.date32(), "") if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None
 
     _coerce_fn = staticmethod(_coerce_date)
     _json_coerce_fn = staticmethod(_coerce_date_from_json)
@@ -161,7 +154,7 @@ class Date64FeatureConverter(
     _primitive_type_value: ClassVar[Type[date]] = date
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.date64()
     _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(date64=pb.EmptyMessage())
-    _polars_dtype_value: ClassVar[Any] = pyarrow_to_polars(pa.date64(), "") if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None
 
     _coerce_fn = staticmethod(_coerce_date)
     _json_coerce_fn = staticmethod(_coerce_date_from_json)

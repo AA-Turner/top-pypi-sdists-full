@@ -9,6 +9,15 @@ import sys
 import time
 import unittest
 
+
+import pytest  # noqa: E402
+
+# LIVE NETWORK. Excluded from the default run (see [tool.pytest.ini_options] in
+# pyproject.toml): this module calls real models and, via _load_keychain_keys, copies real
+# credentials into os.environ for the whole process — which un-skips sibling suites and
+# leaks into every module that runs after it. Run deliberately with:  pytest -m e2e
+pytestmark = pytest.mark.e2e
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 HAS_KEYS = bool(

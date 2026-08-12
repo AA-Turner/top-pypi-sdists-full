@@ -10,11 +10,16 @@ from dlt.common.configuration.specs.base_configuration import (
     BaseConfiguration,
 )
 from dlt.common.configuration.specs.aws_credentials import AwsCredentials
+from dlt.common.destination.attach import TAttachType
 from dlt.common.destination.client import (
     DestinationClientConfiguration,
     DestinationClientDwhConfiguration,
+    WithAttachableEngine,
 )
 from dlt.common.storages.configuration import FilesystemConfiguration
+from dlt.destinations.impl.filesystem.configuration import (
+    FilesystemDestinationClientConfiguration,
+)
 from dlt.common.typing import TSecretStrValue
 from dlt.common.storages.configuration import WithLocalFiles
 
@@ -116,7 +121,9 @@ class AWSRESTCatalogCapabilities(CatalogCapabilities):
 
 
 @configspec
-class IcebergClientConfiguration(WithLocalFiles, DestinationClientDwhConfiguration):
+class IcebergClientConfiguration(
+    WithAttachableEngine, WithLocalFiles, DestinationClientDwhConfiguration
+):
     catalog_name: str = "pyiceberg"
 
     destination_type: Final[str] = dataclasses.field(  # type: ignore
@@ -176,8 +183,8 @@ class IcebergClientConfiguration(WithLocalFiles, DestinationClientDwhConfigurati
     def _catalog_location(self) -> str:
         """Non-secret identity of the catalog, or "" when none is resolvable."""
         creds = self.credentials
-        # rest/glue-rest/s3tables-rest catalogs vend the data location; the server uri (optionally
-        # scoped to a warehouse) identifies the tables
+        # rest/glue-rest/s3tables-rest catalogs vend the data location. the server uri identifies
+        # the tables. an optional warehouse name narrows the scope
         if (
             isinstance(creds, (IcebergRESTCatalogCredentials, AwsRESTCatalogCredentials))
             and creds.uri
@@ -211,19 +218,44 @@ class IcebergClientConfiguration(WithLocalFiles, DestinationClientDwhConfigurati
             return fs.make_local_path(fs.bucket_url)
         return f"{url.scheme}://{url.netloc}"
 
-    def physical_location(self) -> str:
-        """Non-secret identity combining the catalog and data storage; either part may be empty."""
+    def data_location(self) -> Optional[str]:
+        """Non-secret identity of the catalog and the data storage. Either part can be empty.
+
+        Raises:
+            ConfigurationValueError: When neither part names a location.
+        """
         parts = [part for part in (self._catalog_location(), self._storage_location()) if part]
+        if not parts:
+            self._no_data_location("neither the catalog nor the data storage names a location")
         return "|".join(parts)
 
     def can_write_from(self, other: DestinationClientConfiguration) -> bool:
         """Always False: iceberg has no write engine, so `dlt` materializes the data itself."""
         return False
 
-    def can_read_from(self, other: DestinationClientConfiguration) -> bool:
-        # tables sharing catalog and storage are queried in one DuckDB engine, so read
-        # compatibility follows the physical location
-        return super().can_read_from(other)
+    def attach_type(self) -> Optional[TAttachType]:
+        """Returns the engine that can attach this dataset. Returns None when a foreign duckdb
+        cannot access the data with SQL statements. dlt materializes a dataset that names no
+        engine.
+        """
+        # dlt attaches the whole catalog and the scanner creates no views. the attach info from
+        # `WithTableScanners` brings in an empty catalog
+        # TODO: emit `ATTACH '<warehouse>' AS <alias> (TYPE iceberg, ...)` for this catalog instead
+        if self.attaches_iceberg_catalog:
+            return None
+        fs = self.filesystem
+        if not fs or not fs.bucket_url:
+            return None
+        # the scanner builds the same `CREATE SECRET` statements as the filesystem destination,
+        # so it accesses the same protocols. duckdb accesses the rest only when fsspec registers
+        # them, and a SQL statement cannot do this
+        if fs.protocol not in FilesystemDestinationClientConfiguration.ATTACHABLE_PROTOCOLS:
+            return None
+        # without own credentials, the catalog vends them per table. the scanner registers them
+        # on its own connection when it describes the table, and not as attach statements
+        if fs.protocol != "file" and not (fs.credentials and fs.credentials.is_resolved()):
+            return None
+        return super().attach_type()
 
     def table_location_layout(self) -> Optional[str]:
         """Verifies and computes table layout based on catalog caps. May return None if both layout
@@ -325,5 +357,13 @@ class IcebergClientConfiguration(WithLocalFiles, DestinationClientDwhConfigurati
 
     @property
     def is_aws_rest_catalog(self) -> bool:
-        """True when we're talking to an S3 Tables **REST** catalog."""
+        """True for an S3 Tables **REST** catalog."""
         return isinstance(self.credentials, AwsRESTCatalogCredentials)
+
+    @property
+    def attaches_iceberg_catalog(self) -> bool:
+        """True when duckdb reads the tables from the attached catalog and not from scanner
+        views."""
+        return self.is_aws_rest_catalog and bool(
+            self.capabilities and self.capabilities.duckdb_attach_catalog
+        )

@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.aggregate.v1.service_pb2 import (
     CreateAggregateBackfillJobRequest,
     CreateAggregateBackfillJobResponse,
+    CreateAggregateBackfillV2Request,
+    CreateAggregateBackfillV2Response,
     GetActiveCronAggregateBackfillsRequest,
     GetActiveCronAggregateBackfillsResponse,
     GetAggregateBackfillJobRequest,
@@ -73,6 +75,21 @@ class AggregateServiceStub:
         CreateAggregateBackfillJobRequest,
         CreateAggregateBackfillJobResponse,
     ]
+    """Creates one backfill job for a single already-planned sub-backfill, so callers must
+    plan first and then call this once per planned sub-backfill.
+
+    Prefer CreateAggregateBackfillV2, which does the planning and the fan-out server side.
+    Kept for clients pinned to versions that predate V2.
+    """
+    CreateAggregateBackfillV2: UnaryUnaryMultiCallable[
+        CreateAggregateBackfillV2Request,
+        CreateAggregateBackfillV2Response,
+    ]
+    """CreateAggregateBackfillV2 plans an aggregate backfill and, unless the request asks for
+    plan mode, creates the jobs for it. This replaces the client-side
+    plan-then-create-each-sub-backfill loop that PlanAggregateBackfill plus
+    CreateAggregateBackfillJob require.
+    """
 
 class AggregateServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -129,6 +146,23 @@ class AggregateServiceServicer(metaclass=ABCMeta):
         self,
         request: CreateAggregateBackfillJobRequest,
         context: ServicerContext,
-    ) -> CreateAggregateBackfillJobResponse: ...
+    ) -> CreateAggregateBackfillJobResponse:
+        """Creates one backfill job for a single already-planned sub-backfill, so callers must
+        plan first and then call this once per planned sub-backfill.
+
+        Prefer CreateAggregateBackfillV2, which does the planning and the fan-out server side.
+        Kept for clients pinned to versions that predate V2.
+        """
+    @abstractmethod
+    def CreateAggregateBackfillV2(
+        self,
+        request: CreateAggregateBackfillV2Request,
+        context: ServicerContext,
+    ) -> CreateAggregateBackfillV2Response:
+        """CreateAggregateBackfillV2 plans an aggregate backfill and, unless the request asks for
+        plan mode, creates the jobs for it. This replaces the client-side
+        plan-then-create-each-sub-backfill loop that PlanAggregateBackfill plus
+        CreateAggregateBackfillJob require.
+        """
 
 def add_AggregateServiceServicer_to_server(servicer: AggregateServiceServicer, server: Server) -> None: ...

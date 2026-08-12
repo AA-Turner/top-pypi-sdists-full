@@ -4,7 +4,7 @@ import os
 
 class SmdaConfig:
     # keep this in sync with smda.__version__
-    VERSION = "4.4.4"
+    VERSION = "4.4.7"
     ESCAPER_DOWNWARD_COMPATIBILITY = "1.13.16"
     CONFIG_FILE_PATH = str(os.path.abspath(__file__))
     PROJECT_ROOT = str(os.path.abspath(os.sep.join([CONFIG_FILE_PATH, "..", "..", ".."])))
@@ -13,7 +13,6 @@ class SmdaConfig:
     API_COLLECTION_FILES = {}
     ### global logging-config setup
     # Only do basicConfig if no handlers have been configured
-    LOG_PATH = "./"
     LOG_LEVEL = logging.INFO
     LOG_FORMAT = "%(asctime)-15s: %(name)-32s - %(message)s"
 
@@ -51,6 +50,13 @@ class SmdaConfig:
     # truth for the Mach-O corpus
     USE_MACHO_ADDRESS_REF_CANDIDATES = False
     RESOLVE_REGISTER_CALLS = True
+    # resolve "call/jmp dword ptr [<reg> + <disp>]" against a runtime-built import table and
+    # record the API plus the slot it lives in; annotation only, it books no code refs
+    RESOLVE_COMPUTED_IMPORT_SLOTS = True
+    # also record an API whose import slot is only loaded into a register, never called through
+    # the slot itself - the shape a language runtime that dispatches its own syscalls produces.
+    # Off by default: it widens an apiref from "calls this API" to "references this API".
+    RECORD_IMPORT_SLOT_LOADS = False
     # limit this to avoid blowing up analysis time for weird samples
     MAX_INDIRECT_CALLS_PER_BASIC_BLOCK = 50
     # backstops against memory usage explosion during candidate identification on pathological/junk samples
@@ -58,6 +64,13 @@ class SmdaConfig:
     MAX_FUNCTION_CANDIDATES = 200000
     # maximum number of inbound call references tracked per candidate; 0 == unlimited. Bounds set growth and rescoring.
     MAX_CALL_REFS_PER_CANDIDATE = 2000
+    # backstops for batch mode, where peak worker RSS scales with input size. The factor is
+    # peak RSS per byte of input, measured at ~1.6x margin over an 8.1 MB sample; the fraction
+    # is how much of the available memory (physical, or the cgroup limit where one applies)
+    # the large-input pool may claim. Both are here rather than in BatchProcessor so an
+    # operator can move them for a machine whose corpus does not look like the measured one.
+    LARGE_INPUT_RSS_FACTOR = 500
+    MEMORY_BUDGET_FRACTION = 0.5
     HIGH_ACCURACY = True
     RESOLVE_TAILCALLS = False
     # optional metadata generation options; the largest built-in performance lever.
@@ -70,6 +83,7 @@ class SmdaConfig:
     CONFIDENCE_THRESHOLD = 0.0
 
     def __init__(self):
+        self.API_COLLECTION_FILES = dict(SmdaConfig.API_COLLECTION_FILES)
         self._disableLiefLogging()
 
     def _disableLiefLogging(self):

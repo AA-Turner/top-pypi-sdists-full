@@ -6,7 +6,7 @@
 # -----------------------------------------------------------
 
 - name: "[{{ item }}] Given a started service..."
-  launchd:
+  community.general.launchd:
     name: "{{ launchd_service_name }}"
     state: started
   become: true
@@ -14,7 +14,7 @@
 
 
 - name: "[{{ item }}] When unloading the service in check mode"
-  launchd:
+  community.general.launchd:
     name: "{{ launchd_service_name }}"
     state: unloaded
   become: true
@@ -22,21 +22,21 @@
   check_mode: true
 
 - name: "[{{ item }}] Validate that service was unloaded in check mode"
-  assert:
+  ansible.builtin.assert:
     that:
       - test_1_launchd_unloaded_result_check_mode is success
       - test_1_launchd_unloaded_result_check_mode is changed
 
 
 - name: "[{{ item }}] When unloading the service..."
-  launchd:
+  community.general.launchd:
     name: "{{ launchd_service_name }}"
     state: unloaded
   become: true
   register: "test_1_launchd_unloaded_result"
 
 - name: "[{{ item }}] Validate that service was unloaded"
-  assert:
+  ansible.builtin.assert:
     that:
       - test_1_launchd_unloaded_result is success
       - test_1_launchd_unloaded_result is changed
@@ -48,14 +48,14 @@
 # -----------------------------------------------------------
 
 - name: "[{{ item }}] Given an unloaded service on an unloaded service..."
-  launchd:
+  community.general.launchd:
     name: "{{ launchd_service_name }}"
     state: unloaded
   become: true
   register: "test_2_launchd_unloaded_result"
 
 - name: "[{{ item }}] Validate that service did not change and is still unloaded"
-  assert:
+  ansible.builtin.assert:
     that:
       - test_2_launchd_unloaded_result is success
       - not test_2_launchd_unloaded_result is changed

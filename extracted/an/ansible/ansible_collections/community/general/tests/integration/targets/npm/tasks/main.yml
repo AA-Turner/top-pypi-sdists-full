@@ -17,12 +17,12 @@
   block:
 
     # expand remote path
-    - command: 'echo {{ remote_tmp_dir }}'
+    - ansible.builtin.command: 'echo {{ remote_tmp_dir }}'
       register: echo
-    - set_fact:
+    - ansible.builtin.set_fact:
         remote_dir: '{{ echo.stdout }}'
 
-    - include_tasks: run.yml
+    - ansible.builtin.include_tasks: run.yml
       vars:
         nodejs_version: '{{ item }}'
         nodejs_path: 'node-v{{ nodejs_version }}-{{ ansible_facts.system|lower }}-{{ nodejs_arch }}'

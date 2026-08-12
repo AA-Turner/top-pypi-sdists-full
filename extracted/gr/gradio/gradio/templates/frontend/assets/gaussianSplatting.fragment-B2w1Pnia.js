@@ -1,0 +1,1 @@
+import{n as e}from"./splatFileLoader--KnTu2bg.js";export{e as gaussianSplattingPixelShaderWGSL};

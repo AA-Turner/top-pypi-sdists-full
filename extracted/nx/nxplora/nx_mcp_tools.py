@@ -520,15 +520,10 @@ def call(server, tool, args):
             args = json.loads(args) if args.strip() else {}
         except Exception:
             args = {}
-    try:
-        res = sess.call_tool(tool, args or {})
-    except _client.MCPAuthError:
-        _SESSIONS.pop(server, None)
-        return {"ok": False, "error": f"{server} session expired — reconnect with /integrations {server}"}
-    except Exception as e:
+    def _call_error(_sess, e):
         avail = ""
         try:
-            avail = ", ".join(t.get("name", "") for t in (sess.list_tools() or [])[:30]
+            avail = ", ".join(t.get("name", "") for t in (_sess.list_tools() or [])[:30]
                               if isinstance(t, dict))
         except Exception:
             pass
@@ -540,12 +535,37 @@ def call(server, tool, args):
             # "broken"; just needs the missing input.
             return {"ok": False, "connected": True, "needs_input": True,
                     "error": f"{server} IS connected — this tool needs an argument it "
-                             f"wasn't given: {msg}" + _tool_schema_hint(sess, tool)
+                             f"wasn't given: {msg}" + _tool_schema_hint(_sess, tool)
                              + (f". {server} tools: {avail}" if avail else "")}
         # Wrong tool NAME etc — hand the real tool list so the model can retry.
         if avail:
             msg += f". Available {server} tools: {avail}"
         return {"ok": False, "error": msg}
+
+    _reauth = f"{server} session expired — reconnect with /integrations {server}"
+    try:
+        res = sess.call_tool(tool, args or {})
+    except _client.MCPAuthError:
+        # 401 — the server rejected the token. A token can die server-side while still 'unexpired'
+        # locally (usable_token refreshes only on the LOCAL clock), so try ONE reactive refresh +
+        # fresh session before surfacing reconnect. refresh() returns False when there's nothing to
+        # refresh with (no refresh token) → a genuinely-dead connection still surfaces reconnect and
+        # never loops. This is what turns "connect once" into a reality once a refresh token exists.
+        _SESSIONS.pop(server, None)
+        if not _oauth.refresh(server):
+            return {"ok": False, "error": _reauth}
+        sess = _session(server)
+        if sess is None:
+            return {"ok": False, "error": _reauth}
+        try:
+            res = sess.call_tool(tool, args or {})
+        except _client.MCPAuthError:
+            _SESSIONS.pop(server, None)
+            return {"ok": False, "error": _reauth}
+        except Exception as e:
+            return _call_error(sess, e)
+    except Exception as e:
+        return _call_error(sess, e)
     # Honor the MCP protocol error flag: a CallToolResult with isError:true is a
     # FAILED call even though the JSON-RPC envelope was 200.
     is_error = bool(res.get("isError")) if isinstance(res, dict) else False
@@ -624,11 +644,32 @@ def _health_probe(slug):
         return {"slug": slug, "name": _hc_name(slug), "status": "live",
                 "tools": len(tools), "hint": ""}
     except _client.MCPAuthError:
+        # A 401 — the server rejected the token. Before declaring reconnect, try ONE reactive
+        # refresh + re-init: a token can die server-side while still 'unexpired' locally, and
+        # usable_token refreshes only on the LOCAL clock, so it keeps sending the dead token. If a
+        # refresh token exists and works, the board self-heals silently → 'live'. refresh() returns
+        # False when there's nothing to refresh with (no/expired refresh token), so a genuinely-dead
+        # connection still surfaces 'reconnect' — the ONLY state that legitimately needs re-auth.
+        try:
+            if _oauth.refresh(slug):
+                sess = _client.MCPSession(entry["url"], _oauth.usable_token(slug))
+                sess.initialize()
+                tools = [t for t in (sess.list_tools() or []) if isinstance(t, dict)]
+                return {"slug": slug, "name": _hc_name(slug), "status": "live",
+                        "tools": len(tools), "hint": ""}
+        except Exception:
+            pass
         return {"slug": slug, "name": _hc_name(slug), "status": "reconnect", "tools": 0,
                 "hint": f"/integrations {slug}"}
     except Exception as e:
-        return {"slug": slug, "name": _hc_name(slug), "status": "reconnect", "tools": 0,
-                "hint": f"/integrations {slug} ({type(e).__name__})"}
+        # A NON-auth failure (timeout, 5xx, connection reset, protocol hiccup). The
+        # credential is FINE — the server just didn't answer this probe. When /connected
+        # live-pings dozens of remote servers inside one deadline, some always time out or
+        # blip; labeling those 'reconnect' told the operator to re-authenticate working
+        # connections and is the #1 false alarm behind "why does everything need
+        # reconnecting". Classify as 'slow' (probably live, retry) — never a re-auth demand.
+        return {"slug": slug, "name": _hc_name(slug), "status": "slow", "tools": 0,
+                "hint": f"didn't respond — probably live, run /connected again ({type(e).__name__})"}
 
 
 def health_check(slugs=None, timeout=8):

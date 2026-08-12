@@ -14,7 +14,6 @@ import resource
 import threading
 import time
 import tempfile
-import urllib.parse
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
@@ -24,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 from ..api.errors import CanceledError
 from ..api.types import Asset, Tensors
-from ..stage_timing import stage_of
+from ..stage_timing import record_phase_of, stage_of
 from ._helpers import _enforce_output_file_size_limit, _infer_mime_type, _infer_tensors_format, _normalize_output_ref
 
 if TYPE_CHECKING:
@@ -415,32 +414,39 @@ class _RequestOutputStream:
         content_type = self._infer_content_type()
         if content_type and content_type != "application/octet-stream":
             create_payload["content_type"] = content_type
+        # th#1795 / pgw#1125: DECLARE the sha256. It has been computed during
+        # the writes (`self._sha`, :138) and thrown away ever since, and that
+        # one omission is why the hub cannot presign into the final
+        # content-addressed key: without the digest it does not know where the
+        # bytes belong, so every save was staged, then copied, then deleted.
+        # Declaring it lets the hub mint a store-enforced PUT straight to the
+        # final key and drop five serialized object-store round trips from a
+        # /complete measured at 1060 ms server-side per image.
+        create_payload["sha256"] = self._sha.hexdigest()
 
-        # Media upload. The URL owner segment MUST be the owner the
-        # capability token's upload_media grant is bound to (the token's
-        # `tenant` claim: the canonical invoking-org uuid). The
-        # dispatch-stamped ctx.owner can be a slug or a destination-repo
-        # owner resolving to a DIFFERENT org — tensorhub then finds no
-        # matching grant and 403s (J19 run34 sample images). Inference
-        # outputs work exactly because URL owner == token-bound owner.
+        # Media upload. th#1722 §C / pgw#1138: an upload addresses the
+        # CALLER'S OWN namespace, so the hub derives the org from the
+        # credential and the path never names one. The client cannot get the
+        # org wrong because it no longer supplies it — which retires the J19
+        # run34 403 class (dispatch-stamped ctx.owner was a slug resolving to
+        # a different org than the capability grant's).
         create_payload["ref"] = self._ref
         job_id = str(self._ctx._job_id or "").strip()
         if job_id:
             create_payload["job_id"] = job_id
-        owner = self._ctx._media_upload_owner()
-        if not owner:
-            raise RuntimeError(
-                "file save failed (missing owner): media uploads require ctx.owner"
-            )
-        headers["X-Cozy-Owner"] = owner
-        owner_seg = urllib.parse.quote(owner, safe="")
-        endpoint_path = f"/api/v1/media/{owner_seg}/uploads"
+        endpoint_path = "/api/v1/media/uploads"
 
         def _progress_cb(parts_done: int, total_parts: int, bytes_up: int) -> None:
             with self._progress_lock:
                 self._bytes_uploaded = bytes_up
                 self._chunks_uploaded = parts_done
             self._maybe_emit_progress(stage="stream_upload")
+
+        def _phase_cb(phase: str, seconds: float) -> None:
+            # th#1795: `upload` is one bracket around create -> PUT ->
+            # complete and it is 98.6% of the finalize tail. Report the legs
+            # separately so the fix is aimed by measurement.
+            record_phase_of(self._ctx, "upload", phase, seconds)
 
         result = presigned_upload_file(
             file_path=self._tmp_path,
@@ -453,6 +459,7 @@ class _RequestOutputStream:
             on_progress=_progress_cb,
             cancel_check=lambda: self._ctx.cancelled,
             complete_extra=None,
+            on_phase=_phase_cb,
         )
 
         # Issue #269: sample peak RSS to verify the streaming refactor is

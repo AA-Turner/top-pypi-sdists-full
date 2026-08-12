@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: "set variables for the entire playbook"
-  set_fact:
+  ansible.builtin.set_fact:
     foobarrc: "{{ foobarrc }}"
     foobarrc_ansible: "{{ foobarrc }}.ansible"
     foobarrc_distrib: "{{ foobarrc }}.distrib"
@@ -16,13 +16,13 @@
     foobarrc: "/etc/foobarrc"
 
 - name: "remove foobarrc diversion"
-  dpkg_divert:
+  community.general.dpkg_divert:
     path: "{{ foobarrc }}"
     state: absent
   become: true
 
 - name: "remove test files"
-  file:
+  ansible.builtin.file:
     path: "{{ dpkg_divert_item }}"
     state: absent
   loop:
@@ -35,9 +35,9 @@
 
 - block:
     - name: "include tasks to perform basic tests (create, remove, update)"
-      include_tasks: tests/01-basic.yml
+      ansible.builtin.include_tasks: tests/01-basic.yml
 
     - name: "include tasks to perform other tests (rename)"
-      include_tasks: tests/02-rename.yml
+      ansible.builtin.include_tasks: tests/02-rename.yml
   become: true
   diff: true

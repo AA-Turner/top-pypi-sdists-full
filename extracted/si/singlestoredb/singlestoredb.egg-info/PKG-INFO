@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: singlestoredb
-Version: 1.17.0
+Version: 1.17.1
 Summary: Interface to the SingleStoreDB database and workspace management APIs
 Author-email: SingleStore <support@singlestore.com>
 License: Apache-2.0

@@ -26,6 +26,13 @@ class RegistryData(ArtifactsBase):
     id: GQLId = Field(frozen=True)
     """The unique, encoded ID for this registry."""
 
+    internal_id: GQLId | None = Field(default=None, frozen=True, repr=False)
+    """The GraphQL `internalId` for this registry's backing project, if fetched.
+
+    This is a base64-encoded global ID. When decoded, it looks like
+    `Project:123` or `ProjectInternalId:123`.
+    """
+
     created_at: str = Field(frozen=True)
     """When this registry was created."""
 
@@ -69,6 +76,13 @@ class RegistryData(ArtifactsBase):
 
         return f"{REGISTRY_PREFIX}{self.name}"
 
+    @field_validator("visibility", mode="before")
+    @classmethod
+    def _coerce_visibility(cls, v: Any) -> Visibility:
+        if isinstance(v, Visibility):
+            return v
+        return Visibility.from_project_access(v)
+
     @field_validator("artifact_types", mode="plain")
     def _validate_artifact_types(cls, v: Any) -> AddOnlyArtifactTypesList:
         """Coerce `artifact_types` to an AddOnlyArtifactTypesList."""
@@ -94,6 +108,7 @@ class RegistryData(ArtifactsBase):
 
         return cls(
             id=obj.id,
+            internal_id=obj.internal_id,
             created_at=obj.created_at,
             updated_at=obj.updated_at,
             organization=obj.entity.organization.name,
@@ -102,5 +117,5 @@ class RegistryData(ArtifactsBase):
             description=obj.description,
             allow_all_artifact_types=obj.allow_all_artifact_types,
             artifact_types=obj.artifact_types,
-            visibility=obj.access,
+            visibility=Visibility.from_project_access(obj.access),
         )

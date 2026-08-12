@@ -45,6 +45,7 @@ S3OutpostsServiceName = Literal["s3outposts"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: policyengine-us
-Version: 1.791.0
+Version: 1.794.2
 Summary: US federal and state tax-benefit microsimulation model.
 Author-email: PolicyEngine <hello@policyengine.org>
 License-File: LICENSE

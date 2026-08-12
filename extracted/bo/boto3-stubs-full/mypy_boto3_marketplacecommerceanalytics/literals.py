@@ -66,6 +66,7 @@ MarketplaceCommerceAnalyticsServiceName = Literal["marketplacecommerceanalytics"
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

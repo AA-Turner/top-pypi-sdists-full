@@ -374,6 +374,7 @@ LexModelsV2ServiceName = Literal["lexv2-models"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

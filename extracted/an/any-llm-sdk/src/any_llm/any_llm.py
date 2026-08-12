@@ -15,6 +15,7 @@ from any_llm.exceptions import (
     ContentFilterFinishReasonError,
     LengthFinishReasonError,
     MissingApiKeyError,
+    UnsupportedParameterError,
     UnsupportedProviderError,
 )
 from any_llm.tools import prepare_tools
@@ -131,6 +132,9 @@ class AnyLLM(ABC):
 
     SUPPORTS_MESSAGES: bool = True
     """Anthropic Messages API (all providers support it via conversion)"""
+
+    PROMPT_CACHE_KEY_SUPPORT: Literal["unsupported", "supported", "passthrough"] = "unsupported"
+    """Whether prompt_cache_key is supported, forwarded to a router, or rejected."""
 
     API_BASE: str | None = None
     """This is used to set the API base for the provider.
@@ -572,6 +576,8 @@ class AnyLLM(ABC):
         *,
         response_format: dict[str, Any] | type | None = None,
         stream: bool | None = None,
+        prompt_cache_key: str | None = None,
+        timeout: float | None = None,
         allow_running_loop: bool | None = None,
         **kwargs: Any,
     ) -> ChatCompletion | Iterator[ChatCompletionChunk] | ParsedChatCompletion[Any]:
@@ -588,13 +594,23 @@ class AnyLLM(ABC):
                     messages=messages,
                     response_format=response_format,
                     stream=stream,
+                    prompt_cache_key=prompt_cache_key,
+                    timeout=timeout,
                     **kwargs,
                 ),
                 allow_running_loop=allow_running_loop,
             )
 
         response = run_async_in_sync(
-            self.acompletion(model=model, messages=messages, response_format=response_format, stream=stream, **kwargs),
+            self.acompletion(
+                model=model,
+                messages=messages,
+                response_format=response_format,
+                stream=stream,
+                prompt_cache_key=prompt_cache_key,
+                timeout=timeout,
+                **kwargs,
+            ),
             allow_running_loop=allow_running_loop,
         )
         if isinstance(response, ChatCompletion):
@@ -673,6 +689,8 @@ class AnyLLM(ABC):
         stream_options: dict[str, Any] | None = None,
         max_completion_tokens: int | None = None,
         reasoning_effort: ReasoningEffort | None = "auto",
+        prompt_cache_key: str | None = None,
+        timeout: float | None = None,  # noqa: ASYNC109  # forwarded to the provider SDK, which owns the timeout
         **kwargs: Any,
     ) -> ChatCompletion | AsyncIterator[ChatCompletionChunk] | ParsedChatCompletion[Any]:
         """Create a chat completion asynchronously.
@@ -701,6 +719,10 @@ class AnyLLM(ABC):
             stream_options: Additional options controlling streaming behavior
             max_completion_tokens: Maximum number of tokens for the completion
             reasoning_effort: Reasoning effort level for models that support it. "auto" will map to each provider's default.
+            prompt_cache_key: A key to use when reading from or writing to a provider's prompt cache.
+            timeout: Per-request timeout in seconds, passed through to the provider's client/SDK.
+                An explicit ``None`` is treated the same as omitting it (the provider's default
+                applies), so it cannot request an unbounded timeout.
             **kwargs: Additional provider-specific arguments that will be passed to the provider's API call.
 
         Returns:
@@ -742,8 +764,15 @@ class AnyLLM(ABC):
             stream_options=stream_options,
             max_completion_tokens=max_completion_tokens,
             reasoning_effort=reasoning_effort,
+            prompt_cache_key=prompt_cache_key,
         )
 
+        self._validate_prompt_cache_key(prompt_cache_key)
+        # timeout is forwarded through kwargs rather than carried on CompletionParams: providers
+        # apply it differently (per-request vs client-level), so each consumes it from kwargs.
+        # Forward it only when set, so the default path (and its provider behavior) is unchanged.
+        if timeout is not None:
+            kwargs["timeout"] = timeout
         result = await self._acompletion(params, **kwargs)
 
         if is_structured_output_type(response_format):
@@ -767,6 +796,11 @@ class AnyLLM(ABC):
 
         return result
 
+    def _validate_prompt_cache_key(self, prompt_cache_key: str | None) -> None:
+        if prompt_cache_key is not None and self.PROMPT_CACHE_KEY_SUPPORT == "unsupported":
+            parameter_name = "prompt_cache_key"
+            raise UnsupportedParameterError(parameter_name, self.PROVIDER_NAME)
+
     async def _acompletion(
         self, params: CompletionParams, **kwargs: Any
     ) -> ChatCompletion | AsyncIterator[ChatCompletionChunk]:
@@ -780,23 +814,51 @@ class AnyLLM(ABC):
         self,
         *,
         allow_running_loop: bool | None = None,
+        prompt_cache_key: str | None = None,
         context_management: dict[str, Any] | None = None,
         betas: list[str] | None = None,
         **kwargs: Any,
     ) -> MessageResponse | ParsedMessage[Any] | ParsedBetaMessage[Any] | Iterator[MessageStreamEvent]:
         """Create a message using the Anthropic Messages API synchronously.
 
+        With `stream=True` the request is opened lazily on the first iteration, so errors
+        raised while opening it (a rejected `output_format` combination, an unsupported
+        `context_management`/`betas` request, or a provider auth or connection failure)
+        surface from the first `next()` rather than from this call. This matches
+        [AnyLLM.completion][any_llm.any_llm.AnyLLM.completion] and
+        [AnyLLM.responses][any_llm.any_llm.AnyLLM.responses]; wrap the iteration rather
+        than the call to catch them.
+
         See [AnyLLM.amessages][any_llm.any_llm.AnyLLM.amessages]
         """
         if allow_running_loop is None:
             allow_running_loop = INSIDE_NOTEBOOK
+        if kwargs.get("stream"):
+            return async_coro_to_sync_iter(
+                cast(
+                    "Coroutine[Any, Any, AsyncIterator[MessageStreamEvent]]",
+                    self.amessages(
+                        prompt_cache_key=prompt_cache_key,
+                        context_management=context_management,
+                        betas=betas,
+                        **kwargs,
+                    ),
+                ),
+                allow_running_loop=allow_running_loop,
+            )
+
         response = run_async_in_sync(
-            self.amessages(context_management=context_management, betas=betas, **kwargs),
+            self.amessages(
+                prompt_cache_key=prompt_cache_key,
+                context_management=context_management,
+                betas=betas,
+                **kwargs,
+            ),
             allow_running_loop=allow_running_loop,
         )
         if isinstance(response, (MessageResponse, ParsedMessage, ParsedBetaMessage)):
             return response
-        return async_iter_to_sync_iter(response)
+        return async_iter_to_sync_iter(response, allow_running_loop=allow_running_loop)
 
     @handle_exceptions(wrap_streaming=True)
     async def amessages(
@@ -816,6 +878,7 @@ class AnyLLM(ABC):
         metadata: dict[str, Any] | None = None,
         thinking: dict[str, Any] | None = None,
         cache_control: dict[str, Any] | None = None,
+        prompt_cache_key: str | None = None,
         context_management: dict[str, Any] | None = None,
         betas: list[str] | None = None,
         output_format: type | dict[str, Any] | None = None,
@@ -841,6 +904,7 @@ class AnyLLM(ABC):
             metadata: Request metadata.
             thinking: Thinking/reasoning configuration.
             cache_control: Cache control configuration for prompt caching.
+            prompt_cache_key: A key to use when reading from or writing to a provider's prompt cache.
             context_management: Anthropic context management configuration. The
                 `compact_20260112` strategy requires a supported model. Its `input_tokens`
                 trigger value must be at least 50,000 when provided; see
@@ -882,10 +946,12 @@ class AnyLLM(ABC):
             metadata=metadata,
             thinking=thinking,
             cache_control=cache_control,
+            prompt_cache_key=prompt_cache_key,
             context_management=context_management,
             betas=betas,
             output_format=output_format,
         )
+        self._validate_prompt_cache_key(prompt_cache_key)
         result = await self._amessages(params, **kwargs)
 
         # The Anthropic provider already returns a ParsedMessage via native messages.parse (typed

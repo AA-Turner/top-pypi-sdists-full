@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-setuptools"
-version = "83.0.0.20260807"
+version = "84.0.0.20260812"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for setuptools"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`setuptools`](https://github.com/pypa/setuptools) package. It can be used by type checkers
 to check code that uses `setuptools`. This version of
 `types-setuptools` aims to provide accurate annotations for
-`setuptools==83.0.*`.
+`setuptools==84.0.*`.
 
 Given that `pkg_resources` is typed since `setuptools >= 71.1`, it is no longer included with `types-setuptools`.
 
@@ -28,11 +28,12 @@ directory.
 
 This package was tested with the following type checkers:
 * [mypy](https://github.com/python/mypy/) 2.3.0
+* [pyrefly](https://pyrefly.org/) 1.3.0.dev1
 * [pyright](https://github.com/microsoft/pyright) 1.1.411
 * [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`e0efbeef901e9b6998d016e1ab9352678f09ae77`](https://github.com/python/typeshed/commit/e0efbeef901e9b6998d016e1ab9352678f09ae77).
+[`ed2cc332c5293f41b525fe7e5107630f1af5a631`](https://github.com/python/typeshed/commit/ed2cc332c5293f41b525fe7e5107630f1af5a631).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -55,5 +56,5 @@ packages = ['distutils-stubs', 'setuptools-stubs']
 include-package-data = false
 
 [tool.setuptools.package-data]
-'distutils-stubs' = ['__init__.pyi', '_modified.pyi', '_msvccompiler.pyi', 'archive_util.pyi', 'ccompiler.pyi', 'cmd.pyi', 'command/__init__.pyi', 'command/bdist.pyi', 'command/bdist_rpm.pyi', 'command/build.pyi', 'command/build_clib.pyi', 'command/build_ext.pyi', 'command/build_py.pyi', 'command/install.pyi', 'command/install_data.pyi', 'command/install_lib.pyi', 'command/install_scripts.pyi', 'command/sdist.pyi', 'compat/__init__.pyi', 'compilers/C/base.pyi', 'compilers/C/cygwin.pyi', 'compilers/C/errors.pyi', 'compilers/C/msvc.pyi', 'compilers/C/unix.pyi', 'compilers/C/zos.pyi', 'cygwinccompiler.pyi', 'dep_util.pyi', 'dist.pyi', 'errors.pyi', 'extension.pyi', 'filelist.pyi', 'spawn.pyi', 'sysconfig.pyi', 'unixccompiler.pyi', 'util.pyi', 'version.pyi', 'zosccompiler.pyi', 'METADATA.toml', 'py.typed']
-'setuptools-stubs' = ['__init__.pyi', '_distutils/__init__.pyi', '_distutils/_modified.pyi', '_distutils/_msvccompiler.pyi', '_distutils/archive_util.pyi', '_distutils/ccompiler.pyi', '_distutils/cmd.pyi', '_distutils/command/__init__.pyi', '_distutils/command/bdist.pyi', '_distutils/command/bdist_rpm.pyi', '_distutils/command/build.pyi', '_distutils/command/build_clib.pyi', '_distutils/command/build_ext.pyi', '_distutils/command/build_py.pyi', '_distutils/command/install.pyi', '_distutils/command/install_data.pyi', '_distutils/command/install_lib.pyi', '_distutils/command/install_scripts.pyi', '_distutils/command/sdist.pyi', '_distutils/compat/__init__.pyi', '_distutils/compilers/C/base.pyi', '_distutils/compilers/C/cygwin.pyi', '_distutils/compilers/C/errors.pyi', '_distutils/compilers/C/msvc.pyi', '_distutils/compilers/C/unix.pyi', '_distutils/compilers/C/zos.pyi', '_distutils/cygwinccompiler.pyi', '_distutils/dep_util.pyi', '_distutils/dist.pyi', '_distutils/errors.pyi', '_distutils/extension.pyi', '_distutils/filelist.pyi', '_distutils/spawn.pyi', '_distutils/sysconfig.pyi', '_distutils/unixccompiler.pyi', '_distutils/util.pyi', '_distutils/version.pyi', '_distutils/zosccompiler.pyi', 'archive_util.pyi', 'build_meta.pyi', 'command/__init__.pyi', 'command/alias.pyi', 'command/bdist_egg.pyi', 'command/bdist_rpm.pyi', 'command/bdist_wheel.pyi', 'command/build.pyi', 'command/build_clib.pyi', 'command/build_ext.pyi', 'command/build_py.pyi', 'command/develop.pyi', 'command/dist_info.pyi', 'command/easy_install.pyi', 'command/editable_wheel.pyi', 'command/egg_info.pyi', 'command/install.pyi', 'command/install_egg_info.pyi', 'command/install_lib.pyi', 'command/install_scripts.pyi', 'command/rotate.pyi', 'command/saveopts.pyi', 'command/sdist.pyi', 'command/setopt.pyi', 'command/test.pyi', 'config/__init__.pyi', 'config/expand.pyi', 'config/pyprojecttoml.pyi', 'config/setupcfg.pyi', 'depends.pyi', 'discovery.pyi', 'dist.pyi', 'errors.pyi', 'extension.pyi', 'glob.pyi', 'installer.pyi', 'launch.pyi', 'logging.pyi', 'modified.pyi', 'monkey.pyi', 'msvc.pyi', 'namespaces.pyi', 'unicode_utils.pyi', 'version.pyi', 'warnings.pyi', 'wheel.pyi', 'windows_support.pyi', 'METADATA.toml', 'py.typed']
+'distutils-stubs' = ['__init__.pyi', '_modified.pyi', '_msvccompiler.pyi', 'archive_util.pyi', 'ccompiler.pyi', 'cmd.pyi', 'command/__init__.pyi', 'command/bdist.pyi', 'command/bdist_rpm.pyi', 'command/build.pyi', 'command/build_clib.pyi', 'command/build_ext.pyi', 'command/build_py.pyi', 'command/install.pyi', 'command/install_data.pyi', 'command/install_lib.pyi', 'command/install_scripts.pyi', 'command/sdist.pyi', 'compilers/C/base.pyi', 'compilers/C/cygwin.pyi', 'compilers/C/errors.pyi', 'compilers/C/msvc.pyi', 'compilers/C/unix.pyi', 'compilers/C/zos.pyi', 'compilers/errors.pyi', 'compilers/platform/detect.pyi', 'compilers/platform/macos.pyi', 'cygwinccompiler.pyi', 'dep_util.pyi', 'dist.pyi', 'errors.pyi', 'extension.pyi', 'filelist.pyi', 'spawn.pyi', 'sysconfig.pyi', 'unixccompiler.pyi', 'util.pyi', 'version.pyi', 'zosccompiler.pyi', 'METADATA.toml', 'py.typed']
+'setuptools-stubs' = ['__init__.pyi', '_distutils/__init__.pyi', '_distutils/_modified.pyi', '_distutils/_msvccompiler.pyi', '_distutils/archive_util.pyi', '_distutils/ccompiler.pyi', '_distutils/cmd.pyi', '_distutils/command/__init__.pyi', '_distutils/command/bdist.pyi', '_distutils/command/bdist_rpm.pyi', '_distutils/command/build.pyi', '_distutils/command/build_clib.pyi', '_distutils/command/build_ext.pyi', '_distutils/command/build_py.pyi', '_distutils/command/install.pyi', '_distutils/command/install_data.pyi', '_distutils/command/install_lib.pyi', '_distutils/command/install_scripts.pyi', '_distutils/command/sdist.pyi', '_distutils/compilers/C/base.pyi', '_distutils/compilers/C/cygwin.pyi', '_distutils/compilers/C/errors.pyi', '_distutils/compilers/C/msvc.pyi', '_distutils/compilers/C/unix.pyi', '_distutils/compilers/C/zos.pyi', '_distutils/compilers/errors.pyi', '_distutils/compilers/platform/detect.pyi', '_distutils/compilers/platform/macos.pyi', '_distutils/cygwinccompiler.pyi', '_distutils/dep_util.pyi', '_distutils/dist.pyi', '_distutils/errors.pyi', '_distutils/extension.pyi', '_distutils/filelist.pyi', '_distutils/spawn.pyi', '_distutils/sysconfig.pyi', '_distutils/unixccompiler.pyi', '_distutils/util.pyi', '_distutils/version.pyi', '_distutils/zosccompiler.pyi', 'archive_util.pyi', 'build_meta.pyi', 'command/__init__.pyi', 'command/alias.pyi', 'command/bdist_egg.pyi', 'command/bdist_rpm.pyi', 'command/bdist_wheel.pyi', 'command/build.pyi', 'command/build_clib.pyi', 'command/build_ext.pyi', 'command/build_py.pyi', 'command/develop.pyi', 'command/dist_info.pyi', 'command/easy_install.pyi', 'command/editable_wheel.pyi', 'command/egg_info.pyi', 'command/install.pyi', 'command/install_egg_info.pyi', 'command/install_lib.pyi', 'command/install_scripts.pyi', 'command/rotate.pyi', 'command/saveopts.pyi', 'command/sdist.pyi', 'command/setopt.pyi', 'command/test.pyi', 'config/__init__.pyi', 'config/expand.pyi', 'config/pyprojecttoml.pyi', 'config/setupcfg.pyi', 'depends.pyi', 'discovery.pyi', 'dist.pyi', 'errors.pyi', 'extension.pyi', 'glob.pyi', 'installer.pyi', 'launch.pyi', 'logging.pyi', 'modified.pyi', 'monkey.pyi', 'msvc.pyi', 'namespaces.pyi', 'unicode_utils.pyi', 'version.pyi', 'warnings.pyi', 'wheel.pyi', 'windows_support.pyi', 'METADATA.toml', 'py.typed']

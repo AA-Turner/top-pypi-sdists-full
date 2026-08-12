@@ -71,8 +71,11 @@ func (ErrorType) EnumDescriptor() ([]byte, []int) {
 //
 // ServerApiCleanupRequest should be used once the instance is no longer needed.
 type ServerApiInitRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Settings      *Settings              `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Settings *Settings              `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
+	// The name of the service requesting the API instance.
+	// This is used to identify the service in the OpenTelemetry backend.
+	ServiceName   string `protobuf:"bytes,2,opt,name=service_name,json=serviceName,proto3" json:"service_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -112,6 +115,13 @@ func (x *ServerApiInitRequest) GetSettings() *Settings {
 		return x.Settings
 	}
 	return nil
+}
+
+func (x *ServerApiInitRequest) GetServiceName() string {
+	if x != nil {
+		return x.ServiceName
+	}
+	return ""
 }
 
 type ServerApiInitResponse struct {
@@ -181,6 +191,10 @@ type ApiRequest struct {
 	//	*ApiRequest_UploadFileRequest
 	//	*ApiRequest_MarkRunFilesUploadedRequest
 	//	*ApiRequest_StopRunRequest
+	//	*ApiRequest_AuthRequest
+	//	*ApiRequest_CreateCustomChartRequest
+	//	*ApiRequest_RunQueueOperationRequest
+	//	*ApiRequest_OpenTelemetryRequest
 	Request       isApiRequest_Request `protobuf_oneof:"request"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -293,6 +307,42 @@ func (x *ApiRequest) GetStopRunRequest() *StopRunRequest {
 	return nil
 }
 
+func (x *ApiRequest) GetAuthRequest() *AuthRequest {
+	if x != nil {
+		if x, ok := x.Request.(*ApiRequest_AuthRequest); ok {
+			return x.AuthRequest
+		}
+	}
+	return nil
+}
+
+func (x *ApiRequest) GetCreateCustomChartRequest() *CreateCustomChartRequest {
+	if x != nil {
+		if x, ok := x.Request.(*ApiRequest_CreateCustomChartRequest); ok {
+			return x.CreateCustomChartRequest
+		}
+	}
+	return nil
+}
+
+func (x *ApiRequest) GetRunQueueOperationRequest() *RunQueueOperationRequest {
+	if x != nil {
+		if x, ok := x.Request.(*ApiRequest_RunQueueOperationRequest); ok {
+			return x.RunQueueOperationRequest
+		}
+	}
+	return nil
+}
+
+func (x *ApiRequest) GetOpenTelemetryRequest() *OpenTelemetryRequest {
+	if x != nil {
+		if x, ok := x.Request.(*ApiRequest_OpenTelemetryRequest); ok {
+			return x.OpenTelemetryRequest
+		}
+	}
+	return nil
+}
+
 type isApiRequest_Request interface {
 	isApiRequest_Request()
 }
@@ -325,6 +375,22 @@ type ApiRequest_StopRunRequest struct {
 	StopRunRequest *StopRunRequest `protobuf:"bytes,8,opt,name=stop_run_request,json=stopRunRequest,proto3,oneof"`
 }
 
+type ApiRequest_AuthRequest struct {
+	AuthRequest *AuthRequest `protobuf:"bytes,9,opt,name=auth_request,json=authRequest,proto3,oneof"`
+}
+
+type ApiRequest_CreateCustomChartRequest struct {
+	CreateCustomChartRequest *CreateCustomChartRequest `protobuf:"bytes,10,opt,name=create_custom_chart_request,json=createCustomChartRequest,proto3,oneof"`
+}
+
+type ApiRequest_RunQueueOperationRequest struct {
+	RunQueueOperationRequest *RunQueueOperationRequest `protobuf:"bytes,11,opt,name=run_queue_operation_request,json=runQueueOperationRequest,proto3,oneof"`
+}
+
+type ApiRequest_OpenTelemetryRequest struct {
+	OpenTelemetryRequest *OpenTelemetryRequest `protobuf:"bytes,12,opt,name=open_telemetry_request,json=openTelemetryRequest,proto3,oneof"`
+}
+
 func (*ApiRequest_ReadRunHistoryRequest) isApiRequest_Request() {}
 
 func (*ApiRequest_FeaturesRequest) isApiRequest_Request() {}
@@ -339,6 +405,14 @@ func (*ApiRequest_MarkRunFilesUploadedRequest) isApiRequest_Request() {}
 
 func (*ApiRequest_StopRunRequest) isApiRequest_Request() {}
 
+func (*ApiRequest_AuthRequest) isApiRequest_Request() {}
+
+func (*ApiRequest_CreateCustomChartRequest) isApiRequest_Request() {}
+
+func (*ApiRequest_RunQueueOperationRequest) isApiRequest_Request() {}
+
+func (*ApiRequest_OpenTelemetryRequest) isApiRequest_Request() {}
+
 type ApiResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Response:
@@ -350,6 +424,9 @@ type ApiResponse struct {
 	//	*ApiResponse_UploadFileResponse
 	//	*ApiResponse_MarkRunFilesUploadedResponse
 	//	*ApiResponse_StopRunResponse
+	//	*ApiResponse_AuthResponse
+	//	*ApiResponse_CreateCustomChartResponse
+	//	*ApiResponse_RunQueueOperationResponse
 	//	*ApiResponse_ApiErrorResponse
 	Response      isApiResponse_Response `protobuf_oneof:"response"`
 	unknownFields protoimpl.UnknownFields
@@ -456,6 +533,33 @@ func (x *ApiResponse) GetStopRunResponse() *StopRunResponse {
 	return nil
 }
 
+func (x *ApiResponse) GetAuthResponse() *AuthResponse {
+	if x != nil {
+		if x, ok := x.Response.(*ApiResponse_AuthResponse); ok {
+			return x.AuthResponse
+		}
+	}
+	return nil
+}
+
+func (x *ApiResponse) GetCreateCustomChartResponse() *CreateCustomChartResponse {
+	if x != nil {
+		if x, ok := x.Response.(*ApiResponse_CreateCustomChartResponse); ok {
+			return x.CreateCustomChartResponse
+		}
+	}
+	return nil
+}
+
+func (x *ApiResponse) GetRunQueueOperationResponse() *RunQueueOperationResponse {
+	if x != nil {
+		if x, ok := x.Response.(*ApiResponse_RunQueueOperationResponse); ok {
+			return x.RunQueueOperationResponse
+		}
+	}
+	return nil
+}
+
 func (x *ApiResponse) GetApiErrorResponse() *ApiErrorResponse {
 	if x != nil {
 		if x, ok := x.Response.(*ApiResponse_ApiErrorResponse); ok {
@@ -497,6 +601,18 @@ type ApiResponse_StopRunResponse struct {
 	StopRunResponse *StopRunResponse `protobuf:"bytes,8,opt,name=stop_run_response,json=stopRunResponse,proto3,oneof"`
 }
 
+type ApiResponse_AuthResponse struct {
+	AuthResponse *AuthResponse `protobuf:"bytes,9,opt,name=auth_response,json=authResponse,proto3,oneof"`
+}
+
+type ApiResponse_CreateCustomChartResponse struct {
+	CreateCustomChartResponse *CreateCustomChartResponse `protobuf:"bytes,10,opt,name=create_custom_chart_response,json=createCustomChartResponse,proto3,oneof"`
+}
+
+type ApiResponse_RunQueueOperationResponse struct {
+	RunQueueOperationResponse *RunQueueOperationResponse `protobuf:"bytes,11,opt,name=run_queue_operation_response,json=runQueueOperationResponse,proto3,oneof"`
+}
+
 type ApiResponse_ApiErrorResponse struct {
 	ApiErrorResponse *ApiErrorResponse `protobuf:"bytes,2,opt,name=api_error_response,json=apiErrorResponse,proto3,oneof"`
 }
@@ -514,6 +630,12 @@ func (*ApiResponse_UploadFileResponse) isApiResponse_Response() {}
 func (*ApiResponse_MarkRunFilesUploadedResponse) isApiResponse_Response() {}
 
 func (*ApiResponse_StopRunResponse) isApiResponse_Response() {}
+
+func (*ApiResponse_AuthResponse) isApiResponse_Response() {}
+
+func (*ApiResponse_CreateCustomChartResponse) isApiResponse_Response() {}
+
+func (*ApiResponse_RunQueueOperationResponse) isApiResponse_Response() {}
 
 func (*ApiResponse_ApiErrorResponse) isApiResponse_Response() {}
 
@@ -1217,6 +1339,393 @@ func (*MarkRunFilesUploadedResponse) Descriptor() ([]byte, []int) {
 	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{15}
 }
 
+// Requests related to the API instance's credentials.
+//
+// The credentials come from the settings used to initialize the API
+// instance: an API key, or an identity token file when using federated
+// identity.
+type AuthRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Request:
+	//
+	//	*AuthRequest_AuthenticateRequest
+	//	*AuthRequest_GetAccessTokenRequest
+	Request       isAuthRequest_Request `protobuf_oneof:"request"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AuthRequest) Reset() {
+	*x = AuthRequest{}
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AuthRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AuthRequest) ProtoMessage() {}
+
+func (x *AuthRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AuthRequest.ProtoReflect.Descriptor instead.
+func (*AuthRequest) Descriptor() ([]byte, []int) {
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *AuthRequest) GetRequest() isAuthRequest_Request {
+	if x != nil {
+		return x.Request
+	}
+	return nil
+}
+
+func (x *AuthRequest) GetAuthenticateRequest() *AuthenticateRequest {
+	if x != nil {
+		if x, ok := x.Request.(*AuthRequest_AuthenticateRequest); ok {
+			return x.AuthenticateRequest
+		}
+	}
+	return nil
+}
+
+func (x *AuthRequest) GetGetAccessTokenRequest() *GetAccessTokenRequest {
+	if x != nil {
+		if x, ok := x.Request.(*AuthRequest_GetAccessTokenRequest); ok {
+			return x.GetAccessTokenRequest
+		}
+	}
+	return nil
+}
+
+type isAuthRequest_Request interface {
+	isAuthRequest_Request()
+}
+
+type AuthRequest_AuthenticateRequest struct {
+	AuthenticateRequest *AuthenticateRequest `protobuf:"bytes,1,opt,name=authenticate_request,json=authenticateRequest,proto3,oneof"`
+}
+
+type AuthRequest_GetAccessTokenRequest struct {
+	GetAccessTokenRequest *GetAccessTokenRequest `protobuf:"bytes,2,opt,name=get_access_token_request,json=getAccessTokenRequest,proto3,oneof"`
+}
+
+func (*AuthRequest_AuthenticateRequest) isAuthRequest_Request() {}
+
+func (*AuthRequest_GetAccessTokenRequest) isAuthRequest_Request() {}
+
+type AuthResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Response:
+	//
+	//	*AuthResponse_AuthenticateResponse
+	//	*AuthResponse_GetAccessTokenResponse
+	Response      isAuthResponse_Response `protobuf_oneof:"response"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AuthResponse) Reset() {
+	*x = AuthResponse{}
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AuthResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AuthResponse) ProtoMessage() {}
+
+func (x *AuthResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AuthResponse.ProtoReflect.Descriptor instead.
+func (*AuthResponse) Descriptor() ([]byte, []int) {
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *AuthResponse) GetResponse() isAuthResponse_Response {
+	if x != nil {
+		return x.Response
+	}
+	return nil
+}
+
+func (x *AuthResponse) GetAuthenticateResponse() *AuthenticateResponse {
+	if x != nil {
+		if x, ok := x.Response.(*AuthResponse_AuthenticateResponse); ok {
+			return x.AuthenticateResponse
+		}
+	}
+	return nil
+}
+
+func (x *AuthResponse) GetGetAccessTokenResponse() *GetAccessTokenResponse {
+	if x != nil {
+		if x, ok := x.Response.(*AuthResponse_GetAccessTokenResponse); ok {
+			return x.GetAccessTokenResponse
+		}
+	}
+	return nil
+}
+
+type isAuthResponse_Response interface {
+	isAuthResponse_Response()
+}
+
+type AuthResponse_AuthenticateResponse struct {
+	AuthenticateResponse *AuthenticateResponse `protobuf:"bytes,1,opt,name=authenticate_response,json=authenticateResponse,proto3,oneof"`
+}
+
+type AuthResponse_GetAccessTokenResponse struct {
+	GetAccessTokenResponse *GetAccessTokenResponse `protobuf:"bytes,2,opt,name=get_access_token_response,json=getAccessTokenResponse,proto3,oneof"`
+}
+
+func (*AuthResponse_AuthenticateResponse) isAuthResponse_Response() {}
+
+func (*AuthResponse_GetAccessTokenResponse) isAuthResponse_Response() {}
+
+// Verify the API instance's credentials and identify the authenticated user.
+//
+// wandb-core authenticates to the W&B backend the same way it
+// does for any other request and asks it who the credentials belong to.
+//
+// A successful request returns AuthenticateResponse with information about
+// the authenticated user. Rejected credentials, transport failures, and
+// non-successful HTTP status codes return ApiErrorResponse.
+type AuthenticateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AuthenticateRequest) Reset() {
+	*x = AuthenticateRequest{}
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AuthenticateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AuthenticateRequest) ProtoMessage() {}
+
+func (x *AuthenticateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AuthenticateRequest.ProtoReflect.Descriptor instead.
+func (*AuthenticateRequest) Descriptor() ([]byte, []int) {
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{18}
+}
+
+type AuthenticateResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The user's default entity, used for runs when no entity is specified.
+	DefaultEntity string `protobuf:"bytes,1,opt,name=default_entity,json=defaultEntity,proto3" json:"default_entity,omitempty"`
+	// The user's username.
+	Username string `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
+	// The user's email address.
+	Email string `protobuf:"bytes,3,opt,name=email,proto3" json:"email,omitempty"`
+	// Names of the teams the user is a member of.
+	Teams []string `protobuf:"bytes,4,rep,name=teams,proto3" json:"teams,omitempty"`
+	// JSON-encoded user flags from the server, like "code_saving_enabled".
+	FlagsJson     string `protobuf:"bytes,5,opt,name=flags_json,json=flagsJson,proto3" json:"flags_json,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AuthenticateResponse) Reset() {
+	*x = AuthenticateResponse{}
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AuthenticateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AuthenticateResponse) ProtoMessage() {}
+
+func (x *AuthenticateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AuthenticateResponse.ProtoReflect.Descriptor instead.
+func (*AuthenticateResponse) Descriptor() ([]byte, []int) {
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *AuthenticateResponse) GetDefaultEntity() string {
+	if x != nil {
+		return x.DefaultEntity
+	}
+	return ""
+}
+
+func (x *AuthenticateResponse) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *AuthenticateResponse) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *AuthenticateResponse) GetTeams() []string {
+	if x != nil {
+		return x.Teams
+	}
+	return nil
+}
+
+func (x *AuthenticateResponse) GetFlagsJson() string {
+	if x != nil {
+		return x.FlagsJson
+	}
+	return ""
+}
+
+// Retrieve an access token for authenticating directly with the W&B server.
+//
+// This only applies when the API instance uses federated identity:
+// wandb-core exchanges the identity token configured in the instance's
+// settings for an access token, caching it in the credentials file and
+// refreshing it when it is at or near expiration. The token allows SDK
+// code that talks to the W&B server without going through wandb-core to
+// authenticate with a Bearer header.
+//
+// If the API instance does not use token-based credentials, a successful
+// response contains an empty access_token. A failed token exchange returns
+// ApiErrorResponse.
+type GetAccessTokenRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAccessTokenRequest) Reset() {
+	*x = GetAccessTokenRequest{}
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAccessTokenRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAccessTokenRequest) ProtoMessage() {}
+
+func (x *GetAccessTokenRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAccessTokenRequest.ProtoReflect.Descriptor instead.
+func (*GetAccessTokenRequest) Descriptor() ([]byte, []int) {
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{20}
+}
+
+type GetAccessTokenResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The access token, or empty when not using federated identity.
+	AccessToken   string `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAccessTokenResponse) Reset() {
+	*x = GetAccessTokenResponse{}
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAccessTokenResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAccessTokenResponse) ProtoMessage() {}
+
+func (x *GetAccessTokenResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAccessTokenResponse.ProtoReflect.Descriptor instead.
+func (*GetAccessTokenResponse) Descriptor() ([]byte, []int) {
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *GetAccessTokenResponse) GetAccessToken() string {
+	if x != nil {
+		return x.AccessToken
+	}
+	return ""
+}
+
 // Flag a run to stop on the W&B backend.
 //
 // This is the same signal sent by the "Stop run" button in the W&B UI: the
@@ -1235,7 +1744,7 @@ type StopRunRequest struct {
 
 func (x *StopRunRequest) Reset() {
 	*x = StopRunRequest{}
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[16]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1247,7 +1756,7 @@ func (x *StopRunRequest) String() string {
 func (*StopRunRequest) ProtoMessage() {}
 
 func (x *StopRunRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[16]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1260,7 +1769,7 @@ func (x *StopRunRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopRunRequest.ProtoReflect.Descriptor instead.
 func (*StopRunRequest) Descriptor() ([]byte, []int) {
-	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{16}
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *StopRunRequest) GetStorageId() string {
@@ -1278,7 +1787,7 @@ type StopRunResponse struct {
 
 func (x *StopRunResponse) Reset() {
 	*x = StopRunResponse{}
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[17]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1290,7 +1799,7 @@ func (x *StopRunResponse) String() string {
 func (*StopRunResponse) ProtoMessage() {}
 
 func (x *StopRunResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[17]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1303,7 +1812,762 @@ func (x *StopRunResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopRunResponse.ProtoReflect.Descriptor instead.
 func (*StopRunResponse) Descriptor() ([]byte, []int) {
-	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{17}
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{23}
+}
+
+// Create a custom chart preset.
+type CreateCustomChartRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The entity (user or team) that owns the chart.
+	Entity string `protobuf:"bytes,1,opt,name=entity,proto3" json:"entity,omitempty"`
+	// The chart preset's unique name within the entity.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// The human-readable name shown in the UI.
+	DisplayName string `protobuf:"bytes,3,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	// The chart specification type, such as "vega2".
+	SpecType string `protobuf:"bytes,4,opt,name=spec_type,json=specType,proto3" json:"spec_type,omitempty"`
+	// The backend access level, such as "PRIVATE" or "PUBLIC".
+	Access string `protobuf:"bytes,5,opt,name=access,proto3" json:"access,omitempty"`
+	// The JSON-encoded chart specification.
+	Spec          string `protobuf:"bytes,6,opt,name=spec,proto3" json:"spec,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateCustomChartRequest) Reset() {
+	*x = CreateCustomChartRequest{}
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateCustomChartRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateCustomChartRequest) ProtoMessage() {}
+
+func (x *CreateCustomChartRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateCustomChartRequest.ProtoReflect.Descriptor instead.
+func (*CreateCustomChartRequest) Descriptor() ([]byte, []int) {
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *CreateCustomChartRequest) GetEntity() string {
+	if x != nil {
+		return x.Entity
+	}
+	return ""
+}
+
+func (x *CreateCustomChartRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateCustomChartRequest) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *CreateCustomChartRequest) GetSpecType() string {
+	if x != nil {
+		return x.SpecType
+	}
+	return ""
+}
+
+func (x *CreateCustomChartRequest) GetAccess() string {
+	if x != nil {
+		return x.Access
+	}
+	return ""
+}
+
+func (x *CreateCustomChartRequest) GetSpec() string {
+	if x != nil {
+		return x.Spec
+	}
+	return ""
+}
+
+type CreateCustomChartResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The ID of the created chart preset.
+	ChartId       string `protobuf:"bytes,1,opt,name=chart_id,json=chartId,proto3" json:"chart_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateCustomChartResponse) Reset() {
+	*x = CreateCustomChartResponse{}
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateCustomChartResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateCustomChartResponse) ProtoMessage() {}
+
+func (x *CreateCustomChartResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateCustomChartResponse.ProtoReflect.Descriptor instead.
+func (*CreateCustomChartResponse) Descriptor() ([]byte, []int) {
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *CreateCustomChartResponse) GetChartId() string {
+	if x != nil {
+		return x.ChartId
+	}
+	return ""
+}
+
+// Perform an operation on a run queue.
+type RunQueueOperationRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Operation:
+	//
+	//	*RunQueueOperationRequest_CreateDefaultResourceConfigRequest
+	//	*RunQueueOperationRequest_CreateRunQueueRequest
+	//	*RunQueueOperationRequest_UpsertRunQueueRequest
+	Operation     isRunQueueOperationRequest_Operation `protobuf_oneof:"operation"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RunQueueOperationRequest) Reset() {
+	*x = RunQueueOperationRequest{}
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RunQueueOperationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RunQueueOperationRequest) ProtoMessage() {}
+
+func (x *RunQueueOperationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RunQueueOperationRequest.ProtoReflect.Descriptor instead.
+func (*RunQueueOperationRequest) Descriptor() ([]byte, []int) {
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *RunQueueOperationRequest) GetOperation() isRunQueueOperationRequest_Operation {
+	if x != nil {
+		return x.Operation
+	}
+	return nil
+}
+
+func (x *RunQueueOperationRequest) GetCreateDefaultResourceConfigRequest() *CreateDefaultResourceConfigRequest {
+	if x != nil {
+		if x, ok := x.Operation.(*RunQueueOperationRequest_CreateDefaultResourceConfigRequest); ok {
+			return x.CreateDefaultResourceConfigRequest
+		}
+	}
+	return nil
+}
+
+func (x *RunQueueOperationRequest) GetCreateRunQueueRequest() *CreateRunQueueRequest {
+	if x != nil {
+		if x, ok := x.Operation.(*RunQueueOperationRequest_CreateRunQueueRequest); ok {
+			return x.CreateRunQueueRequest
+		}
+	}
+	return nil
+}
+
+func (x *RunQueueOperationRequest) GetUpsertRunQueueRequest() *UpsertRunQueueRequest {
+	if x != nil {
+		if x, ok := x.Operation.(*RunQueueOperationRequest_UpsertRunQueueRequest); ok {
+			return x.UpsertRunQueueRequest
+		}
+	}
+	return nil
+}
+
+type isRunQueueOperationRequest_Operation interface {
+	isRunQueueOperationRequest_Operation()
+}
+
+type RunQueueOperationRequest_CreateDefaultResourceConfigRequest struct {
+	CreateDefaultResourceConfigRequest *CreateDefaultResourceConfigRequest `protobuf:"bytes,1,opt,name=create_default_resource_config_request,json=createDefaultResourceConfigRequest,proto3,oneof"`
+}
+
+type RunQueueOperationRequest_CreateRunQueueRequest struct {
+	CreateRunQueueRequest *CreateRunQueueRequest `protobuf:"bytes,2,opt,name=create_run_queue_request,json=createRunQueueRequest,proto3,oneof"`
+}
+
+type RunQueueOperationRequest_UpsertRunQueueRequest struct {
+	UpsertRunQueueRequest *UpsertRunQueueRequest `protobuf:"bytes,3,opt,name=upsert_run_queue_request,json=upsertRunQueueRequest,proto3,oneof"`
+}
+
+func (*RunQueueOperationRequest_CreateDefaultResourceConfigRequest) isRunQueueOperationRequest_Operation() {
+}
+
+func (*RunQueueOperationRequest_CreateRunQueueRequest) isRunQueueOperationRequest_Operation() {}
+
+func (*RunQueueOperationRequest_UpsertRunQueueRequest) isRunQueueOperationRequest_Operation() {}
+
+// Response from a run-queue operation.
+type RunQueueOperationResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Operation:
+	//
+	//	*RunQueueOperationResponse_CreateDefaultResourceConfigResponse
+	//	*RunQueueOperationResponse_CreateRunQueueResponse
+	//	*RunQueueOperationResponse_UpsertRunQueueResponse
+	Operation     isRunQueueOperationResponse_Operation `protobuf_oneof:"operation"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RunQueueOperationResponse) Reset() {
+	*x = RunQueueOperationResponse{}
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RunQueueOperationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RunQueueOperationResponse) ProtoMessage() {}
+
+func (x *RunQueueOperationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RunQueueOperationResponse.ProtoReflect.Descriptor instead.
+func (*RunQueueOperationResponse) Descriptor() ([]byte, []int) {
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *RunQueueOperationResponse) GetOperation() isRunQueueOperationResponse_Operation {
+	if x != nil {
+		return x.Operation
+	}
+	return nil
+}
+
+func (x *RunQueueOperationResponse) GetCreateDefaultResourceConfigResponse() *CreateDefaultResourceConfigResponse {
+	if x != nil {
+		if x, ok := x.Operation.(*RunQueueOperationResponse_CreateDefaultResourceConfigResponse); ok {
+			return x.CreateDefaultResourceConfigResponse
+		}
+	}
+	return nil
+}
+
+func (x *RunQueueOperationResponse) GetCreateRunQueueResponse() *CreateRunQueueResponse {
+	if x != nil {
+		if x, ok := x.Operation.(*RunQueueOperationResponse_CreateRunQueueResponse); ok {
+			return x.CreateRunQueueResponse
+		}
+	}
+	return nil
+}
+
+func (x *RunQueueOperationResponse) GetUpsertRunQueueResponse() *UpsertRunQueueResponse {
+	if x != nil {
+		if x, ok := x.Operation.(*RunQueueOperationResponse_UpsertRunQueueResponse); ok {
+			return x.UpsertRunQueueResponse
+		}
+	}
+	return nil
+}
+
+type isRunQueueOperationResponse_Operation interface {
+	isRunQueueOperationResponse_Operation()
+}
+
+type RunQueueOperationResponse_CreateDefaultResourceConfigResponse struct {
+	CreateDefaultResourceConfigResponse *CreateDefaultResourceConfigResponse `protobuf:"bytes,1,opt,name=create_default_resource_config_response,json=createDefaultResourceConfigResponse,proto3,oneof"`
+}
+
+type RunQueueOperationResponse_CreateRunQueueResponse struct {
+	CreateRunQueueResponse *CreateRunQueueResponse `protobuf:"bytes,2,opt,name=create_run_queue_response,json=createRunQueueResponse,proto3,oneof"`
+}
+
+type RunQueueOperationResponse_UpsertRunQueueResponse struct {
+	UpsertRunQueueResponse *UpsertRunQueueResponse `protobuf:"bytes,3,opt,name=upsert_run_queue_response,json=upsertRunQueueResponse,proto3,oneof"`
+}
+
+func (*RunQueueOperationResponse_CreateDefaultResourceConfigResponse) isRunQueueOperationResponse_Operation() {
+}
+
+func (*RunQueueOperationResponse_CreateRunQueueResponse) isRunQueueOperationResponse_Operation() {}
+
+func (*RunQueueOperationResponse_UpsertRunQueueResponse) isRunQueueOperationResponse_Operation() {}
+
+// Create a default resource configuration for a run queue.
+type CreateDefaultResourceConfigRequest struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	EntityName        string                 `protobuf:"bytes,1,opt,name=entity_name,json=entityName,proto3" json:"entity_name,omitempty"`
+	Resource          string                 `protobuf:"bytes,2,opt,name=resource,proto3" json:"resource,omitempty"`
+	Config            string                 `protobuf:"bytes,3,opt,name=config,proto3" json:"config,omitempty"`
+	TemplateVariables *string                `protobuf:"bytes,4,opt,name=template_variables,json=templateVariables,proto3,oneof" json:"template_variables,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *CreateDefaultResourceConfigRequest) Reset() {
+	*x = CreateDefaultResourceConfigRequest{}
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateDefaultResourceConfigRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateDefaultResourceConfigRequest) ProtoMessage() {}
+
+func (x *CreateDefaultResourceConfigRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateDefaultResourceConfigRequest.ProtoReflect.Descriptor instead.
+func (*CreateDefaultResourceConfigRequest) Descriptor() ([]byte, []int) {
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *CreateDefaultResourceConfigRequest) GetEntityName() string {
+	if x != nil {
+		return x.EntityName
+	}
+	return ""
+}
+
+func (x *CreateDefaultResourceConfigRequest) GetResource() string {
+	if x != nil {
+		return x.Resource
+	}
+	return ""
+}
+
+func (x *CreateDefaultResourceConfigRequest) GetConfig() string {
+	if x != nil {
+		return x.Config
+	}
+	return ""
+}
+
+func (x *CreateDefaultResourceConfigRequest) GetTemplateVariables() string {
+	if x != nil && x.TemplateVariables != nil {
+		return *x.TemplateVariables
+	}
+	return ""
+}
+
+type CreateDefaultResourceConfigResponse struct {
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	Success                 bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	DefaultResourceConfigId string                 `protobuf:"bytes,2,opt,name=default_resource_config_id,json=defaultResourceConfigId,proto3" json:"default_resource_config_id,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
+func (x *CreateDefaultResourceConfigResponse) Reset() {
+	*x = CreateDefaultResourceConfigResponse{}
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateDefaultResourceConfigResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateDefaultResourceConfigResponse) ProtoMessage() {}
+
+func (x *CreateDefaultResourceConfigResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateDefaultResourceConfigResponse.ProtoReflect.Descriptor instead.
+func (*CreateDefaultResourceConfigResponse) Descriptor() ([]byte, []int) {
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *CreateDefaultResourceConfigResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *CreateDefaultResourceConfigResponse) GetDefaultResourceConfigId() string {
+	if x != nil {
+		return x.DefaultResourceConfigId
+	}
+	return ""
+}
+
+// Create a run queue.
+type CreateRunQueueRequest struct {
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	Entity                  string                 `protobuf:"bytes,1,opt,name=entity,proto3" json:"entity,omitempty"`
+	Project                 string                 `protobuf:"bytes,2,opt,name=project,proto3" json:"project,omitempty"`
+	QueueName               string                 `protobuf:"bytes,3,opt,name=queue_name,json=queueName,proto3" json:"queue_name,omitempty"`
+	Access                  string                 `protobuf:"bytes,4,opt,name=access,proto3" json:"access,omitempty"`
+	PrioritizationMode      *string                `protobuf:"bytes,5,opt,name=prioritization_mode,json=prioritizationMode,proto3,oneof" json:"prioritization_mode,omitempty"`
+	DefaultResourceConfigId *string                `protobuf:"bytes,6,opt,name=default_resource_config_id,json=defaultResourceConfigId,proto3,oneof" json:"default_resource_config_id,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
+func (x *CreateRunQueueRequest) Reset() {
+	*x = CreateRunQueueRequest{}
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateRunQueueRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateRunQueueRequest) ProtoMessage() {}
+
+func (x *CreateRunQueueRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateRunQueueRequest.ProtoReflect.Descriptor instead.
+func (*CreateRunQueueRequest) Descriptor() ([]byte, []int) {
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *CreateRunQueueRequest) GetEntity() string {
+	if x != nil {
+		return x.Entity
+	}
+	return ""
+}
+
+func (x *CreateRunQueueRequest) GetProject() string {
+	if x != nil {
+		return x.Project
+	}
+	return ""
+}
+
+func (x *CreateRunQueueRequest) GetQueueName() string {
+	if x != nil {
+		return x.QueueName
+	}
+	return ""
+}
+
+func (x *CreateRunQueueRequest) GetAccess() string {
+	if x != nil {
+		return x.Access
+	}
+	return ""
+}
+
+func (x *CreateRunQueueRequest) GetPrioritizationMode() string {
+	if x != nil && x.PrioritizationMode != nil {
+		return *x.PrioritizationMode
+	}
+	return ""
+}
+
+func (x *CreateRunQueueRequest) GetDefaultResourceConfigId() string {
+	if x != nil && x.DefaultResourceConfigId != nil {
+		return *x.DefaultResourceConfigId
+	}
+	return ""
+}
+
+type CreateRunQueueResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	QueueId       string                 `protobuf:"bytes,2,opt,name=queue_id,json=queueId,proto3" json:"queue_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateRunQueueResponse) Reset() {
+	*x = CreateRunQueueResponse{}
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateRunQueueResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateRunQueueResponse) ProtoMessage() {}
+
+func (x *CreateRunQueueResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateRunQueueResponse.ProtoReflect.Descriptor instead.
+func (*CreateRunQueueResponse) Descriptor() ([]byte, []int) {
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *CreateRunQueueResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *CreateRunQueueResponse) GetQueueId() string {
+	if x != nil {
+		return x.QueueId
+	}
+	return ""
+}
+
+// Create or update a run queue and its default resource configuration.
+type UpsertRunQueueRequest struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	EntityName         string                 `protobuf:"bytes,1,opt,name=entity_name,json=entityName,proto3" json:"entity_name,omitempty"`
+	ProjectName        string                 `protobuf:"bytes,2,opt,name=project_name,json=projectName,proto3" json:"project_name,omitempty"`
+	QueueName          string                 `protobuf:"bytes,3,opt,name=queue_name,json=queueName,proto3" json:"queue_name,omitempty"`
+	ResourceType       string                 `protobuf:"bytes,4,opt,name=resource_type,json=resourceType,proto3" json:"resource_type,omitempty"`
+	ResourceConfig     string                 `protobuf:"bytes,5,opt,name=resource_config,json=resourceConfig,proto3" json:"resource_config,omitempty"`
+	TemplateVariables  *string                `protobuf:"bytes,6,opt,name=template_variables,json=templateVariables,proto3,oneof" json:"template_variables,omitempty"`
+	PrioritizationMode *string                `protobuf:"bytes,7,opt,name=prioritization_mode,json=prioritizationMode,proto3,oneof" json:"prioritization_mode,omitempty"`
+	ExternalLinks      *string                `protobuf:"bytes,8,opt,name=external_links,json=externalLinks,proto3,oneof" json:"external_links,omitempty"`
+	ClientMutationId   *string                `protobuf:"bytes,9,opt,name=client_mutation_id,json=clientMutationId,proto3,oneof" json:"client_mutation_id,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *UpsertRunQueueRequest) Reset() {
+	*x = UpsertRunQueueRequest{}
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpsertRunQueueRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpsertRunQueueRequest) ProtoMessage() {}
+
+func (x *UpsertRunQueueRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpsertRunQueueRequest.ProtoReflect.Descriptor instead.
+func (*UpsertRunQueueRequest) Descriptor() ([]byte, []int) {
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *UpsertRunQueueRequest) GetEntityName() string {
+	if x != nil {
+		return x.EntityName
+	}
+	return ""
+}
+
+func (x *UpsertRunQueueRequest) GetProjectName() string {
+	if x != nil {
+		return x.ProjectName
+	}
+	return ""
+}
+
+func (x *UpsertRunQueueRequest) GetQueueName() string {
+	if x != nil {
+		return x.QueueName
+	}
+	return ""
+}
+
+func (x *UpsertRunQueueRequest) GetResourceType() string {
+	if x != nil {
+		return x.ResourceType
+	}
+	return ""
+}
+
+func (x *UpsertRunQueueRequest) GetResourceConfig() string {
+	if x != nil {
+		return x.ResourceConfig
+	}
+	return ""
+}
+
+func (x *UpsertRunQueueRequest) GetTemplateVariables() string {
+	if x != nil && x.TemplateVariables != nil {
+		return *x.TemplateVariables
+	}
+	return ""
+}
+
+func (x *UpsertRunQueueRequest) GetPrioritizationMode() string {
+	if x != nil && x.PrioritizationMode != nil {
+		return *x.PrioritizationMode
+	}
+	return ""
+}
+
+func (x *UpsertRunQueueRequest) GetExternalLinks() string {
+	if x != nil && x.ExternalLinks != nil {
+		return *x.ExternalLinks
+	}
+	return ""
+}
+
+func (x *UpsertRunQueueRequest) GetClientMutationId() string {
+	if x != nil && x.ClientMutationId != nil {
+		return *x.ClientMutationId
+	}
+	return ""
+}
+
+type UpsertRunQueueResponse struct {
+	state                        protoimpl.MessageState `protogen:"open.v1"`
+	Success                      bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	ConfigSchemaValidationErrors []string               `protobuf:"bytes,2,rep,name=config_schema_validation_errors,json=configSchemaValidationErrors,proto3" json:"config_schema_validation_errors,omitempty"`
+	unknownFields                protoimpl.UnknownFields
+	sizeCache                    protoimpl.SizeCache
+}
+
+func (x *UpsertRunQueueResponse) Reset() {
+	*x = UpsertRunQueueResponse{}
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpsertRunQueueResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpsertRunQueueResponse) ProtoMessage() {}
+
+func (x *UpsertRunQueueResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpsertRunQueueResponse.ProtoReflect.Descriptor instead.
+func (*UpsertRunQueueResponse) Descriptor() ([]byte, []int) {
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *UpsertRunQueueResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *UpsertRunQueueResponse) GetConfigSchemaValidationErrors() []string {
+	if x != nil {
+		return x.ConfigSchemaValidationErrors
+	}
+	return nil
 }
 
 type ReadRunHistoryRequest struct {
@@ -1323,7 +2587,7 @@ type ReadRunHistoryRequest struct {
 
 func (x *ReadRunHistoryRequest) Reset() {
 	*x = ReadRunHistoryRequest{}
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[18]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1335,7 +2599,7 @@ func (x *ReadRunHistoryRequest) String() string {
 func (*ReadRunHistoryRequest) ProtoMessage() {}
 
 func (x *ReadRunHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[18]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1348,7 +2612,7 @@ func (x *ReadRunHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadRunHistoryRequest.ProtoReflect.Descriptor instead.
 func (*ReadRunHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{18}
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ReadRunHistoryRequest) GetRequest() isReadRunHistoryRequest_Request {
@@ -1469,7 +2733,7 @@ type ReadRunHistoryResponse struct {
 
 func (x *ReadRunHistoryResponse) Reset() {
 	*x = ReadRunHistoryResponse{}
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[19]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1481,7 +2745,7 @@ func (x *ReadRunHistoryResponse) String() string {
 func (*ReadRunHistoryResponse) ProtoMessage() {}
 
 func (x *ReadRunHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[19]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1494,7 +2758,7 @@ func (x *ReadRunHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadRunHistoryResponse.ProtoReflect.Descriptor instead.
 func (*ReadRunHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{19}
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ReadRunHistoryResponse) GetResponse() isReadRunHistoryResponse_Response {
@@ -1617,7 +2881,7 @@ type ScanRunHistoryInit struct {
 
 func (x *ScanRunHistoryInit) Reset() {
 	*x = ScanRunHistoryInit{}
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[20]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1629,7 +2893,7 @@ func (x *ScanRunHistoryInit) String() string {
 func (*ScanRunHistoryInit) ProtoMessage() {}
 
 func (x *ScanRunHistoryInit) ProtoReflect() protoreflect.Message {
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[20]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1642,7 +2906,7 @@ func (x *ScanRunHistoryInit) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScanRunHistoryInit.ProtoReflect.Descriptor instead.
 func (*ScanRunHistoryInit) Descriptor() ([]byte, []int) {
-	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{20}
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ScanRunHistoryInit) GetEntity() string {
@@ -1689,7 +2953,7 @@ type ScanRunHistoryInitResponse struct {
 
 func (x *ScanRunHistoryInitResponse) Reset() {
 	*x = ScanRunHistoryInitResponse{}
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[21]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1701,7 +2965,7 @@ func (x *ScanRunHistoryInitResponse) String() string {
 func (*ScanRunHistoryInitResponse) ProtoMessage() {}
 
 func (x *ScanRunHistoryInitResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[21]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1714,7 +2978,7 @@ func (x *ScanRunHistoryInitResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScanRunHistoryInitResponse.ProtoReflect.Descriptor instead.
 func (*ScanRunHistoryInitResponse) Descriptor() ([]byte, []int) {
-	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{21}
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ScanRunHistoryInitResponse) GetRequestId() int32 {
@@ -1737,7 +3001,7 @@ type ScanRunHistory struct {
 
 func (x *ScanRunHistory) Reset() {
 	*x = ScanRunHistory{}
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[22]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1749,7 +3013,7 @@ func (x *ScanRunHistory) String() string {
 func (*ScanRunHistory) ProtoMessage() {}
 
 func (x *ScanRunHistory) ProtoReflect() protoreflect.Message {
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[22]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1762,7 +3026,7 @@ func (x *ScanRunHistory) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScanRunHistory.ProtoReflect.Descriptor instead.
 func (*ScanRunHistory) Descriptor() ([]byte, []int) {
-	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{22}
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ScanRunHistory) GetMinStep() int64 {
@@ -1795,7 +3059,7 @@ type RunHistoryResponse struct {
 
 func (x *RunHistoryResponse) Reset() {
 	*x = RunHistoryResponse{}
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[23]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1807,7 +3071,7 @@ func (x *RunHistoryResponse) String() string {
 func (*RunHistoryResponse) ProtoMessage() {}
 
 func (x *RunHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[23]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1820,7 +3084,7 @@ func (x *RunHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunHistoryResponse.ProtoReflect.Descriptor instead.
 func (*RunHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{23}
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *RunHistoryResponse) GetHistoryRows() []*HistoryRow {
@@ -1839,7 +3103,7 @@ type HistoryRow struct {
 
 func (x *HistoryRow) Reset() {
 	*x = HistoryRow{}
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[24]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1851,7 +3115,7 @@ func (x *HistoryRow) String() string {
 func (*HistoryRow) ProtoMessage() {}
 
 func (x *HistoryRow) ProtoReflect() protoreflect.Message {
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[24]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1864,7 +3128,7 @@ func (x *HistoryRow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HistoryRow.ProtoReflect.Descriptor instead.
 func (*HistoryRow) Descriptor() ([]byte, []int) {
-	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{24}
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *HistoryRow) GetHistoryItems() []*ParquetHistoryItem {
@@ -1884,7 +3148,7 @@ type ParquetHistoryItem struct {
 
 func (x *ParquetHistoryItem) Reset() {
 	*x = ParquetHistoryItem{}
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[25]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1896,7 +3160,7 @@ func (x *ParquetHistoryItem) String() string {
 func (*ParquetHistoryItem) ProtoMessage() {}
 
 func (x *ParquetHistoryItem) ProtoReflect() protoreflect.Message {
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[25]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1909,7 +3173,7 @@ func (x *ParquetHistoryItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ParquetHistoryItem.ProtoReflect.Descriptor instead.
 func (*ParquetHistoryItem) Descriptor() ([]byte, []int) {
-	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{25}
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *ParquetHistoryItem) GetKey() string {
@@ -1937,7 +3201,7 @@ type ScanRunHistoryCleanup struct {
 
 func (x *ScanRunHistoryCleanup) Reset() {
 	*x = ScanRunHistoryCleanup{}
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[26]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1949,7 +3213,7 @@ func (x *ScanRunHistoryCleanup) String() string {
 func (*ScanRunHistoryCleanup) ProtoMessage() {}
 
 func (x *ScanRunHistoryCleanup) ProtoReflect() protoreflect.Message {
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[26]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1962,7 +3226,7 @@ func (x *ScanRunHistoryCleanup) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScanRunHistoryCleanup.ProtoReflect.Descriptor instead.
 func (*ScanRunHistoryCleanup) Descriptor() ([]byte, []int) {
-	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{26}
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *ScanRunHistoryCleanup) GetRequestId() int32 {
@@ -1980,7 +3244,7 @@ type ScanRunHistoryCleanupResponse struct {
 
 func (x *ScanRunHistoryCleanupResponse) Reset() {
 	*x = ScanRunHistoryCleanupResponse{}
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[27]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1992,7 +3256,7 @@ func (x *ScanRunHistoryCleanupResponse) String() string {
 func (*ScanRunHistoryCleanupResponse) ProtoMessage() {}
 
 func (x *ScanRunHistoryCleanupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[27]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2005,7 +3269,7 @@ func (x *ScanRunHistoryCleanupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScanRunHistoryCleanupResponse.ProtoReflect.Descriptor instead.
 func (*ScanRunHistoryCleanupResponse) Descriptor() ([]byte, []int) {
-	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{27}
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{43}
 }
 
 type DownloadRunHistoryInit struct {
@@ -2028,7 +3292,7 @@ type DownloadRunHistoryInit struct {
 
 func (x *DownloadRunHistoryInit) Reset() {
 	*x = DownloadRunHistoryInit{}
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[28]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2040,7 +3304,7 @@ func (x *DownloadRunHistoryInit) String() string {
 func (*DownloadRunHistoryInit) ProtoMessage() {}
 
 func (x *DownloadRunHistoryInit) ProtoReflect() protoreflect.Message {
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[28]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2053,7 +3317,7 @@ func (x *DownloadRunHistoryInit) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DownloadRunHistoryInit.ProtoReflect.Descriptor instead.
 func (*DownloadRunHistoryInit) Descriptor() ([]byte, []int) {
-	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{28}
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *DownloadRunHistoryInit) GetEntity() string {
@@ -2106,7 +3370,7 @@ type DownloadRunHistoryInitResponse struct {
 
 func (x *DownloadRunHistoryInitResponse) Reset() {
 	*x = DownloadRunHistoryInitResponse{}
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[29]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2118,7 +3382,7 @@ func (x *DownloadRunHistoryInitResponse) String() string {
 func (*DownloadRunHistoryInitResponse) ProtoMessage() {}
 
 func (x *DownloadRunHistoryInitResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[29]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2131,7 +3395,7 @@ func (x *DownloadRunHistoryInitResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DownloadRunHistoryInitResponse.ProtoReflect.Descriptor instead.
 func (*DownloadRunHistoryInitResponse) Descriptor() ([]byte, []int) {
-	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{29}
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *DownloadRunHistoryInitResponse) GetRequestId() int32 {
@@ -2159,7 +3423,7 @@ type DownloadRunHistory struct {
 
 func (x *DownloadRunHistory) Reset() {
 	*x = DownloadRunHistory{}
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[30]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2171,7 +3435,7 @@ func (x *DownloadRunHistory) String() string {
 func (*DownloadRunHistory) ProtoMessage() {}
 
 func (x *DownloadRunHistory) ProtoReflect() protoreflect.Message {
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[30]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2184,7 +3448,7 @@ func (x *DownloadRunHistory) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DownloadRunHistory.ProtoReflect.Descriptor instead.
 func (*DownloadRunHistory) Descriptor() ([]byte, []int) {
-	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{30}
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *DownloadRunHistory) GetRequestId() int32 {
@@ -2207,7 +3471,7 @@ type DownloadRunHistoryResponse struct {
 
 func (x *DownloadRunHistoryResponse) Reset() {
 	*x = DownloadRunHistoryResponse{}
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[31]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2219,7 +3483,7 @@ func (x *DownloadRunHistoryResponse) String() string {
 func (*DownloadRunHistoryResponse) ProtoMessage() {}
 
 func (x *DownloadRunHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[31]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2232,7 +3496,7 @@ func (x *DownloadRunHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DownloadRunHistoryResponse.ProtoReflect.Descriptor instead.
 func (*DownloadRunHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{31}
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *DownloadRunHistoryResponse) GetDownloadedFiles() []string {
@@ -2259,7 +3523,7 @@ type IncompleteRunHistoryError struct {
 
 func (x *IncompleteRunHistoryError) Reset() {
 	*x = IncompleteRunHistoryError{}
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[32]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2271,7 +3535,7 @@ func (x *IncompleteRunHistoryError) String() string {
 func (*IncompleteRunHistoryError) ProtoMessage() {}
 
 func (x *IncompleteRunHistoryError) ProtoReflect() protoreflect.Message {
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[32]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2284,7 +3548,7 @@ func (x *IncompleteRunHistoryError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IncompleteRunHistoryError.ProtoReflect.Descriptor instead.
 func (*IncompleteRunHistoryError) Descriptor() ([]byte, []int) {
-	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{32}
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{48}
 }
 
 // DownloadRunHistoryStatus requests the status of an ongoing download operation.
@@ -2298,7 +3562,7 @@ type DownloadRunHistoryStatus struct {
 
 func (x *DownloadRunHistoryStatus) Reset() {
 	*x = DownloadRunHistoryStatus{}
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[33]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2310,7 +3574,7 @@ func (x *DownloadRunHistoryStatus) String() string {
 func (*DownloadRunHistoryStatus) ProtoMessage() {}
 
 func (x *DownloadRunHistoryStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[33]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2323,7 +3587,7 @@ func (x *DownloadRunHistoryStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DownloadRunHistoryStatus.ProtoReflect.Descriptor instead.
 func (*DownloadRunHistoryStatus) Descriptor() ([]byte, []int) {
-	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{33}
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *DownloadRunHistoryStatus) GetRequestId() int32 {
@@ -2343,7 +3607,7 @@ type DownloadRunHistoryStatusResponse struct {
 
 func (x *DownloadRunHistoryStatusResponse) Reset() {
 	*x = DownloadRunHistoryStatusResponse{}
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[34]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2355,7 +3619,7 @@ func (x *DownloadRunHistoryStatusResponse) String() string {
 func (*DownloadRunHistoryStatusResponse) ProtoMessage() {}
 
 func (x *DownloadRunHistoryStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wandb_proto_wandb_api_proto_msgTypes[34]
+	mi := &file_wandb_proto_wandb_api_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2368,7 +3632,7 @@ func (x *DownloadRunHistoryStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DownloadRunHistoryStatusResponse.ProtoReflect.Descriptor instead.
 func (*DownloadRunHistoryStatusResponse) Descriptor() ([]byte, []int) {
-	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{34}
+	return file_wandb_proto_wandb_api_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *DownloadRunHistoryStatusResponse) GetOperationStats() *OperationStats {
@@ -2382,12 +3646,13 @@ var File_wandb_proto_wandb_api_proto protoreflect.FileDescriptor
 
 const file_wandb_proto_wandb_api_proto_rawDesc = "" +
 	"\n" +
-	"\x1bwandb/proto/wandb_api.proto\x12\x0ewandb_internal\x1a wandb/proto/wandb_internal.proto\x1a wandb/proto/wandb_settings.proto\"L\n" +
+	"\x1bwandb/proto/wandb_api.proto\x12\x0ewandb_internal\x1a wandb/proto/wandb_internal.proto\x1a\x1cwandb/proto/wandb_otel.proto\x1a wandb/proto/wandb_settings.proto\"o\n" +
 	"\x14ServerApiInitRequest\x124\n" +
-	"\bsettings\x18\x01 \x01(\v2\x18.wandb_internal.SettingsR\bsettings\"S\n" +
+	"\bsettings\x18\x01 \x01(\v2\x18.wandb_internal.SettingsR\bsettings\x12!\n" +
+	"\fservice_name\x18\x02 \x01(\tR\vserviceName\"S\n" +
 	"\x15ServerApiInitResponse\x12#\n" +
 	"\rerror_message\x18\x01 \x01(\tR\ferrorMessage\x12\x15\n" +
-	"\x06api_id\x18\x02 \x01(\tR\x05apiId\"\x9a\x05\n" +
+	"\x06api_id\x18\x02 \x01(\tR\x05apiId\"\x90\b\n" +
 	"\n" +
 	"ApiRequest\x12\x15\n" +
 	"\x06api_id\x18\x01 \x01(\tR\x05apiId\x12`\n" +
@@ -2397,8 +3662,13 @@ const file_wandb_proto_wandb_api_proto_rawDesc = "" +
 	"\x15download_file_request\x18\x05 \x01(\v2#.wandb_internal.DownloadFileRequestH\x00R\x13downloadFileRequest\x12S\n" +
 	"\x13upload_file_request\x18\x06 \x01(\v2!.wandb_internal.UploadFileRequestH\x00R\x11uploadFileRequest\x12s\n" +
 	"\x1fmark_run_files_uploaded_request\x18\a \x01(\v2+.wandb_internal.MarkRunFilesUploadedRequestH\x00R\x1bmarkRunFilesUploadedRequest\x12J\n" +
-	"\x10stop_run_request\x18\b \x01(\v2\x1e.wandb_internal.StopRunRequestH\x00R\x0estopRunRequestB\t\n" +
-	"\arequest\"\xec\x05\n" +
+	"\x10stop_run_request\x18\b \x01(\v2\x1e.wandb_internal.StopRunRequestH\x00R\x0estopRunRequest\x12@\n" +
+	"\fauth_request\x18\t \x01(\v2\x1b.wandb_internal.AuthRequestH\x00R\vauthRequest\x12i\n" +
+	"\x1bcreate_custom_chart_request\x18\n" +
+	" \x01(\v2(.wandb_internal.CreateCustomChartRequestH\x00R\x18createCustomChartRequest\x12i\n" +
+	"\x1brun_queue_operation_request\x18\v \x01(\v2(.wandb_internal.RunQueueOperationRequestH\x00R\x18runQueueOperationRequest\x12\\\n" +
+	"\x16open_telemetry_request\x18\f \x01(\v2$.wandb_internal.OpenTelemetryRequestH\x00R\x14openTelemetryRequestB\t\n" +
+	"\arequest\"\x8d\b\n" +
 	"\vApiResponse\x12c\n" +
 	"\x19read_run_history_response\x18\x01 \x01(\v2&.wandb_internal.ReadRunHistoryResponseH\x00R\x16readRunHistoryResponse\x12O\n" +
 	"\x11features_response\x18\x03 \x01(\v2 .wandb_internal.FeaturesResponseH\x00R\x10featuresResponse\x12L\n" +
@@ -2406,7 +3676,11 @@ const file_wandb_proto_wandb_api_proto_rawDesc = "" +
 	"\x16download_file_response\x18\x05 \x01(\v2$.wandb_internal.DownloadFileResponseH\x00R\x14downloadFileResponse\x12V\n" +
 	"\x14upload_file_response\x18\x06 \x01(\v2\".wandb_internal.UploadFileResponseH\x00R\x12uploadFileResponse\x12v\n" +
 	" mark_run_files_uploaded_response\x18\a \x01(\v2,.wandb_internal.MarkRunFilesUploadedResponseH\x00R\x1cmarkRunFilesUploadedResponse\x12M\n" +
-	"\x11stop_run_response\x18\b \x01(\v2\x1f.wandb_internal.StopRunResponseH\x00R\x0fstopRunResponse\x12P\n" +
+	"\x11stop_run_response\x18\b \x01(\v2\x1f.wandb_internal.StopRunResponseH\x00R\x0fstopRunResponse\x12C\n" +
+	"\rauth_response\x18\t \x01(\v2\x1c.wandb_internal.AuthResponseH\x00R\fauthResponse\x12l\n" +
+	"\x1ccreate_custom_chart_response\x18\n" +
+	" \x01(\v2).wandb_internal.CreateCustomChartResponseH\x00R\x19createCustomChartResponse\x12l\n" +
+	"\x1crun_queue_operation_response\x18\v \x01(\v2).wandb_internal.RunQueueOperationResponseH\x00R\x19runQueueOperationResponse\x12P\n" +
 	"\x12api_error_response\x18\x02 \x01(\v2 .wandb_internal.ApiErrorResponseH\x00R\x10apiErrorResponseB\n" +
 	"\n" +
 	"\bresponse\"\x9b\x01\n" +
@@ -2454,11 +3728,92 @@ const file_wandb_proto_wandb_api_proto_rawDesc = "" +
 	"\aproject\x18\x02 \x01(\tR\aproject\x12\x15\n" +
 	"\x06run_id\x18\x03 \x01(\tR\x05runId\x12\x14\n" +
 	"\x05files\x18\x04 \x03(\tR\x05files\"\x1e\n" +
-	"\x1cMarkRunFilesUploadedResponse\"/\n" +
+	"\x1cMarkRunFilesUploadedResponse\"\xd4\x01\n" +
+	"\vAuthRequest\x12X\n" +
+	"\x14authenticate_request\x18\x01 \x01(\v2#.wandb_internal.AuthenticateRequestH\x00R\x13authenticateRequest\x12`\n" +
+	"\x18get_access_token_request\x18\x02 \x01(\v2%.wandb_internal.GetAccessTokenRequestH\x00R\x15getAccessTokenRequestB\t\n" +
+	"\arequest\"\xdc\x01\n" +
+	"\fAuthResponse\x12[\n" +
+	"\x15authenticate_response\x18\x01 \x01(\v2$.wandb_internal.AuthenticateResponseH\x00R\x14authenticateResponse\x12c\n" +
+	"\x19get_access_token_response\x18\x02 \x01(\v2&.wandb_internal.GetAccessTokenResponseH\x00R\x16getAccessTokenResponseB\n" +
+	"\n" +
+	"\bresponse\"\x15\n" +
+	"\x13AuthenticateRequest\"\xa4\x01\n" +
+	"\x14AuthenticateResponse\x12%\n" +
+	"\x0edefault_entity\x18\x01 \x01(\tR\rdefaultEntity\x12\x1a\n" +
+	"\busername\x18\x02 \x01(\tR\busername\x12\x14\n" +
+	"\x05email\x18\x03 \x01(\tR\x05email\x12\x14\n" +
+	"\x05teams\x18\x04 \x03(\tR\x05teams\x12\x1d\n" +
+	"\n" +
+	"flags_json\x18\x05 \x01(\tR\tflagsJson\"\x17\n" +
+	"\x15GetAccessTokenRequest\";\n" +
+	"\x16GetAccessTokenResponse\x12!\n" +
+	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\"/\n" +
 	"\x0eStopRunRequest\x12\x1d\n" +
 	"\n" +
 	"storage_id\x18\x01 \x01(\tR\tstorageId\"\x11\n" +
-	"\x0fStopRunResponse\"\xd1\x04\n" +
+	"\x0fStopRunResponse\"\xb2\x01\n" +
+	"\x18CreateCustomChartRequest\x12\x16\n" +
+	"\x06entity\x18\x01 \x01(\tR\x06entity\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +
+	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\x12\x1b\n" +
+	"\tspec_type\x18\x04 \x01(\tR\bspecType\x12\x16\n" +
+	"\x06access\x18\x05 \x01(\tR\x06access\x12\x12\n" +
+	"\x04spec\x18\x06 \x01(\tR\x04spec\"6\n" +
+	"\x19CreateCustomChartResponse\x12\x19\n" +
+	"\bchart_id\x18\x01 \x01(\tR\achartId\"\xf6\x02\n" +
+	"\x18RunQueueOperationRequest\x12\x88\x01\n" +
+	"&create_default_resource_config_request\x18\x01 \x01(\v22.wandb_internal.CreateDefaultResourceConfigRequestH\x00R\"createDefaultResourceConfigRequest\x12`\n" +
+	"\x18create_run_queue_request\x18\x02 \x01(\v2%.wandb_internal.CreateRunQueueRequestH\x00R\x15createRunQueueRequest\x12`\n" +
+	"\x18upsert_run_queue_request\x18\x03 \x01(\v2%.wandb_internal.UpsertRunQueueRequestH\x00R\x15upsertRunQueueRequestB\v\n" +
+	"\toperation\"\x80\x03\n" +
+	"\x19RunQueueOperationResponse\x12\x8b\x01\n" +
+	"'create_default_resource_config_response\x18\x01 \x01(\v23.wandb_internal.CreateDefaultResourceConfigResponseH\x00R#createDefaultResourceConfigResponse\x12c\n" +
+	"\x19create_run_queue_response\x18\x02 \x01(\v2&.wandb_internal.CreateRunQueueResponseH\x00R\x16createRunQueueResponse\x12c\n" +
+	"\x19upsert_run_queue_response\x18\x03 \x01(\v2&.wandb_internal.UpsertRunQueueResponseH\x00R\x16upsertRunQueueResponseB\v\n" +
+	"\toperation\"\xc4\x01\n" +
+	"\"CreateDefaultResourceConfigRequest\x12\x1f\n" +
+	"\ventity_name\x18\x01 \x01(\tR\n" +
+	"entityName\x12\x1a\n" +
+	"\bresource\x18\x02 \x01(\tR\bresource\x12\x16\n" +
+	"\x06config\x18\x03 \x01(\tR\x06config\x122\n" +
+	"\x12template_variables\x18\x04 \x01(\tH\x00R\x11templateVariables\x88\x01\x01B\x15\n" +
+	"\x13_template_variables\"|\n" +
+	"#CreateDefaultResourceConfigResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12;\n" +
+	"\x1adefault_resource_config_id\x18\x02 \x01(\tR\x17defaultResourceConfigId\"\xaf\x02\n" +
+	"\x15CreateRunQueueRequest\x12\x16\n" +
+	"\x06entity\x18\x01 \x01(\tR\x06entity\x12\x18\n" +
+	"\aproject\x18\x02 \x01(\tR\aproject\x12\x1d\n" +
+	"\n" +
+	"queue_name\x18\x03 \x01(\tR\tqueueName\x12\x16\n" +
+	"\x06access\x18\x04 \x01(\tR\x06access\x124\n" +
+	"\x13prioritization_mode\x18\x05 \x01(\tH\x00R\x12prioritizationMode\x88\x01\x01\x12@\n" +
+	"\x1adefault_resource_config_id\x18\x06 \x01(\tH\x01R\x17defaultResourceConfigId\x88\x01\x01B\x16\n" +
+	"\x14_prioritization_modeB\x1d\n" +
+	"\x1b_default_resource_config_id\"M\n" +
+	"\x16CreateRunQueueResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x19\n" +
+	"\bqueue_id\x18\x02 \x01(\tR\aqueueId\"\xea\x03\n" +
+	"\x15UpsertRunQueueRequest\x12\x1f\n" +
+	"\ventity_name\x18\x01 \x01(\tR\n" +
+	"entityName\x12!\n" +
+	"\fproject_name\x18\x02 \x01(\tR\vprojectName\x12\x1d\n" +
+	"\n" +
+	"queue_name\x18\x03 \x01(\tR\tqueueName\x12#\n" +
+	"\rresource_type\x18\x04 \x01(\tR\fresourceType\x12'\n" +
+	"\x0fresource_config\x18\x05 \x01(\tR\x0eresourceConfig\x122\n" +
+	"\x12template_variables\x18\x06 \x01(\tH\x00R\x11templateVariables\x88\x01\x01\x124\n" +
+	"\x13prioritization_mode\x18\a \x01(\tH\x01R\x12prioritizationMode\x88\x01\x01\x12*\n" +
+	"\x0eexternal_links\x18\b \x01(\tH\x02R\rexternalLinks\x88\x01\x01\x121\n" +
+	"\x12client_mutation_id\x18\t \x01(\tH\x03R\x10clientMutationId\x88\x01\x01B\x15\n" +
+	"\x13_template_variablesB\x16\n" +
+	"\x14_prioritization_modeB\x11\n" +
+	"\x0f_external_linksB\x15\n" +
+	"\x13_client_mutation_id\"y\n" +
+	"\x16UpsertRunQueueResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12E\n" +
+	"\x1fconfig_schema_validation_errors\x18\x02 \x03(\tR\x1cconfigSchemaValidationErrors\"\xd1\x04\n" +
 	"\x15ReadRunHistoryRequest\x12W\n" +
 	"\x15scan_run_history_init\x18\x01 \x01(\v2\".wandb_internal.ScanRunHistoryInitH\x00R\x12scanRunHistoryInit\x12J\n" +
 	"\x10scan_run_history\x18\x02 \x01(\v2\x1e.wandb_internal.ScanRunHistoryH\x00R\x0escanRunHistory\x12`\n" +
@@ -2546,94 +3901,128 @@ func file_wandb_proto_wandb_api_proto_rawDescGZIP() []byte {
 }
 
 var file_wandb_proto_wandb_api_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_wandb_proto_wandb_api_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
+var file_wandb_proto_wandb_api_proto_msgTypes = make([]protoimpl.MessageInfo, 54)
 var file_wandb_proto_wandb_api_proto_goTypes = []any{
-	(ErrorType)(0),                           // 0: wandb_internal.ErrorType
-	(*ServerApiInitRequest)(nil),             // 1: wandb_internal.ServerApiInitRequest
-	(*ServerApiInitResponse)(nil),            // 2: wandb_internal.ServerApiInitResponse
-	(*ApiRequest)(nil),                       // 3: wandb_internal.ApiRequest
-	(*ApiResponse)(nil),                      // 4: wandb_internal.ApiResponse
-	(*ApiErrorResponse)(nil),                 // 5: wandb_internal.ApiErrorResponse
-	(*ServerApiCleanupRequest)(nil),          // 6: wandb_internal.ServerApiCleanupRequest
-	(*FeaturesRequest)(nil),                  // 7: wandb_internal.FeaturesRequest
-	(*FeaturesResponse)(nil),                 // 8: wandb_internal.FeaturesResponse
-	(*GraphQLRequest)(nil),                   // 9: wandb_internal.GraphQLRequest
-	(*GraphQLResponse)(nil),                  // 10: wandb_internal.GraphQLResponse
-	(*DownloadFileRequest)(nil),              // 11: wandb_internal.DownloadFileRequest
-	(*DownloadFileResponse)(nil),             // 12: wandb_internal.DownloadFileResponse
-	(*UploadFileRequest)(nil),                // 13: wandb_internal.UploadFileRequest
-	(*UploadFileResponse)(nil),               // 14: wandb_internal.UploadFileResponse
-	(*MarkRunFilesUploadedRequest)(nil),      // 15: wandb_internal.MarkRunFilesUploadedRequest
-	(*MarkRunFilesUploadedResponse)(nil),     // 16: wandb_internal.MarkRunFilesUploadedResponse
-	(*StopRunRequest)(nil),                   // 17: wandb_internal.StopRunRequest
-	(*StopRunResponse)(nil),                  // 18: wandb_internal.StopRunResponse
-	(*ReadRunHistoryRequest)(nil),            // 19: wandb_internal.ReadRunHistoryRequest
-	(*ReadRunHistoryResponse)(nil),           // 20: wandb_internal.ReadRunHistoryResponse
-	(*ScanRunHistoryInit)(nil),               // 21: wandb_internal.ScanRunHistoryInit
-	(*ScanRunHistoryInitResponse)(nil),       // 22: wandb_internal.ScanRunHistoryInitResponse
-	(*ScanRunHistory)(nil),                   // 23: wandb_internal.ScanRunHistory
-	(*RunHistoryResponse)(nil),               // 24: wandb_internal.RunHistoryResponse
-	(*HistoryRow)(nil),                       // 25: wandb_internal.HistoryRow
-	(*ParquetHistoryItem)(nil),               // 26: wandb_internal.ParquetHistoryItem
-	(*ScanRunHistoryCleanup)(nil),            // 27: wandb_internal.ScanRunHistoryCleanup
-	(*ScanRunHistoryCleanupResponse)(nil),    // 28: wandb_internal.ScanRunHistoryCleanupResponse
-	(*DownloadRunHistoryInit)(nil),           // 29: wandb_internal.DownloadRunHistoryInit
-	(*DownloadRunHistoryInitResponse)(nil),   // 30: wandb_internal.DownloadRunHistoryInitResponse
-	(*DownloadRunHistory)(nil),               // 31: wandb_internal.DownloadRunHistory
-	(*DownloadRunHistoryResponse)(nil),       // 32: wandb_internal.DownloadRunHistoryResponse
-	(*IncompleteRunHistoryError)(nil),        // 33: wandb_internal.IncompleteRunHistoryError
-	(*DownloadRunHistoryStatus)(nil),         // 34: wandb_internal.DownloadRunHistoryStatus
-	(*DownloadRunHistoryStatusResponse)(nil), // 35: wandb_internal.DownloadRunHistoryStatusResponse
-	nil,                                      // 36: wandb_internal.GraphQLRequest.RenameFieldsEntry
-	nil,                                      // 37: wandb_internal.UploadFileRequest.HeadersEntry
-	nil,                                      // 38: wandb_internal.DownloadRunHistoryResponse.ErrorsEntry
-	(*Settings)(nil),                         // 39: wandb_internal.Settings
-	(ServerFeature)(0),                       // 40: wandb_internal.ServerFeature
-	(*OperationStats)(nil),                   // 41: wandb_internal.OperationStats
+	(ErrorType)(0),                              // 0: wandb_internal.ErrorType
+	(*ServerApiInitRequest)(nil),                // 1: wandb_internal.ServerApiInitRequest
+	(*ServerApiInitResponse)(nil),               // 2: wandb_internal.ServerApiInitResponse
+	(*ApiRequest)(nil),                          // 3: wandb_internal.ApiRequest
+	(*ApiResponse)(nil),                         // 4: wandb_internal.ApiResponse
+	(*ApiErrorResponse)(nil),                    // 5: wandb_internal.ApiErrorResponse
+	(*ServerApiCleanupRequest)(nil),             // 6: wandb_internal.ServerApiCleanupRequest
+	(*FeaturesRequest)(nil),                     // 7: wandb_internal.FeaturesRequest
+	(*FeaturesResponse)(nil),                    // 8: wandb_internal.FeaturesResponse
+	(*GraphQLRequest)(nil),                      // 9: wandb_internal.GraphQLRequest
+	(*GraphQLResponse)(nil),                     // 10: wandb_internal.GraphQLResponse
+	(*DownloadFileRequest)(nil),                 // 11: wandb_internal.DownloadFileRequest
+	(*DownloadFileResponse)(nil),                // 12: wandb_internal.DownloadFileResponse
+	(*UploadFileRequest)(nil),                   // 13: wandb_internal.UploadFileRequest
+	(*UploadFileResponse)(nil),                  // 14: wandb_internal.UploadFileResponse
+	(*MarkRunFilesUploadedRequest)(nil),         // 15: wandb_internal.MarkRunFilesUploadedRequest
+	(*MarkRunFilesUploadedResponse)(nil),        // 16: wandb_internal.MarkRunFilesUploadedResponse
+	(*AuthRequest)(nil),                         // 17: wandb_internal.AuthRequest
+	(*AuthResponse)(nil),                        // 18: wandb_internal.AuthResponse
+	(*AuthenticateRequest)(nil),                 // 19: wandb_internal.AuthenticateRequest
+	(*AuthenticateResponse)(nil),                // 20: wandb_internal.AuthenticateResponse
+	(*GetAccessTokenRequest)(nil),               // 21: wandb_internal.GetAccessTokenRequest
+	(*GetAccessTokenResponse)(nil),              // 22: wandb_internal.GetAccessTokenResponse
+	(*StopRunRequest)(nil),                      // 23: wandb_internal.StopRunRequest
+	(*StopRunResponse)(nil),                     // 24: wandb_internal.StopRunResponse
+	(*CreateCustomChartRequest)(nil),            // 25: wandb_internal.CreateCustomChartRequest
+	(*CreateCustomChartResponse)(nil),           // 26: wandb_internal.CreateCustomChartResponse
+	(*RunQueueOperationRequest)(nil),            // 27: wandb_internal.RunQueueOperationRequest
+	(*RunQueueOperationResponse)(nil),           // 28: wandb_internal.RunQueueOperationResponse
+	(*CreateDefaultResourceConfigRequest)(nil),  // 29: wandb_internal.CreateDefaultResourceConfigRequest
+	(*CreateDefaultResourceConfigResponse)(nil), // 30: wandb_internal.CreateDefaultResourceConfigResponse
+	(*CreateRunQueueRequest)(nil),               // 31: wandb_internal.CreateRunQueueRequest
+	(*CreateRunQueueResponse)(nil),              // 32: wandb_internal.CreateRunQueueResponse
+	(*UpsertRunQueueRequest)(nil),               // 33: wandb_internal.UpsertRunQueueRequest
+	(*UpsertRunQueueResponse)(nil),              // 34: wandb_internal.UpsertRunQueueResponse
+	(*ReadRunHistoryRequest)(nil),               // 35: wandb_internal.ReadRunHistoryRequest
+	(*ReadRunHistoryResponse)(nil),              // 36: wandb_internal.ReadRunHistoryResponse
+	(*ScanRunHistoryInit)(nil),                  // 37: wandb_internal.ScanRunHistoryInit
+	(*ScanRunHistoryInitResponse)(nil),          // 38: wandb_internal.ScanRunHistoryInitResponse
+	(*ScanRunHistory)(nil),                      // 39: wandb_internal.ScanRunHistory
+	(*RunHistoryResponse)(nil),                  // 40: wandb_internal.RunHistoryResponse
+	(*HistoryRow)(nil),                          // 41: wandb_internal.HistoryRow
+	(*ParquetHistoryItem)(nil),                  // 42: wandb_internal.ParquetHistoryItem
+	(*ScanRunHistoryCleanup)(nil),               // 43: wandb_internal.ScanRunHistoryCleanup
+	(*ScanRunHistoryCleanupResponse)(nil),       // 44: wandb_internal.ScanRunHistoryCleanupResponse
+	(*DownloadRunHistoryInit)(nil),              // 45: wandb_internal.DownloadRunHistoryInit
+	(*DownloadRunHistoryInitResponse)(nil),      // 46: wandb_internal.DownloadRunHistoryInitResponse
+	(*DownloadRunHistory)(nil),                  // 47: wandb_internal.DownloadRunHistory
+	(*DownloadRunHistoryResponse)(nil),          // 48: wandb_internal.DownloadRunHistoryResponse
+	(*IncompleteRunHistoryError)(nil),           // 49: wandb_internal.IncompleteRunHistoryError
+	(*DownloadRunHistoryStatus)(nil),            // 50: wandb_internal.DownloadRunHistoryStatus
+	(*DownloadRunHistoryStatusResponse)(nil),    // 51: wandb_internal.DownloadRunHistoryStatusResponse
+	nil,                                         // 52: wandb_internal.GraphQLRequest.RenameFieldsEntry
+	nil,                                         // 53: wandb_internal.UploadFileRequest.HeadersEntry
+	nil,                                         // 54: wandb_internal.DownloadRunHistoryResponse.ErrorsEntry
+	(*Settings)(nil),                            // 55: wandb_internal.Settings
+	(*OpenTelemetryRequest)(nil),                // 56: wandb_internal.OpenTelemetryRequest
+	(ServerFeature)(0),                          // 57: wandb_internal.ServerFeature
+	(*OperationStats)(nil),                      // 58: wandb_internal.OperationStats
 }
 var file_wandb_proto_wandb_api_proto_depIdxs = []int32{
-	39, // 0: wandb_internal.ServerApiInitRequest.settings:type_name -> wandb_internal.Settings
-	19, // 1: wandb_internal.ApiRequest.read_run_history_request:type_name -> wandb_internal.ReadRunHistoryRequest
+	55, // 0: wandb_internal.ServerApiInitRequest.settings:type_name -> wandb_internal.Settings
+	35, // 1: wandb_internal.ApiRequest.read_run_history_request:type_name -> wandb_internal.ReadRunHistoryRequest
 	7,  // 2: wandb_internal.ApiRequest.features_request:type_name -> wandb_internal.FeaturesRequest
 	9,  // 3: wandb_internal.ApiRequest.graphql_request:type_name -> wandb_internal.GraphQLRequest
 	11, // 4: wandb_internal.ApiRequest.download_file_request:type_name -> wandb_internal.DownloadFileRequest
 	13, // 5: wandb_internal.ApiRequest.upload_file_request:type_name -> wandb_internal.UploadFileRequest
 	15, // 6: wandb_internal.ApiRequest.mark_run_files_uploaded_request:type_name -> wandb_internal.MarkRunFilesUploadedRequest
-	17, // 7: wandb_internal.ApiRequest.stop_run_request:type_name -> wandb_internal.StopRunRequest
-	20, // 8: wandb_internal.ApiResponse.read_run_history_response:type_name -> wandb_internal.ReadRunHistoryResponse
-	8,  // 9: wandb_internal.ApiResponse.features_response:type_name -> wandb_internal.FeaturesResponse
-	10, // 10: wandb_internal.ApiResponse.graphql_response:type_name -> wandb_internal.GraphQLResponse
-	12, // 11: wandb_internal.ApiResponse.download_file_response:type_name -> wandb_internal.DownloadFileResponse
-	14, // 12: wandb_internal.ApiResponse.upload_file_response:type_name -> wandb_internal.UploadFileResponse
-	16, // 13: wandb_internal.ApiResponse.mark_run_files_uploaded_response:type_name -> wandb_internal.MarkRunFilesUploadedResponse
-	18, // 14: wandb_internal.ApiResponse.stop_run_response:type_name -> wandb_internal.StopRunResponse
-	5,  // 15: wandb_internal.ApiResponse.api_error_response:type_name -> wandb_internal.ApiErrorResponse
-	0,  // 16: wandb_internal.ApiErrorResponse.error_type:type_name -> wandb_internal.ErrorType
-	40, // 17: wandb_internal.FeaturesRequest.features:type_name -> wandb_internal.ServerFeature
-	40, // 18: wandb_internal.FeaturesResponse.enabled:type_name -> wandb_internal.ServerFeature
-	36, // 19: wandb_internal.GraphQLRequest.rename_fields:type_name -> wandb_internal.GraphQLRequest.RenameFieldsEntry
-	37, // 20: wandb_internal.UploadFileRequest.headers:type_name -> wandb_internal.UploadFileRequest.HeadersEntry
-	21, // 21: wandb_internal.ReadRunHistoryRequest.scan_run_history_init:type_name -> wandb_internal.ScanRunHistoryInit
-	23, // 22: wandb_internal.ReadRunHistoryRequest.scan_run_history:type_name -> wandb_internal.ScanRunHistory
-	27, // 23: wandb_internal.ReadRunHistoryRequest.scan_run_history_cleanup:type_name -> wandb_internal.ScanRunHistoryCleanup
-	29, // 24: wandb_internal.ReadRunHistoryRequest.download_run_history_init:type_name -> wandb_internal.DownloadRunHistoryInit
-	31, // 25: wandb_internal.ReadRunHistoryRequest.download_run_history:type_name -> wandb_internal.DownloadRunHistory
-	34, // 26: wandb_internal.ReadRunHistoryRequest.download_run_history_status:type_name -> wandb_internal.DownloadRunHistoryStatus
-	22, // 27: wandb_internal.ReadRunHistoryResponse.scan_run_history_init:type_name -> wandb_internal.ScanRunHistoryInitResponse
-	24, // 28: wandb_internal.ReadRunHistoryResponse.run_history:type_name -> wandb_internal.RunHistoryResponse
-	28, // 29: wandb_internal.ReadRunHistoryResponse.scan_run_history_cleanup:type_name -> wandb_internal.ScanRunHistoryCleanupResponse
-	30, // 30: wandb_internal.ReadRunHistoryResponse.download_run_history_init:type_name -> wandb_internal.DownloadRunHistoryInitResponse
-	32, // 31: wandb_internal.ReadRunHistoryResponse.download_run_history:type_name -> wandb_internal.DownloadRunHistoryResponse
-	35, // 32: wandb_internal.ReadRunHistoryResponse.download_run_history_status:type_name -> wandb_internal.DownloadRunHistoryStatusResponse
-	25, // 33: wandb_internal.RunHistoryResponse.history_rows:type_name -> wandb_internal.HistoryRow
-	26, // 34: wandb_internal.HistoryRow.history_items:type_name -> wandb_internal.ParquetHistoryItem
-	38, // 35: wandb_internal.DownloadRunHistoryResponse.errors:type_name -> wandb_internal.DownloadRunHistoryResponse.ErrorsEntry
-	41, // 36: wandb_internal.DownloadRunHistoryStatusResponse.operation_stats:type_name -> wandb_internal.OperationStats
-	37, // [37:37] is the sub-list for method output_type
-	37, // [37:37] is the sub-list for method input_type
-	37, // [37:37] is the sub-list for extension type_name
-	37, // [37:37] is the sub-list for extension extendee
-	0,  // [0:37] is the sub-list for field type_name
+	23, // 7: wandb_internal.ApiRequest.stop_run_request:type_name -> wandb_internal.StopRunRequest
+	17, // 8: wandb_internal.ApiRequest.auth_request:type_name -> wandb_internal.AuthRequest
+	25, // 9: wandb_internal.ApiRequest.create_custom_chart_request:type_name -> wandb_internal.CreateCustomChartRequest
+	27, // 10: wandb_internal.ApiRequest.run_queue_operation_request:type_name -> wandb_internal.RunQueueOperationRequest
+	56, // 11: wandb_internal.ApiRequest.open_telemetry_request:type_name -> wandb_internal.OpenTelemetryRequest
+	36, // 12: wandb_internal.ApiResponse.read_run_history_response:type_name -> wandb_internal.ReadRunHistoryResponse
+	8,  // 13: wandb_internal.ApiResponse.features_response:type_name -> wandb_internal.FeaturesResponse
+	10, // 14: wandb_internal.ApiResponse.graphql_response:type_name -> wandb_internal.GraphQLResponse
+	12, // 15: wandb_internal.ApiResponse.download_file_response:type_name -> wandb_internal.DownloadFileResponse
+	14, // 16: wandb_internal.ApiResponse.upload_file_response:type_name -> wandb_internal.UploadFileResponse
+	16, // 17: wandb_internal.ApiResponse.mark_run_files_uploaded_response:type_name -> wandb_internal.MarkRunFilesUploadedResponse
+	24, // 18: wandb_internal.ApiResponse.stop_run_response:type_name -> wandb_internal.StopRunResponse
+	18, // 19: wandb_internal.ApiResponse.auth_response:type_name -> wandb_internal.AuthResponse
+	26, // 20: wandb_internal.ApiResponse.create_custom_chart_response:type_name -> wandb_internal.CreateCustomChartResponse
+	28, // 21: wandb_internal.ApiResponse.run_queue_operation_response:type_name -> wandb_internal.RunQueueOperationResponse
+	5,  // 22: wandb_internal.ApiResponse.api_error_response:type_name -> wandb_internal.ApiErrorResponse
+	0,  // 23: wandb_internal.ApiErrorResponse.error_type:type_name -> wandb_internal.ErrorType
+	57, // 24: wandb_internal.FeaturesRequest.features:type_name -> wandb_internal.ServerFeature
+	57, // 25: wandb_internal.FeaturesResponse.enabled:type_name -> wandb_internal.ServerFeature
+	52, // 26: wandb_internal.GraphQLRequest.rename_fields:type_name -> wandb_internal.GraphQLRequest.RenameFieldsEntry
+	53, // 27: wandb_internal.UploadFileRequest.headers:type_name -> wandb_internal.UploadFileRequest.HeadersEntry
+	19, // 28: wandb_internal.AuthRequest.authenticate_request:type_name -> wandb_internal.AuthenticateRequest
+	21, // 29: wandb_internal.AuthRequest.get_access_token_request:type_name -> wandb_internal.GetAccessTokenRequest
+	20, // 30: wandb_internal.AuthResponse.authenticate_response:type_name -> wandb_internal.AuthenticateResponse
+	22, // 31: wandb_internal.AuthResponse.get_access_token_response:type_name -> wandb_internal.GetAccessTokenResponse
+	29, // 32: wandb_internal.RunQueueOperationRequest.create_default_resource_config_request:type_name -> wandb_internal.CreateDefaultResourceConfigRequest
+	31, // 33: wandb_internal.RunQueueOperationRequest.create_run_queue_request:type_name -> wandb_internal.CreateRunQueueRequest
+	33, // 34: wandb_internal.RunQueueOperationRequest.upsert_run_queue_request:type_name -> wandb_internal.UpsertRunQueueRequest
+	30, // 35: wandb_internal.RunQueueOperationResponse.create_default_resource_config_response:type_name -> wandb_internal.CreateDefaultResourceConfigResponse
+	32, // 36: wandb_internal.RunQueueOperationResponse.create_run_queue_response:type_name -> wandb_internal.CreateRunQueueResponse
+	34, // 37: wandb_internal.RunQueueOperationResponse.upsert_run_queue_response:type_name -> wandb_internal.UpsertRunQueueResponse
+	37, // 38: wandb_internal.ReadRunHistoryRequest.scan_run_history_init:type_name -> wandb_internal.ScanRunHistoryInit
+	39, // 39: wandb_internal.ReadRunHistoryRequest.scan_run_history:type_name -> wandb_internal.ScanRunHistory
+	43, // 40: wandb_internal.ReadRunHistoryRequest.scan_run_history_cleanup:type_name -> wandb_internal.ScanRunHistoryCleanup
+	45, // 41: wandb_internal.ReadRunHistoryRequest.download_run_history_init:type_name -> wandb_internal.DownloadRunHistoryInit
+	47, // 42: wandb_internal.ReadRunHistoryRequest.download_run_history:type_name -> wandb_internal.DownloadRunHistory
+	50, // 43: wandb_internal.ReadRunHistoryRequest.download_run_history_status:type_name -> wandb_internal.DownloadRunHistoryStatus
+	38, // 44: wandb_internal.ReadRunHistoryResponse.scan_run_history_init:type_name -> wandb_internal.ScanRunHistoryInitResponse
+	40, // 45: wandb_internal.ReadRunHistoryResponse.run_history:type_name -> wandb_internal.RunHistoryResponse
+	44, // 46: wandb_internal.ReadRunHistoryResponse.scan_run_history_cleanup:type_name -> wandb_internal.ScanRunHistoryCleanupResponse
+	46, // 47: wandb_internal.ReadRunHistoryResponse.download_run_history_init:type_name -> wandb_internal.DownloadRunHistoryInitResponse
+	48, // 48: wandb_internal.ReadRunHistoryResponse.download_run_history:type_name -> wandb_internal.DownloadRunHistoryResponse
+	51, // 49: wandb_internal.ReadRunHistoryResponse.download_run_history_status:type_name -> wandb_internal.DownloadRunHistoryStatusResponse
+	41, // 50: wandb_internal.RunHistoryResponse.history_rows:type_name -> wandb_internal.HistoryRow
+	42, // 51: wandb_internal.HistoryRow.history_items:type_name -> wandb_internal.ParquetHistoryItem
+	54, // 52: wandb_internal.DownloadRunHistoryResponse.errors:type_name -> wandb_internal.DownloadRunHistoryResponse.ErrorsEntry
+	58, // 53: wandb_internal.DownloadRunHistoryStatusResponse.operation_stats:type_name -> wandb_internal.OperationStats
+	54, // [54:54] is the sub-list for method output_type
+	54, // [54:54] is the sub-list for method input_type
+	54, // [54:54] is the sub-list for extension type_name
+	54, // [54:54] is the sub-list for extension extendee
+	0,  // [0:54] is the sub-list for field type_name
 }
 
 func init() { file_wandb_proto_wandb_api_proto_init() }
@@ -2642,6 +4031,7 @@ func file_wandb_proto_wandb_api_proto_init() {
 		return
 	}
 	file_wandb_proto_wandb_internal_proto_init()
+	file_wandb_proto_wandb_otel_proto_init()
 	file_wandb_proto_wandb_settings_proto_init()
 	file_wandb_proto_wandb_api_proto_msgTypes[2].OneofWrappers = []any{
 		(*ApiRequest_ReadRunHistoryRequest)(nil),
@@ -2651,6 +4041,10 @@ func file_wandb_proto_wandb_api_proto_init() {
 		(*ApiRequest_UploadFileRequest)(nil),
 		(*ApiRequest_MarkRunFilesUploadedRequest)(nil),
 		(*ApiRequest_StopRunRequest)(nil),
+		(*ApiRequest_AuthRequest)(nil),
+		(*ApiRequest_CreateCustomChartRequest)(nil),
+		(*ApiRequest_RunQueueOperationRequest)(nil),
+		(*ApiRequest_OpenTelemetryRequest)(nil),
 	}
 	file_wandb_proto_wandb_api_proto_msgTypes[3].OneofWrappers = []any{
 		(*ApiResponse_ReadRunHistoryResponse)(nil),
@@ -2660,10 +4054,34 @@ func file_wandb_proto_wandb_api_proto_init() {
 		(*ApiResponse_UploadFileResponse)(nil),
 		(*ApiResponse_MarkRunFilesUploadedResponse)(nil),
 		(*ApiResponse_StopRunResponse)(nil),
+		(*ApiResponse_AuthResponse)(nil),
+		(*ApiResponse_CreateCustomChartResponse)(nil),
+		(*ApiResponse_RunQueueOperationResponse)(nil),
 		(*ApiResponse_ApiErrorResponse)(nil),
 	}
 	file_wandb_proto_wandb_api_proto_msgTypes[4].OneofWrappers = []any{}
-	file_wandb_proto_wandb_api_proto_msgTypes[18].OneofWrappers = []any{
+	file_wandb_proto_wandb_api_proto_msgTypes[16].OneofWrappers = []any{
+		(*AuthRequest_AuthenticateRequest)(nil),
+		(*AuthRequest_GetAccessTokenRequest)(nil),
+	}
+	file_wandb_proto_wandb_api_proto_msgTypes[17].OneofWrappers = []any{
+		(*AuthResponse_AuthenticateResponse)(nil),
+		(*AuthResponse_GetAccessTokenResponse)(nil),
+	}
+	file_wandb_proto_wandb_api_proto_msgTypes[26].OneofWrappers = []any{
+		(*RunQueueOperationRequest_CreateDefaultResourceConfigRequest)(nil),
+		(*RunQueueOperationRequest_CreateRunQueueRequest)(nil),
+		(*RunQueueOperationRequest_UpsertRunQueueRequest)(nil),
+	}
+	file_wandb_proto_wandb_api_proto_msgTypes[27].OneofWrappers = []any{
+		(*RunQueueOperationResponse_CreateDefaultResourceConfigResponse)(nil),
+		(*RunQueueOperationResponse_CreateRunQueueResponse)(nil),
+		(*RunQueueOperationResponse_UpsertRunQueueResponse)(nil),
+	}
+	file_wandb_proto_wandb_api_proto_msgTypes[28].OneofWrappers = []any{}
+	file_wandb_proto_wandb_api_proto_msgTypes[30].OneofWrappers = []any{}
+	file_wandb_proto_wandb_api_proto_msgTypes[32].OneofWrappers = []any{}
+	file_wandb_proto_wandb_api_proto_msgTypes[34].OneofWrappers = []any{
 		(*ReadRunHistoryRequest_ScanRunHistoryInit)(nil),
 		(*ReadRunHistoryRequest_ScanRunHistory)(nil),
 		(*ReadRunHistoryRequest_ScanRunHistoryCleanup)(nil),
@@ -2671,7 +4089,7 @@ func file_wandb_proto_wandb_api_proto_init() {
 		(*ReadRunHistoryRequest_DownloadRunHistory)(nil),
 		(*ReadRunHistoryRequest_DownloadRunHistoryStatus)(nil),
 	}
-	file_wandb_proto_wandb_api_proto_msgTypes[19].OneofWrappers = []any{
+	file_wandb_proto_wandb_api_proto_msgTypes[35].OneofWrappers = []any{
 		(*ReadRunHistoryResponse_ScanRunHistoryInit)(nil),
 		(*ReadRunHistoryResponse_RunHistory)(nil),
 		(*ReadRunHistoryResponse_ScanRunHistoryCleanup)(nil),
@@ -2685,7 +4103,7 @@ func file_wandb_proto_wandb_api_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_wandb_proto_wandb_api_proto_rawDesc), len(file_wandb_proto_wandb_api_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   38,
+			NumMessages:   54,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

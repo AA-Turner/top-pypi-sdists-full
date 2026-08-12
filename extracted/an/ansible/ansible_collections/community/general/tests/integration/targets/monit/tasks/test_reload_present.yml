@@ -4,19 +4,19 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: reload monit when process is missing
-  monit:
+  community.general.monit:
     name: httpd_echo
     state: reloaded
   register: result
 
 - name: check that state is changed
-  assert:
+  ansible.builtin.assert:
     that:
       - result is success
       - result is changed
 
 - name: test process not present
-  monit:
+  community.general.monit:
     name: httpd_echo
     state: present
     timeout: 5
@@ -24,22 +24,22 @@
   failed_when: result is not skip and result is success
 
 - name: test monitor missing process
-  monit:
+  community.general.monit:
     name: httpd_echo
     state: monitored
   register: result
   failed_when: result is not skip and result is success
 
 - name: start process
-  shell: "{{ process_run_cmd }}"
+  ansible.builtin.command: "{{ process_run_cmd }}"
 
-- import_tasks: check_state.yml
+- ansible.builtin.import_tasks: check_state.yml
   vars:
     reason: verify service running
     service_state: "up"
 
 - name: add process config
-  blockinfile:
+  ansible.builtin.blockinfile:
     path: "{{ monitrc }}"
     block: |
       check process httpd_echo with matching "httpd_echo"
@@ -48,12 +48,12 @@
           if failed host localhost port 8082 then restart
 
 - name: restart monit
-  service:
+  ansible.builtin.service:
     name: monit
     state: restarted
 
 - name: wait for monit daemon to be responsive after restart
-  command: monit status -B httpd_echo
+  ansible.builtin.command: monit status -B httpd_echo
   register: monit_status_check
   changed_when: false
   until: monit_status_check.rc == 0
@@ -61,13 +61,13 @@
   delay: 0.5
 
 - name: test process present again
-  monit:
+  community.general.monit:
     name: httpd_echo
     state: present
   register: result
 
 - name: check that state is unchanged
-  assert:
+  ansible.builtin.assert:
     that:
       - result is success
       - result is not changed

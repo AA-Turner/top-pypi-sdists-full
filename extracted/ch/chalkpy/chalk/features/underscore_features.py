@@ -21,16 +21,11 @@ from chalk.features.underscore import (
     UnderscoreItem,
     UnderscoreRoot,
 )
+from chalk.utils import pl_helpers
 from chalk.utils.missing_dependency import missing_dependency_exception
-from chalk.utils.pl_helpers import schema_compat
 
 if TYPE_CHECKING:
     from chalk import Features
-
-try:
-    import polars as pl
-except ModuleNotFoundError:
-    pl = None
 
 
 SUPPORTED_ARITHMETIC_OPS = {"+", "-", "*", "/", "//", "%", "**"}
@@ -65,7 +60,7 @@ def _parse_underscore_in_context(exp: Any, context: Any, is_pydantic: bool) -> A
         from chalk.features.dataframe import DataFrame
 
         if isinstance(parent_context, DataFrame) and is_pydantic:
-            if attr not in schema_compat(parent_context._underlying):
+            if attr not in pl_helpers.schema_compat(parent_context._underlying):
                 warnings.warn(
                     f"Attribute {attr} not found in dataframe schema. Returning None. Found expression {exp}."
                 )
@@ -163,7 +158,9 @@ def _eval_arithmetic_expression(
     right: Union[FeatureWrapper, float, int],
     op: str,
 ):
-    if pl is None:
+    try:
+        import polars as pl
+    except ImportError:
         raise missing_dependency_exception("chalkpy[runtime]")
 
     if isinstance(left, FeatureWrapper) and isinstance(right, FeatureWrapper):

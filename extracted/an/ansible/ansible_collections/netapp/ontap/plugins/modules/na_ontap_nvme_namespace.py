@@ -68,10 +68,34 @@ options:
           - When provided, the name is considered a prefix, and a suffix of the form _<N> is generated
             where N is the next available numeric index, starting with 1.
         type: int
+  lambda_config:
+    description:
+      - Configuration parameters for AWS Lambda proxy functionality.
+      - These option and suboptions are only supported with REST.
+    type: dict
+    version_added: 23.6.0
+    suboptions:
+      function_name:
+        description:
+          - The name of the AWS Lambda function to invoke.
+        type: str
+        required: true
+      aws_region:
+        description:
+          - The name of the AWS region.
+        type: str
+        required: true
+      aws_profile:
+        description:
+          - The name of the AWS profile to use for authentication.
+        type: str
 short_description: "NetApp ONTAP Manage NVME Namespace"
 version_added: 2.8.0
+
 notes:
   - Compatible with ASA r2 system when using REST for ONTAP releases 9.16.0x onwards.
+  - Supports AWS Lambda proxy functionality when using REST. See the README file for examples.
+  - Module is not idempotent when C(provisioning_options) is set.
 '''
 
 EXAMPLES = """
@@ -159,10 +183,13 @@ class NetAppONTAPNVMENamespace:
                 count=dict(type='int'),
             ))
         ))
-
+        self.argument_spec.update(netapp_utils.na_ontap_lambda_argument_spec())
         self.module = AnsibleModule(
             argument_spec=self.argument_spec,
-            required_if=[('state', 'present', ['ostype', 'size'])],
+            required_if=[
+                ('state', 'present', ['ostype', 'size']),
+                ('use_lambda', True, ['lambda_config'])
+            ],
             supports_check_mode=True
         )
 
@@ -193,6 +220,8 @@ class NetAppONTAPNVMENamespace:
                 self.default_block_size = 512
             self.parameters['size'] = ((self.parameters['size'] + self.default_block_size - 1) // self.default_block_size) * self.default_block_size
         if not self.use_rest:
+            if self.parameters.get('use_lambda'):
+                self.module.fail_json(msg="Error: AWS Lambda proxy for ONTAP APIs is only supported with REST.")
             if not netapp_utils.has_netapp_lib():
                 self.module.fail_json(msg=netapp_utils.netapp_lib_is_required())
             self.server = netapp_utils.setup_na_ontap_zapi(module=self.module, vserver=self.parameters['vserver'])
@@ -264,34 +293,17 @@ class NetAppONTAPNVMENamespace:
         api = 'storage/namespaces'
         params = {
             'svm.name': self.parameters['vserver'],
-            'fields': 'space.size,uuid'
+            'name': self.parameters['path'],
+            'fields': 'space.size'
         }
-        response, error = rest_generic.get_0_or_more_records(self.rest_api, api, params)
+        record, error = rest_generic.get_one_record(self.rest_api, api, params)
         if error:
             self.module.fail_json(msg='Error fetching namespace info for vserver: %s' % self.parameters['vserver'])
-
-        existing_namespaces = {}
-
-        if response:
-            for record in response:
-                existing_namespaces[record['name']] = {
-                    'uuid': record['uuid'],
-                    'size': record['space']['size']
-                }
-
-        requested_name = self.parameters['path']
-        if requested_name in existing_namespaces:
-            self.namespace_uuid = existing_namespaces[requested_name]['uuid']
-            return {'size' : existing_namespaces[requested_name]['size']}  # Returns exact match
-
-        base_name = requested_name.rsplit('-', 1)[0]  # extract base name if n exists
-        matching_names = {
-            name: data for name, data in existing_namespaces.items() if name.startswith(base_name + "_")
-        }
-        if matching_names:
-            first_match = next(iter(matching_names.values()))
-            return {'size': first_match['size']}
-        self.namespace_uuid = None
+        if record:
+            self.namespace_uuid = record['uuid']
+            return {
+                'size': self.na_helper.safe_get(record, ['space', 'size'])
+            }
         return None
 
     def create_namespace_rest(self):

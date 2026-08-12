@@ -83,6 +83,7 @@ from mistralai.workflows.plugins.mistralai.mcp import (
     MCPConfig,
     MCPSSEConfig,
     MCPStdioConfig,
+    MCPStreamableHTTPConfig,
     collect_mcp_tools,
     execute_mcp_tool,
 )
@@ -183,6 +184,7 @@ __all__ = [
     "MCPConfig",
     "MCPSSEConfig",
     "MCPStdioConfig",
+    "MCPStreamableHTTPConfig",
     # Connectors
     "ConnectorAuthInterceptor",
     "ConnectorAuthTimeout",

@@ -1,26 +1,23 @@
-# see also hcli.lib.util.python
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import os
-import platform
 import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from pydantic import BaseModel
 from rich.markup import escape
 
 from hcli.env import ENV
 from hcli.lib.console import stderr_console
 from hcli.lib.ida import run_py_in_current_idapython
-from hcli.lib.venv import find_virtual_env_python, read_virtual_env_version
+from hcli.lib.venv import get_python_exe_candidates, get_virtual_env_version, probe_python_version
 
 logger = logging.getLogger(__name__)
-
-# Prints the running interpreter's version as `major.minor`.
-PRINT_VERSION_PY = "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
 
 
 # Script run inside IDA's embedded Python via idat.
@@ -51,6 +48,19 @@ sys.exit()
 
 class PythonNotFoundError(RuntimeError):
     """Could not detect IDA's Python executable."""
+
+
+class IdatProbe(BaseModel):
+    """What IDA's embedded Python reports about itself, via GET_PYTHON_INFO_PY."""
+
+    frozen: bool = False
+    prefix: str
+    base_prefix: str
+    executable: str | None = None
+    virtual_env: str | None = None
+    idapython_venv_executable: str | None = None
+    version_major: int
+    version_minor: int
 
 
 def _normalize_path(path: str | None) -> str | None:
@@ -87,48 +97,30 @@ def _get_venv_root_from_python(path: str | None) -> Path | None:
     return None
 
 
-def _get_prefix_candidates(prefix: str | None, version: str, is_windows: bool) -> list[str]:
-    if not prefix:
-        return []
-
-    if is_windows:
-        return [
-            os.path.join(prefix, "Scripts", "python.exe"),
-            os.path.join(prefix, "python.exe"),
-        ]
-
-    bindir = os.path.join(prefix, "bin")
-    return [
-        os.path.join(bindir, f"python{version}"),
-        os.path.join(bindir, "python3"),
-        os.path.join(bindir, "python"),
-    ]
-
-
-def _derive_python_exe(info: dict) -> Path:
+def _derive_python_exe(info: IdatProbe) -> Path:
     """Derive the Python executable path from IDA's embedded Python sys/env info.
 
     Prefers sys.prefix/sys.base_prefix, but falls back to a validated sys.executable
     when IDA launches a venv interpreter whose sys.prefix remains the base install.
     """
-    if info.get("frozen", False):
+    if info.frozen:
         raise PythonNotFoundError("IDA is running as a frozen application, cannot detect Python executable")
 
-    is_windows = platform.system() == "Windows"
-    version = f"{info['version_major']}.{info['version_minor']}"
-    sys_executable = info.get("executable")
+    version = f"{info.version_major}.{info.version_minor}"
+    sys_executable = info.executable
     sys_executable_venv = _get_venv_root_from_python(sys_executable)
-    requested_venv_executable = info.get("idapython_venv_executable")
+    requested_venv_executable = info.idapython_venv_executable
     requested_venv_root = _get_venv_root_from_python(requested_venv_executable)
-    virtual_env = info.get("virtual_env")
+    virtual_env = info.virtual_env
     normalized_virtual_env = _normalize_path(virtual_env)
 
     # deduplicate while preserving order: prefix first, then base_prefix
-    prefixes = list(dict.fromkeys([info["prefix"], info["base_prefix"]]))
+    prefixes = list(dict.fromkeys([info.prefix, info.base_prefix]))
     prefix_candidates = [
-        os.path.abspath(candidate)
+        os.path.abspath(str(candidate))
         for prefix in prefixes
-        for candidate in _get_prefix_candidates(prefix, version, is_windows)
+        if prefix
+        for candidate in get_python_exe_candidates(Path(prefix), version)
     ]
 
     for candidate in prefix_candidates:
@@ -143,7 +135,7 @@ def _derive_python_exe(info: dict) -> Path:
             if normalized_virtual_env and _normalize_path(str(candidate_venv)) == normalized_virtual_env:
                 return Path(candidate)
 
-    if info["prefix"] != info["base_prefix"]:
+    if info.prefix != info.base_prefix:
         for candidate in prefix_candidates:
             if os.path.exists(candidate):
                 return Path(candidate)
@@ -184,38 +176,68 @@ def _derive_python_exe(info: dict) -> Path:
     raise PythonNotFoundError(
         "Could not detect IDA's Python executable.\n"
         "Please run idapyswitch to select a Python installation, then try again.\n"
-        f"sys.prefix: {info['prefix']}\n"
-        f"sys.base_prefix: {info['base_prefix']}\n"
-        f"sys.executable: {info.get('executable')}\n"
-        f"VIRTUAL_ENV: {info.get('virtual_env')}\n"
-        f"IDAPYTHON_VENV_EXECUTABLE: {info.get('idapython_venv_executable')}\n"
+        f"sys.prefix: {info.prefix}\n"
+        f"sys.base_prefix: {info.base_prefix}\n"
+        f"sys.executable: {info.executable}\n"
+        f"VIRTUAL_ENV: {info.virtual_env}\n"
+        f"IDAPYTHON_VENV_EXECUTABLE: {info.idapython_venv_executable}\n"
         f"Tried: {prefix_candidates}"
     )
 
 
-def resolve_current_python() -> tuple[Path, dict | None]:
-    """Find IDA's Python executable, along with the probe info used to find it.
+@functools.cache
+def probe_current_python_info() -> IdatProbe:
+    """Run GET_PYTHON_INFO_PY inside IDA's embedded Python, once per process.
 
-    The info is the result of running GET_PYTHON_INFO_PY inside IDA.  It's None
-    when the executable came from $HCLI_CURRENT_IDA_PYTHON_EXE, because no probe
-    is needed then.  Callers that want both (such as the version mismatch check)
+    The probe launches IDA in batch mode via idat, which takes seconds, and its
+    inputs (the IDA installation and process environment) don't change within a
+    single hcli invocation, so the result is cached.  Failures are not cached:
+    an exception propagates and the next call retries.
+
+    Raises:
+        RuntimeError: if idat can't be run or emits no result.
+    """
+    return IdatProbe.model_validate(run_py_in_current_idapython(GET_PYTHON_INFO_PY))
+
+
+@dataclass(frozen=True)
+class ResolvedPython:
+    """IDA's Python executable together with how it was found.
+
+    `probe` is what IDA's embedded Python reported about itself; it's None when
+    the executable came from an environment variable, because no probe is
+    needed then.  Callers that want both (such as the version mismatch check)
     should use this instead of probing IDA a second time.
     """
-    # duplicate here, because we prefer access through ENV
-    # but tests might update env vars for the current process.
-    exe = os.environ.get("HCLI_CURRENT_IDA_PYTHON_EXE")
-    if exe:
-        return Path(exe), None
-    if ENV.HCLI_CURRENT_IDA_PYTHON_EXE is not None:
-        return Path(ENV.HCLI_CURRENT_IDA_PYTHON_EXE), None
 
-    venv_exe = os.environ.get("IDAPYTHON_VENV_EXECUTABLE") or ENV.IDAPYTHON_VENV_EXECUTABLE
+    exe: Path
+    # human-readable description of what selected this executable,
+    # like "$HCLI_CURRENT_IDA_PYTHON_EXE" or "derived from idat probe"
+    source: str
+    probe: IdatProbe | None = None
+
+
+def resolve_current_python() -> ResolvedPython:
+    """Find IDA's Python executable, along with the probe info used to find it.
+
+    Precedence: $HCLI_CURRENT_IDA_PYTHON_EXE, then $IDAPYTHON_VENV_EXECUTABLE
+    (when it exists on disk), then derivation from probing IDA's embedded
+    Python via idat.
+
+    Raises:
+        PythonNotFoundError: when the probe fails or no interpreter can be
+            derived from it.
+    """
+    if ENV.HCLI_CURRENT_IDA_PYTHON_EXE is not None:
+        return ResolvedPython(Path(ENV.HCLI_CURRENT_IDA_PYTHON_EXE), "$HCLI_CURRENT_IDA_PYTHON_EXE")
+
+    venv_exe = ENV.IDAPYTHON_VENV_EXECUTABLE
     if venv_exe and Path(venv_exe).is_file():
         logger.debug("using $IDAPYTHON_VENV_EXECUTABLE: %s", venv_exe)
-        return Path(venv_exe), None
+        return ResolvedPython(Path(venv_exe), "$IDAPYTHON_VENV_EXECUTABLE")
 
     try:
-        info = run_py_in_current_idapython(GET_PYTHON_INFO_PY)
+        info = probe_current_python_info()
     except RuntimeError as e:
         raise PythonNotFoundError(
             "failed to run idat to detect IDA's Python interpreter. "
@@ -223,16 +245,19 @@ def resolve_current_python() -> tuple[Path, dict | None]:
         ) from e
 
     logger.debug("IDA Python info: %s", info)
-    return _derive_python_exe(info), info
+    return ResolvedPython(_derive_python_exe(info), "derived from idat probe", info)
 
 
 def find_current_python_executable() -> Path:
-    """find the python executable associated with the current IDA installation"""
-    python_exe, _ = resolve_current_python()
-    return python_exe
+    """find the python executable associated with the current IDA installation
+
+    Raises:
+        PythonNotFoundError: when the interpreter can't be detected.
+    """
+    return resolve_current_python().exe
 
 
-def does_current_ida_have_pip(python_exe: Path, timeout=10.0) -> bool:
+def has_pip(python_exe: Path, timeout=10.0) -> bool:
     """Check if pip is available in the given Python executable."""
     try:
         process = subprocess.run(
@@ -315,16 +340,14 @@ def verify_pip_can_install_packages(
     python_exe: Path,
     packages: list[str],
     pip_options: PipOptions = PIP_OPTIONS_DEFAULT,
-    no_build_isolation: bool = False,
 ):
     """Check if the given Python packages (e.g., "foo>=v1.0,<3") can be installed.
 
     Raises:
         CantInstallPackagesError: if pip dry-run fails.
     """
-    effective = _merge_no_build_isolation(pip_options, no_build_isolation)
     process = subprocess.run(
-        [str(python_exe), "-m", "pip", "install", "--dry-run"] + effective.build_args() + packages,
+        [str(python_exe), "-m", "pip", "install", "--dry-run"] + pip_options.build_args() + packages,
         capture_output=True,
         check=False,
     )
@@ -347,16 +370,14 @@ def pip_install_packages(
     python_exe: Path,
     packages: list[str],
     pip_options: PipOptions = PIP_OPTIONS_DEFAULT,
-    no_build_isolation: bool = False,
 ):
     """Install the given Python packages (e.g., "foo>=v1.0,<3").
 
     Raises:
         CantInstallPackagesError: if pip install fails.
     """
-    effective = _merge_no_build_isolation(pip_options, no_build_isolation)
     process = subprocess.run(
-        [str(python_exe), "-m", "pip", "install"] + effective.build_args() + packages,
+        [str(python_exe), "-m", "pip", "install"] + pip_options.build_args() + packages,
         capture_output=True,
         check=False,
     )
@@ -368,78 +389,22 @@ def pip_install_packages(
         raise CantInstallPackagesError(_format_pip_error(stdout, stderr))
 
 
-def _merge_no_build_isolation(pip_options: PipOptions, no_build_isolation: bool) -> PipOptions:
-    if no_build_isolation and not pip_options.no_build_isolation:
-        return PipOptions(
-            index_url=pip_options.index_url,
-            extra_index_urls=pip_options.extra_index_urls,
-            find_links=pip_options.find_links,
-            offline=pip_options.offline,
-            isolated=pip_options.isolated,
-            no_cache_dir=pip_options.no_cache_dir,
-            disable_pip_version_check=pip_options.disable_pip_version_check,
-            no_build_isolation=True,
-        )
-    return pip_options
-
-
 def detect_current_python_version() -> str:
     """Detect the major.minor Python version of the active IDA Python.
 
-    Raises if detection fails rather than silently falling back to the
-    hcli interpreter's version, which may differ from IDA's Python.
+    Raises:
+        PythonNotFoundError: if the interpreter can't be found or its version
+            can't be probed. Never silently falls back to the hcli
+            interpreter's version, which may differ from IDA's Python.
     """
     logger.debug("detecting IDA Python executable...")
     python_exe = find_current_python_executable()
     logger.debug("found IDA Python executable: %s", python_exe)
-    result = subprocess.run(
-        [str(python_exe), "-c", PRINT_VERSION_PY],
-        capture_output=True,
-        text=True,
-        check=True,
-        timeout=10,
-    )
-    version = result.stdout.strip()
+    version = probe_python_version(python_exe)
+    if version is None:
+        raise PythonNotFoundError(f"failed to probe the version of IDA's Python interpreter: {python_exe}")
     logger.debug("detected Python version: %s", version)
     return version
-
-
-def probe_python_version(python_exe: Path, timeout: float = 10.0) -> str | None:
-    """Probe the major.minor version of a Python interpreter by running it.
-
-    Returns None when the interpreter can't be run, so callers can treat this
-    as best-effort.
-    """
-    try:
-        result = subprocess.run(
-            [str(python_exe), "-c", PRINT_VERSION_PY],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=timeout,
-        )
-    except (subprocess.SubprocessError, OSError) as e:
-        logger.debug("failed to probe version of %s: %s", python_exe, e)
-        return None
-
-    version = result.stdout.strip()
-    return version or None
-
-
-def get_virtual_env_version(virtual_env: str | Path) -> str | None:
-    """Detect the major.minor Python version of a virtual environment.
-
-    Runs the venv's own interpreter, which is authoritative, and falls back to
-    the version recorded in pyvenv.cfg when the interpreter is missing or can't
-    be run.  Returns None when neither is available.
-    """
-    python_exe = find_virtual_env_python(virtual_env)
-    if python_exe is not None:
-        version = probe_python_version(python_exe)
-        if version:
-            return version
-
-    return read_virtual_env_version(virtual_env)
 
 
 @dataclass(frozen=True)
@@ -465,20 +430,20 @@ class PythonVersionMismatch:
     other_source: str
 
 
-def find_python_version_mismatches(info: dict, python_exe: Path | None = None) -> list[PythonVersionMismatch]:
+def find_python_version_mismatches(info: IdatProbe, python_exe: Path | None) -> list[PythonVersionMismatch]:
     """Find Python environments whose version disagrees with IDA's embedded Python.
 
     `info` is the result of running GET_PYTHON_INFO_PY inside IDA, which reports
     both `sys.version_info` and the virtualenv IDA activated for itself.
 
     `python_exe` is the interpreter hcli would use to install plugin
-    dependencies, when the caller already knows it.  Otherwise it's derived
-    from `info`, the same way `find_current_python_executable` does.
+    dependencies, or None when it couldn't be detected, in which case only the
+    virtualenvs described by `info` are checked.
 
     Environments that can't be inspected are skipped, so this is best-effort:
     an empty result doesn't prove the environment is consistent.
     """
-    ida_version = f"{info['version_major']}.{info['version_minor']}"
+    ida_version = f"{info.version_major}.{info.version_minor}"
     mismatches: list[PythonVersionMismatch] = []
 
     # venv roots already reported, so a venv reached two different ways
@@ -486,9 +451,9 @@ def find_python_version_mismatches(info: dict, python_exe: Path | None = None) -
     seen_venvs: set[str] = set()
 
     candidate_venvs = [
-        (info.get("virtual_env"), "the virtualenv activated inside IDA ($VIRTUAL_ENV)"),
+        (info.virtual_env, "the virtualenv activated inside IDA ($VIRTUAL_ENV)"),
         (
-            _get_venv_root_from_python(info.get("idapython_venv_executable")),
+            _get_venv_root_from_python(info.idapython_venv_executable),
             "the virtualenv requested by $IDAPYTHON_VENV_EXECUTABLE",
         ),
     ]
@@ -517,11 +482,7 @@ def find_python_version_mismatches(info: dict, python_exe: Path | None = None) -
     # python, this usually restates a mismatch found above; when detection fell
     # back to a base interpreter, it can differ from IDA's Python on its own.
     if python_exe is None:
-        try:
-            python_exe = _derive_python_exe(info)
-        except PythonNotFoundError as e:
-            logger.debug("can't derive Python executable for mismatch check: %s", e)
-            return mismatches
+        return mismatches
 
     exe_venv = _get_venv_root_from_python(str(python_exe))
     if exe_venv is None or _normalize_path(str(exe_venv)) not in seen_venvs:
@@ -577,7 +538,7 @@ def format_python_version_mismatch_warning(mismatches: list[PythonVersionMismatc
     return "\n".join(lines)
 
 
-def warn_on_python_version_mismatch(info: dict | None, python_exe: Path) -> None:
+def warn_on_python_version_mismatch(info: IdatProbe | None, python_exe: Path) -> None:
     """Warn on stderr when IDA's Python doesn't match the environment we'd install into.
 
     `info` is the probe info from `resolve_current_python`, or None when IDA's
@@ -596,14 +557,6 @@ def warn_on_python_version_mismatch(info: dict | None, python_exe: Path) -> None
     warning = format_python_version_mismatch_warning(mismatches)
     if warning:
         stderr_console.print(warning, highlight=False)
-
-
-def pip_freeze(python_exe: Path):
-    process = subprocess.run([str(python_exe), "-m", "pip", "freeze"], capture_output=True, check=False)
-    stdout, _ = process.stdout, process.stderr
-    if process.returncode != 0:
-        raise subprocess.CalledProcessError(process.returncode, [str(python_exe), "-m", "pip", "freeze"])
-    return stdout.decode("utf-8", errors="replace")
 
 
 class ProbeError(RuntimeError):
@@ -833,7 +786,7 @@ def get_environment_for_python(python_exe: Path) -> dict[str, str]:
     return env
 
 
-def _run_probe(python_exe: Path, src: str, args: Sequence[str] = (), timeout: float = 60.0) -> dict:
+def _run_probe(python_exe: Path, src: str, args: Sequence[str]) -> dict:
     """Run a probe script with the given Python and parse its `__hcli__:` result line.
 
     Raises:
@@ -850,7 +803,7 @@ def _run_probe(python_exe: Path, src: str, args: Sequence[str] = (), timeout: fl
             encoding="utf-8",
             errors="replace",
             check=False,
-            timeout=timeout,
+            timeout=60.0,
             env=get_environment_for_python(python_exe),
         )
     except (OSError, subprocess.TimeoutExpired) as e:
@@ -875,19 +828,6 @@ def get_script_info(python_exe: Path, name: str) -> ScriptInfo:
     doc = _run_probe(python_exe, GET_SCRIPT_INFO_PY, [name])
     logger.debug("script probe: %s", doc)
     return ScriptInfo.from_probe(doc)
-
-
-def find_script(python_exe: Path, name: str) -> Path:
-    """Resolve the path of the console script `name` in the given Python environment.
-
-    Raises:
-        ProbeError: if the environment can't be inspected.
-        ScriptNotFoundError: if no such script is installed.
-    """
-    info = get_script_info(python_exe, name)
-    if info.path is None:
-        raise ScriptNotFoundError(render_script_not_found(info))
-    return info.path
 
 
 def render_script_not_found(info: ScriptInfo) -> str:

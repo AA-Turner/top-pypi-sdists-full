@@ -11,7 +11,13 @@ from typing import Any, List
 from ...client import Client
 from ...result import BadRequestException
 from ..state.system_check import check_type_to_ref
-from .errors import CheckNotFound, InvalidTableRef, TableNotFound
+from .errors import (
+    CheckNotFound,
+    InvalidTableRef,
+    TableNotFound,
+    UnknownTableLabels,
+)
+from .filters import TableFilters
 from .models import (
     Action,
     Check,
@@ -167,10 +173,24 @@ class APIDriver:
                 self._table_raw.cache_clear()  # pragma: no cover
                 self._checks_for_table.cache_clear()  # pragma: no cover
         elif isinstance(action, CheckAction):
-            if action.new and action.check_id:  # Update a system check
+            if action.new and action.is_system_check:
+                # Resolve the id now rather than trusting the plan-time one: the
+                # server creates a table's system checks as a side effect of
+                # configuring it, so nothing was resolvable while planning for a
+                # table configured during this same apply. Falling through to
+                # create_check here is what the API rejects with "'DataFreshness'
+                # is not a valid check type".
+                check_id = self._resolve_check_id(action)
+                if not check_id:
+                    print(
+                        f"Warning: Skipping {action.check_ref} on "
+                        f"{action.table_ref} (check does not exist)",
+                        file=sys.stderr,
+                    )
+                    return
                 self.client.update_check(
                     table_id=self._table_id(action.table_ref),
-                    check_id=action.check_id,
+                    check_id=check_id,
                     config={
                         "params": action.new.params,
                     },
@@ -187,9 +207,6 @@ class APIDriver:
                 # Clear the cache so subsequent actions can find the newly created check
                 self._checks_for_table.cache_clear()
             elif not action.check_id:  # System checks cannot be destroyed
-                check_id = self._checks_for_table_by_ref(action.table_ref)[
-                    action.check_ref
-                ]["check_id"]
                 self.client.delete_check(
                     self._table_id(action.table_ref),
                     # Current check ID for this check
@@ -227,13 +244,7 @@ class APIDriver:
 
             table_id = self._table_id(action.table_ref)
             if action.check_id or action.check_ref:
-                check_id = (
-                    action.check_id
-                    or self._checks_for_table_by_ref(action.table_ref)
-                    .get(action.check_ref, {})
-                    .get("check_id")
-                    or self.get_system_check_id(action.table_ref, action.check_ref)
-                )
+                check_id = self._resolve_check_id(action)
                 if not check_id:
                     print(
                         f"Warning: Skipping labels for {action.check_ref} on "
@@ -274,13 +285,7 @@ class APIDriver:
             notification_channel_ids = [channel["id"] for channel in valid_channels]
 
             if (action.check_id or action.check_ref) and action.table_ref:
-                check_id = (
-                    action.check_id
-                    or self._checks_for_table_by_ref(action.table_ref)
-                    .get(action.check_ref, {})
-                    .get("check_id")
-                    or self.get_system_check_id(action.table_ref, action.check_ref)
-                )
+                check_id = self._resolve_check_id(action)
                 if not check_id:
                     print(
                         f"Warning: Skipping notification channels for "
@@ -295,16 +300,29 @@ class APIDriver:
                     additional_notification_channel_ids=notification_channel_ids,
                 )
             elif action.table_ref:
-                # Get existing table config to preserve time column settings
-                table_info = self._table_raw(action.table_ref)
-                config = table_info.get("config") or {}  # pragma: no cover
-
-                self.client.configure_table(
+                # PATCH, not POST configure_table: the latter is a full replace, so
+                # sending only the channels here would blank every field the table
+                # config action just wrote — silently deconfiguring the table.
+                self.client.update_table_configuration(
                     table_id=self._table_id(action.table_ref),
                     notification_channel_ids=notification_channel_ids,
-                    time_columns=config.get("time_columns"),
-                    time_column_type=config.get("time_column_type"),
                 )
+                self._table_raw.cache_clear()
+
+    def _resolve_check_id(self, action: Action) -> int | None:
+        """Resolve a check's id at apply time, preferring live server state.
+
+        Checks created earlier in the same apply are invisible to the planner, so a
+        plan-time id is only ever a shortcut — fall back to a fresh lookup of user
+        checks and then system checks.
+        """
+        return (
+            action.check_id
+            or self._checks_for_table_by_ref(action.table_ref)
+            .get(action.check_ref, {})
+            .get("check_id")
+            or self.get_system_check_id(action.table_ref, action.check_ref)
+        )
 
     def get_system_check_id(self, table_ref: str, check_ref: List[str]) -> int | None:
         raw_check = self._checks_for_table_by_ref(table_ref, system=True).get(check_ref)
@@ -351,21 +369,48 @@ class APIDriver:
     def _tables(self) -> dict[str, int]:
         return self._fetch_tables()
 
-    def pull_table_refs(
-        self, warehouse_id: int | None = None, configured_only: bool = False
-    ) -> set[str]:
+    def pull_table_refs(self, filters: TableFilters) -> set[str]:
         """Table refs to pull when none are given explicitly on the command line."""
-        if configured_only:
-            return self._fetch_configured_table_refs(warehouse_id)
-        if warehouse_id is None:
-            return self.table_refs
-        return set(self._fetch_tables(warehouse_id))
+        label_ids = self._table_label_ids(filters.table_labels)
+        # Each filter that the server can answer contributes a set of refs, and the
+        # result is their intersection; the rest are predicates on the ref itself.
+        refs: set[str] | None = None
+        if filters.configured_only:
+            refs = self._fetch_configured_table_refs(filters.warehouse_id)
+        if label_ids:
+            labeled = set(self._fetch_tables(filters.warehouse_id, label_ids=label_ids))
+            refs = labeled if refs is None else refs & labeled
+        if refs is None:
+            refs = (
+                self.table_refs
+                if filters.warehouse_id is None
+                else set(self._fetch_tables(filters.warehouse_id))
+            )
+        return {ref for ref in refs if filters.matches_ref(ref)}
+
+    def _table_label_ids(self, label_names: Sequence[str]) -> list[int]:
+        if not label_names:
+            # Resolving nothing would still pay for a `list_labels_for_organization`
+            # call on every unfiltered pull.
+            return []
+        labels_by_name = self._org_labels_by_name
+        unknown = [name for name in label_names if name not in labels_by_name]
+        if unknown:
+            raise UnknownTableLabels(unknown)
+        return [labels_by_name[name]["id"] for name in label_names]
 
     @retry_requests
-    def _fetch_tables(self, warehouse_id: int | None = None) -> dict[str, int]:
-        base_kwargs: dict[str, int] = {}
+    def _fetch_tables(
+        self,
+        warehouse_id: int | None = None,
+        label_ids: Sequence[int] | None = None,
+    ) -> dict[str, int]:
+        base_kwargs: dict[str, Any] = {}
         if warehouse_id is not None:
             base_kwargs["warehouse_id"] = warehouse_id
+        if label_ids:
+            # `label_id` is repeatable on the endpoint and matches any of the ids
+            base_kwargs["label_id"] = list(label_ids)
         request_kwargs = dict(base_kwargs)
         all_tables: dict[str, int] = {}
         while True:

@@ -1,11 +1,17 @@
 import ast
 import csv
 import io
+import ipaddress
 import json
 import logging
 import os
+import socket
+import tempfile
+import zipfile
 from datetime import datetime
 from typing import Dict, Any
+from urllib.parse import urlparse
+from xml.etree import ElementTree
 
 import xmind  # type: ignore[import-untyped]
 from dateutil.tz import gettz
@@ -83,6 +89,66 @@ PDF_EXTRA_HINT = (
     "Install it with: pip install 'maigret[pdf]'"
 )
 
+# 1x1 transparent PNG substituted for any report image URL that isn't a safe
+# public http(s) resource (see _is_safe_report_image_url).
+_BLANK_IMAGE_PATH = os.path.join(
+    os.path.dirname(os.path.realpath(__file__)), "resources", "blank.png"
+)
+
+
+def _is_safe_report_image_url(uri) -> bool:
+    """Whether ``uri`` is a public http(s) image safe to fetch during PDF render.
+
+    Report images come from scraped profile data (``ids_data['image']``), which
+    is attacker-influenced. xhtml2pdf resolves ``<img src>`` while building the
+    PDF, so an intranet or cloud-metadata URL is a request made by the machine
+    running maigret (server-side in the web UI). A src with no scheme at all is
+    worse than a URL: xhtml2pdf falls back to treating it as a local path and
+    opens it. Only allow http(s) hosts that resolve to public addresses.
+    """
+    if not isinstance(uri, str):
+        return False
+    parsed = urlparse(uri.strip())
+    if parsed.scheme not in ("http", "https"):
+        return False
+    host = parsed.hostname
+    if not host:
+        return False
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except (socket.gaierror, UnicodeError, ValueError):
+        return False
+    if not infos:
+        return False
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            return False
+        mapped = getattr(ip, "ipv4_mapped", None)
+        if mapped is not None:
+            ip = mapped
+        # is_global is False for private, loopback, link-local, unspecified and
+        # CGNAT (100.64.0.0/10) addresses. Multicast and reserved ranges are
+        # still is_global on CPython, so they stay explicit: 64:ff9b::/96 is
+        # reserved but routes to IPv4 through a NAT64 gateway.
+        if not ip.is_global or ip.is_multicast or ip.is_reserved:
+            return False
+    return True
+
+
+def _pdf_report_link_callback(uri, rel):
+    """xhtml2pdf resource resolver: let safe public images through, and divert
+    everything else to a local blank placeholder so no fetch/read happens.
+
+    Returning a local path (rather than raising) keeps report generation working
+    even when a scanned profile carries a hostile image URL — a raise would abort
+    the whole PDF.
+    """
+    if _is_safe_report_image_url(uri):
+        return uri
+    return _BLANK_IMAGE_PATH
+
 
 def save_pdf_report(filename: str, context: dict):
     # Imported lazily so that users without the optional 'pdf' extra
@@ -96,7 +162,12 @@ def save_pdf_report(filename: str, context: dict):
     filled_template = template.render(**context)
 
     with open(filename, "w+b") as f:
-        pisa.pisaDocument(io.StringIO(filled_template), dest=f, default_css=css)
+        pisa.pisaDocument(
+            io.StringIO(filled_template),
+            dest=f,
+            default_css=css,
+            link_callback=_pdf_report_link_callback,
+        )
 
 
 def save_json_report(filename: str, username: str, results: dict, report_type: str):
@@ -261,7 +332,10 @@ def save_graph_report(filename: str, username_results: list, db: MaigretDatabase
     # Generate interactive visualization
     from pyvis.network import Network  # type: ignore[import-untyped]
 
-    nt = Network(notebook=True, height="100vh", width="100%")
+    # cdn_resources="in_line": self-contained HTML, no lib/ folder written
+    # relative to the process cwd (pyvis's default "local" mode does that,
+    # which breaks when the report is served from a different directory).
+    nt = Network(notebook=True, height="100vh", width="100%", cdn_resources="in_line")
     nt.from_nx(G)
     nt.show(filename)
 
@@ -727,8 +801,110 @@ def generate_json_report(username: str, results: dict, file, report_type):
 
 
 """
-XMIND 8 Functions
+XMIND Functions
 """
+
+
+_XMIND_MANIFEST_PATH = "META-INF/manifest.xml"
+_XMIND_MANIFEST_NAMESPACE = "urn:xmind:xmap:xmlns:manifest:1.0"
+_XMIND_ZIP_EPOCH = (1980, 1, 1, 0, 0, 0)
+
+
+def _xmind_member_media_type(name):
+    if name.endswith('/'):
+        return ''
+    if name.endswith('.xml'):
+        return 'text/xml'
+    if name.endswith('.json'):
+        return 'application/json'
+    return 'application/octet-stream'
+
+
+def _build_xmind_manifest(member_names):
+    ElementTree.register_namespace('', _XMIND_MANIFEST_NAMESPACE)
+    root = ElementTree.Element(
+        f'{{{_XMIND_MANIFEST_NAMESPACE}}}manifest', {'password-hint': ''}
+    )
+    for name in member_names:
+        ElementTree.SubElement(
+            root,
+            f'{{{_XMIND_MANIFEST_NAMESPACE}}}file-entry',
+            {
+                'full-path': name,
+                'media-type': _xmind_member_media_type(name),
+            },
+        )
+    return ElementTree.tostring(root, encoding='utf-8', xml_declaration=True)
+
+
+def _validate_xmind_archive(filename, expected_names):
+    with zipfile.ZipFile(filename) as archive:
+        invalid_member = archive.testzip()
+        if invalid_member is not None:
+            raise ValueError(f'Invalid XMind ZIP member: {invalid_member}')
+
+        names = archive.namelist()
+        if names != expected_names:
+            raise ValueError('Rewritten XMind archive has unexpected members')
+        if names.count(_XMIND_MANIFEST_PATH) != 1:
+            raise ValueError('Rewritten XMind archive must contain one manifest')
+
+        manifest = ElementTree.fromstring(archive.read(_XMIND_MANIFEST_PATH))
+        entry_tag = f'{{{_XMIND_MANIFEST_NAMESPACE}}}file-entry'
+        manifest_names = [
+            entry.attrib.get('full-path') for entry in manifest.findall(entry_tag)
+        ]
+        if manifest_names != expected_names:
+            raise ValueError('XMind manifest does not list every archive member')
+
+
+def _normalize_xmind_archive(filename):
+    """Atomically add the manifest required by current XMind readers."""
+    archive_path = os.fspath(filename)
+    archive_dir = os.path.dirname(os.path.abspath(archive_path))
+    archive_mode = os.stat(archive_path).st_mode & 0o7777
+    temporary_fd, temporary_path = tempfile.mkstemp(
+        prefix=f'.{os.path.basename(archive_path)}.',
+        suffix='.tmp',
+        dir=archive_dir,
+    )
+    os.close(temporary_fd)
+
+    try:
+        with zipfile.ZipFile(archive_path) as source:
+            members = [
+                member
+                for member in source.infolist()
+                if member.filename != _XMIND_MANIFEST_PATH
+            ]
+            expected_names = [member.filename for member in members]
+            expected_names.append(_XMIND_MANIFEST_PATH)
+            manifest = _build_xmind_manifest(expected_names)
+
+            with zipfile.ZipFile(temporary_path, mode='w') as target:
+                target.comment = source.comment
+                for member in members:
+                    target.writestr(member, source.read(member))
+
+                manifest_info = zipfile.ZipInfo(
+                    _XMIND_MANIFEST_PATH, date_time=_XMIND_ZIP_EPOCH
+                )
+                manifest_info.compress_type = zipfile.ZIP_DEFLATED
+                manifest_info.create_system = 3
+                manifest_info.external_attr = 0o100644 << 16
+                target.writestr(manifest_info, manifest)
+
+        os.chmod(temporary_path, archive_mode)
+        _validate_xmind_archive(temporary_path, expected_names)
+        with open(temporary_path, 'rb') as temporary_file:
+            os.fsync(temporary_file.fileno())
+        os.replace(temporary_path, archive_path)
+    except BaseException:
+        try:
+            os.unlink(temporary_path)
+        except FileNotFoundError:
+            pass
+        raise
 
 
 def save_xmind_report(filename, username, results):
@@ -738,6 +914,7 @@ def save_xmind_report(filename, username, results):
     sheet = workbook.getPrimarySheet()
     design_xmind_sheet(sheet, username, results)
     xmind.save(workbook, path=filename)
+    _normalize_xmind_archive(filename)
 
 
 def add_xmind_subtopic(userlink, k, v, supposed_data):

@@ -1,9 +1,10 @@
 from functools import wraps
-from typing import Callable, Any, Optional, Type, Iterator, List
+from typing import Callable, Any, Dict, Optional, Set, Type, Iterator, List, cast
 import sqlglot
 
 import dlt
 from dlt.common.configuration.inject import get_fun_last_config, get_fun_spec
+from dlt.common.destination.reference import describe_dataset_location
 from dlt.dataset import Dataset, Relation
 from dlt.common.typing import TDataItems, TTableHintTemplate
 from dlt.common import logger, json
@@ -26,7 +27,7 @@ from dlt.extract.exceptions import CurrentSourceNotAvailable
 from dlt.extract.pipe_iterator import DataItemWithMeta
 from dlt.extract.hints import DLT_HINTS_METADATA_KEY, make_hints
 
-from dlthub.transformations.typing import TTransformationFunParams
+from dlthub.transformations.typing import TTransformationFunParams, TTransformationDataLocation
 from dlthub.transformations.exceptions import (
     TransformationException,
     IncompatibleDatasetsException,
@@ -131,6 +132,73 @@ class DltTransformationResource(DltResource):
         return simple_repr("@dlt.transformation", **without_none(kwargs))
 
 
+def _collect_relation_tables(relation: Relation, tables_by_dataset: Dict[str, Set[str]]) -> None:
+    """Accumulates the tables read by `relation`, grouped by the dataset each belongs to."""
+    schema_map = relation._all_schemas()
+    # the relation reads its own dataset unqualified. joins qualify the foreign ones
+    primary_dataset = relation._dataset.dataset_name
+    expression = relation.sqlglot_expression
+    cte_names = {cte.alias_or_name for cte in expression.find_all(sqlglot.exp.CTE)}
+    for table in expression.find_all(sqlglot.exp.Table):
+        # a CTE is referenced as an unqualified table, so a qualified name of the same spelling is
+        # still a real table
+        if not table.db and table.name in cte_names:
+            continue
+        dataset_name = table.db or primary_dataset
+        schemas = schema_map.get(dataset_name)
+        # keep only tables of a dataset the relation reads, and names one of its schemas knows
+        if not schemas or not any(table.name in schema.tables for schema in schemas):
+            continue
+        tables_by_dataset.setdefault(dataset_name, set()).add(table.name)
+
+
+def _describe_inputs(
+    tables_by_dataset: Dict[str, Set[str]],
+    datasets_by_name: Dict[str, Dataset],
+    resource_name: str,
+    is_materialized: bool,
+) -> List[TTransformationDataLocation]:
+    """Describes every dataset that was read as one input data location."""
+    locations: List[TTransformationDataLocation] = []
+    for dataset_name, tables in tables_by_dataset.items():
+        dataset = datasets_by_name.get(dataset_name)
+        if dataset is None:
+            # without the dataset instance there is no client config to describe the location with
+            logger.debug(
+                "Skipping input lineage for dataset %s of transformation %s: not passed as an"
+                " argument",
+                dataset_name,
+                resource_name,
+            )
+            continue
+        # only the schemas holding the tables that were read, in the dataset's own order so the
+        # default schema stays first as it names the dataset
+        if tables:
+            schemas = [
+                schema
+                for schema in dataset.schemas
+                if any(table in schema.tables for table in tables)
+            ]
+        else:
+            # no table to attribute, so every schema of the dataset describes the location
+            schemas = list(dataset.schemas)
+        client = dataset.destination_client
+        location = cast(
+            TTransformationDataLocation,
+            describe_dataset_location(
+                client.config,
+                client.capabilities,
+                schemas,
+                resource_name,
+                sorted(tables),
+                dataset.sql_client.dataset_name,
+            ),
+        )
+        location["is_materialized"] = is_materialized
+        locations.append(location)
+    return locations
+
+
 def make_transformation_resource(
     func: Callable[TTransformationFunParams, Any],
     name: TTableHintTemplate[str],
@@ -187,21 +255,61 @@ def make_transformation_resource(
         except (PipelineConfigMissing, CurrentSourceNotAvailable):
             output_dataset = None
 
-        # determine materialization strategy
-        if output_dataset:
-            should_materialize = not output_dataset.destination_client.config.can_write_from(
-                datasets[0].destination_client.config
-            )
-        else:
+        if not output_dataset:
             logger.info(
-                "Cannot reach destination or transformation run outside of pipeline, defaulting to"
-                " model extraction for transformation %s",
+                "Cannot access the destination, or the transformation runs outside a pipeline."
+                " dlt uses a model job for transformation %s",
                 resource_name,
             )
-            should_materialize = False
-        should_materialize = should_materialize or config.always_materialize
+
+        def _materializes(relation: Relation) -> bool:
+            """Tells if dlt must run `relation` here, and not send it as a model job."""
+
+            if config.always_materialize or not output_dataset:
+                return config.always_materialize
+            return not output_dataset.destination_client.config.can_write_from(
+                relation._dataset.destination_client.config
+            )
+
+        # a transformation takes all its datasets as arguments. an index by name lets lineage
+        # attach the destination of each source
+        datasets_by_name = {ds.dataset_name: ds for ds in datasets}
+
+        try:
+            current_resource = dlt.current.resource()
+        except CurrentSourceNotAvailable:
+            current_resource = None
+
+        tables_by_dataset: Dict[str, Set[str]] = {}
+        tables_unknown = False
+        """Set once the transformation yields a raw item. dlt then attributes no table"""
+
+        def _record_inputs(is_materialized: bool) -> None:
+            """Records every dataset that the transformation read as an input data location."""
+            if current_resource is None:
+                return
+            try:
+                # a raw item names no tables, so dlt attributes nothing to any dataset
+                tables = (
+                    {ds_name: set() for ds_name in datasets_by_name}
+                    if tables_unknown
+                    else tables_by_dataset
+                )
+                for idx, location in enumerate(
+                    _describe_inputs(tables, datasets_by_name, resource_name, is_materialized)
+                ):
+                    current_resource.add_input(location, replace=idx == 0)
+            except Exception as ex:
+                logger.warning(
+                    "Could not compute lineage for transformation %s: %s", resource_name, ex
+                )
 
         def _process_item(item: TDataItems) -> Iterator[TDataItems]:
+            # a list is a batch of items in dlt, for example several models. process each element
+            if isinstance(item, list):
+                for element in item:
+                    yield from _process_item(element)
+                return
             # catch the cases where we get a relation from the transformation function
             if isinstance(item, dlt.Relation):
                 relation = item
@@ -219,9 +327,23 @@ def make_transformation_resource(
             elif IbisExpr and isinstance(item, IbisExpr):
                 relation = datasets[0](item)
             else:
+                nonlocal tables_unknown
+                # a raw item does not name the tables it read, so table lineage of the whole
+                # transformation becomes unknown. the datasets are still known, they arrive as
+                # arguments
+                if not tables_unknown:
+                    tables_unknown = True
+                    _record_inputs(True)
                 # no transformation, just yield this item
                 yield item
                 return
+
+            should_materialize = _materializes(relation)
+
+            # record the datasets read as input data locations in the trace (best-effort).
+            # tables accumulate across yielded models, so the whole set is re-recorded
+            _collect_relation_tables(relation, tables_by_dataset)
+            _record_inputs(should_materialize)
 
             if not should_materialize:
                 yield relation

@@ -32,7 +32,7 @@ from setuptools.command.build_py import build_py
 from setuptools.command.install import install
 
 PACKAGE = 'ibm_db'
-VERSION = '3.2.9'
+VERSION = '3.3.0'
 LICENSE = 'Apache License 2.0'
 readme = os.path.join(os.path.dirname(__file__),'README.md')
 
@@ -288,12 +288,7 @@ if('win32' in sys.platform):
         prebuildIbmdbPYD = True
 
 # Get version of clidriver for autodownload from environment variable CLIDRIVER_VERSION
-# Default version is v12.1.0 for non-linux platform.
-clidriver_version = os.getenv("CLIDRIVER_VERSION", "v12.1.0")
-
-# Default version is v11.5.9 for linux. clidriver v12.1.0 for linux uses x86_64_V2 instruction set which is not supported by cibuildwheel
-if ('linux' == sys.platform):
-    clidriver_version = os.getenv("CLIDRIVER_VERSION", "v11.5.9")
+clidriver_version = os.getenv("CLIDRIVER_VERSION", "")
 
 if ((ibm_db_home == '') and (ibm_db_dir == '') and (ibm_db_lib == '')):
     if('win32' not in sys.platform):
@@ -383,7 +378,8 @@ if ((ibm_db_home == '') and (ibm_db_dir == '') and (ibm_db_lib == '')):
     ibm_db_lib_runtime = os.path.join('$ORIGIN', 'clidriver', 'lib')
     ibm_db_dir = 'clidriver'
     ibm_db_lib = os.path.join(ibm_db_dir, 'lib')
-    clidriver_version = clidriver_version + "/"
+    if(clidriver_version and not clidriver_version.endswith("/")):
+        clidriver_version = clidriver_version + "/"
 
     if not os.path.isdir('clidriver'):
         if 'IBM_DB_INSTALLER_URL' in os.environ:
@@ -495,12 +491,11 @@ if 'zos' == sys.platform:
 else:
     library = ['db2']
     
-package_data = { 'ibm_db_tests': [ 'run_individual_tests', '*.png', '*.jpg', 'config.py.sample']}
+package_data = { 'ibm_db_tests': [ 'run_individual_tests', '*.png', '*.jpg']}
 
 data_files = [ (get_python_lib(), ['./README.md']),
                (get_python_lib(), ['./CHANGES.md']),
-               (get_python_lib(), ['./LICENSE']),
-               (get_python_lib(), ['./config.py.sample'])]
+               (get_python_lib(), ['./LICENSE'])]
 
 modules = ['ibm_db_dbi', 'testfunctions', 'ibmdb_tests', 'ibm_db_ctx', '_ibm_db_register_dll']
 

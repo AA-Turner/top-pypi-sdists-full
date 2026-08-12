@@ -3,7 +3,7 @@
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 - name: Wait for Keycloak
-  uri:
+  ansible.builtin.uri:
     url: "{{ url }}/admin/"
     status_code: 200
     validate_certs: false
@@ -43,7 +43,7 @@
   register: result
 
 - name: Assert ldap is missing
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
       - result.components | length == 0
@@ -87,7 +87,7 @@
       pagination: true
       allowKerberosAuthentication: false
       useKerberosForPasswordAuthentication: false
-      debug: false
+      ansible.builtin.debug: false
 
 - name: Retrive ldap info
   community.general.keycloak_component_info:
@@ -101,14 +101,14 @@
   register: result
 
 - name: Assert ldap exists
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
       - result.components | length == 1
       - result.components[0].name == federation
 
 - name: Save ldap id
-  set_fact:
+  ansible.builtin.set_fact:
     myLdapId: "{{ result.components[0].id }}"
 
 - name: Retrive ldap subcomponents info
@@ -122,7 +122,7 @@
   register: result
 
 - name: Assert components exists
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
       - result.components | length > 0
@@ -139,7 +139,7 @@
   register: result
 
 - name: Assert sub component with name "email" exists
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
       - result.components | length == 1
@@ -157,7 +157,7 @@
   register: result
 
 - name: Assert ldap sub components filter by type
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
       - result.components | length > 0
@@ -175,7 +175,7 @@
   register: result
 
 - name: Assert key is missing
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
       - result.components | length == 0
@@ -209,7 +209,7 @@
   register: result
 
 - name: Assert key exists
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
       - result.components | length == 1
@@ -224,7 +224,7 @@
   register: result
 
 - name: Assert key exists
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
       - result.components | length > 0
@@ -240,7 +240,7 @@
   register: result
 
 - name: Assert key exists
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
       - result.components | length == 1
@@ -258,7 +258,7 @@
   register: result
 
 - name: Assert key exists
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
       - result.components | length == 1

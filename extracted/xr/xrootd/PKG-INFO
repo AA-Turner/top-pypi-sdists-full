@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: xrootd
-Version: 6.1.0
+Version: 6.1.1
 Summary: eXtended ROOT daemon
 Home-page: https://xrootd.org
-Download-URL: https://github.com/xrootd/xrootd/archive/v6.1.0.tar.gz
+Download-URL: https://github.com/xrootd/xrootd/archive/v6.1.1.tar.gz
 Author: XRootD Developers
 Author-email: xrootd-dev@slac.stanford.edu
 License: LGPL-3.0-or-later
@@ -31,6 +31,13 @@ Dynamic: keywords
 Dynamic: license
 Dynamic: license-file
 Dynamic: summary
+
+[![Repology](https://img.shields.io/badge/repology-xrootd-blue)](https://repology.org/project/xrootd/packages)
+[![CDash](https://img.shields.io/badge/CDash-XRootD-limegreen)](https://my.cdash.org/index.php?project=XRootD)
+[![ABI](https://github.com/xrootd/xrootd/actions/workflows/ABI.yml/badge.svg)](https://github.com/xrootd/xrootd/actions/workflows/ABI.yml)
+[![CI](https://github.com/xrootd/xrootd/actions/workflows/CI.yml/badge.svg)](https://github.com/xrootd/xrootd/actions/workflows/CI.yml)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11900/badge)](https://www.bestpractices.dev/projects/11900)
+[![LFX Health Score](https://insights.linuxfoundation.org/api/badge/health-score?project=xrootd)](https://insights.linuxfoundation.org/project/xrootd)
 
 <p align="center">
   <img src="https://xrootd.org/images/xrootd-logo.png"/>

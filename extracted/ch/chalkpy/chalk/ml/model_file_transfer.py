@@ -6,8 +6,6 @@ from math import ceil
 from typing import Dict, List, Mapping, NamedTuple, Optional, Tuple, Type
 from urllib.parse import urlparse
 
-import requests
-
 ### To create a new upload source
 ### 1.) Create a new config class that inherits from SourceConfig
 ### 2.) Create a new uploader class that inherits from FileUploader
@@ -78,6 +76,8 @@ class LocalFileUploader(FileUploader):
     def upload(
         self, filename: str, file_path: str, presigned_url: str, dir_allowlist: Optional[List[str]] = None
     ) -> FileInfo:
+        import requests
+
         try:
             safe_path = self._validate_local_path(file_path, dir_allowlist or [])
 
@@ -129,6 +129,8 @@ class S3FileUploader(FileUploader):
     def upload(
         self, filename: str, file_path: str, presigned_url: str, dir_allowlist: Optional[List[str]] = None
     ) -> FileInfo:
+        import requests
+
         if self.s3_client is None:
             self._setup_s3_client()
 
@@ -188,6 +190,8 @@ class GCSFileUploader(FileUploader):
     ) -> FileInfo:
         if self.gcs_client is None:
             self._setup_gcs_client()
+
+        import requests
 
         assert self.gcs_client is not None, "Unable to initialize GCS client."
         parsed_path = urlparse(file_path)

@@ -489,6 +489,19 @@ def _pkce():
 
 
 def build_authorize_url(meta, client_id, state, challenge, redirect_uri=REDIRECT_URI):
+    # ── REQUEST offline_access so the server issues a REFRESH TOKEN ──────────────────────────────
+    # Without this, most remote MCP servers hand back ONLY a short-lived (~1h) access token and no
+    # refresh token — so the connection silently dies at expiry and the operator must reconnect by
+    # hand. That is the root cause of "why does everything need reconnecting": a health audit found
+    # 40/44 connected servers had NO stored refresh token, because their advertised scopes don't
+    # include offline_access and we only ever requested the advertised set. The DCR client is already
+    # registered with the refresh_token grant (see register_client), so the ONLY missing signal is
+    # this scope. Servers that don't support offline_access ignore the unknown scope (RFC 6749 §3.3),
+    # so adding it is safe for the ones that already work; the ones that DO support it now return a
+    # refresh token, which usable_token()/refresh() use to keep the connection alive indefinitely.
+    scopes = list(meta.get("scopes") or [])
+    if "offline_access" not in scopes:
+        scopes.append("offline_access")
     params = {
         "response_type": "code",
         "client_id": client_id,
@@ -497,9 +510,8 @@ def build_authorize_url(meta, client_id, state, challenge, redirect_uri=REDIRECT
         "code_challenge": challenge,
         "code_challenge_method": "S256",
         "resource": meta.get("resource", ""),
+        "scope": " ".join(scopes),
     }
-    if meta.get("scopes"):
-        params["scope"] = " ".join(meta["scopes"])
     sep = "&" if "?" in meta["authorize"] else "?"
     return f"{meta['authorize']}{sep}{urllib.parse.urlencode(params)}"
 

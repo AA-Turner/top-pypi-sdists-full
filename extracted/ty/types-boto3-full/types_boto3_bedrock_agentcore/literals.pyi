@@ -272,6 +272,7 @@ BedrockAgentCoreServiceName = Literal["bedrock-agentcore"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

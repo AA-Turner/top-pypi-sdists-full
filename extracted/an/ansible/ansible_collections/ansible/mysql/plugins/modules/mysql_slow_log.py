@@ -14,6 +14,7 @@ module: mysql_slow_log
 short_description: Manage MySQL or MariaDB slow query log settings
 
 description:
+  - "Important: MariaDB support will be dropped in collection version 6.0.0. Use the M(ansible.mariadb.mariadb_slow_log) instead."
   - Manage MySQL or MariaDB slow query log runtime settings.
   - Supports enabling the slow query log, setting thresholds and output, and rotating file-based slow logs.
 
@@ -381,7 +382,7 @@ def main():
         'min_examined_row_limit': module.params['min_examined_row_limit'],
     }
 
-    slow_log = MySQLSlowLog(module, cursor, get_server_implementation(cursor))
+    slow_log = MySQLSlowLog(module, cursor, get_server_implementation(module, cursor))
 
     module.exit_json(
         **slow_log.configure(

@@ -1,5 +1,7 @@
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from temporalio.service import RPCError, RPCStatusCode
 
 from mistralai.workflows.core.worker import (
@@ -23,6 +25,12 @@ def _rpc_error(message: str, status: RPCStatusCode) -> RPCError:
 def _client_raising(side_effect: object) -> AsyncMock:
     client = AsyncMock()
     client.workflow_service.set_worker_deployment_current_version = AsyncMock(side_effect=side_effect)
+    return client
+
+
+def _client_succeeding() -> AsyncMock:
+    client = AsyncMock()
+    client.workflow_service.set_worker_deployment_current_version = AsyncMock()
     return client
 
 
@@ -85,3 +93,65 @@ class TestAutoRegisterAsCurrentVersion:
         assert client.workflow_service.set_worker_deployment_current_version.call_count == 2
         assert mock_logger.error.call_count == 0
         mock_logger.info.assert_called_once()
+
+    async def test_first_attempt_is_not_delayed(self) -> None:
+        """The deployment is usually available well within a second, so don't wait before trying.
+
+        Delaying the first attempt holds the whole deployment on the previous current version for
+        the length of that delay, which on a rolling deploy is a window of traffic landing on the
+        outgoing build.
+        """
+        client = _client_succeeding()
+        sleep = AsyncMock()
+
+        with (
+            patch("asyncio.sleep", new=sleep),
+            patch("mistralai.workflows.core.worker.logger", new=MagicMock()),
+        ):
+            await _auto_register_as_current_version(
+                temporal_client=client,
+                namespace="default",
+                deployment_name="dep",
+                build_id="build-1",
+            )
+
+        assert client.workflow_service.set_worker_deployment_current_version.call_count == 1
+        sleep.assert_not_awaited()
+
+    async def test_backoff_starts_short(self) -> None:
+        """The first retry should come back quickly rather than after a multi-second pause."""
+        transient = _rpc_error("worker deployment not found", RPCStatusCode.NOT_FOUND)
+        client = _client_raising([transient, None])
+        sleep = AsyncMock()
+
+        with (
+            patch("asyncio.sleep", new=sleep),
+            patch("mistralai.workflows.core.worker.logger", new=MagicMock()),
+        ):
+            await _auto_register_as_current_version(
+                temporal_client=client,
+                namespace="default",
+                deployment_name="dep",
+                build_id="build-1",
+            )
+
+        sleep.assert_awaited_once()
+        assert sleep.await_args.args[0] < 1.0
+
+    async def test_cancellation_is_not_retried(self) -> None:
+        """Worker shutdown cancels this task; retrying through that would stall the shutdown."""
+        client = _client_raising(asyncio.CancelledError())
+
+        with (
+            patch("asyncio.sleep", new=AsyncMock()),
+            patch("mistralai.workflows.core.worker.logger", new=MagicMock()),
+        ):
+            with pytest.raises(asyncio.CancelledError):
+                await _auto_register_as_current_version(
+                    temporal_client=client,
+                    namespace="default",
+                    deployment_name="dep",
+                    build_id="build-1",
+                )
+
+        assert client.workflow_service.set_worker_deployment_current_version.call_count == 1

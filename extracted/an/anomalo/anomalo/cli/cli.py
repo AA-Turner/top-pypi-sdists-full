@@ -1,8 +1,24 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from ..client import Client
 from .save_load.commands import SaveLoad
+from .state.filters import TableFilters
 from .state.machine import StateMachine
+
+
+def _split_names(value: str | Sequence[str] | None) -> tuple[str, ...]:
+    """Split a comma-separated flag value, dropping blanks.
+
+    Fire passes comma-separated flag values (e.g. ``--schemas a,b``) to the
+    method as a tuple, so both forms must be accepted.
+    """
+    if not value:
+        return ()
+    if isinstance(value, str):
+        value = value.split(",")
+    return tuple(name.strip() for name in value if name.strip())
 
 
 class CLI(Client):
@@ -34,19 +50,22 @@ class CLI(Client):
         exclude_labels: str | None = None,
         warehouse_id: int | None = None,
         configured_only: bool = False,
+        schemas: str | None = None,
+        table_labels: str | None = None,
+        table_pattern: str | None = None,
     ) -> None:
         self.output_style = "json"
-        labels_to_exclude: list[str] = []
-        if exclude_labels:
-            labels_to_exclude = [
-                label.strip() for label in exclude_labels.split(",") if label.strip()
-            ]
         StateMachine(self).pull(
             filename,
             table_refs,
-            labels_to_exclude,
-            warehouse_id=warehouse_id,
-            configured_only=configured_only,
+            _split_names(exclude_labels),
+            filters=TableFilters(
+                configured_only=configured_only,
+                schemas=_split_names(schemas),
+                table_labels=_split_names(table_labels),
+                table_pattern=table_pattern,
+                warehouse_id=warehouse_id,
+            ),
         )
 
     def examine(

@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: aiohttp_socks
-Version: 0.11.0
+Version: 0.12.0
 Summary: Proxy connector for aiohttp
 Author-email: Roman Snegirev <snegiryev@gmail.com>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: homepage, https://github.com/romis2012/aiohttp-socks
 Project-URL: repository, https://github.com/romis2012/aiohttp-socks
 Keywords: asyncio,aiohttp,socks,socks5,socks4,http,proxy
@@ -11,7 +11,6 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -24,12 +23,11 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Intended Audience :: Developers
 Classifier: Framework :: AsyncIO
-Classifier: License :: OSI Approved :: Apache Software License
-Requires-Python: >=3.8.0
+Requires-Python: >=3.9.0
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: aiohttp>=3.10.0
-Requires-Dist: python-socks[asyncio]<3.0.0,>=2.4.3
+Requires-Dist: python-socks[asyncio]<4.0.0,>=2.4.3
 Dynamic: license-file
 
 ## aiohttp-socks
@@ -47,7 +45,7 @@ It uses [python-socks](https://github.com/romis2012/python-socks) for core proxy
 
 
 ## Requirements
-- Python >= 3.8
+- Python >= 3.9
 - aiohttp >= 3.10.0
 - python-socks[asyncio] >= 2.4.3
 

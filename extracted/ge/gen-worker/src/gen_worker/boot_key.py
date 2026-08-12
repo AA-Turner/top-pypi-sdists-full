@@ -93,7 +93,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 import msgspec
 
 from . import aot_serve, boot_phases, cell_key, compile_cache as cc, env_seal
-from .mint_process import CompileCellSpec, MintSlot
+from .mint_process import CompileCellSpec, MintSlot, slot_subjects
 from .postmortem import cpu_quota_cores, effective_cpu_count
 
 logger = logging.getLogger(__name__)
@@ -238,11 +238,11 @@ class DerivedKey:
     trace_ms: Mapping[str, int] = field(default_factory=dict)
     nodes: Mapping[str, int] = field(default_factory=dict)
     #: pgw#1031: entry name -> the NODE-level digest of the graph this boot
-    #: traced (``aot_mint.keying_block``'s ``graph_witness``). Not a key axis
-    #: and never folded into one — it is what the adopt path compares against
-    #: the cell's own record, because the key provably cannot separate two
-    #: bodies behind one declaration. Rides the keying blocks, so a memo hit
-    #: carries it exactly as a cold trace does.
+    #: traced (``aot_mint.keying_block``'s ``graph_witness``). Since option a it
+    #: is FOLDED into ``class_hash`` (so the key now separates two bodies behind
+    #: one declaration) AND kept here for the adopt backstop, which compares it
+    #: against the cell's own record (defense-in-depth). Rides the keying
+    #: blocks, so a memo hit carries it exactly as a cold trace does.
     graph_witnesses: Mapping[str, str] = field(default_factory=dict)
 
     @property
@@ -276,6 +276,12 @@ def trace_workers(classes: int, *, limit: int = 0) -> PoolWidth:
     is 9.8 MiB (pgw#1080) and its RSS is an import closure. CPU is the only
     real bound, and one core is reserved for the serving parent that is
     concurrently fetching and loading weights.
+
+    That premise was FALSE until pgw#1124 and this sizing was the multiplier:
+    the child ran the serving placement ladder, so each of K children pushed
+    the slot's real non-target components onto the parent's card. The child
+    now loads ``place=False`` and proves it (``boot_trace_child``), which is
+    what makes the paragraph above a fact rather than an intention.
     """
     classes = max(1, int(classes))
     quota = cpu_quota_cores()
@@ -308,11 +314,22 @@ def trace_workers(classes: int, *, limit: int = 0) -> PoolWidth:
 #: has none — which the adopt-side floor reads as "this pod cannot state its
 #: own graph" and refuses. Bumped so a stale memo is a re-trace rather than a
 #: refusal nobody can explain.
-MEMO_VERSION = 3
+#: v4 (pgw#1113): the digest a row is filed under now names the RESOLVED SLOTS
+#: as well as the code and the declaration. A v3 row was filed under a
+#: checkpoint-blind digest, so it answers a strictly different question and
+#: must not be read as an answer to this one. The version rides the digest
+#: input as well as the file header, so a stale row is unaddressable AND the
+#: file it lives in is discarded whole — two independent reasons it cannot be
+#: misread, which is what "typed invalidation" has to mean for a cache whose
+#: wrong answer is a wrong cell.
+MEMO_VERSION = 4
 MEMO_FILENAME = "boot-key-graphs.json"
 
 
-def closure_digest(family: str, cfg: CompileCellSpec, *, function: str = "") -> str:
+def closure_digest(
+    family: str, cfg: CompileCellSpec, *, function: str = "",
+    slots: Optional[Mapping[str, MintSlot]] = None,
+) -> str:
     """The memo's key: what a per-class graph hash is a pure function OF.
 
     ``cc.content_keys()`` is the SDK+endpoint code content (pgw#990 demoted it
@@ -320,9 +337,23 @@ def closure_digest(family: str, cfg: CompileCellSpec, *, function: str = "") -> 
     declaration facts are the other half — two boots of the same code that
     declare different shape ladders trace different graphs.
 
+    ``slots`` is the third half, and it is the one this memo went without for
+    two issues (pgw#1113). The traced graph is a function of the CHECKPOINT's
+    own config: ``zero_cond_t`` exists on ``Qwen-Image-Edit-2511`` and not on
+    ``Qwen-Image``, and block counts, head counts and quantization ops are the
+    general case. Without it, a redeploy that rebinds a slot to a different
+    checkpoint answered from the PREVIOUS checkpoint's row — and because a
+    memo hit skips the traces and returns the memo's own witnesses, the
+    pgw#1031 witness floor that ``boot_adopt`` runs against those witnesses
+    could only ever agree with itself. Folding the slots in is what makes that
+    check capable of failing. Cost: one memo miss and one trace on the first
+    boot after a rebinding, which is what correctness costs here.
+
     Deliberately NOT included: sm, toolchain, env seal. They are key AXES and
     they re-derive every boot in milliseconds; folding them in here would make
     the memo miss on facts whose whole point is that they are cheap to restate.
+    Nor the slots' local PATHS — see ``mint_process.slot_subjects``: where the
+    bytes landed on this disk is not what was traced.
     """
     facts = {
         "v": MEMO_VERSION,
@@ -336,6 +367,7 @@ def closure_digest(family: str, cfg: CompileCellSpec, *, function: str = "") -> 
             "guidance": sorted(float(v) for v in cfg.guidance_scales),
             "lora_bucket": int(cfg.lora_bucket or 0),
         },
+        "subject": cell_key.subject_facts(slot_subjects(dict(slots or {}))),
     }
     blob = json.dumps(facts, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(blob).hexdigest()[:32]
@@ -521,10 +553,11 @@ def class_hashes_of(
 
     Stamped by ``aot_serve.artifact_metadata`` — the mint's own function — so a
     hash computed here and a hash the mint stamped are the same computation.
-    The envelope/precision/strict arguments do not reach ``class_hash``
-    (it folds target/fork/class_dims/range_digest/graph/strict/lora_bucket),
-    which is why this can answer without them; ``strict``/``lora_bucket`` DO,
-    so they are read off the blocks' own ``graph.specialization``.
+    The envelope/precision/strict arguments do not reach ``class_hash`` (it
+    folds target/fork/class_dims/range_digest/graph/graph_witness/strict/
+    lora_bucket), which is why this can answer without them; ``strict``/
+    ``lora_bucket`` DO, so they are read off the blocks' own
+    ``graph.specialization``.
     """
     head = next(iter(blocks.values()), {}) if blocks else {}
     spec = dict((head.get("graph") or {}).get("specialization") or {})
@@ -722,7 +755,7 @@ def derive(
             f"family {family!r} declares no graph classes; a cell with no "
             f"class set has no identity (pgw#716/#758)")
 
-    digest = closure_digest(family, cfg, function=function)
+    digest = closure_digest(family, cfg, function=function, slots=slots)
     memoized = read_memo(memo_dir, digest) if trust_memo else {}
     memo_state = "miss"
 

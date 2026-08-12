@@ -40,12 +40,12 @@ def index(request):
 
     # Filter by collection
     current_collection = None
-    collection_id = request.GET.get("collection_id")
-    if collection_id:
+    if collection_id := request.GET.get("collection_id"):
         try:
             current_collection = Collection.objects.get(id=collection_id)
             media = media.filter(collection=current_collection)
         except (ValueError, Collection.DoesNotExist):
+            # Ignore invalid or unknown collection_id
             pass
 
     # Search
@@ -66,7 +66,7 @@ def index(request):
             current_tag = None
 
     # Pagination
-    paginator, media = paginate(request, media)
+    _paginator, media = paginate(request, media)
 
     collections = permission_policy.collections_user_has_any_permission_for(
         request.user, ["add", "change"]

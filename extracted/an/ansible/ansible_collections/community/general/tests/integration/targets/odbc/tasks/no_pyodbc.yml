@@ -4,13 +4,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Testing the module without pyodbc
-  odbc:
+  community.general.odbc:
     dsn: "Test"
     query: "SELECT * FROM nothing"
   ignore_errors: true
   register: results
 
-- assert:
+- ansible.builtin.assert:
     that:
       - results is failed
       - "'Failed to import the required Python library (pyodbc) on' in results.msg"

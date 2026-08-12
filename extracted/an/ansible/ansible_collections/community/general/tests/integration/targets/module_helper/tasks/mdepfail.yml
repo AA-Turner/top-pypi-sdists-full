@@ -9,11 +9,11 @@
   register: result
 
 - name: Show results
-  debug:
+  ansible.builtin.debug:
     var: result
 
 - name: assert failing dependency
-  assert:
+  ansible.builtin.assert:
     that:
       - result is failed
       - '"Failed to import" in result.msg'

@@ -1088,6 +1088,7 @@ class AssetScopeTypeDef(TypedDict):
     assetId: str
     filterIds: list[str]
     status: str
+    scopeName: NotRequired[str]
     errorMessage: NotRequired[str]
 
 

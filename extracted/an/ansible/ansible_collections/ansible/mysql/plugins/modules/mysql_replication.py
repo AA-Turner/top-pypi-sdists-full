@@ -15,6 +15,7 @@ DOCUMENTATION = r'''
 module: mysql_replication
 short_description: Manage MySQL or MariaDB replication
 description:
+- "Important: MariaDB support will be dropped in collection version 6.0.0. Use the M(ansible.mariadb.mariadb_replication) instead."
 - Manages MySQL or MariaDB server replication, replica, primary status, get and change primary host.
 author:
 - Balazs Pocze (@banyek)
@@ -566,7 +567,7 @@ def main():
             module.fail_json(msg="unable to find %s. Exception message: %s" % (config_file, to_native(e)))
 
     server_version = get_server_version(cursor)
-    server_implementation = get_server_implementation(cursor)
+    server_implementation = get_server_implementation(module, cursor)
     command_resolver = CommandResolver(server_implementation, server_version)
     cursor.execute("SELECT VERSION()")
     if server_implementation == 'mariadb':

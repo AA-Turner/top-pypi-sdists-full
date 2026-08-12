@@ -18,7 +18,7 @@ from ansible_collections.community.dns.plugins.module_utils._zone_record_api imp
     DNSAPIError,
 )
 
-from ._utils import normalize_dns_name
+from ._utils import create_zone_name_id_argspec, get_zone_id_or_name
 
 if t.TYPE_CHECKING:  # pragma: no cover
     from ansible.module_utils.basic import AnsibleModule
@@ -31,18 +31,7 @@ if t.TYPE_CHECKING:  # pragma: no cover
 def create_module_argument_spec(
     provider_information: ProviderInformation,
 ) -> ArgumentSpec:
-    return ArgumentSpec(
-        argument_spec={
-            "zone_name": {"type": "str", "aliases": ["zone"]},
-            "zone_id": {"type": provider_information.get_zone_id_type()},
-        },
-        required_one_of=[
-            ("zone_name", "zone_id"),
-        ],
-        mutually_exclusive=[
-            ("zone_name", "zone_id"),
-        ],
-    )
+    return create_zone_name_id_argspec(provider_information)
 
 
 def run_module(
@@ -55,15 +44,15 @@ def run_module(
         api = create_api()
 
         # Get zone information
-        if module.params.get("zone_name") is not None:
-            zone_id = normalize_dns_name(module.params.get("zone_name"))
-            zone = api.get_zone_by_name(zone_id)
-            if zone is None:
-                module.fail_json(msg="Zone not found")
+        zone_name_in, zone_id_in = get_zone_id_or_name(
+            module.params, provider_information
+        )
+        if zone_name_in is not None:
+            zone = api.get_zone_by_name(zone_name_in)
         else:
-            zone = api.get_zone_by_id(module.params.get("zone_id"))
-            if zone is None:
-                module.fail_json(msg="Zone not found")
+            zone = api.get_zone_by_id(zone_id_in)
+        if zone is None:
+            module.fail_json(msg="Zone not found")
 
         module.exit_json(
             changed=False,

@@ -6,70 +6,43 @@ from .workflowregistrationref_input import (
     WorkflowRegistrationRefInput,
     WorkflowRegistrationRefInputTypedDict,
 )
-from mistralai.workflows.worker_client.types import (
-    BaseModel,
-    Nullable,
-    OptionalNullable,
-    UNSET,
-    UNSET_SENTINEL,
-)
+from mistralai.workflows.worker_client.types import BaseModel, UNSET_SENTINEL
 from pydantic import model_serializer
 from typing import List, Optional
 from typing_extensions import NotRequired, TypedDict
 
 
 class WorkerHeartbeatRequestTypedDict(TypedDict):
+    deployment_name: str
+    r"""Name of the deployment this worker belongs to"""
+    worker_name: str
+    r"""Human-readable name of this worker process (hostname or pod name)"""
     workflow_registration_refs: NotRequired[List[WorkflowRegistrationRefInputTypedDict]]
     r"""List of workflow registration references to heartbeat"""
-    workflow_version_refs: NotRequired[List[WorkflowRegistrationRefInputTypedDict]]
-    r"""Deprecated: use workflow_registration_refs"""
-    deployment_name: NotRequired[Nullable[str]]
-    r"""Name of the deployment this worker belongs to"""
-    worker_name: NotRequired[Nullable[str]]
-    r"""Human-readable name of this worker process (hostname or pod name)"""
 
 
 class WorkerHeartbeatRequest(BaseModel):
+    deployment_name: str
+    r"""Name of the deployment this worker belongs to"""
+
+    worker_name: str
+    r"""Human-readable name of this worker process (hostname or pod name)"""
+
     workflow_registration_refs: Optional[List[WorkflowRegistrationRefInput]] = None
     r"""List of workflow registration references to heartbeat"""
 
-    workflow_version_refs: Optional[List[WorkflowRegistrationRefInput]] = None
-    r"""Deprecated: use workflow_registration_refs"""
-
-    deployment_name: OptionalNullable[str] = UNSET
-    r"""Name of the deployment this worker belongs to"""
-
-    worker_name: OptionalNullable[str] = UNSET
-    r"""Human-readable name of this worker process (hostname or pod name)"""
-
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(
-            [
-                "workflow_registration_refs",
-                "workflow_version_refs",
-                "deployment_name",
-                "worker_name",
-            ]
-        )
-        nullable_fields = set(["deployment_name", "worker_name"])
+        optional_fields = set(["workflow_registration_refs"])
         serialized = handler(self)
         m = {}
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
             val = serialized.get(k, serialized.get(n))
-            is_nullable_and_explicitly_set = (
-                k in nullable_fields
-                and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member
-            )
 
             if val != UNSET_SENTINEL:
-                if (
-                    val is not None
-                    or k not in optional_fields
-                    or is_nullable_and_explicitly_set
-                ):
+                if val is not None or k not in optional_fields:
                     m[k] = val
 
         return m

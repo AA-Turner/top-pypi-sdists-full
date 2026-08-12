@@ -6,6 +6,7 @@ from unittest import mock
 
 from smda.aarch64.AArch64Disassembler import AArch64Disassembler
 from smda.common.BinaryInfo import BinaryInfo
+from smda.common.labelprovider import MachoDemangler
 from smda.common.labelprovider.GoLabelProvider import GoSymbolProvider
 from smda.common.labelprovider.MachoDemangler import demangle_macho_symbol
 from smda.common.labelprovider.MachoSymbolProvider import MachoSymbolProvider
@@ -44,7 +45,7 @@ def _xor_fixture(data):
 
 
 def _load_fixture(fixture_id):
-    manifest = json.loads(MANIFEST_PATH.read_text())
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     fixture = next(item for item in manifest["fixtures"] if item["id"] == fixture_id)
     raw = _xor_fixture((CORPUS_DIR / fixture["path"]).read_bytes())
     loader = MemoryFileLoader(raw, map_file=True)
@@ -145,6 +146,25 @@ class TestMachoSymbolProviderBehavior(unittest.TestCase):
         self.assertGreater(len(symbols), 1000)
         sample_name = next(iter(symbols.values()))
         self.assertNotIn("·", sample_name)
+
+    def test_go_provider_takes_the_text_start_from_the_container(self):
+        # the header's own copy is a placeholder Go no longer maintains, and an externally
+        # linked build leaves it at 0, so every recovered address would be text-relative
+        _, raw, loader = _load_fixture("objective-see/turtle")
+        binary_info = _binary_info(raw, loader)
+        provider = GoSymbolProvider(None)
+
+        text_start = provider.getTextStart(binary_info)
+
+        self.assertIsNotNone(text_start)
+        self.assertGreaterEqual(text_start, loader.getBaseAddress())
+        provider.update(binary_info)
+        self.assertTrue(all(address >= text_start for address in provider.getFunctionSymbols()))
+
+    def test_a_binary_lief_cannot_parse_offers_no_text_start(self):
+        binary_info = BinaryInfo(b"not a container")
+
+        self.assertIsNone(GoSymbolProvider(None).getTextStart(binary_info))
 
 
 class TestMachoCorpusIntegration(unittest.TestCase):
@@ -335,6 +355,45 @@ class TestSwiftDemangleCorpusRegression(unittest.TestCase):
         )
         self.assertIsNotNone(typed_function)
         self.assertEqual(typed_function.function_name, self._JOKERSPY_TYPE_DEMANGLED)
+
+
+class TestMachoDemanglerToolFanout(unittest.TestCase):
+    def setUp(self):
+        MachoDemangler._UNUSABLE_DEMANGLERS.clear()
+        MachoDemangler._find_demangler.cache_clear()
+        MachoDemangler.demangle_macho_symbol.cache_clear()
+        self.addCleanup(MachoDemangler._UNUSABLE_DEMANGLERS.clear)
+        self.addCleanup(MachoDemangler._find_demangler.cache_clear)
+        self.addCleanup(MachoDemangler.demangle_macho_symbol.cache_clear)
+
+    def test_a_demangler_that_cannot_run_is_not_retried_per_symbol(self):
+        calls = []
+
+        def _explode(argv, **kwargs):
+            calls.append(argv)
+            raise OSError("cannot execute")
+
+        with (
+            mock.patch.object(MachoDemangler.shutil, "which", return_value="/usr/bin/swift"),
+            mock.patch.object(MachoDemangler.subprocess, "run", _explode),
+        ):
+            names = [f"_$s4test{index}Vyyf" for index in range(25)]
+            self.assertEqual([MachoDemangler.demangle_macho_symbol(name) for name in names], names)
+
+        self.assertEqual(len(calls), 1)
+
+    def test_the_executable_lookup_happens_once_per_command(self):
+        lookups = []
+
+        def _which(command):
+            lookups.append(command)
+            return None
+
+        with mock.patch.object(MachoDemangler.shutil, "which", _which):
+            for index in range(25):
+                MachoDemangler.demangle_macho_symbol(f"_$s4test{index}Vyyf")
+
+        self.assertEqual(lookups, ["swift"])
 
 
 if __name__ == "__main__":

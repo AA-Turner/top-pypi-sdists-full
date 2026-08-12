@@ -10,18 +10,18 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: determine if mercurial is already installed
-  command: which hg
+  ansible.builtin.command: which hg
   register: has_hg
   ignore_errors: true
 
 - block:
     - name: install mercurial
-      include_tasks: install.yml
+      ansible.builtin.include_tasks: install.yml
       when: has_hg is failed
 
     - name: test mercurial
-      include_tasks: run-tests.yml
+      ansible.builtin.include_tasks: run-tests.yml
 
     - name: uninstall mercurial
-      include_tasks: uninstall.yml
+      ansible.builtin.include_tasks: uninstall.yml
       when: has_hg is failed

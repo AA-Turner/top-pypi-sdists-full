@@ -7,7 +7,7 @@ import time
 import types
 from typing import TYPE_CHECKING, Callable, Mapping, TypeAlias, Union
 
-from chalk.utils._datadog_version import can_use_datadog_statsd
+from chalk.utils._datadog_version import get_datadog_statsd
 from chalk.utils._otel_version import can_use_otel_trace
 from chalk.utils.log_with_context import get_logger
 
@@ -234,28 +234,25 @@ else:
         yield
 
 
-if can_use_datadog_statsd:
-    from datadog.dogstatsd.base import statsd
-
-    def safe_set_gauge(gauge: str, value: int | float, tags: list[str] | None = None):
+def safe_set_gauge(gauge: str, value: int | float, tags: list[str] | None = None):
+    """Set a Datadog gauge when StatsD is available; otherwise do nothing."""
+    statsd = get_datadog_statsd()
+    if statsd is not None:
         statsd.gauge(gauge, value, tags=tags)
 
-    def safe_incr(counter: str, value: int | float, tags: list[str] | None = None):
+
+def safe_incr(counter: str, value: int | float, tags: list[str] | None = None):
+    """Increment a Datadog counter when StatsD is available; otherwise do nothing."""
+    statsd = get_datadog_statsd()
+    if statsd is not None:
         statsd.increment(counter, value, tags)
 
-    def safe_distribution(counter: str, value: int | float, tags: list[str] | None = None):
+
+def safe_distribution(counter: str, value: int | float, tags: list[str] | None = None):
+    """Record a Datadog distribution when StatsD is available; otherwise do nothing."""
+    statsd = get_datadog_statsd()
+    if statsd is not None:
         statsd.distribution(counter, value, tags)
-
-else:
-
-    def safe_set_gauge(gauge: str, value: int | float, tags: list[str] | None = None):
-        pass
-
-    def safe_incr(counter: str, value: int | float, tags: list[str] | None = None):
-        pass
-
-    def safe_distribution(counter: str, value: int | float, tags: list[str] | None = None):
-        pass
 
 
 class PerfTimer:

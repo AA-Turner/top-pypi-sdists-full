@@ -46,6 +46,11 @@ from .writer import (
     snapshot_weight_groups,
 )
 from .convert import run_inline_conversion
+from .dtype_pins import (
+    cast_exempt_components,
+    check_explicit_pin_conflict,
+    verify_produced_tree,
+)
 from .layout import canonical_model_family_from_variant, infer_model_family_variant_from_hint
 from .registry import repackage_family
 from ..api.slot import OBJECTIVES
@@ -323,6 +328,15 @@ def build_flavor_tree(
     else:
         target_names = set(_default_quant_components())
     is_quant = spec.dtype not in {"bf16", "fp16", "fp32", "f16", "f32"}
+    # pgw#1133: a cast is TREE-wide, a precision pin is PER-COMPONENT. The
+    # tree's own model_index.json classes decide, via families.facts — the
+    # same table the loader honours. An EXPLICIT request to convert a pinned
+    # component is refused by name (it has a repair); the tree-wide cast
+    # skips it and says so (it does not).
+    check_explicit_pin_conflict(
+        work_root, spec.dtype, quantize_components if is_quant else None)
+    pin_exempt = cast_exempt_components(work_root, spec.dtype)
+    skipped_pins: dict[str, str] = {}
     converted: set[str] = set()
     for comp, entry in groups:
         comp_dir = (work_root / comp) if comp else work_root
@@ -331,6 +345,16 @@ def build_flavor_tree(
         if is_quant and comp and comp not in target_names:
             continue
         if size < _MIN_CONVERT_BYTES and is_quant:
+            continue
+        # ...EXCEPT a component whose class pins a wider load dtype: it passes
+        # through at source precision (copy_non_weight_files carries it).
+        # Checked here, after the scope rules, so the report names only the
+        # components this conversion would ACTUALLY have narrowed.
+        fact = pin_exempt.get(comp)
+        if fact is not None:
+            skipped_pins[comp] = fact.dtype
+            logger.info("clone.cast.pin_skip component=%s pin=%s requested=%s reason=%s",
+                        comp, fact.dtype, spec.dtype, fact.reason)
             continue
         dest = (out_dir / comp) if comp else out_dir
         stem = entry.name
@@ -353,6 +377,11 @@ def build_flavor_tree(
     if spec.dtype in _CAST_NORMALIZE_DTYPES:
         _normalize_variant_filenames(out_dir)
     apply_objective_scheduler_config(out_dir, objective, distilled)
+    if skipped_pins:
+        # Reported, never silent: the flavor says bf16 and one component is
+        # not, so the checkpoint carries WHICH and WHY.
+        attrs["dtype_pinned_components"] = ",".join(
+            f"{c}:{d}" for c, d in sorted(skipped_pins.items()))
     if work_root is not source_dir:
         shutil.rmtree(work_root, ignore_errors=True)
     return out_dir, attrs
@@ -395,6 +424,24 @@ _DTYPE_STORAGE_BITS = {
     "q3_k_m": 3, "q3_k_s": 3,
     "q2_k": 2,
 }
+# pgw#1121. The source's dtype is READ at plan time from the safetensors
+# headers (`ingest.stamp_plan_source_dtype`), so this fires only when no
+# header could be read at all. It is 32 — the widest DENSE width — and the
+# choice is deliberate, because the two ways to be wrong do not cost the same:
+#
+#   * too NARROW (the old default, 4) makes the estimate 4-8x the truth and
+#     REFUSES the job at plan time, before a byte moves. Nothing recovers
+#     that: the conversion surface has one pod shape, and you cannot rent
+#     268 GiB for an 82 GiB clone. It also fired on essentially every real
+#     source, since a genuinely packed 4-bit tree is always tagged, gguf, or
+#     routed through a quant strategy — never an unreadable dense header.
+#   * too WIDE under-estimates the output and can hit ENOSPC mid-clone. That
+#     costs one pod-hour, says exactly what happened, and is retryable on a
+#     bigger disk.
+#
+# A loud, late, recoverable failure on the rare unreadable source beats a
+# silent, early, permanent refusal on the common one.
+_UNRESOLVED_SOURCE_BITS = 32
 
 
 def _plan_has_no_repackager(plan: Any) -> bool:
@@ -417,6 +464,22 @@ def _plan_has_no_repackager(plan: Any) -> bool:
         declared = repackage_family(canonical_model_family_from_variant(variant))
         return declared is None or not declared.supports_singlefile_to_diffusers
     return False
+
+
+def _output_tree_bytes(
+    spec: OutputSpec, source_bytes: int, source_bits: int, measured_bits: int,
+) -> int:
+    """How big one materialized output tree will be, in bytes.
+
+    A NARROWING cast is only known to shrink when the source width was
+    measured; on a guessed width the old, deliberately loose bound stands —
+    an output tree is never bigger than the source it was cast from."""
+    out_bits = _DTYPE_STORAGE_BITS.get(spec.dtype)
+    if out_bits is None:  # "source", or a container we cannot size
+        return source_bytes
+    if not measured_bits and out_bits <= source_bits:
+        return source_bytes
+    return (source_bytes * out_bits + source_bits - 1) // source_bits
 
 
 def _preflight_disk(workdir: Path, plan: Any, specs: list[OutputSpec]) -> None:
@@ -491,14 +554,15 @@ def _preflight_disk(workdir: Path, plan: Any, specs: list[OutputSpec]) -> None:
             if m:
                 shard_groups[m.group("group")] = shard_groups.get(m.group("group"), 0) + size
         deshard_bytes = len(passthrough) * max(shard_groups.values(), default=0)
-        # Untagged safetensors may still be a packed 4-bit tree. Mirrors do
-        # not use this estimate; explicit widening conversions do.
-        source_bits = _DTYPE_STORAGE_BITS.get(source_dtype, 4)
+        # pgw#1121: bits per stored parameter, MEASURED at plan time off the
+        # source's safetensors headers. An output tree is
+        # ``params * out_bits / 8``, so scaling the source bytes by
+        # ``out_bits / measured_bits`` is exact even for a mixed-dtype tree.
+        measured_bits = int(getattr(plan, "source_storage_bits", 0) or 0)
+        source_bits = measured_bits or _DTYPE_STORAGE_BITS.get(
+            source_dtype, _UNRESOLVED_SOURCE_BITS)
         output_sizes = [
-            source_bytes if _DTYPE_STORAGE_BITS.get(spec.dtype, source_bits) <= source_bits
-            else (
-                source_bytes * _DTYPE_STORAGE_BITS[spec.dtype] + source_bits - 1
-            ) // source_bits
+            _output_tree_bytes(spec, source_bytes, source_bits, measured_bits)
             for spec in materialized
         ]
         gguf_intermediate = max(
@@ -533,6 +597,11 @@ def _preflight_disk(workdir: Path, plan: Any, specs: list[OutputSpec]) -> None:
             parts.append("one intermediate F16 GGUF tree")
         if repack:
             parts.append("one layout-repack tree")
+        if (materialized and not measured_bits
+                and source_dtype not in _DTYPE_STORAGE_BITS):
+            parts.append(
+                "source dtype unreadable, assumed "
+                f"{_UNRESOLVED_SOURCE_BITS}-bit")
         operation = ", ".join(parts) or "source tree"
 
     free = shutil.disk_usage(workdir).free
@@ -960,6 +1029,23 @@ def run_clone(
                 })
                 continue
 
+            # pgw#1133 GATE. The last thing before bytes leave: no component
+            # this producer NARROWED below its families.facts pin is
+            # publishable, on ANY lane — cast, quant, publish-as-is or a
+            # reused tree. A source that already ships the component narrow is
+            # still mirrorable (the fact is about the architecture, not a
+            # licence to refuse upstream's bytes); only OUR truncation fails.
+            try:
+                produced_dtypes = verify_produced_tree(
+                    tree, source_dir=Path(source.dir))
+            except Exception as exc:  # noqa: BLE001 — one flavor, not the run
+                result.failed_flavors.append({
+                    "spec_label": spec.label, "dtype": spec.dtype,
+                    "file_type": spec.file_type, "reason": str(exc),
+                    "component_dtype_pin_violation": True,
+                })
+                continue
+
             # size facts for VRAM-aware placement (advisory).
             metadata: dict[str, Any] = {k: v for k, v in source.metadata.items()}
             try:
@@ -970,6 +1056,12 @@ def run_clone(
                     metadata["size_facts"] = facts
             except Exception:
                 pass
+            # pgw#1133 VISIBILITY: the flavor's scalar dtype describes the
+            # tree, not every part of it. Publish the per-component precision
+            # so a downcast is a queryable fact instead of a byte count
+            # someone has to notice.
+            if produced_dtypes:
+                metadata["component_dtypes"] = dict(produced_dtypes)
             for k, v in attrs.items():
                 metadata.setdefault(f"attr_{k}", str(v))
 

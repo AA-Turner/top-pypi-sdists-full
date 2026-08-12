@@ -1663,3 +1663,12 @@ def test_null_user_id(app, client, get_message):
         sess["_user_id"] = ""
         sess["user_id"] = ""
     assert not is_authenticated(client, get_message)
+
+
+@pytest.mark.settings(default_remember_me=True)
+def test_remember_login_form(app, client):
+    # ensure form has the checkbox set if default set.
+    response = client.get("/login")
+    assert response.status_code == 200
+    r = get_form_input(response, "remember")
+    assert "checked" in r

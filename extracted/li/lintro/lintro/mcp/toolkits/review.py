@@ -43,6 +43,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final
 
+from lintro.ai.review.exceptions import ReviewContextError
 from lintro.mcp.enums.mcp_error_code import McpErrorCode
 from lintro.mcp.errors import McpError, McpErrorEnvelope
 from lintro.mcp.registry import McpToolSpec
@@ -152,6 +153,7 @@ _INVALID_INPUT_CONTEXT_CODES: Final[frozenset[str]] = frozenset(
         "invalid-review-mode",
         "diff-desync",
         "no-parseable-diff",
+        "diff-too-large",
     },
 )
 
@@ -341,7 +343,6 @@ def _collect_context(
             otherwise.
     """
     from lintro.ai.review import collect_review_context
-    from lintro.ai.review.exceptions import ReviewContextError
 
     try:
         return collect_review_context(
@@ -635,8 +636,10 @@ def _execute_review(*, arguments: dict[str, Any], workspace: Path) -> dict[str, 
     from lintro.ai.review.enums.review_strictness import ReviewStrictness
     from lintro.ai.review.orchestrator import run_review
     from lintro.ai.review.sensitivity import resolve_sensitivity_policy
+    from lintro.ai.transport import apply_resolved_transport
 
     lintro_config, ai_config = _resolve_ai_config(workspace=workspace)
+    ai_config = apply_resolved_transport(ai_config)
     budget = resolve_budget_policy(
         requested=arguments.get("max_cost_usd"),
         configured=ai_config.max_cost_usd,
@@ -702,6 +705,22 @@ def _execute_review(*, arguments: dict[str, Any], workspace: Path) -> dict[str, 
             workspace_root=workspace,
             context_collection_seconds=context_collection_seconds,
         )
+    except ReviewContextError as exc:
+        # Context errors raised inside run_review (e.g. the CLI diff-size
+        # ceiling, #1967) get the same taxonomy mapping as _collect_context,
+        # so a too-large diff reports as invalid input, not a provider crash.
+        code = str(exc.code.value)
+        if code in _UNAVAILABLE_CONTEXT_CODES:
+            mcp_code = McpErrorCode.TOOL_UNAVAILABLE
+        elif code in _INVALID_INPUT_CONTEXT_CODES:
+            mcp_code = McpErrorCode.INVALID_INPUT
+        else:
+            mcp_code = McpErrorCode.EXECUTION_ERROR
+        raise McpError(
+            code=mcp_code,
+            message=str(exc),
+            detail={"tool": "lintro_review", "context_error": code},
+        ) from exc
     except (AIError, ValueError) as exc:
         failure = _review_failure(provider_name=str(provider.name), error=exc)
         raise McpError(

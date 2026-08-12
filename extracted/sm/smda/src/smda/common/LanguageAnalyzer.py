@@ -15,6 +15,9 @@ from smda.utility.MachoBinary import get_active_macho_binary
 
 LOGGER = logging.getLogger(__name__)
 
+_PRINTABLE_STRINGS_RE = re.compile(b"[ -~]{6,128}")
+_BORLAND_LOCALES = b"borland\\locales"
+
 
 class LanguageAnalyzer:
     def __init__(self, disassembly):
@@ -28,11 +31,13 @@ class LanguageAnalyzer:
         self._cpp_symbol_count = 0
         self._guess = None
         self._delphi_objects = None
+        self._delphi_score = None
+        self._cpp_symbol_score = None
 
     def validPEHeader(self):
         is_pe = self.disassembly.binary_info.binary[0:2] == b"\x4d\x5a"
         if len(self.disassembly.binary_info.binary) > 0x40:
-            pe_offset = struct.unpack("I", self.disassembly.binary_info.binary[0x3C:0x40])[0]
+            pe_offset = struct.unpack("<I", self.disassembly.binary_info.binary[0x3C:0x40])[0]
             is_pe = is_pe and (
                 len(self.disassembly.binary_info.binary) > pe_offset
                 and self.disassembly.binary_info.binary[pe_offset : pe_offset + 2] == b"\x50\x45"
@@ -44,19 +49,17 @@ class LanguageAnalyzer:
     # SOURCE: https://gist.github.com/geudrik/03152ba1a148d9475e81
     def _getPETimestamp(self):
         try:
-            pe_offset = struct.unpack("I", self.disassembly.binary_info.binary[0x3C:0x40])[0]
+            pe_offset = struct.unpack("<I", self.disassembly.binary_info.binary[0x3C:0x40])[0]
             # Seek to PE header and read second DWORD
             ts_offset = pe_offset + 8
-            return struct.unpack("I", self.disassembly.binary_info.binary[ts_offset : ts_offset + 4])[0]
+            return struct.unpack("<I", self.disassembly.binary_info.binary[ts_offset : ts_offset + 4])[0]
         except (struct.error, IndexError):
             return 0
 
     def getStrings(self):
-        if not self.strings:
-            self.strings = [
-                match.group("string")
-                for match in re.finditer(b"(?P<string>[ -~]{6,128})", self.disassembly.binary_info.binary)
-            ]
+        if self.strings is None:
+            # single-group findall yields the group directly, so this is the same list
+            self.strings = _PRINTABLE_STRINGS_RE.findall(self.disassembly.binary_info.binary)
         return self.strings
 
     def getVisualBasicScore(self):
@@ -107,9 +110,30 @@ class LanguageAnalyzer:
         return self.getDelphiScore() > 0.5
 
     def getDelphiScore(self):
+        if self._delphi_score is None:
+            self._delphi_score = self._computeDelphiScore()
+        return self._delphi_score
+
+    @staticmethod
+    def _containsBorlandLocales(data):
+        """Case-insensitive search for the literal "Borland\\Locales".
+
+        Anchored on the backslash rather than lowercasing the whole image: the needle has no
+        regex metacharacters, so this is a plain substring predicate over a buffer that can be
+        megabytes wide.
+        """
+        position = data.find(b"\\", 7)
+        while position != -1:
+            # the start index is kept >= 7 so a negative slice can never wrap to the tail
+            if data[position - 7 : position + 8].lower() == _BORLAND_LOCALES:
+                return True
+            position = data.find(b"\\", position + 1)
+        return False
+
+    def _computeDelphiScore(self):
         delphi_score = 0.0
         # Check if Delphi-Locales are present in strings
-        if b"Borland\\locales" in self.getStrings():
+        if self._containsBorlandLocales(self.disassembly.binary_info.binary):
             delphi_score = max(delphi_score, 0.25)
         if self._getPETimestamp() == 0x2A425E19:
             delphi_score = max(delphi_score, 0.25)
@@ -118,7 +142,7 @@ class LanguageAnalyzer:
             match.group("string")
             # Regex: <DWORD_LEN_STRING><STRING><TERMINATOR>
             for match in re.finditer(
-                b"\x00\x00.(?P<length>.)(?P<string>[ -~]{6,128})\x00",
+                b"\x00\x00[\\S\\s](?P<length>[\\S\\s])(?P<string>[ -~]{6,128})\x00",
                 self.disassembly.binary_info.binary,
             )
             if len(match.group("string")) == ord(match.group("length"))
@@ -171,6 +195,11 @@ class LanguageAnalyzer:
         The returned count is capped at ``CPP_SYMBOL_EVIDENCE_THRESHOLD``; it reports
         how much evidence was needed, not how many C++ symbols the binary holds.
         """
+        if self._cpp_symbol_score is None:
+            self._cpp_symbol_score = self._computeCppSymbolScore()
+        return self._cpp_symbol_score
+
+    def _computeCppSymbolScore(self):
         try:
             lief_binary = self.disassembly.binary_info.getLiefBinary()
         except Exception as exc:

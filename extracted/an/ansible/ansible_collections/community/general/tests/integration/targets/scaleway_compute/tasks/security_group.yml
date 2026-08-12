@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Create a scaleway security_group
-  scaleway_security_group:
+  community.general.scaleway_security_group:
     state: present
     region: '{{ scaleway_region }}'
     name: test_compute
@@ -16,12 +16,13 @@
     organization_default: false
   register: security_group
 
-- debug: var=security_group
+- ansible.builtin.debug:
+    var: security_group
 
 - block:
     - name: Create a server with security_group (Check)
       check_mode: true
-      scaleway_compute:
+      community.general.scaleway_compute:
         name: '{{ scaleway_name }}'
         state: present
         image: '{{ scaleway_image_id }}'
@@ -32,15 +33,16 @@
 
       register: server_creation_check_task
 
-    - debug: var=server_creation_check_task
+    - ansible.builtin.debug:
+        var: server_creation_check_task
 
-    - assert:
+    - ansible.builtin.assert:
         that:
           - server_creation_check_task is success
           - server_creation_check_task is changed
 
     - name: Create a server
-      scaleway_compute:
+      community.general.scaleway_compute:
         name: '{{ scaleway_name }}'
         state: present
         image: '{{ scaleway_image_id }}'
@@ -52,15 +54,16 @@
 
       register: server_creation_task
 
-    - debug: var=server_creation_task
+    - ansible.builtin.debug:
+        var: server_creation_task
 
-    - assert:
+    - ansible.builtin.assert:
         that:
           - server_creation_task is success
           - server_creation_task is changed
 
     - name: Create a server with security_group (Confirmation)
-      scaleway_compute:
+      community.general.scaleway_compute:
         name: '{{ scaleway_name }}'
         state: present
         image: '{{ scaleway_image_id }}'
@@ -72,16 +75,17 @@
 
       register: server_creation_confirmation_task
 
-    - debug: var=server_creation_confirmation_task
+    - ansible.builtin.debug:
+        var: server_creation_confirmation_task
 
-    - assert:
+    - ansible.builtin.assert:
         that:
           - server_creation_confirmation_task is success
           - server_creation_confirmation_task is not changed
 
     - name: Keep current security_group (Check)
       check_mode: true
-      scaleway_compute:
+      community.general.scaleway_compute:
         name: '{{ scaleway_name }}'
         state: present
         image: '{{ scaleway_image_id }}'
@@ -93,15 +97,16 @@
 
       register: server_creation_confirmation_task
 
-    - debug: var=server_creation_confirmation_task
+    - ansible.builtin.debug:
+        var: server_creation_confirmation_task
 
-    - assert:
+    - ansible.builtin.assert:
         that:
           - server_creation_confirmation_task is success
           - server_creation_confirmation_task is not changed
 
     - name: Keep current security_group
-      scaleway_compute:
+      community.general.scaleway_compute:
         name: '{{ scaleway_name }}'
         state: present
         image: '{{ scaleway_image_id }}'
@@ -112,16 +117,17 @@
 
       register: server_creation_confirmation_task
 
-    - debug: var=server_creation_confirmation_task
+    - ansible.builtin.debug:
+        var: server_creation_confirmation_task
 
-    - assert:
+    - ansible.builtin.assert:
         that:
           - server_creation_confirmation_task is success
           - server_creation_confirmation_task is not changed
 
   always:
     - name: Destroy it
-      scaleway_compute:
+      community.general.scaleway_compute:
         name: '{{ scaleway_name }}'
         state: absent
         image: '{{ scaleway_image_id }}'
@@ -132,15 +138,16 @@
 
       register: server_destroy_task
 
-    - debug: var=server_destroy_task
+    - ansible.builtin.debug:
+        var: server_destroy_task
 
-    - assert:
+    - ansible.builtin.assert:
         that:
           - server_destroy_task is success
           - server_destroy_task is changed
 
     - name: Create a scaleway security_group
-      scaleway_security_group:
+      community.general.scaleway_security_group:
         state: absent
         region: '{{ scaleway_region }}'
         name: test_compute

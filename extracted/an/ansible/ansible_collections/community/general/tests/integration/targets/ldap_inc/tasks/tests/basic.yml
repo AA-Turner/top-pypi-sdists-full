@@ -3,14 +3,14 @@
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-- debug:
+- ansible.builtin.debug:
     msg: Running tests/basic.yml
 
 ####################################################################
 ## Increment #######################################################
 ####################################################################
 - name: Test increment by default
-  ldap_inc:
+  community.general.ldap_inc:
     bind_dn: "cn=admin,dc=example,dc=com"
     bind_pw: "Test1234!"
     dn: "cn=ldapinctest,ou=sequence,dc=example,dc=com"
@@ -19,7 +19,7 @@
   register: output
 
 - name: assert that test increment by default
-  assert:
+  ansible.builtin.assert:
     that:
       - output is not failed
       - output.incremented
@@ -27,7 +27,7 @@
       - output.rfc4525
 
 - name: Test defined increment
-  ldap_inc:
+  community.general.ldap_inc:
     bind_dn: "cn=admin,dc=example,dc=com"
     bind_pw: "Test1234!"
     dn: "cn=ldapinctest,ou=sequence,dc=example,dc=com"
@@ -37,7 +37,7 @@
   register: output
 
 - name: assert that test increment by default
-  assert:
+  ansible.builtin.assert:
     that:
       - output is not failed
       - output.incremented
@@ -45,7 +45,7 @@
       - output.rfc4525
 
 - name: Test defined increment by 0
-  ldap_inc:
+  community.general.ldap_inc:
     bind_dn: "cn=admin,dc=example,dc=com"
     bind_pw: "Test1234!"
     dn: "cn=ldapinctest,ou=sequence,dc=example,dc=com"
@@ -55,14 +55,14 @@
   register: output
 
 - name: assert that test defined increment by 0
-  assert:
+  ansible.builtin.assert:
     that:
       - output is not failed
       - output.incremented == false
       - output.value == "1003"
 
 - name: Test defined negative increment
-  ldap_inc:
+  community.general.ldap_inc:
     bind_dn: "cn=admin,dc=example,dc=com"
     bind_pw: "Test1234!"
     dn: "cn=ldapinctest,ou=sequence,dc=example,dc=com"
@@ -72,7 +72,7 @@
   register: output
 
 - name: assert that test defined negative increment
-  assert:
+  ansible.builtin.assert:
     that:
       - output is not failed
       - output.incremented
@@ -80,7 +80,7 @@
       - output.rfc4525
 
 - name: Test forcing classic method instead of automatic detection
-  ldap_inc:
+  community.general.ldap_inc:
     bind_dn: "cn=admin,dc=example,dc=com"
     bind_pw: "Test1234!"
     dn: "cn=ldapinctest,ou=sequence,dc=example,dc=com"
@@ -91,7 +91,7 @@
   register: output
 
 - name: assert that test defined negative increment
-  assert:
+  ansible.builtin.assert:
     that:
       - output is not failed
       - output.incremented

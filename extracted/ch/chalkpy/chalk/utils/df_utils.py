@@ -10,7 +10,6 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.ipc as pa_ipc
 import pyarrow.parquet as pq
-import requests
 
 from chalk.features._encoding.pyarrow import is_map_in_dtype_tree, pyarrow_to_polars
 from chalk.utils.log_with_context import get_logger
@@ -659,6 +658,8 @@ def _read_parquet(
     except:
         if isinstance(source, str):
             if source.startswith("https://"):
+                import requests
+
                 buffer = BytesIO(requests.get(source).content)
             else:
                 buffer = open(source, "rb")

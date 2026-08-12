@@ -13,8 +13,10 @@ class ReqIFDataTypeDefinitionString:
         long_name: Optional[str] = None,
         max_length: Optional[str] = None,
         is_self_closed: bool = True,
+        alternative_id: Optional[str] = None,
     ):
         self.identifier: str = identifier
+        self.alternative_id: Optional[str] = alternative_id
         self.description: Optional[str] = description
         self.last_change: Optional[str] = last_change
         self.long_name: Optional[str] = long_name
@@ -39,8 +41,10 @@ class ReqIFDataTypeDefinitionBoolean:
         last_change: Optional[str] = None,
         long_name: Optional[str] = None,
         is_self_closed: bool = True,
+        alternative_id: Optional[str] = None,
     ):
         self.identifier: str = identifier
+        self.alternative_id: Optional[str] = alternative_id
         self.description: Optional[str] = description
         self.last_change: Optional[str] = last_change
         self.long_name: Optional[str] = long_name
@@ -66,8 +70,10 @@ class ReqIFDataTypeDefinitionInteger:
         max_value: Optional[str] = None,
         min_value: Optional[str] = None,
         is_self_closed: bool = True,
+        alternative_id: Optional[str] = None,
     ):
         self.identifier: str = identifier
+        self.alternative_id: Optional[str] = alternative_id
         self.description: Optional[str] = description
         self.last_change: Optional[str] = last_change
         self.long_name: Optional[str] = long_name
@@ -88,8 +94,10 @@ class ReqIFDataTypeDefinitionReal:  # pylint: disable=too-many-instance-attribut
         max_value: Optional[str] = None,
         min_value: Optional[str] = None,
         is_self_closed: bool = False,
+        alternative_id: Optional[str] = None,
     ):
         self.identifier: str = identifier
+        self.alternative_id: Optional[str] = alternative_id
         self.accuracy: Optional[int] = accuracy
         self.description: Optional[str] = description
         self.last_change: Optional[str] = last_change
@@ -109,8 +117,10 @@ class ReqIFEnumValue:
         last_change: Optional[str] = None,
         other_content: Optional[str] = None,
         long_name: Optional[str] = None,
+        alternative_id: Optional[str] = None,
     ):
         self.identifier: str = identifier
+        self.alternative_id: Optional[str] = alternative_id
         self.key: Optional[str] = key
         self.description: Optional[str] = description
         self.last_change: Optional[str] = last_change
@@ -135,8 +145,10 @@ class ReqIFDataTypeDefinitionEnumeration:  # pylint: disable=too-many-instance-a
         long_name: Optional[str] = None,
         values: Optional[List[ReqIFEnumValue]] = None,
         is_self_closed: bool = False,
+        alternative_id: Optional[str] = None,
     ):
         self.identifier: str = identifier
+        self.alternative_id: Optional[str] = alternative_id
         self.description: Optional[str] = description
         self.last_change: Optional[str] = last_change
         self.long_name: Optional[str] = long_name
@@ -164,8 +176,10 @@ class ReqIFDataTypeDefinitionXHTML:
         last_change: Optional[str] = None,
         long_name: Optional[str] = None,
         is_self_closed: bool = False,
+        alternative_id: Optional[str] = None,
     ):
         self.identifier: str = identifier
+        self.alternative_id: Optional[str] = alternative_id
         self.description: Optional[str] = description
         self.last_change: Optional[str] = last_change
         self.long_name: Optional[str] = long_name
@@ -181,8 +195,10 @@ class ReqIFDataTypeDefinitionDateIdentifier:
         last_change: Optional[str] = None,
         long_name: Optional[str] = None,
         is_self_closed: bool = True,
+        alternative_id: Optional[str] = None,
     ):
         self.identifier: str = identifier
+        self.alternative_id: Optional[str] = alternative_id
         self.description: Optional[str] = description
         self.last_change: Optional[str] = last_change
         self.long_name: Optional[str] = long_name

@@ -33,7 +33,6 @@ from ansible_collections.community.dns.plugins.module_utils._record_set import (
     DNSRecordSet,
 )
 from ansible_collections.community.dns.plugins.module_utils._zone_record_api import (
-    NOT_PROVIDED,
     DNSAPIAuthenticationError,
     DNSAPIError,
     ZoneRecordAPI,
@@ -43,7 +42,12 @@ from ansible_collections.community.dns.plugins.module_utils._zone_record_set_api
     filter_record_sets,
 )
 
-from ._utils import get_prefix, normalize_dns_name
+from ._utils import (
+    create_zone_name_id_argspec,
+    get_prefix,
+    get_zone_id_or_name_with_prefix_filter,
+    normalize_dns_name,
+)
 
 if t.TYPE_CHECKING:  # pragma: no cover
     from ansible.module_utils.basic import AnsibleModule
@@ -58,36 +62,36 @@ if t.TYPE_CHECKING:  # pragma: no cover
 def create_module_argument_spec(
     provider_information: ProviderInformation,
 ) -> ArgumentSpec:
-    return ArgumentSpec(
-        argument_spec={
-            "state": {
-                "type": "str",
-                "choices": ["present", "absent"],
-                "required": True,
+    return (
+        ArgumentSpec(
+            argument_spec={
+                "state": {
+                    "type": "str",
+                    "choices": ["present", "absent"],
+                    "required": True,
+                },
+                "record": {"type": "str"},
+                "prefix": {"type": "str"},
+                "ttl": {
+                    "type": "int",
+                    "default": provider_information.get_record_default_ttl(),
+                },
+                "type": {
+                    "choices": provider_information.get_supported_record_types(),
+                    "required": True,
+                },
+                "value": {"type": "str", "required": True},
             },
-            "zone_name": {"type": "str", "aliases": ["zone"]},
-            "zone_id": {"type": provider_information.get_zone_id_type()},
-            "record": {"type": "str"},
-            "prefix": {"type": "str"},
-            "ttl": {
-                "type": "int",
-                "default": provider_information.get_record_default_ttl(),
-            },
-            "type": {
-                "choices": provider_information.get_supported_record_types(),
-                "required": True,
-            },
-            "value": {"type": "str", "required": True},
-        },
-        required_one_of=[
-            ("zone_name", "zone_id"),
-            ("record", "prefix"),
-        ],
-        mutually_exclusive=[
-            ("zone_name", "zone_id"),
-            ("record", "prefix"),
-        ],
-    ).merge(create_record_transformation_argspec())
+            required_one_of=[
+                ("record", "prefix"),
+            ],
+            mutually_exclusive=[
+                ("record", "prefix"),
+            ],
+        )
+        .merge(create_record_transformation_argspec())
+        .merge(create_zone_name_id_argspec(provider_information))
+    )
 
 
 def _run_module_record_api(
@@ -100,8 +104,28 @@ def _run_module_record_api(
     api: ZoneRecordAPI[ZoneIDT, RecordIDT],
 ) -> t.NoReturn:
     # Get zone information
-    if module.params.get("zone_name") is not None:
-        zone_in = normalize_dns_name(module.params.get("zone_name"))
+    zone_name_in, zone_id_in, filter_prefix = get_zone_id_or_name_with_prefix_filter(
+        module.params, provider_information, use_prefix_or_record=True
+    )
+    if provider_information.is_zone_id_equal_to_zone_name():
+        records = api.get_zone_records(
+            zone_id_in,  # type: ignore
+            prefix=filter_prefix,
+            record_type=type_in,
+        )
+        if records is None:
+            module.fail_json(msg="Zone not found")
+        assert zone_name_in is not None
+        zone_in = zone_name_in
+        zone_id: ZoneIDT = zone_name_in  # type: ignore
+        record_in, prefix = get_prefix(
+            normalized_zone=zone_in,
+            normalized_record=record_in,
+            prefix=prefix_in,
+            provider_information=provider_information,
+        )
+    elif zone_name_in is not None:
+        zone_in = zone_name_in
         record_in, prefix = get_prefix(
             normalized_zone=zone_in,
             normalized_record=record_in,
@@ -117,13 +141,9 @@ def _run_module_record_api(
         records = zone.records
     elif record_in is not None:
         zone = api.get_zone_with_records_by_id(
-            module.params.get("zone_id"),
+            zone_id_in,  # type: ignore
             record_type=type_in,
-            prefix=(
-                provider_information.normalize_prefix(prefix_in)
-                if prefix_in is not None
-                else NOT_PROVIDED
-            ),
+            prefix=filter_prefix,
         )
         if zone is None:
             module.fail_json(msg="Zone not found")
@@ -137,8 +157,8 @@ def _run_module_record_api(
         zone_id = zone.zone.id
         records = zone.records
     else:
-        zone_id = module.params.get("zone_id")
-        prefix = provider_information.normalize_prefix(prefix_in)
+        zone_id: ZoneIDT = zone_id_in  # type: ignore
+        prefix = provider_information.normalize_prefix(normalize_dns_name(prefix_in))
         records = api.get_zone_records(
             zone_id,
             record_type=type_in,
@@ -241,8 +261,28 @@ def _run_module_record_set_api(
     api: ZoneRecordSetAPI[ZoneIDT, RecordSetIDT, RecordIDT],
 ) -> t.NoReturn:
     # Get zone information
-    if module.params.get("zone_name") is not None:
-        zone_in = normalize_dns_name(module.params.get("zone_name"))
+    zone_name_in, zone_id_in, filter_prefix = get_zone_id_or_name_with_prefix_filter(
+        module.params, provider_information, use_prefix_or_record=True
+    )
+    if provider_information.is_zone_id_equal_to_zone_name():
+        record_sets = api.get_zone_record_sets(
+            zone_id_in,  # type: ignore
+            prefix=filter_prefix,
+            record_type=type_in,
+        )
+        if record_sets is None:
+            module.fail_json(msg="Zone not found")
+        assert zone_name_in is not None
+        zone_in = zone_name_in
+        zone_id: ZoneIDT = zone_name_in  # type: ignore
+        record_in, prefix = get_prefix(
+            normalized_zone=zone_in,
+            normalized_record=record_in,
+            prefix=prefix_in,
+            provider_information=provider_information,
+        )
+    elif zone_name_in is not None:
+        zone_in = zone_name_in
         record_in, prefix = get_prefix(
             normalized_zone=zone_in,
             normalized_record=record_in,
@@ -258,13 +298,9 @@ def _run_module_record_set_api(
         record_sets = zone.record_sets
     elif record_in is not None:
         zone = api.get_zone_with_record_sets_by_id(
-            module.params.get("zone_id"),
+            zone_id_in,  # type: ignore
             record_type=type_in,
-            prefix=(
-                provider_information.normalize_prefix(prefix_in)
-                if prefix_in is not None
-                else NOT_PROVIDED
-            ),
+            prefix=filter_prefix,
         )
         if zone is None:
             module.fail_json(msg="Zone not found")
@@ -278,8 +314,8 @@ def _run_module_record_set_api(
         zone_id = zone.zone.id
         record_sets = zone.record_sets
     else:
-        zone_id = module.params.get("zone_id")
-        prefix = provider_information.normalize_prefix(prefix_in)
+        zone_id: ZoneIDT = zone_id_in  # type: ignore
+        prefix = provider_information.normalize_prefix(normalize_dns_name(prefix_in))
         record_sets = api.get_zone_record_sets(
             zone_id,
             record_type=type_in,

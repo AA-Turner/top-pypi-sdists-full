@@ -58,6 +58,7 @@ from .paginator import (
     ListIntegrationAssociationsPaginator,
     ListLambdaFunctionsPaginator,
     ListLexBotsPaginator,
+    ListMetricsPaginator,
     ListPhoneNumbersPaginator,
     ListPhoneNumbersV2Paginator,
     ListPredefinedAttributesPaginator,
@@ -94,6 +95,7 @@ from .paginator import (
     SearchDataTablesPaginator,
     SearchHoursOfOperationOverridesPaginator,
     SearchHoursOfOperationsPaginator,
+    SearchMetricsPaginator,
     SearchPredefinedAttributesPaginator,
     SearchPromptsPaginator,
     SearchQueuesPaginator,
@@ -192,6 +194,8 @@ from .type_defs import (
     CreateInstanceResponseTypeDef,
     CreateIntegrationAssociationRequestTypeDef,
     CreateIntegrationAssociationResponseTypeDef,
+    CreateMetricRequestTypeDef,
+    CreateMetricResponseTypeDef,
     CreateNotificationRequestTypeDef,
     CreateNotificationResponseTypeDef,
     CreateParticipantRequestTypeDef,
@@ -253,6 +257,7 @@ from .type_defs import (
     DeleteHoursOfOperationRequestTypeDef,
     DeleteInstanceRequestTypeDef,
     DeleteIntegrationAssociationRequestTypeDef,
+    DeleteMetricRequestTypeDef,
     DeleteNotificationRequestTypeDef,
     DeletePredefinedAttributeRequestTypeDef,
     DeletePromptRequestTypeDef,
@@ -310,6 +315,8 @@ from .type_defs import (
     DescribeInstanceResponseTypeDef,
     DescribeInstanceStorageConfigRequestTypeDef,
     DescribeInstanceStorageConfigResponseTypeDef,
+    DescribeMetricRequestTypeDef,
+    DescribeMetricResponseTypeDef,
     DescribeNotificationRequestTypeDef,
     DescribeNotificationResponseTypeDef,
     DescribePhoneNumberRequestTypeDef,
@@ -466,6 +473,8 @@ from .type_defs import (
     ListLambdaFunctionsResponseTypeDef,
     ListLexBotsRequestTypeDef,
     ListLexBotsResponseTypeDef,
+    ListMetricsRequestTypeDef,
+    ListMetricsResponseTypeDef,
     ListNotificationsRequestTypeDef,
     ListNotificationsResponseTypeDef,
     ListPhoneNumbersRequestTypeDef,
@@ -569,6 +578,8 @@ from .type_defs import (
     SearchHoursOfOperationOverridesResponseTypeDef,
     SearchHoursOfOperationsRequestTypeDef,
     SearchHoursOfOperationsResponseTypeDef,
+    SearchMetricsRequestTypeDef,
+    SearchMetricsResponseTypeDef,
     SearchNotificationsRequestTypeDef,
     SearchNotificationsResponseTypeDef,
     SearchPredefinedAttributesRequestTypeDef,
@@ -679,6 +690,8 @@ from .type_defs import (
     UpdateHoursOfOperationRequestTypeDef,
     UpdateInstanceAttributeRequestTypeDef,
     UpdateInstanceStorageConfigRequestTypeDef,
+    UpdateMetricContentRequestTypeDef,
+    UpdateMetricMetadataRequestTypeDef,
     UpdateNotificationContentRequestTypeDef,
     UpdateParticipantAuthenticationRequestTypeDef,
     UpdateParticipantRoleConfigRequestTypeDef,
@@ -1309,6 +1322,16 @@ class ConnectClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#create_integration_association)
         """
 
+    def create_metric(
+        self, **kwargs: Unpack[CreateMetricRequestTypeDef]
+    ) -> CreateMetricResponseTypeDef:
+        """
+        Creates a new metric definition for the specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_metric.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#create_metric)
+        """
+
     def create_notification(
         self, **kwargs: Unpack[CreateNotificationRequestTypeDef]
     ) -> CreateNotificationResponseTypeDef:
@@ -1701,6 +1724,14 @@ class ConnectClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#delete_integration_association)
         """
 
+    def delete_metric(self, **kwargs: Unpack[DeleteMetricRequestTypeDef]) -> dict[str, Any]:
+        """
+        Deletes an existing metric from the specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_metric.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#delete_metric)
+        """
+
     def delete_notification(
         self, **kwargs: Unpack[DeleteNotificationRequestTypeDef]
     ) -> dict[str, Any]:
@@ -2085,6 +2116,17 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_instance_storage_config.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#describe_instance_storage_config)
+        """
+
+    def describe_metric(
+        self, **kwargs: Unpack[DescribeMetricRequestTypeDef]
+    ) -> DescribeMetricResponseTypeDef:
+        """
+        Retrieves the full definition of an existing metric from the specified Connect
+        Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_metric.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#describe_metric)
         """
 
     def describe_notification(
@@ -2981,6 +3023,17 @@ class ConnectClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#list_lex_bots)
         """
 
+    def list_metrics(
+        self, **kwargs: Unpack[ListMetricsRequestTypeDef]
+    ) -> ListMetricsResponseTypeDef:
+        """
+        Retrieves a paginated list of metric summaries for the specified Connect
+        Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_metrics.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#list_metrics)
+        """
+
     def list_notifications(
         self, **kwargs: Unpack[ListNotificationsRequestTypeDef]
     ) -> ListNotificationsResponseTypeDef:
@@ -3534,6 +3587,17 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_hours_of_operations.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#search_hours_of_operations)
+        """
+
+    def search_metrics(
+        self, **kwargs: Unpack[SearchMetricsRequestTypeDef]
+    ) -> SearchMetricsResponseTypeDef:
+        """
+        Searches for metrics in the specified Connect Customer instance using search
+        criteria and optional tag-based filters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_metrics.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#search_metrics)
         """
 
     def search_notifications(
@@ -4260,6 +4324,28 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_instance_storage_config.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#update_instance_storage_config)
+        """
+
+    def update_metric_content(
+        self, **kwargs: Unpack[UpdateMetricContentRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the calculation, unit, and/or trend indicator of an existing metric in
+        the specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_metric_content.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#update_metric_content)
+        """
+
+    def update_metric_metadata(
+        self, **kwargs: Unpack[UpdateMetricMetadataRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the name and/or description of an existing metric in the specified
+        Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_metric_metadata.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#update_metric_metadata)
         """
 
     def update_notification_content(
@@ -5029,6 +5115,17 @@ class ConnectClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_metrics"]
+    ) -> ListMetricsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_phone_numbers"]
     ) -> ListPhoneNumbersPaginator:
         """
@@ -5416,6 +5513,17 @@ class ConnectClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["search_hours_of_operations"]
     ) -> SearchHoursOfOperationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_metrics"]
+    ) -> SearchMetricsPaginator:
         """
         Create a paginator for an operation.
 

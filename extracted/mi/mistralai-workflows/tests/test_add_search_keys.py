@@ -118,6 +118,15 @@ class TestValidateAndCoerce:
         with pytest.raises(ApplicationError):
             _validate_and_coerce({1: "v"})  # type: ignore[dict-item]
 
+    def test_reserved_prefix_raises_for_callers(self) -> None:
+        with pytest.raises(ApplicationError, match="reserves"):
+            _validate_and_coerce({"internal.execution.state": "v"})
+
+    def test_reserved_prefix_allowed_for_sdk(self) -> None:
+        assert _validate_and_coerce({"internal.execution.state": "v"}, allow_reserved=True) == {
+            "internal.execution.state": "v"
+        }
+
     @pytest.mark.parametrize("value", [{"a": 1}, [1, 2], (1, 2), {1, 2}])
     def test_container_value_raises(self, value: object) -> None:
         with pytest.raises(ApplicationError):

@@ -56,11 +56,11 @@
   register: result
 
 - name: Debug
-  debug:
+  ansible.builtin.debug:
     var: result
 
 - name: Assert user federation created
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
       - result.existing == {}
@@ -109,11 +109,11 @@
   register: result
 
 - name: Debug
-  debug:
+  ansible.builtin.debug:
     var: result
 
 - name: Assert user federation created (admin realm)
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
       - result.existing == {}
@@ -162,11 +162,11 @@
   register: result
 
 - name: Debug
-  debug:
+  ansible.builtin.debug:
     var: result
 
 - name: Assert user federation unchanged
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
       - result.existing != {}
@@ -217,11 +217,11 @@
   register: result
 
 - name: Debug
-  debug:
+  ansible.builtin.debug:
     var: result
 
 - name: Assert user federation unchanged (admin realm)
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
       - result.existing != {}
@@ -288,11 +288,11 @@
   register: result
 
 - name: Debug
-  debug:
+  ansible.builtin.debug:
     var: result
 
 - name: Assert user federation created
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
       - result.existing != {}
@@ -312,11 +312,11 @@
   register: result
 
 - name: Debug
-  debug:
+  ansible.builtin.debug:
     var: result
 
 - name: Assert user federation deleted
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
       - result.existing != {}
@@ -334,11 +334,11 @@
   register: result
 
 - name: Debug
-  debug:
+  ansible.builtin.debug:
     var: result
 
 - name: Assert user federation unchanged
-  assert:
+  ansible.builtin.assert:
     that:
       - result is not changed
       - result.existing == {}
@@ -403,11 +403,11 @@
   register: result
 
 - name: Debug
-  debug:
+  ansible.builtin.debug:
     var: result
 
 - name: Assert user federation created
-  assert:
+  ansible.builtin.assert:
     that:
       - result is changed
       - result.existing == {}

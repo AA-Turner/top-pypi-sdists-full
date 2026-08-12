@@ -4,7 +4,6 @@ from typing import (
 )
 
 import structlog
-from opentelemetry.instrumentation.asyncio import AsyncioInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from opentelemetry.sdk._logs import LoggerProvider
 from opentelemetry.sdk.metrics import MeterProvider
@@ -168,8 +167,11 @@ def init_tracing(
             else None
         )
 
-    # Instrument common libraries
-    AsyncioInstrumentor().instrument(meter_provider=meter_provider, tracer_provider=tracer_provider)
+    # Instrument common libraries.
+    # AsyncioInstrumentor is deliberately not enabled: it wraps every coroutine passed to
+    # asyncio.create_task/gather/wait/to_thread, and that bookkeeping breaks against Temporal's
+    # separate deterministic workflow event loop ("Cannot enter into task X while another task Y is
+    # being executed"), which can leave a workflow task hung until its start-to-close timeout.
     HTTPXClientInstrumentor().instrument(meter_provider=meter_provider, tracer_provider=tracer_provider)
 
     # Only instrument aiohttp if it's available (GCS storage dependency)

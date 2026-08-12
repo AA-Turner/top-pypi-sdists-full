@@ -483,15 +483,15 @@ def test_unset_password(client, get_message):
     assert get_message("PASSWORD_NOT_PROVIDED") in response.data
 
 
-def _allowed(self, form_error):
+def _locked(self, form_error):
     if self.email == "gal@lp.com":
         form_error.append("You are not allowed to do that")
-        return False
-    return True
+        return True
+    return False
 
 
-@pytest.mark.app_settings(TESTING_USER_INJECT=dict(is_locked=_allowed))
-def test_override_user_allowed(app, client, get_message):
+@pytest.mark.app_settings(TESTING_USER_INJECT=dict(is_locked=_locked))
+def test_override_user_locked(app, client, get_message):
     data = dict(email="jill@lp.com", password="password")
     response = client.post("/login", json=data)
     assert response.status_code == 200
@@ -506,9 +506,9 @@ def test_override_user_allowed(app, client, get_message):
     ]
 
 
-@pytest.mark.app_settings(TESTING_USER_INJECT=dict(is_locked=_allowed))
+@pytest.mark.app_settings(TESTING_USER_INJECT=dict(is_locked=_locked))
 @pytest.mark.settings(return_generic_responses=True)
-def test_override_user_allowed_gr(app, client, get_message):
+def test_override_user_locked_gr(app, client, get_message):
     data = dict(email="gal@lp.com", password="password")
     response = client.post("/login", json=data)
     assert response.status_code == 400
@@ -1050,10 +1050,12 @@ def test_session_loads_identity(app, client):
 
 
 def test_remember_token(client):
-    response = authenticate(client, follow_redirects=False)
+    response = authenticate(client, follow_redirects=False, remember=True)
     client.delete_cookie("session")
-    response = client.get("/profile")
-    assert b"profile" in response.data
+    assert not client.get_cookie("session")
+    assert client.get_cookie("remember_token")
+    response = client.get("/profile", follow_redirects=True)
+    assert b"Profile Page" in response.data
 
 
 def test_request_loader_does_not_fail_with_invalid_token(client):
@@ -1360,4 +1362,13 @@ def test_override_cache_control(app, client_nc):
 @pytest.mark.settings(cache_control=None)
 def test_no_cache_control(app, client_nc):
     response = json_authenticate(client_nc)
+    assert "Cache-Control" not in response.headers
+
+
+def test_cache_control_not_on_app_endpoints(app, client):
+    # SECURITY_CACHE_CONTROL applies to Flask-Security endpoints only -
+    # responses from application endpoints must not be touched.
+    response = client.get("/login")
+    assert response.cache_control.no_store
+    response = client.get("/")
     assert "Cache-Control" not in response.headers

@@ -194,6 +194,28 @@ class Reservation(google.protobuf.message.Message):
 global___Reservation = Reservation
 
 @typing.final
+class SpendAllocation(google.protobuf.message.Message):
+    """Represents how much of the total reserved amount is allocated to a specific project
+    for a given line item.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    QUANTITY_FIELD_NUMBER: builtins.int
+    PROJECT_ID_FIELD_NUMBER: builtins.int
+    quantity: builtins.int
+    project_id: builtins.int
+    def __init__(
+        self,
+        *,
+        quantity: builtins.int = ...,
+        project_id: builtins.int = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["project_id", b"project_id", "quantity", b"quantity"]) -> None: ...
+
+global___SpendAllocation = SpendAllocation
+
+@typing.final
 class SoftCap(google.protobuf.message.Message):
     """Allows usage beyond a reservation without PAYG charges."""
 
@@ -270,6 +292,7 @@ class UserConfig(google.protobuf.message.Message):
     ALL_ITEMS_FIELD_NUMBER: builtins.int
     ACTIVATION_FIELD_NUMBER: builtins.int
     SOFT_CAP_FIELD_NUMBER: builtins.int
+    SPEND_ALLOCATION_FIELD_NUMBER: builtins.int
     @property
     def payg_budget(self) -> global___PAYGBudget: ...
     @property
@@ -282,6 +305,8 @@ class UserConfig(google.protobuf.message.Message):
     def activation(self) -> global___Activation: ...
     @property
     def soft_cap(self) -> global___SoftCap: ...
+    @property
+    def spend_allocation(self) -> global___SpendAllocation: ...
     def __init__(
         self,
         *,
@@ -291,9 +316,10 @@ class UserConfig(google.protobuf.message.Message):
         all_items: google.protobuf.empty_pb2.Empty | None = ...,
         activation: global___Activation | None = ...,
         soft_cap: global___SoftCap | None = ...,
+        spend_allocation: global___SpendAllocation | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["activation", b"activation", "all_items", b"all_items", "line_items", b"line_items", "payg_budget", b"payg_budget", "reservation", b"reservation", "soft_cap", b"soft_cap", "specific_items", b"specific_items"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["activation", b"activation", "all_items", b"all_items", "line_items", b"line_items", "payg_budget", b"payg_budget", "reservation", b"reservation", "soft_cap", b"soft_cap", "specific_items", b"specific_items"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["activation", b"activation", "all_items", b"all_items", "line_items", b"line_items", "payg_budget", b"payg_budget", "reservation", b"reservation", "soft_cap", b"soft_cap", "specific_items", b"specific_items", "spend_allocation", b"spend_allocation"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["activation", b"activation", "all_items", b"all_items", "line_items", b"line_items", "payg_budget", b"payg_budget", "reservation", b"reservation", "soft_cap", b"soft_cap", "specific_items", b"specific_items", "spend_allocation", b"spend_allocation"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["line_items", b"line_items"]) -> typing.Literal["specific_items", "all_items"] | None: ...
 
 global___UserConfig = UserConfig

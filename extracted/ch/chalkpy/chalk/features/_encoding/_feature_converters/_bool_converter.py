@@ -24,11 +24,6 @@ from ._base import (
 
 # pyright: reportPrivateUsage=false, reportIncompatibleMethodOverride=false, reportReturnType=false, reportUnnecessaryCast=false, reportUnnecessaryComparison=false
 
-try:
-    import polars as pl
-except ImportError:
-    pl = None
-
 
 def _coerce_bool(x: Any) -> bool:
     if isinstance(x, bool):
@@ -56,7 +51,7 @@ class BoolFeatureConverter(
     _primitive_type_value: ClassVar[Type[bool]] = bool
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.bool_()
     _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(bool=pb.EmptyMessage())
-    _polars_dtype_value: ClassVar[Any] = pl.Boolean() if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None
 
     _coerce_fn = staticmethod(_coerce_bool)
 

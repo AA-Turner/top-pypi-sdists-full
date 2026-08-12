@@ -9,7 +9,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Help debugging
-  debug:
+  ansible.builtin.debug:
     msg: >-
       distribution={{ ansible_facts.distribution }},
       distribution major version={{ ansible_facts.distribution_major_version }},
@@ -31,28 +31,28 @@
     - not (ansible_facts.distribution == 'Ubuntu' and ansible_facts.distribution_major_version|int >= 26)  # TODO: not sure what's wrong here, the module doesn't return what the tests expect
   block:
     - name: setup install cloud-init
-      package:
+      ansible.builtin.package:
         name:
           - cloud-init
           - udev
 
     - name: Ensure systemd-network user exists
-      user:
+      ansible.builtin.user:
         name: systemd-network
         state: present
       when: ansible_facts.distribution == 'Fedora' and ansible_facts.distribution_major_version|int >= 37
 
     - name: setup run cloud-init
-      service:
+      ansible.builtin.service:
         name: cloud-init-local
         state: restarted
 
     - name: test gather cloud-init facts in check mode
-      cloud_init_data_facts:
+      community.general.cloud_init_data_facts:
       check_mode: true
       register: result
     - name: verify test gather cloud-init facts in check mode
-      assert:
+      ansible.builtin.assert:
         that:
           - result.cloud_init_data_facts.status.v1 is defined
           - result.cloud_init_data_facts.status.v1.stage is defined
@@ -62,10 +62,10 @@
           - not cloud_init_data_facts.status.v1.stage
 
     - name: test gather cloud-init facts
-      cloud_init_data_facts:
+      community.general.cloud_init_data_facts:
       register: result
     - name: verify test gather cloud-init facts
-      assert:
+      ansible.builtin.assert:
         that:
           - result.cloud_init_data_facts.status.v1 is defined
           - result.cloud_init_data_facts.status.v1.stage is defined

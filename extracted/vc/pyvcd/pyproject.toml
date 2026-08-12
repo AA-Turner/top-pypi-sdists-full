@@ -1,19 +1,112 @@
+[project]
+name = "pyvcd"
+version = "0.5.0"
+description = "Value change dump (VCD) file support for Python"
+readme = "README.rst"
+license = "MIT"
+license-files = ["LICENSE.txt"]
+requires-python = ">=3.10"
+dependencies = ['typing_extensions; python_version < "3.12"']
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
+]
+
+[[project.authors]]
+name = "Peter Grayson"
+email = "pete@jpgrayson.net"
+
+[project.urls]
+Homepage = "http://pyvcd.readthedocs.io/en/latest/"
+Download = "https://github.com/SanDisk-Open-Source/pyvcd"
+Repository = "https://github.com/SanDisk-Open-Source/pyvcd"
+
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.3"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build>=0.9.13,<1.0"]
+build-backend = "uv_build"
 
-[tool.setuptools_scm]
+[tool.uv.build-backend]
+module-name = "vcd"
+source-include = [
+    "CHANGELOG.rst",
+    "Makefile",
+    "docs/**",
+    "tests/**",
+    "tox.ini",
+]
+source-exclude = ["docs/_build/**"]
 
-[tool.black]
-line-length = 88
-target-version = ["py37"]
-exclude = '''
-(
-    ^\/\..*$
-  | \.egg-info
-  | _build
-  | build
-  | dist
-  | htmlcov
-)
-'''
+[tool.pytest]
+addopts = ["--doctest-glob=*.rst"]
+
+[tool.mypy]
+files = ["src/vcd"]
+python_version = "3.10"
+
+[tool.basedpyright]
+include = [
+    "src/vcd",
+    "tests",
+]
+pythonVersion = "3.10"
+reportExplicitAny = false
+
+[tool.ruff.lint]
+ignore = ["E501"]
+select = [
+    "E",
+    "F",
+    "FA",
+    "I",
+    "UP",
+    "W",
+]
+
+[tool.coverage.run]
+branch = true
+source_pkgs = ["vcd"]
+
+[tool.coverage.paths]
+source = [
+    "src/vcd",
+    "*/site-packages/vcd",
+]
+
+[dependency-groups]
+test = [
+    "pytest>=9",
+    "pytest-cov>=2.0",
+]
+lint = ["ruff>=0.8.0"]
+type = [
+    "basedpyright; implementation_name == 'cpython'",
+    "mypy>=0.770; implementation_name == 'cpython'",
+]
+docs = [
+    "sphinx>=7",
+    "sphinx-rtd-theme>=1.3",
+]
+dev = [
+    { include-group = "test" },
+    { include-group = "lint" },
+    { include-group = "type" },
+    { include-group = "docs" },
+    "tox>=4",
+    "tox-uv>=1",
+]

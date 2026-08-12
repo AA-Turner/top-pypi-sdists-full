@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crewai-files
-Version: 1.15.14
+Version: 1.15.15
 Summary: File handling utilities for CrewAI multimodal inputs
 Author-email: Greyson LaLonde <greyson@crewai.com>
 Requires-Python: <3.14,>=3.10

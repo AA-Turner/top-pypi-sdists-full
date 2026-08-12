@@ -9,29 +9,29 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Get server information and register it in a variable
-  scaleway_server_info:
+  community.general.scaleway_server_info:
     region: par1
   register: servers
 
 - name: Display servers variable
-  debug:
+  ansible.builtin.debug:
     var: servers
 
 - name: Ensure retrieval of servers info is success
-  assert:
+  ansible.builtin.assert:
     that:
       - servers is success
 
 - name: Get server information and register it in a variable
-  scaleway_server_info:
+  community.general.scaleway_server_info:
     region: ams1
   register: ams1_servers
 
 - name: Display servers variable
-  debug:
+  ansible.builtin.debug:
     var: ams1_servers
 
 - name: Ensure retrieval of servers info is success
-  assert:
+  ansible.builtin.assert:
     that:
       - ams1_servers is success

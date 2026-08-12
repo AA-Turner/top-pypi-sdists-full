@@ -9,17 +9,17 @@
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-- debug:
+- ansible.builtin.debug:
     var: ansible_facts.distribution
-- debug:
+- ansible.builtin.debug:
     var: ansible_facts.distribution_version
 
-- set_fact:
+- ansible.builtin.set_fact:
     validate_certs: false
   when: (ansible_facts.distribution == "MacOSX" and ansible_facts.distribution_version == "10.11.1")
 
 - name: get information about current IP using ipify facts
-  ipify_facts:
+  community.general.ipify_facts:
     timeout: 30
     validate_certs: "{{ validate_certs }}"
   register: external_ip
@@ -28,7 +28,7 @@
   delay: 10
 
 - name: check if task was successful
-  assert:
+  ansible.builtin.assert:
     that:
       - external_ip is not changed
       - external_ip.ansible_facts is defined

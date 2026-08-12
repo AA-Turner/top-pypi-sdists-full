@@ -6,7 +6,7 @@ import temporalio.activity
 import temporalio.workflow
 
 from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context
-from mistralai.workflows.core.temporal.utils import require_activity_context_value
+from mistralai.workflows.core.temporal.utils import TEMPORAL_SCHEDULE_ID_SEARCH_KEY, require_activity_context_value
 from mistralai.workflows.exceptions import NotInTemporalContextError
 
 logger = structlog.get_logger(__name__)
@@ -86,8 +86,12 @@ def create_base_event_fields() -> dict[str, Any]:
             "workflow_exec_id": workflow_info.workflow_id,
             "workflow_run_id": workflow_info.run_id,
             "workflow_name": workflow_info.workflow_type,
+            "continued_run_id": workflow_info.continued_run_id,
+            "first_execution_run_id": workflow_info.first_execution_run_id,
+            "schedule_id": workflow_info.typed_search_attributes.get(TEMPORAL_SCHEDULE_ID_SEARCH_KEY),
         }
     elif _in_activity():
+        wf_context = retrieve_context()
         activity_info = temporalio.activity.info()
         return {
             "event_id": str(uuid.uuid4()),
@@ -105,6 +109,9 @@ def create_base_event_fields() -> dict[str, Any]:
                 activity_info.workflow_type,
                 field_name="workflow_type",
             ),
+            "continued_run_id": wf_context.continued_run_id if wf_context else None,
+            "first_execution_run_id": wf_context.first_execution_run_id if wf_context else None,
+            "schedule_id": wf_context.schedule_id if wf_context else None,
         }
     else:
         raise NotInTemporalContextError()

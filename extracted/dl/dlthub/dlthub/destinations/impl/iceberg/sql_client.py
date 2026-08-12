@@ -1,6 +1,6 @@
 import duckdb
 from urllib.parse import urlparse
-from typing import Dict, Optional, Tuple
+from typing import Collection, Dict, List, Optional, Tuple
 from datetime import datetime  # noqa: TID251
 
 from dlt.common import logger
@@ -8,7 +8,7 @@ from dlt.common.destination.typing import PreparedTableSchema
 from dlt.common.schema import Schema
 from dlt.common.storages.fsspec_filesystem import fsspec_from_config
 
-from dlt.destinations.sql_client import raise_database_error
+from dlt.destinations.sql_client import TAttachStatement, raise_database_error
 from dlt.destinations.impl.duckdb.sql_client import WithTableScanners
 from dlt.destinations.impl.duckdb.configuration import DuckDbCredentials
 from dlt.sources.credentials import (
@@ -37,10 +37,7 @@ class IcebergSqlClient(WithTableScanners):
             and self.filesystem_config.credentials is not None
             and self.filesystem_config.credentials.is_resolved()
         )
-        if (
-            self.remote_client.config.is_aws_rest_catalog
-            and self.remote_client.config.capabilities.duckdb_attach_catalog
-        ):
+        if self.remote_client.config.attaches_iceberg_catalog:
             self.database_name = self._catalog.name
 
     def catalog_name(self, quote: bool = True, casefold: bool = True) -> Optional[str]:
@@ -69,10 +66,7 @@ class IcebergSqlClient(WithTableScanners):
         )
 
     def create_views_for_tables(self, tables: Dict[str, str]) -> None:
-        if (
-            self.remote_client.config.is_aws_rest_catalog
-            and self.remote_client.config.capabilities.duckdb_attach_catalog
-        ):
+        if self.remote_client.config.attaches_iceberg_catalog:
             return
         super().create_views_for_tables(tables)
 
@@ -80,10 +74,7 @@ class IcebergSqlClient(WithTableScanners):
     def create_view_select(
         self, table_schema: PreparedTableSchema, schema: Schema = None
     ) -> Optional[Tuple[str, str]]:
-        if (
-            self.remote_client.config.is_aws_rest_catalog
-            and self.remote_client.config.capabilities.duckdb_attach_catalog
-        ):
+        if self.remote_client.config.attaches_iceberg_catalog:
             return None
 
         schema = schema or self.schema
@@ -248,20 +239,54 @@ class IcebergSqlClient(WithTableScanners):
     #     with self.remote_client._clock_iceberg(f"duckdb {query}"):
     #         return super().execute_query(query, *args, **kwargs)
 
+    def attach_statements(
+        self, *, alias: str, tables: Optional[Collection[str]] = None
+    ) -> List[TAttachStatement]:
+        if self._conn:
+            return super().attach_statements(alias=alias, tables=tables)
+        # a table description registers its FileIO as a secret or an fsspec filesystem. this
+        # happens on the connection of this client, so that connection must be open. the
+        # statements themselves run on a foreign connection. `__enter__` does nothing when an
+        # outside owner holds the connection
+        with self:
+            return super().attach_statements(alias=alias, tables=tables)
+
+    def _attach_extension_statements(self) -> List[str]:
+        config = self.remote_client.config
+        if config.attach_type() is None:
+            raise NotImplementedError(
+                f"iceberg dataset on a `{config.catalog_type}` catalog cannot be attached via SQL"
+                " statements, see `IcebergClientConfiguration.attach_type`"
+            )
+        # duckdb autoloads the `iceberg` extension needed by `iceberg_scan`
+        return []
+
+    def _attach_secret_statements(self) -> List[str]:
+        if self.filesystem_config.protocol == "file":
+            return []
+        scope = self.filesystem_config.bucket_url
+        secret_statements = self._build_secret_statements(
+            scope, self.filesystem_config.credentials, self.create_secret_name(scope), "", False
+        )
+        if not secret_statements:
+            raise NotImplementedError(
+                f"no duckdb secret available for protocol `{self.filesystem_config.protocol}`"
+            )
+        return secret_statements
+
     def open_connection(self) -> duckdb.DuckDBPyConnection:
+        # duckdb shares secrets, attached catalogs and fsspec filesystems between all connections
+        # to one database, and the setup below tests for them before it writes. the pool lock is
+        # reentrant, so `borrow_conn` takes it again
         with self.credentials.conn_pool._conn_lock:
-            first_connection = self.credentials.conn_pool.never_borrowed
+            return self._open_connection()
 
-            if (
-                self.remote_client.config.is_aws_rest_catalog
-                and self.remote_client.config.capabilities.duckdb_attach_catalog
-            ):
-                # Skips WithTableScanners open_connect - dataset creation not required for S3 Tables
-                super(WithTableScanners, self).open_connection()
-            else:
-                super().open_connection()
+    def _open_connection(self) -> duckdb.DuckDBPyConnection:
+        super().open_connection()
 
-        if first_connection and self.filesystem_config and self.filesystem_config.is_resolved():
+        # these are not pool statements. vended credentials expire. for gs/gcs, dlt registers an
+        # fsspec filesystem, and no recorded statement can express this
+        if self.filesystem_config and self.filesystem_config.is_resolved():
             # NOTE: hopefully duckdb will implement REST catalog connection working with all
             #   main bucket. see create_view_select to see how we deal with vended credentials.
             #   Current best option (performance) is to pass credentials via filesystem or use STS
@@ -294,11 +319,7 @@ class IcebergSqlClient(WithTableScanners):
                             fsspec_from_config(self.filesystem_config)[0], "gcs"
                         )
 
-        if (
-            first_connection
-            and self.remote_client.config.is_aws_rest_catalog
-            and self.remote_client.config.capabilities.duckdb_attach_catalog
-        ):
+        if self.remote_client.config.attaches_iceberg_catalog:
             self._attach_iceberg_extension()
 
         # provides a speed-up when parquet files are requested several times without closing the

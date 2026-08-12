@@ -557,6 +557,7 @@ LocationServiceRoutesV2ServiceName = Literal["geo-routes"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

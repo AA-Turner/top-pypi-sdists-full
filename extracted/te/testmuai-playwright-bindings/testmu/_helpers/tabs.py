@@ -151,6 +151,7 @@ async def _automind_resolve_tab(context, intent: str, operation_type: str):
             "current_tab": current_tab,
             "operation_type": operation_type,
             "test_id": _configure.get("test_id", ""),
+            "billing_run_id": _configure.billing_run_id(),
             "session_id": _configure.get("session_id", ""),
             "commit_id": _configure.get("commit_id", ""),
             "org_id": _org_id_int(_configure.get("org_id", 0)),

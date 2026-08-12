@@ -4,27 +4,25 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: stop redis services
-  shell: |
+  ansible.builtin.shell: |
     kill -TERM $(cat /var/run/redis_{{ master_port }}.pid)
     kill -TERM $(cat /var/run/redis_{{ replica_port }}.pid)
   listen: cleanup redis
 
 - name: remove redis packages
-  action: "{{ ansible_facts.pkg_mgr }}"
-  args:
-    name: "{{ item }}"
+  ansible.builtin.package:
+    name: "{{ redis_packages[ansible_facts.distribution] }}"
     state: absent
-  loop: "{{ redis_packages[ansible_facts.distribution] }}"
   listen: cleanup redis
 
 - name: remove pip packages
-  pip:
+  ansible.builtin.pip:
     name: redis
     state: absent
   listen: cleanup redis
 
 - name: remove redis data
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: absent
   loop:

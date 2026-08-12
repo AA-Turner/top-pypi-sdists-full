@@ -906,6 +906,7 @@ def add_databricks_sql_warehouse(ctx, name, **kwargs):
     DatabricksOnboardingService(
         config=ctx["config"],
         command_name="integrations add_databricks_sql_warehouse",
+        mc_client=create_mc_client(ctx),
     ).onboard_databricks_sql_warehouse(
         connection_type=DATABRICKS_SQL_WAREHOUSE_CONNECTION_TYPE,
         warehouseName=name,
@@ -927,6 +928,7 @@ def add_databricks_metastore_sql_warehouse(ctx, name, **kwargs):
     DatabricksOnboardingService(
         config=ctx["config"],
         command_name="integrations add_databricks_metastore_sql_warehouse",
+        mc_client=create_mc_client(ctx),
     ).onboard_databricks_sql_warehouse(
         connection_type=DATABRICKS_METASTORE_SQL_WAREHOUSE_CONNECTION_TYPE,
         warehouseName=name,
@@ -945,6 +947,7 @@ def create_databricks_webhook_key(ctx, integration_name: Optional[str], **kwargs
     DatabricksOnboardingService(
         config=ctx["config"],
         command_name="integrations create_databricks_webhook_key",
+        mc_client=create_mc_client(ctx),
     ).create_webhook_key(
         warehouse_name=integration_name,
     )

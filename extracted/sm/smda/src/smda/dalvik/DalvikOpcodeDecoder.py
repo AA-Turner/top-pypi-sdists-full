@@ -32,6 +32,12 @@ def read_sleb128(data, offset):
         if byte & 0x80 == 0:
             if shift < size and byte & 0x40:
                 result |= -(1 << shift)
+            # a five-byte encoding carries bits past the 32-bit value width, so the
+            # sign-extension test above cannot fire; keep the low 32 bits and take their
+            # sign, or the padding ones read back as a large positive number
+            result &= 0xFFFFFFFF
+            if result & 0x80000000:
+                result -= 0x100000000
             return result, current
         if shift > 35:
             break
@@ -837,19 +843,59 @@ def _decode_fmt_51l(raw_bytes, byte_idx, opcode, resolve_ref):
 FORMAT_DECODERS["51l"] = _decode_fmt_51l
 
 
+# the format decoder is resolved once here rather than per decoded instruction, so the hot path
+# does one int-keyed probe instead of two probes plus a string-keyed lookup; an opcode whose
+# format has no decoder keeps a None and still raises at decode time, exactly as before
+_OPCODE_DECODE: Dict[int, tuple] = {
+    value: (opcode, FORMAT_DECODERS.get(opcode.fmt)) for value, opcode in OPCODES.items()
+}
+
+
+def _null_resolve(ref_kind, ref_index):
+    return ""
+
+
+def decode_instruction_shallow(bytecode, byte_idx):
+    """Return ``(size_bytes, payload_idx)`` without building a full decoded instruction.
+
+    The linear start sweep consumes only those two fields, but paid for operand formatting,
+    register lists and reference resolution at every offset of the bytecode. The validity
+    checks below are the same three, in the same order, so this raises ValueError on exactly
+    the offsets decode_instruction rejects. Where an opcode declares a payload the real format
+    decoder still produces the target, so payload_idx cannot drift from the full decode.
+    """
+    opcode_value = bytecode[byte_idx]
+    entry = _OPCODE_DECODE.get(opcode_value)
+    if entry is None:
+        raise ValueError(f"Unknown Dalvik opcode 0x{opcode_value:02x}")
+    opcode, decoder = entry
+
+    size_bytes = opcode.size_units * 2
+    if byte_idx + size_bytes > len(bytecode):
+        raise ValueError("Truncated Dalvik instruction")
+
+    if decoder is None:
+        raise ValueError(f"Unsupported Dalvik format {opcode.fmt}")
+
+    if not opcode.payload_kind:
+        return size_bytes, None
+    raw_bytes = bytes(bytecode[byte_idx : byte_idx + size_bytes])
+    return size_bytes, decoder(raw_bytes, byte_idx, opcode, _null_resolve).get("payload_idx")
+
+
 def decode_instruction(bytecode, byte_idx, resolve_ref):
     opcode_value = bytecode[byte_idx]
-    if opcode_value not in OPCODES:
+    entry = _OPCODE_DECODE.get(opcode_value)
+    if entry is None:
         raise ValueError(f"Unknown Dalvik opcode 0x{opcode_value:02x}")
+    opcode, decoder = entry
 
-    opcode = OPCODES[opcode_value]
     size_bytes = opcode.size_units * 2
     if byte_idx + size_bytes > len(bytecode):
         raise ValueError("Truncated Dalvik instruction")
 
     raw_bytes = bytes(bytecode[byte_idx : byte_idx + size_bytes])
 
-    decoder = FORMAT_DECODERS.get(opcode.fmt)
     if decoder is None:
         raise ValueError(f"Unsupported Dalvik format {opcode.fmt}")
 

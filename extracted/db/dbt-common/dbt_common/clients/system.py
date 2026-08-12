@@ -17,6 +17,7 @@ from typing import Any, Callable, Dict, List, NoReturn, Optional, Tuple, Type, U
 
 import dbt_common.exceptions
 import requests
+from dbt_common.constants import SECRET_ENV_PREFIX
 from dbt_common.events.functions import fire_event
 from dbt_common.events.types import (
     SystemCouldNotWrite,
@@ -734,9 +735,37 @@ class GetEnvParams:
     pass
 
 
+_RECORDER_REDACT_ENV_VARS = (
+    "DBT_ENGINE_RECORDER_REDACT_ENV_VARS",
+    "DBT_RECORDER_REDACT_ENV_VARS",
+)
+_REDACTED_ENV_VALUE = "<redacted>"
+
+
+def _redact_recorded_environment(env: Dict[str, str]) -> Dict[str, str]:
+    redacted_names = {name.casefold() for name in env if name.startswith(SECRET_ENV_PREFIX)}
+    for name, value in env.items():
+        if any(
+            name.casefold() == config_name.casefold() for config_name in _RECORDER_REDACT_ENV_VARS
+        ):
+            redacted_names.update(
+                configured_name.strip().casefold()
+                for configured_name in value.split(",")
+                if configured_name.strip()
+            )
+
+    return {
+        name: _REDACTED_ENV_VALUE if name.casefold() in redacted_names else value
+        for name, value in env.items()
+    }
+
+
 @dataclasses.dataclass
 class GetEnvResult:
     env: Dict[str, str]
+
+    def _to_dict(self) -> Dict[str, Dict[str, str]]:
+        return {"env": _redact_recorded_environment(self.env)}
 
 
 @Recorder.register_record_type

@@ -55,7 +55,6 @@ from typing_extensions import override
 from urllib3 import Retry
 
 import chalk._repr.utils as repr_utils
-from chalk._gen.chalk.aggregate.v1.service_pb2 import PlanAggregateBackfillResponse
 from chalk._reporting.models import BatchReport, BatchReportResponse
 from chalk._reporting.progress import ProgressService
 from chalk._upload_features.utils import to_multi_upload_inputs
@@ -85,6 +84,7 @@ from chalk.client.dataset import (
 from chalk.client.exc import CHALK_TRACE_ID_KEY, ChalkAuthException, ChalkBaseException, ChalkCustomException
 from chalk.client.models import (
     TIMEDELTA_PREFIX,
+    AggregateBackfillResponse,
     BranchDeployRequest,
     BranchDeployResponse,
     BranchIdParam,
@@ -6691,7 +6691,7 @@ https://docs.chalk.ai/cli/apply
         resource_group: str | None = None,
         input_sql: str | None = None,
         plan_only: bool = False,
-    ) -> list[Any] | PlanAggregateBackfillResponse:
+    ) -> AggregateBackfillResponse:
         return self._grpc_client.trigger_aggregate_backfill(
             features=features,
             lower_bound=lower_bound,

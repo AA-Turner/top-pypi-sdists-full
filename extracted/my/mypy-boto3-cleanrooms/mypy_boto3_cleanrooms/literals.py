@@ -28,6 +28,7 @@ __all__ = (
     "AggregateFunctionNameType",
     "AggregationTypeType",
     "AnalysisFormatType",
+    "AnalysisLogExportStatusType",
     "AnalysisMethodType",
     "AnalysisRuleTypeType",
     "AnalysisTemplateValidationStatusType",
@@ -61,6 +62,7 @@ __all__ = (
     "JobTypeType",
     "JoinOperatorType",
     "JoinRequiredOptionType",
+    "ListAnalysisLogExportsPaginatorName",
     "ListAnalysisTemplatesPaginatorName",
     "ListCollaborationAnalysisTemplatesPaginatorName",
     "ListCollaborationChangeRequestsPaginatorName",
@@ -83,6 +85,7 @@ __all__ = (
     "ListProtectedJobsPaginatorName",
     "ListProtectedQueriesPaginatorName",
     "ListSchemasPaginatorName",
+    "LogExportAnalysisTypeType",
     "MemberAbilityType",
     "MemberStatusType",
     "MembershipJobLogStatusType",
@@ -123,6 +126,7 @@ AdditionalAnalysesType = Literal["ALLOWED", "NOT_ALLOWED", "REQUIRED"]
 AggregateFunctionNameType = Literal["AVG", "COUNT", "COUNT_DISTINCT", "SUM", "SUM_DISTINCT"]
 AggregationTypeType = Literal["COUNT_DISTINCT"]
 AnalysisFormatType = Literal["PYSPARK_1_0", "SQL"]
+AnalysisLogExportStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCESS"]
 AnalysisMethodType = Literal["DIRECT_JOB", "DIRECT_QUERY", "MULTIPLE"]
 AnalysisRuleTypeType = Literal["AGGREGATION", "CUSTOM", "ID_MAPPING_TABLE", "LIST"]
 AnalysisTemplateValidationStatusType = Literal["INVALID", "UNABLE_TO_VALIDATE", "VALID"]
@@ -131,7 +135,11 @@ AnalysisTypeType = Literal["ADDITIONAL_ANALYSIS", "DIRECT_ANALYSIS"]
 AnalyticsEngineType = Literal["CLEAN_ROOMS_SQL", "SPARK"]
 ApprovalStatusType = Literal["APPROVED", "DENIED", "PENDING"]
 AutoApprovedChangeTypeType = Literal[
-    "ADD_MEMBER", "GRANT_RECEIVE_RESULTS_ABILITY", "REVOKE_RECEIVE_RESULTS_ABILITY"
+    "ADD_MEMBER",
+    "GRANT_EXPORT_QUERY_ANALYSIS_LOG_ABILITY",
+    "GRANT_RECEIVE_RESULTS_ABILITY",
+    "REVOKE_EXPORT_QUERY_ANALYSIS_LOG_ABILITY",
+    "REVOKE_RECEIVE_RESULTS_ABILITY",
 ]
 AutoRefreshModeType = Literal["DISABLED", "ENABLED"]
 BaseTableDependencyTypeType = Literal["ID_MAPPING_TABLE", "INTERMEDIATE_TABLE", "TABLE"]
@@ -145,10 +153,12 @@ ChangeTypeType = Literal[
     "EDIT_AUTO_APPROVED_CHANGE_TYPES",
     "GRANT_CAN_RECEIVE_INFERENCE_OUTPUT",
     "GRANT_CAN_RECEIVE_MODEL_OUTPUT",
+    "GRANT_EXPORT_QUERY_ANALYSIS_LOG_ABILITY",
     "GRANT_RECEIVE_RESULTS_ABILITY",
     "REMOVE_PAYER_CANDIDATE",
     "REVOKE_CAN_RECEIVE_INFERENCE_OUTPUT",
     "REVOKE_CAN_RECEIVE_MODEL_OUTPUT",
+    "REVOKE_EXPORT_QUERY_ANALYSIS_LOG_ABILITY",
     "REVOKE_RECEIVE_RESULTS_ABILITY",
 ]
 ChildResourceTypeType = Literal["INTERMEDIATE_TABLE"]
@@ -212,6 +222,7 @@ IntermediateTableVersionStatusType = Literal[
 JobTypeType = Literal["BATCH", "DELETE_ONLY", "INCREMENTAL"]
 JoinOperatorType = Literal["AND", "OR"]
 JoinRequiredOptionType = Literal["QUERY_RUNNER"]
+ListAnalysisLogExportsPaginatorName = Literal["list_analysis_log_exports"]
 ListAnalysisTemplatesPaginatorName = Literal["list_analysis_templates"]
 ListCollaborationAnalysisTemplatesPaginatorName = Literal["list_collaboration_analysis_templates"]
 ListCollaborationChangeRequestsPaginatorName = Literal["list_collaboration_change_requests"]
@@ -242,7 +253,10 @@ ListPrivacyBudgetsPaginatorName = Literal["list_privacy_budgets"]
 ListProtectedJobsPaginatorName = Literal["list_protected_jobs"]
 ListProtectedQueriesPaginatorName = Literal["list_protected_queries"]
 ListSchemasPaginatorName = Literal["list_schemas"]
-MemberAbilityType = Literal["CAN_QUERY", "CAN_RECEIVE_RESULTS", "CAN_RUN_JOB"]
+LogExportAnalysisTypeType = Literal["PROTECTED_QUERY"]
+MemberAbilityType = Literal[
+    "CAN_EXPORT_QUERY_ANALYSIS_LOG", "CAN_QUERY", "CAN_RECEIVE_RESULTS", "CAN_RUN_JOB"
+]
 MemberStatusType = Literal["ACTIVE", "INVITED", "LEFT", "REMOVED"]
 MembershipJobLogStatusType = Literal["DISABLED", "ENABLED"]
 MembershipQueryLogStatusType = Literal["DISABLED", "ENABLED"]
@@ -392,8 +406,11 @@ CleanRoomsServiceServiceName = Literal["cleanrooms"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -698,6 +715,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -820,6 +838,7 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
+    "list_analysis_log_exports",
     "list_analysis_templates",
     "list_collaboration_analysis_templates",
     "list_collaboration_change_requests",

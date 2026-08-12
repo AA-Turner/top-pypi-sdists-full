@@ -48,6 +48,7 @@ S3VectorsServiceName = Literal["s3vectors"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

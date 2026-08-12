@@ -8,11 +8,37 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+from pydantic import BaseModel, Field, TypeAdapter
+
 logger = logging.getLogger(__name__)
 
 _CLIENT_ID_QUERY_PARAM = "plato_client_id"
 
 _MCP_HTTP_TIMEOUT_MS = 30 * 60 * 1000  # 1_800_000
+
+
+class EnvMcpUrl(BaseModel):
+    """An MCP endpoint addressed by sim env alias instead of a literal URL.
+
+    A world that supports env attachment (e.g. cua-benchmark) resolves this to
+    the booted sim's connect URL at launch, grafting ``path`` onto it. Modelling
+    it as a distinct object — rather than a ``"{env:alias}"`` magic string — lets
+    the schema (and downstream resolvers) tell the two cases apart by type.
+    """
+
+    env: str = Field(description="Sim env alias to resolve to its connect URL")
+    path: str = Field(default="", description="Path grafted onto the resolved base URL (e.g. '/mcp')")
+    port: int | None = Field(
+        default=None,
+        description="In-VM port to target when the service is not on the sim's "
+        "app_port (routed via the <job>--<port> connect hostname form)",
+    )
+
+
+#: An MCP server URL: either a literal HTTP URL, or an env-alias reference the
+#: world resolves at launch. Use ``McpUrlAdapter`` to validate raw config values.
+McpUrl = str | EnvMcpUrl
+McpUrlAdapter: TypeAdapter[McpUrl] = TypeAdapter(McpUrl)
 
 
 def scoped_mcp_url(
@@ -36,16 +62,21 @@ def write_mcp_config(
     *,
     remote_url: str | None = None,
     remote_name: str = "datagen",
+    remote_servers: dict[str, dict[str, Any]] | None = None,
 ) -> Path | None:
     """Write a .mcp.json for world-hosted HTTP MCP servers.
 
     Args:
         workspace: Agent workspace directory (e.g. /workspace).
-        remote_url: HTTP MCP server URL for world-hosted tools.
-        remote_name: Name key for the remote server in mcpServers.
+        remote_url: HTTP MCP server URL for the legacy single-server case.
+        remote_name: Name key for ``remote_url`` in mcpServers.
+        remote_servers: Additional named HTTP servers, keyed by server name.
+            Each value may carry ``url`` (required), ``headers`` (static request
+            headers such as ``{"Authorization": "Bearer <token>"}``), and
+            ``timeout_ms``. Merged after ``remote_url`` (same-named entries win).
 
     Returns:
-        Path to .mcp.json when a remote server is configured, otherwise None.
+        Path to .mcp.json when at least one server is configured, otherwise None.
     """
     servers: dict[str, Any] = {}
 
@@ -56,6 +87,28 @@ def write_mcp_config(
             "timeout": _MCP_HTTP_TIMEOUT_MS,
         }
         logger.info("MCP server: %s (http) -> %s", remote_name, remote_url)
+
+    for name, server in (remote_servers or {}).items():
+        url = server.get("url")
+        if not url:
+            continue
+        if not isinstance(url, str):
+            # An EnvMcpUrl (or its dict form) that no world resolved — writing it
+            # verbatim would produce a broken .mcp.json, so fail loudly instead.
+            raise ValueError(
+                f"mcp server {name!r}: url is an unresolved env reference {url!r}; "
+                "this agent's world does not support env-alias MCP attachment"
+            )
+        entry: dict[str, Any] = {
+            "type": "http",
+            "url": url,
+            "timeout": int(server.get("timeout_ms") or _MCP_HTTP_TIMEOUT_MS),
+        }
+        headers = server.get("headers")
+        if headers:
+            entry["headers"] = dict(headers)
+        servers[name] = entry
+        logger.info("MCP server: %s (http) -> %s%s", name, url, " [headers]" if headers else "")
 
     if not servers:
         return None

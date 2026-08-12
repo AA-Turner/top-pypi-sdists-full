@@ -237,6 +237,7 @@ ResilienceHubV2ServiceName = Literal["resiliencehubv2"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

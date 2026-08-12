@@ -17,6 +17,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from .typed import TypedGarmin
 
+from urllib.parse import quote
+
 import requests
 from requests import HTTPError
 
@@ -24,7 +26,7 @@ from . import client
 from .activity_details import (
     parse_activity_detail_metrics as parse_activity_detail_metrics,
 )
-from .fit import FitEncoderWeight  # type: ignore
+from .fit import FitEncoderWeight  # type: ignore[attr-defined]
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,12 @@ _STATUS_CODE_RE = re.compile(r"(?:API Error|Error|HTTP)\s*(\d{3})")
 # Constants for validation
 MAX_ACTIVITY_LIMIT = 1000
 MAX_HYDRATION_ML = 10000  # 10 liters
+# Safety cap on server-driven pagination loops (get_activities_by_date,
+# get_goals). Termination of those loops otherwise depends entirely on the
+# server eventually returning an empty page, so a hostile/broken server could
+# loop the client forever with unbounded memory growth. 2000 pages at 20-30
+# items per page (40k-60k items) is far beyond any legitimate account.
+MAX_PAGINATED_REQUESTS = 2000
 DATE_FORMAT_REGEX = r"^\d{4}-\d{2}-\d{2}$"
 DATE_FORMAT_STR = "%Y-%m-%d"
 
@@ -147,6 +155,19 @@ def _validate_sport_key(value: str, param_name: str = "sport") -> str:
     return normalized
 
 
+def _validate_uuid(value: str, param_name: str = "uuid") -> str:
+    """Validate a UUID string (with or without hyphens)."""
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{param_name} must be a non-empty string")
+    value = value.strip()
+    if not re.fullmatch(
+        r"^[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}$",
+        value,
+    ):
+        raise ValueError(f"{param_name} must be a valid UUID, got: {value!r}")
+    return value
+
+
 def _fmt_ts(dt: datetime) -> str:
     # Use ms precision to match server expectations
     return dt.replace(tzinfo=None).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]
@@ -156,6 +177,18 @@ def _validate_json_exists(response: requests.Response) -> dict[str, Any] | None:
     if response.status_code == 204:
         return None
     return response.json()
+
+
+def _looks_like_json(value: str) -> bool:
+    """Return True if the value appears to be JSON rather than a file path.
+
+    The tokenstore argument may be either a filesystem path or an inline JSON
+    token string. Structural detection is more reliable than a length threshold,
+    which misclassifies long legitimate paths as JSON and short JSON strings as
+    paths.
+    """
+    stripped = value.strip()
+    return stripped.startswith(("{", "["))
 
 
 def _extract_status_code(exc: BaseException) -> int | None:
@@ -264,7 +297,7 @@ def _handle_api_errors(
                         )
                         resp = getattr(e, "response", None)
                         if resp is not None:
-                            not_found_exc.response = resp  # type: ignore[attr-defined]
+                            not_found_exc.response = resp
                         raise not_found_exc from e
                     if status and 400 <= status < 500:
                         new_exc = GarminConnectConnectionError(
@@ -272,7 +305,7 @@ def _handle_api_errors(
                         )
                         resp = getattr(e, "response", None)
                         if resp is not None:
-                            new_exc.response = resp  # type: ignore[attr-defined]
+                            new_exc.response = resp
                         raise new_exc from e
                     # 5xx or no parseable status — retryable path.
                     if attempt < attempts:
@@ -296,7 +329,7 @@ def _handle_api_errors(
                     new_exc = GarminConnectConnectionError(f"{label} HTTP error: {e}")
                     resp = getattr(e, "response", None)
                     if resp is not None:
-                        new_exc.response = resp  # type: ignore[attr-defined]
+                        new_exc.response = resp
                     raise new_exc from e
                 except (requests.ConnectionError, requests.Timeout) as e:
                     if attempt < attempts:
@@ -642,7 +675,7 @@ class Garmin:
             tokenstore_path = None
             if tokenstore:
                 try:
-                    if len(tokenstore) > 512:
+                    if _looks_like_json(tokenstore):
                         # Token data is provided directly as string
                         self.client.loads(tokenstore)
                     else:
@@ -660,16 +693,24 @@ class Garmin:
                     # Proactively refresh DI token if it's expired or about to expire.
                     # This avoids hitting the SSO login endpoint (which may be
                     # Cloudflare-blocked) when a simple DI refresh would suffice.
-                    if (
-                        self.client.di_refresh_token
-                        and self.client._token_expires_soon()
-                    ):
-                        logger.debug("Token expiring soon, refreshing proactively")
-                        self.client._refresh_session()
+                    with self.client._token_lock:
+                        if (
+                            self.client.di_refresh_token
+                            and self.client._token_expires_soon()
+                        ):
+                            logger.debug("Token expiring soon, refreshing proactively")
+                            self.client._refresh_session()
 
                 except Exception as e:
+                    # Never log the raw tokenstore value: it may be the inline
+                    # token JSON (and thus the refresh token). Log only the
+                    # source type, length, and the parse error.
+                    source = "inline-json" if _looks_like_json(tokenstore) else "path"
                     logger.debug(
-                        f"Failed to cleanly load tokens from {tokenstore}: {e}"
+                        "Failed to cleanly load tokens (source=%s, len=%d): %s",
+                        source,
+                        len(tokenstore),
+                        e,
                     )
                     tokens_loaded = False
 
@@ -733,6 +774,11 @@ class Garmin:
                     with contextlib.suppress(Exception):
                         self.client.dump(tokenstore_path)
                 self._load_profile_and_settings()
+
+            # Successful authentication no longer needs the plaintext password.
+            # Keeping it would enlarge the credential exposure window (heap dumps,
+            # serialization, debug output) for the lifetime of the object.
+            self.password = None
 
             return mfa_status, _legacy_token
 
@@ -832,48 +878,23 @@ class Garmin:
         """Resume login interactively."""
         mfa_status, _legacy_token = self.client.resume_login(client_state, mfa_code)
 
-        prof = None
-        for attempt in range(3):
-            try:
-                prof = self.client.connectapi("/userprofile-service/socialProfile")
-                if isinstance(prof, dict):
-                    self.display_name = prof.get("displayName")
-                    self.full_name = prof.get("fullName", "")
-                    break
-            except Exception as e:
-                if attempt == 2:
-                    logger.debug("Profile fetch failed during resume_login, continuing")
-                else:
-                    logger.debug("Retrying profile fetch during resume_login: %s", e)
-                    time.sleep(1)
-
-        settings = None
-        for attempt in range(3):
-            try:
-                settings = self.client.connectapi(self.garmin_connect_user_settings_url)
-                if settings and isinstance(settings, dict) and "userData" in settings:
-                    self.unit_system = settings["userData"].get("measurementSystem")
-                    break
-            except Exception as e:
-                if attempt == 2:
-                    logger.debug(
-                        "User settings fetch failed during resume_login, continuing: %s",
-                        e,
-                    )
-                else:
-                    logger.debug(
-                        "Retrying user settings fetch during resume_login: %s", e
-                    )
-                    time.sleep(1)
+        # The client already verifies the token against the API tier; if we reach
+        # this point the token is good. Load profile/settings normally and let
+        # any failure propagate so callers don't think the login succeeded.
+        self._load_profile_and_settings()
 
         return mfa_status, _legacy_token
 
     def _require_display_name(self) -> str:
-        """Return display_name or raise if not set.
+        """Return display_name, URL-encoded, or raise if not set.
 
         New/empty Garmin profiles may not have a displayName, which
         would cause 'None' to be interpolated into API URLs and
         result in 403 Forbidden errors.
+
+        Encoding the value before it enters a URL path prevents a
+        compromised or malicious server response from injecting path
+        separators or query/fragment characters via displayName.
         """
         if not self.display_name:
             raise GarminConnectConnectionError(
@@ -882,7 +903,7 @@ class Garmin:
                 "display name configured). Please set a display name "
                 "at https://connect.garmin.com and try again."
             )
-        return self.display_name
+        return quote(self.display_name, safe="")
 
     def get_full_name(self) -> str | None:
         """Return full name of the authenticated user."""
@@ -1105,7 +1126,9 @@ class Garmin:
         # Validate input
         cdate = _validate_date_format(cdate, "cdate")
 
-        url = f"{self.garmin_connect_heartrates_daily_url}/{self.display_name}"
+        url = (
+            f"{self.garmin_connect_heartrates_daily_url}/{self._require_display_name()}"
+        )
         params = {"date": cdate}
         logger.debug("Requesting heart rates")
 
@@ -1143,7 +1166,7 @@ class Garmin:
         ):
             raise ValueError("startdate cannot be after enddate")
         url = f"{self.garmin_connect_weight_url}/weight/dateRange"
-        params = {"startDate": str(startdate), "endDate": str(enddate)}
+        params = {"startDate": startdate, "endDate": enddate}
         logger.debug("Requesting body composition")
 
         return self.connectapi(url, params=params)
@@ -1288,6 +1311,7 @@ class Garmin:
     def delete_weigh_in(self, weight_pk: str, cdate: str) -> Any:
         """Delete specific weigh-in."""
         cdate = _validate_date_format(cdate, "cdate")
+        weight_pk = str(_validate_positive_integer(int(weight_pk), "weight_pk"))
         url = f"{self.garmin_connect_weight_url}/weight/{cdate}/byversion/{weight_pk}"
         logger.debug("Deleting weigh-in")
 
@@ -1332,7 +1356,7 @@ class Garmin:
         else:
             enddate = _validate_date_format(enddate, "enddate")
         url = self.garmin_connect_daily_body_battery_url
-        params = {"startDate": str(startdate), "endDate": str(enddate)}
+        params = {"startDate": startdate, "endDate": enddate}
         logger.debug("Requesting body battery data")
 
         return self.connectapi(url, params=params)
@@ -1400,6 +1424,8 @@ class Garmin:
 
     def delete_blood_pressure(self, version: str, cdate: str) -> dict[str, Any]:
         """Delete specific blood pressure measurement."""
+        cdate = _validate_date_format(cdate, "cdate")
+        version = str(_validate_positive_integer(int(version), "version"))
         url = f"{self.garmin_connect_set_blood_pressure_endpoint}/{cdate}/{version}"
         logger.debug("Deleting blood pressure measurement")
 
@@ -1462,15 +1488,19 @@ class Garmin:
         url = (
             f"{self.garmin_connect_biometric_stats_url}"
             f"/functionalThresholdPower/range/{start}/{end}"
-            f"?sport={normalized_sport}&aggregation={aggregation}&aggregationStrategy=LATEST"
         )
+        params = {
+            "sport": normalized_sport,
+            "aggregation": aggregation,
+            "aggregationStrategy": "LATEST",
+        }
         logger.debug(
             "Requesting functional threshold power from %s to %s for sport %s",
             start,
             end,
             normalized_sport,
         )
-        return self.connectapi(url)
+        return self.connectapi(url, params=params)
 
     def get_lactate_threshold(
         self,
@@ -1491,9 +1521,9 @@ class Garmin:
             speed_and_heart_rate_url = (
                 f"{self.garmin_connect_biometric_url}/latestLactateThreshold"
             )
-            power_url = f"{self.garmin_connect_biometric_url}/powerToWeight/latest/{date.today()}?sport=Running"
+            power_url = f"{self.garmin_connect_biometric_url}/powerToWeight/latest/{date.today()}"
 
-            power = self.connectapi(power_url)
+            power = self.connectapi(power_url, params={"sport": "Running"})
             if isinstance(power, list) and power:
                 power_dict = power[0]
             elif isinstance(power, dict):
@@ -1566,20 +1596,23 @@ class Garmin:
             aggregation=aggregation,
         )
 
+        params = {
+            "sport": "RUNNING",
+            "aggregation": aggregation,
+            "aggregationStrategy": "LATEST",
+        }
         speed_url = (
             f"{self.garmin_connect_biometric_stats_url}"
             f"/lactateThresholdSpeed/range/{start_date}/{end_date}"
-            f"?sport=RUNNING&aggregation={aggregation}&aggregationStrategy=LATEST"
         )
 
         heart_rate_url = (
             f"{self.garmin_connect_biometric_stats_url}"
             f"/lactateThresholdHeartRate/range/{start_date}/{end_date}"
-            f"?sport=RUNNING&aggregation={aggregation}&aggregationStrategy=LATEST"
         )
 
-        speed = self.connectapi(speed_url)
-        heart_rate = self.connectapi(heart_rate_url)
+        speed = self.connectapi(speed_url, params=params)
+        heart_rate = self.connectapi(heart_rate_url, params=params)
 
         return {"speed": speed, "heart_rate": heart_rate, "power": power}
 
@@ -1597,6 +1630,7 @@ class Garmin:
         # Validate inputs
         if not isinstance(value_in_ml, numbers.Real):
             raise ValueError("value_in_ml must be a number")
+        value_in_ml = float(value_in_ml)
 
         # Allow negative values for subtraction but validate reasonable range
         if abs(value_in_ml) > MAX_HYDRATION_ML:
@@ -1635,6 +1669,8 @@ class Garmin:
                 raise ValueError("invalid timestamp format (expected ISO 8601)") from e
         else:
             # Both provided - validate consistency and normalize
+            if not isinstance(cdate, str):
+                raise ValueError("cdate must be a string")
             cdate = _validate_date_format(cdate, "cdate")
             if not isinstance(timestamp, str):
                 raise ValueError("timestamp must be a string")
@@ -1716,14 +1752,16 @@ class Garmin:
         Includes autodetected activities, even if not recorded on the watch.
         """
         cdate = _validate_date_format(cdate, "cdate")
-        url = f"{self.garmin_daily_events_url}?calendarDate={cdate}"
+        url = self.garmin_daily_events_url
         logger.debug("Requesting all day events data")
 
-        return self.connectapi(url)
+        return self.connectapi(url, params={"calendarDate": cdate})
 
     def get_personal_record(self) -> dict[str, Any]:
         """Return personal records for current user."""
-        url = f"{self.garmin_connect_personal_record_url}/{self.display_name}"
+        url = (
+            f"{self.garmin_connect_personal_record_url}/{self._require_display_name()}"
+        )
         logger.debug("Requesting personal records for user")
 
         return self.connectapi(url)
@@ -1837,7 +1875,7 @@ class Garmin:
         convert to local time yourself.
         """
         cdate = _validate_date_format(cdate, "cdate")
-        url = f"{self.garmin_connect_daily_sleep_url}/{self.display_name}"
+        url = f"{self.garmin_connect_daily_sleep_url}/{self._require_display_name()}"
         params = {"date": cdate, "nonSleepBufferMinutes": 60}
         logger.debug("Requesting sleep data")
 
@@ -2067,15 +2105,15 @@ class Garmin:
         startdate = _validate_date_format(startdate, "startdate")
         if enddate is None:
             url = self.garmin_connect_endurance_score_url
-            params = {"calendarDate": str(startdate)}
+            params = {"calendarDate": startdate}
             logger.debug("Requesting endurance score data for a single day")
 
             return self.connectapi(url, params=params)
         url = f"{self.garmin_connect_endurance_score_url}/stats"
         enddate = _validate_date_format(enddate, "enddate")
         params = {
-            "startDate": str(startdate),
-            "endDate": str(enddate),
+            "startDate": startdate,
+            "endDate": enddate,
             "aggregation": "weekly",
         }
         logger.debug("Requesting endurance score data for a range of days")
@@ -2104,8 +2142,8 @@ class Garmin:
             )
         url = self.garmin_connect_running_tolerance_url
         params = {
-            "startDate": str(startdate),
-            "endDate": str(enddate),
+            "startDate": startdate,
+            "endDate": enddate,
             "aggregation": aggregation,
         }
         logger.debug(
@@ -2191,7 +2229,7 @@ class Garmin:
         if enddate is None:
             url = self.garmin_connect_hill_score_url
             startdate = _validate_date_format(startdate, "startdate")
-            params = {"calendarDate": str(startdate)}
+            params = {"calendarDate": startdate}
             logger.debug("Requesting hill score data for a single day")
 
             return self.connectapi(url, params=params)
@@ -2200,8 +2238,8 @@ class Garmin:
         startdate = _validate_date_format(startdate, "startdate")
         enddate = _validate_date_format(enddate, "enddate")
         params = {
-            "startDate": str(startdate),
-            "endDate": str(enddate),
+            "startDate": startdate,
+            "endDate": enddate,
             "aggregation": "daily",
         }
         logger.debug("Requesting hill score data for a range of days")
@@ -2306,7 +2344,7 @@ class Garmin:
         url = self.garmin_connect_activities
         params = {"start": str(start), "limit": str(limit)}
         if activitytype:
-            params["activityType"] = str(activitytype)
+            params["activityType"] = activitytype
 
         logger.debug("Requesting activities from %d with limit %d", start, limit)
 
@@ -2328,6 +2366,7 @@ class Garmin:
 
     def set_activity_name(self, activity_id: str, title: str) -> Any:
         """Set name for activity with id."""
+        activity_id = str(_validate_positive_integer(int(activity_id), "activity_id"))
         url = f"{self.garmin_connect_activity}/{activity_id}"
         payload = {"activityId": activity_id, "activityName": title}
 
@@ -2340,6 +2379,7 @@ class Garmin:
         type_key: str,
         parent_type_id: int,
     ) -> Any:
+        activity_id = str(_validate_positive_integer(int(activity_id), "activity_id"))
         url = f"{self.garmin_connect_activity}/{activity_id}"
         payload = {
             "activityId": activity_id,
@@ -2354,6 +2394,7 @@ class Garmin:
 
     def set_activity_description(self, activity_id: str, description: str) -> Any:
         """Set description for activity with id."""
+        activity_id = str(_validate_positive_integer(int(activity_id), "activity_id"))
         url = f"{self.garmin_connect_activity}/{activity_id}"
         payload = {"activityId": activity_id, "description": description}
 
@@ -2526,7 +2567,7 @@ class Garmin:
             with p.open("rb") as file_handle:
                 files = {
                     "file": (
-                        f'"{file_base_name}"',
+                        file_base_name,
                         file_handle,
                         "application/octet-stream",
                     )
@@ -2606,12 +2647,12 @@ class Garmin:
         if enddate:
             params["endDate"] = enddate
         if activitytype:
-            params["activityType"] = str(activitytype)
+            params["activityType"] = activitytype
         if sortorder:
-            params["sortOrder"] = str(sortorder)
+            params["sortOrder"] = sortorder
 
         logger.debug("Requesting activities by date from %s to %s", startdate, enddate)
-        while True:
+        for _ in range(MAX_PAGINATED_REQUESTS):
             params["start"] = str(start)
             logger.debug("Requesting activities %d to %d", start, start + limit)
             act = self.connectapi(url, params=params)
@@ -2620,6 +2661,12 @@ class Garmin:
                 start = start + limit
             else:
                 break
+        else:
+            # A server that never returns an empty page would otherwise loop
+            # the client forever (DoS); fail loudly instead of truncating.
+            raise GarminConnectConnectionError(
+                f"Pagination exceeded {MAX_PAGINATED_REQUESTS} requests; aborting"
+            )
 
         return activities
 
@@ -2642,11 +2689,11 @@ class Garmin:
         startdate = _validate_date_format(startdate, "startdate")
         enddate = _validate_date_format(enddate, "enddate")
         params = {
-            "startDate": str(startdate),
-            "endDate": str(enddate),
+            "startDate": startdate,
+            "endDate": enddate,
             "aggregation": "lifetime",
             "groupByParentActivityType": str(groupbyactivities),
-            "metric": str(metric),
+            "metric": metric,
         }
 
         logger.debug(
@@ -2686,7 +2733,7 @@ class Garmin:
         }
 
         logger.debug("Requesting %s goals", status)
-        while True:
+        for _ in range(MAX_PAGINATED_REQUESTS):
             params["start"] = str(start)
             logger.debug(
                 "Requesting %s goals %d to %d", status, start, start + limit - 1
@@ -2697,18 +2744,28 @@ class Garmin:
                 start = start + limit
             else:
                 break
+        else:
+            # A server that never returns an empty page would otherwise loop
+            # the client forever (DoS); fail loudly instead of truncating.
+            raise GarminConnectConnectionError(
+                f"Pagination exceeded {MAX_PAGINATED_REQUESTS} requests; aborting"
+            )
 
         return goals
 
     def get_gear(self, userProfileNumber: str) -> dict[str, Any]:
         """Return a list of gear for the specified user profile number."""
-        url = f"{self.garmin_connect_gear}?userProfilePk={userProfileNumber}"
+        userProfileNumber = str(
+            _validate_positive_integer(int(userProfileNumber), "userProfileNumber")
+        )
+        url = self.garmin_connect_gear
         logger.debug("Requesting gear for user %s", userProfileNumber)
 
-        return self.connectapi(url)
+        return self.connectapi(url, params={"userProfilePk": userProfileNumber})
 
     def get_gear_stats(self, gearUUID: str) -> dict[str, Any]:
         """Return statistics (e.g. distance) for specific gear UUID."""
+        gearUUID = _validate_uuid(gearUUID, "gearUUID")
         url = f"{self.garmin_connect_gear_baseurl}/stats/{gearUUID}"
         logger.debug("Requesting gear stats for gearUUID %s", gearUUID)
 
@@ -2725,6 +2782,9 @@ class Garmin:
             raise
 
     def get_gear_defaults(self, userProfileNumber: str) -> dict[str, Any]:
+        userProfileNumber = str(
+            _validate_positive_integer(int(userProfileNumber), "userProfileNumber")
+        )
         url = (
             f"{self.garmin_connect_gear_baseurl}/user/{userProfileNumber}/activityTypes"
         )
@@ -2734,6 +2794,8 @@ class Garmin:
     def set_gear_default(
         self, activityType: str, gearUUID: str, defaultGear: bool = True
     ) -> Any:
+        activityType = _validate_sport_key(activityType, "activityType")
+        gearUUID = _validate_uuid(gearUUID, "gearUUID")
         defaultGearString = "/default/true" if defaultGear else ""
         method_override = "PUT" if defaultGear else "DELETE"
         url = (
@@ -2774,7 +2836,7 @@ class Garmin:
         "Original" will return the zip file content, up to user to extract it.
         "CSV" will return a csv of the splits.
         """
-        activity_id = str(activity_id)
+        activity_id = str(_validate_positive_integer(int(activity_id), "activity_id"))
         urls = {
             Garmin.ActivityDownloadFormat.ORIGINAL: f"{self.garmin_connect_fit_download}/{activity_id}",
             Garmin.ActivityDownloadFormat.TCX: f"{self.garmin_connect_tcx_download}/{activity_id}",
@@ -2917,7 +2979,7 @@ class Garmin:
         """Return gears used for activity id."""
         activity_id = str(_validate_positive_integer(int(activity_id), "activity_id"))
         params = {
-            "activityId": str(activity_id),
+            "activityId": activity_id,
         }
         url = self.garmin_connect_gear
         logger.debug("Requesting gear for activity_id %s", activity_id)
@@ -2932,15 +2994,15 @@ class Garmin:
         :param limit: Maximum number of activities to return (default: 1000)
         :return: List of activities where the specified gear was used.
         """
-        gearUUID = str(gearUUID)
+        gearUUID = _validate_uuid(gearUUID, "gearUUID")
         limit = _validate_positive_integer(limit, "limit")
         # Optional: enforce a reasonable ceiling to avoid heavy responses
         limit = min(limit, MAX_ACTIVITY_LIMIT)
-        url = f"{self.garmin_connect_activities_baseurl}{gearUUID}/gear?start=0&limit={limit}"
+        url = f"{self.garmin_connect_activities_baseurl}{gearUUID}/gear"
         logger.debug("Requesting activities for gearUUID %s", gearUUID)
 
         try:
-            return self.connectapi(url)
+            return self.connectapi(url, params={"start": 0, "limit": limit})
         except GarminConnectConnectionError as e:
             status = getattr(getattr(e, "response", None), "status_code", None)
             if status == 404:
@@ -2964,7 +3026,7 @@ class Garmin:
             Dictionary containing information for the added gear
 
         """
-        gearUUID = str(gearUUID)
+        gearUUID = _validate_uuid(gearUUID, "gearUUID")
         activity_id = str(_validate_positive_integer(int(activity_id), "activity_id"))
 
         url = (
@@ -2995,7 +3057,7 @@ class Garmin:
             Dictionary containing information about the removed gear
 
         """
-        gearUUID = str(gearUUID)
+        gearUUID = _validate_uuid(gearUUID, "gearUUID")
         activity_id = str(_validate_positive_integer(int(activity_id), "activity_id"))
 
         url = f"{self.garmin_connect_gear_baseurl}/unlink/{gearUUID}/activity/{activity_id}"
@@ -3465,16 +3527,26 @@ class Garmin:
 
         :param tokenstore: Path to the token directory or JSON file whose
             ``garmin_tokens.json`` file should be removed. Falls back to the
-            ``GARMINTOKENS`` environment variable. Token strings passed inline
-            (length > 512) are ignored — nothing to delete.
+            ``GARMINTOKENS`` environment variable. Inline JSON token strings
+            are ignored — nothing to delete.
         """
         self.client._clear_auth_state()
+        self.username = None
+        self.password = None
+        self.display_name = None
+        self.full_name = None
+        self.unit_system = None
+
         tokenstore = tokenstore or os.getenv("GARMINTOKENS")
-        if not tokenstore or len(tokenstore) > 512:
+        if not tokenstore or _looks_like_json(tokenstore):
             return
-        path = client.token_file_path(tokenstore)
-        with contextlib.suppress(FileNotFoundError):
+        try:
+            path = client.token_file_path(tokenstore)
             path.unlink()
+        except FileNotFoundError:
+            pass
+        except ValueError as e:
+            logger.debug("Skipping tokenstore cleanup for unsafe path: %s", e)
 
     def get_training_plans(self) -> dict[str, Any]:
         """Return all available training plans."""
@@ -3637,9 +3709,17 @@ class Garmin:
 
 
 from .exceptions import (  # noqa: E402
-    GarminConnectAuthenticationError,
-    GarminConnectConnectionError,
-    GarminConnectInvalidFileFormatError,
-    GarminConnectNotFoundError,
-    GarminConnectTooManyRequestsError,
+    GarminConnectAuthenticationError as GarminConnectAuthenticationError,
+)
+from .exceptions import (  # noqa: E402
+    GarminConnectConnectionError as GarminConnectConnectionError,
+)
+from .exceptions import (  # noqa: E402
+    GarminConnectInvalidFileFormatError as GarminConnectInvalidFileFormatError,
+)
+from .exceptions import (  # noqa: E402
+    GarminConnectNotFoundError as GarminConnectNotFoundError,
+)
+from .exceptions import (  # noqa: E402
+    GarminConnectTooManyRequestsError as GarminConnectTooManyRequestsError,
 )

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai
-Version: 2.27.1
+Version: 2.28.0
 Summary: AI Agent Framework, the Pydantic way
 Project-URL: Homepage, https://ai.pydantic.dev
 Project-URL: Source, https://github.com/pydantic/pydantic-ai
@@ -27,49 +27,57 @@ Classifier: Topic :: Internet
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Requires-Dist: pydantic-ai-slim[anthropic,cli,evals,google,logfire,mcp,openai,retries,web]==2.27.1
+Requires-Dist: pydantic-ai-slim[anthropic,cli,evals,google,logfire,mcp,openai,retries,web]==2.28.0
 Provides-Extra: ag-ui
-Requires-Dist: pydantic-ai-slim[ag-ui]==2.27.1; extra == 'ag-ui'
+Requires-Dist: pydantic-ai-slim[ag-ui]==2.28.0; extra == 'ag-ui'
 Provides-Extra: bedrock
-Requires-Dist: pydantic-ai-slim[bedrock]==2.27.1; extra == 'bedrock'
+Requires-Dist: pydantic-ai-slim[bedrock]==2.28.0; extra == 'bedrock'
 Provides-Extra: bedrock-mantle
-Requires-Dist: pydantic-ai-slim[bedrock-mantle]==2.27.1; extra == 'bedrock-mantle'
+Requires-Dist: pydantic-ai-slim[bedrock-mantle]==2.28.0; extra == 'bedrock-mantle'
 Provides-Extra: cohere
-Requires-Dist: pydantic-ai-slim[cohere]==2.27.1; extra == 'cohere'
+Requires-Dist: pydantic-ai-slim[cohere]==2.28.0; extra == 'cohere'
 Provides-Extra: dbos
-Requires-Dist: pydantic-ai-slim[dbos]==2.27.1; extra == 'dbos'
+Requires-Dist: pydantic-ai-slim[dbos]==2.28.0; extra == 'dbos'
 Provides-Extra: duckduckgo
-Requires-Dist: pydantic-ai-slim[duckduckgo]==2.27.1; extra == 'duckduckgo'
+Requires-Dist: pydantic-ai-slim[duckduckgo]==2.28.0; extra == 'duckduckgo'
 Provides-Extra: exa
-Requires-Dist: pydantic-ai-slim[exa]==2.27.1; extra == 'exa'
+Requires-Dist: pydantic-ai-slim[exa]==2.28.0; extra == 'exa'
 Provides-Extra: examples
-Requires-Dist: pydantic-ai-examples==2.27.1; extra == 'examples'
+Requires-Dist: pydantic-ai-examples==2.28.0; extra == 'examples'
+Provides-Extra: google-realtime
+Requires-Dist: pydantic-ai-slim[google-realtime]==2.28.0; extra == 'google-realtime'
 Provides-Extra: groq
-Requires-Dist: pydantic-ai-slim[groq]==2.27.1; extra == 'groq'
+Requires-Dist: pydantic-ai-slim[groq]==2.28.0; extra == 'groq'
 Provides-Extra: huggingface
-Requires-Dist: pydantic-ai-slim[huggingface]==2.27.1; extra == 'huggingface'
+Requires-Dist: pydantic-ai-slim[huggingface]==2.28.0; extra == 'huggingface'
 Provides-Extra: mistral
-Requires-Dist: pydantic-ai-slim[mistral]==2.27.1; extra == 'mistral'
+Requires-Dist: pydantic-ai-slim[mistral]==2.28.0; extra == 'mistral'
+Provides-Extra: openai-realtime
+Requires-Dist: pydantic-ai-slim[openai-realtime]==2.28.0; extra == 'openai-realtime'
 Provides-Extra: openrouter
-Requires-Dist: pydantic-ai-slim[openrouter]==2.27.1; extra == 'openrouter'
+Requires-Dist: pydantic-ai-slim[openrouter]==2.28.0; extra == 'openrouter'
 Provides-Extra: prefect
-Requires-Dist: pydantic-ai-slim[prefect]==2.27.1; extra == 'prefect'
+Requires-Dist: pydantic-ai-slim[prefect]==2.28.0; extra == 'prefect'
+Provides-Extra: realtime
+Requires-Dist: pydantic-ai-slim[realtime]==2.28.0; extra == 'realtime'
 Provides-Extra: sentence-transformers
-Requires-Dist: pydantic-ai-slim[sentence-transformers]==2.27.1; extra == 'sentence-transformers'
+Requires-Dist: pydantic-ai-slim[sentence-transformers]==2.28.0; extra == 'sentence-transformers'
 Provides-Extra: spec
-Requires-Dist: pydantic-ai-slim[spec]==2.27.1; extra == 'spec'
+Requires-Dist: pydantic-ai-slim[spec]==2.28.0; extra == 'spec'
 Provides-Extra: tavily
-Requires-Dist: pydantic-ai-slim[tavily]==2.27.1; extra == 'tavily'
+Requires-Dist: pydantic-ai-slim[tavily]==2.28.0; extra == 'tavily'
 Provides-Extra: temporal
-Requires-Dist: pydantic-ai-slim[temporal]==2.27.1; extra == 'temporal'
+Requires-Dist: pydantic-ai-slim[temporal]==2.28.0; extra == 'temporal'
 Provides-Extra: ui
-Requires-Dist: pydantic-ai-slim[ui]==2.27.1; extra == 'ui'
+Requires-Dist: pydantic-ai-slim[ui]==2.28.0; extra == 'ui'
 Provides-Extra: voyageai
-Requires-Dist: pydantic-ai-slim[voyageai]==2.27.1; extra == 'voyageai'
+Requires-Dist: pydantic-ai-slim[voyageai]==2.28.0; extra == 'voyageai'
 Provides-Extra: web-fetch
-Requires-Dist: pydantic-ai-slim[web-fetch]==2.27.1; extra == 'web-fetch'
+Requires-Dist: pydantic-ai-slim[web-fetch]==2.28.0; extra == 'web-fetch'
 Provides-Extra: xai
-Requires-Dist: pydantic-ai-slim[xai]==2.27.1; extra == 'xai'
+Requires-Dist: pydantic-ai-slim[xai]==2.28.0; extra == 'xai'
+Provides-Extra: xai-realtime
+Requires-Dist: pydantic-ai-slim[xai-realtime]==2.28.0; extra == 'xai-realtime'
 Description-Content-Type: text/markdown
 
 <div align="center">
@@ -113,7 +121,7 @@ We built Pydantic AI with one simple aim: to bring that FastAPI feeling to GenAI
 [Pydantic Validation](https://docs.pydantic.dev/latest/) is the validation layer of the OpenAI SDK, the Google ADK, the Anthropic SDK, LangChain, LlamaIndex, AutoGPT, Transformers, CrewAI, Instructor and many more. _Why use the derivative when you can go straight to the source?_ :smiley:
 
 2. **Model-agnostic**:
-Supports virtually every [model](https://ai.pydantic.dev/models/overview) and provider: OpenAI, Anthropic, Gemini, DeepSeek, Grok, Cohere, Mistral, and Perplexity; Azure AI Foundry, Amazon Bedrock, Google Cloud, Ollama, LiteLLM, Groq, OpenRouter, Together AI, Fireworks AI, Cerebras, Hugging Face, GitHub, Heroku, Vercel, Nebius, OVHcloud, Alibaba Cloud, SambaNova, Snowflake Cortex, and Z.AI. If your favorite model or provider is not listed, you can easily implement a [custom model](https://ai.pydantic.dev/models/overview#custom-models).
+Supports virtually every [model](https://ai.pydantic.dev/models/overview) and provider: OpenAI, Anthropic, Gemini, DeepSeek, Grok, Cohere, Mistral, and Perplexity; Azure AI Foundry, Amazon Bedrock, Google Cloud, Ollama, LiteLLM, Groq, OpenRouter, Together AI, Fireworks AI, Cerebras, Crusoe, Hugging Face, GitHub, Heroku, Vercel, Nebius, OVHcloud, Alibaba Cloud, SambaNova, Snowflake Cortex, and Z.AI. If your favorite model or provider is not listed, you can easily implement a [custom model](https://ai.pydantic.dev/models/overview#custom-models).
 
 3. **Seamless Observability**:
 Tightly [integrates](https://ai.pydantic.dev/logfire) with [Pydantic Logfire](https://pydantic.dev/logfire), our general-purpose OpenTelemetry observability platform, for real-time debugging, evals-based performance monitoring, and behavior, tracing, and cost tracking. If you already have an observability platform that supports OTel, you can [use that too](https://ai.pydantic.dev/logfire#alternative-observability-backends).
@@ -141,6 +149,9 @@ Provides the ability to [stream](https://ai.pydantic.dev/output#streamed-results
 
 11. **Graph Support**:
 Provides a powerful way to define [graphs](https://ai.pydantic.dev/graph) using type hints, for use in complex applications where standard control flow can degrade to spaghetti code.
+
+12. **Realtime Voice**:
+Build [speech-to-speech agents](https://ai.pydantic.dev/realtime) on native realtime models (OpenAI Realtime, Gemini Live, and xAI Grok Voice) over a persistent bidirectional audio connection, with the same tools, capabilities, and observability as any other agent.
 
 Realistically though, no list is going to be as convincing as [giving it a try](#next-steps) and seeing how it makes you feel!
 

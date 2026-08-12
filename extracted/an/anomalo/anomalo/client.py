@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Sequence
 from datetime import datetime, timedelta
 from time import sleep
 from typing import Any, List, Union
@@ -285,7 +286,8 @@ class Client:
         limit: int = 0,
         offset: int = 0,
         warehouse_id: int | None = None,
-        label_id: int | None = None,
+        # `label_id` is repeatable: a sequence matches tables carrying any of the ids
+        label_id: int | Sequence[int] | None = None,
         without_access_groups: bool | None = None,
     ):
         params = {

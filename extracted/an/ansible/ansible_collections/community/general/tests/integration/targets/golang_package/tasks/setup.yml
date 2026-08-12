@@ -4,23 +4,23 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Determine Go package name
-  set_fact:
+  ansible.builtin.set_fact:
     golang_package_name: >-
       {{ 'go' if ansible_facts.os_family in ['Alpine', 'Archlinux', 'FreeBSD'] else 'golang' }}
 
 - block:
     - name: Install Go
-      package:
+      ansible.builtin.package:
         name: "{{ golang_package_name }}"
         state: present
 
     - name: Check Go version
-      command: go version
+      ansible.builtin.command: go version
       register: go_version_output
       changed_when: false
 
     - name: Set has_go if Go >= 1.19
-      set_fact:
+      ansible.builtin.set_fact:
         has_go: true
       when: (go_version_output.stdout | regex_search('go(\d+\.\d+)', '\\1') | first) is version('1.19', '>=')
   when:

@@ -72,6 +72,30 @@ def test_json_and_text_on_disk(tmp_path, capsys):
     assert "Проверено файлов" in cap.err
 
 
+def test_out_writes_the_report_to_a_file_without_bom(tmp_path, capsys):
+    """--out: comparing reports before and after a change is an everyday scenario, and
+    on Windows the shell redirection prefixes the output with a BOM that breaks json.load."""
+    f = tmp_path / "Ч.xbsl"
+    f.write_text("метод Ф(): Число\n    возврат 1  \n;\n", encoding="utf-8")
+    target = tmp_path / "отчёт.json"
+
+    code = cli.main(["--format", "json", "--out", str(target), str(f)])
+    raw = target.read_bytes()
+    assert not raw.startswith(b"\xef\xbb\xbf")  # no BOM
+    payload = json.loads(raw.decode("utf-8"))
+    assert any(d["rule"] == "whitespace/trailing" for d in payload["diagnostics"])
+    assert capsys.readouterr().out == ""  # the report went to the file, stdout is empty
+    assert code == 0
+
+    # The text format honours the same switch; the summary stays on stderr.
+    text_target = tmp_path / "отчёт.txt"
+    cli.main(["--out", str(text_target), str(f)])
+    cap = capsys.readouterr()
+    assert "whitespace/trailing" in text_target.read_text(encoding="utf-8")
+    assert cap.out == ""
+    assert "Проверено файлов" in cap.err
+
+
 def test_discover_skips_hidden_directories(tmp_path):
     # Hidden directories (a git worktree under .claude, .git) hold copies of the sources: their
     # files must not be picked up by discovery, or cross-file rules would see duplicates.

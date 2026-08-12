@@ -32,7 +32,11 @@ import temporalio.workflow
 import tenacity
 
 from mistralai.workflows.core._registration.execution_registration_interceptor import _hash_token
-from mistralai.workflows.core._registration.search_keys import _cap_value, _coerce_leaf
+from mistralai.workflows.core._registration.search_keys import (
+    _RESERVED_KEY_PREFIX,
+    _cap_value,
+    _coerce_leaf,
+)
 from mistralai.workflows.core.activity import activity
 from mistralai.workflows.core.config.config import (
     INTERNAL_ACTIVITY_PREFIX,
@@ -71,7 +75,7 @@ def _raise_invalid(message: str) -> NoReturn:
     raise temporalio.exceptions.ApplicationError(message, non_retryable=True)
 
 
-def _validate_and_coerce(search_keys: Mapping[str, SearchKeyValue]) -> dict[str, str]:
+def _validate_and_coerce(search_keys: Mapping[str, SearchKeyValue], allow_reserved: bool = False) -> dict[str, str]:
     if not isinstance(search_keys, Mapping):
         _raise_invalid(f"add_search_keys expects a mapping, got {type(search_keys).__name__}.")
     if len(search_keys) > MAX_SEARCH_KEYS:
@@ -85,6 +89,8 @@ def _validate_and_coerce(search_keys: Mapping[str, SearchKeyValue]) -> dict[str,
             _raise_invalid("Search key must not be empty or padded with whitespace.")
         if ":" in key:
             _raise_invalid(f"Search key `{key}` must not contain ':'.")
+        if not allow_reserved and key.startswith(_RESERVED_KEY_PREFIX):
+            _raise_invalid(f"Search key `{key}` must not start with `{_RESERVED_KEY_PREFIX}`, which the SDK reserves")
         if isinstance(value, _CONTAINER_TYPES):
             _raise_invalid(f"Search key `{key}` must map to a scalar value, got {type(value).__name__}.")
 
@@ -196,8 +202,8 @@ async def _upsert_search_keys(
             ) from exc
 
 
-async def ingest_search_keys(search_keys: Mapping[str, SearchKeyValue]) -> None:
-    coerced = _validate_and_coerce(search_keys)
+async def ingest_search_keys(search_keys: Mapping[str, SearchKeyValue], _allow_reserved: bool = False) -> None:
+    coerced = _validate_and_coerce(search_keys, allow_reserved=_allow_reserved)
     if not coerced:
         return
 

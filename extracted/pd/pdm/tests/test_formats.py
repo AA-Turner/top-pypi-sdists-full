@@ -100,6 +100,43 @@ def test_build_uv_pyproject_toml_with_workspace(project):
     assert data["tool"]["uv"]["sources"]["bar"] == {"workspace": True}
 
 
+def test_build_uv_lock_with_local_path_wheel(project):
+    from pdm.models.candidates import Candidate
+    from pdm.models.repositories import Package
+    from pdm.models.requirements import FileRequirement
+
+    wheel_name = "first-2.0.2-py2.py3-none-any.whl"
+    wheel_path = FIXTURES / "artifacts" / wheel_name
+    req = FileRequirement.create(path=str(wheel_path), name="first")
+    req.groups = ["default"]
+    candidate = Candidate(req, name="first", version="2.0.2")
+    candidate.hashes.append(
+        {
+            "url": wheel_name,
+            "file": wheel_name,
+            "hash": "sha256:dummy",
+        }
+    )
+    package = Package(candidate, [], "")
+
+    locked_repo = LockedRepository({}, project.sources, project.environment)
+    locked_repo.add_package(package)
+
+    with uv_file_builder(project, ">=3.8", [req], locked_repo) as builder:
+        path = builder.build_uv_lock()
+        with path.open("rb") as fp:
+            data = tomllib.load(fp)
+
+    pkg = next(p for p in data["package"] if p["name"] == "first")
+    assert "path" in pkg["source"], "local wheel source should use 'path', not 'url'"
+    assert "url" not in pkg["source"]
+    wheel_entry = pkg["wheels"][0]
+    assert "filename" in wheel_entry, "local wheel entry should use 'filename', not 'url'"
+    assert "url" not in wheel_entry
+    assert wheel_entry["filename"] == wheel_name
+    assert wheel_entry["hash"] == "sha256:dummy"
+
+
 def test_convert_poetry(project):
     golden_file = FIXTURES / "pyproject.toml"
     assert poetry.check_fingerprint(project, golden_file)
@@ -133,6 +170,16 @@ def test_convert_poetry(project):
     build = settings["build"]
     assert build["includes"] == ["lib/my_package", "tests", "CHANGELOG.md"]
     assert build["excludes"] == ["my_package/excluded.py"]
+
+
+def test_convert_poetry_optional_dependency_in_multiple_extras(project):
+    golden_file = FIXTURES / "pyproject.toml"
+    with cd(FIXTURES):
+        result, _ = poetry.convert(project, golden_file, ns())
+
+    assert result["optional-dependencies"]["mysql"] == ["mysqlclient<2.0,>=1.3"]
+    assert result["optional-dependencies"]["pgsql"] == ["psycopg2<3.0,>=2.7"]
+    assert result["optional-dependencies"]["all"] == ["psycopg2<3.0,>=2.7", "mysqlclient<2.0,>=1.3"]
 
 
 def test_convert_poetry_12(project):
@@ -176,6 +223,38 @@ def test_convert_flit(project):
     build = settings["build"]
     assert build["includes"] == ["doc/"]
     assert build["excludes"] == ["doc/*.html"]
+
+
+def test_convert_flit_author_and_maintainer_without_email(project, tmp_path):
+    pyproject_file = tmp_path / "pyproject.toml"
+    pyproject_file.write_text(
+        '[tool.flit.metadata]\nmodule = "flit"\nauthor = "Thomas Kluyver"\nmaintainer = "Frost Ming"\n',
+        encoding="utf-8",
+    )
+    result, _ = flit.convert(project, pyproject_file, None)
+
+    assert result["authors"] == [{"name": "Thomas Kluyver"}]
+    assert result["maintainers"] == [{"name": "Frost Ming"}]
+
+
+@pytest.mark.parametrize(
+    "sdist_table,expected_build",
+    [
+        ('include = ["doc/"]', {"includes": ["doc/"]}),
+        ('exclude = ["doc/*.html"]', {"excludes": ["doc/*.html"]}),
+    ],
+)
+def test_convert_flit_sdist_with_one_of_include_and_exclude(project, tmp_path, sdist_table, expected_build):
+    pyproject_file = tmp_path / "pyproject.toml"
+    pyproject_file.write_text(
+        '[tool.flit.metadata]\nmodule = "flit"\nauthor = "Thomas Kluyver"\n'
+        'author-email = "thomas@kluyver.me.uk"\n\n'
+        f"[tool.flit.sdist]\n{sdist_table}\n",
+        encoding="utf-8",
+    )
+    _, settings = flit.convert(project, pyproject_file, None)
+
+    assert settings["build"] == expected_build
 
 
 def test_convert_error_preserve_metadata(project):

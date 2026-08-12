@@ -7,6 +7,7 @@ from temporalio.common import RetryPolicy
 from temporalio.testing import WorkflowEnvironment
 
 from mistralai.workflows.core._events.event_context import EventContext
+from mistralai.workflows.core.temporal.context_handler_interceptor import ContextHandlerInterceptor
 from mistralai.workflows.protocol.v1.events import WorkflowExecutionStarted
 from mistralai.workflows.testing import (
     activity_completed,
@@ -17,7 +18,16 @@ from mistralai.workflows.testing import (
     workflow_started,
 )
 
-from .fixtures import FailingWorkflow, PureWorkflow, WorkflowWithDisplayName
+from .fixtures import (
+    CANParams,
+    ChildWorkflow,
+    ContinueAsNewWorkflow,
+    FailingWorkflow,
+    ParentWorkflow,
+    PureWorkflow,
+    RetryingWorkflow,
+    WorkflowWithDisplayName,
+)
 from .utils import create_capturing_mock_events_client, create_test_worker_with_events
 
 
@@ -66,6 +76,35 @@ async def test_basic_workflow_emits_lifecycle_events(temporal_env: WorkflowEnvir
                 },
             )
             assert len(errors) == 0, "Event sequence mismatch:\n" + "\n".join(errors)
+
+
+@pytest.mark.asyncio
+async def test_child_workflow_started_event_has_parent_exec_id(
+    temporal_env_with_converter: WorkflowEnvironment,
+) -> None:
+    captured_events: list[Any] = []
+    mock_client = create_capturing_mock_events_client(captured_events)
+
+    async with EventContext(mock_client):
+        async with create_test_worker_with_events(
+            temporal_env_with_converter,
+            workflows=[ParentWorkflow, ChildWorkflow],
+            interceptors=[ContextHandlerInterceptor()],
+        ):
+            handle = await temporal_env_with_converter.client.start_workflow(
+                "parent_workflow",
+                "test-child-events",
+                id="test-child-parent-exec-id",
+                task_queue="test-task-queue",
+            )
+            await handle.result()
+
+    started_events = [e for e in captured_events if isinstance(e, WorkflowExecutionStarted)]
+    parent_started = next(e for e in started_events if e.workflow_name == "parent_workflow")
+    child_started = next(e for e in started_events if e.workflow_name == "child_workflow")
+
+    assert parent_started.parent_workflow_exec_id is None
+    assert child_started.parent_workflow_exec_id == parent_started.workflow_exec_id
 
 
 @pytest.mark.asyncio
@@ -176,3 +215,76 @@ async def test_workflow_failure_emits_failed_event(temporal_env: WorkflowEnviron
                 },
             )
             assert len(errors) == 0, "Event sequence mismatch:\n" + "\n".join(errors)
+
+
+@pytest.mark.asyncio
+async def test_continue_as_new_event_has_continued_run_id(
+    temporal_env_with_converter: WorkflowEnvironment,
+) -> None:
+    captured_events: list[Any] = []
+    mock_client = create_capturing_mock_events_client(captured_events)
+
+    async with EventContext(mock_client):
+        async with create_test_worker_with_events(
+            temporal_env_with_converter,
+            workflows=[ContinueAsNewWorkflow],
+            interceptors=[ContextHandlerInterceptor()],
+        ):
+            handle = await temporal_env_with_converter.client.start_workflow(
+                "test-events-can-workflow",
+                CANParams(iteration=0),
+                id="test-can-continued-run-id",
+                task_queue="test-task-queue",
+            )
+            await handle.result()
+
+    started_events = [
+        e
+        for e in captured_events
+        if isinstance(e, WorkflowExecutionStarted) and e.workflow_name == "test-events-can-workflow"
+    ]
+    assert len(started_events) == 2
+
+    first_run = started_events[0]
+    second_run = started_events[1]
+
+    assert first_run.continued_run_id is None
+    assert second_run.continued_run_id == first_run.workflow_run_id
+
+
+@pytest.mark.asyncio
+async def test_retrying_workflow_has_attempt_and_continued_run_id(
+    temporal_env_with_converter: WorkflowEnvironment,
+) -> None:
+    captured_events: list[Any] = []
+    mock_client = create_capturing_mock_events_client(captured_events)
+
+    async with EventContext(mock_client):
+        async with create_test_worker_with_events(
+            temporal_env_with_converter,
+            workflows=[RetryingWorkflow],
+            interceptors=[ContextHandlerInterceptor()],
+        ):
+            handle = await temporal_env_with_converter.client.start_workflow(
+                "test-events-retrying-workflow",
+                id="test-retrying-workflow-events",
+                task_queue="test-task-queue",
+                retry_policy=RetryPolicy(maximum_attempts=2),
+            )
+            await handle.result()
+
+    started_events = [
+        e
+        for e in captured_events
+        if isinstance(e, WorkflowExecutionStarted) and e.workflow_name == "test-events-retrying-workflow"
+    ]
+    assert len(started_events) == 2
+
+    first_run = started_events[0]
+    second_run = started_events[1]
+
+    assert first_run.attributes.attempt == 1
+    assert first_run.continued_run_id is None
+
+    assert second_run.attributes.attempt == 2
+    assert second_run.continued_run_id == first_run.workflow_run_id

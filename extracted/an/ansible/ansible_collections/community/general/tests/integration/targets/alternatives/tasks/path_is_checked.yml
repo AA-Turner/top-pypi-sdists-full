@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Try with nonexistent path
-  alternatives:
+  community.general.alternatives:
     name: dummy
     path: '/non/existent/path/there'
     link: '/usr/bin/dummy'
@@ -12,6 +12,6 @@
   register: alternative
 
 - name: Check previous task failed
-  assert:
+  ansible.builtin.assert:
     that:
       - 'alternative is failed'

@@ -15,6 +15,16 @@ from mistralai.workflows.plugins.mistralai.activities import (
     mistralai_update_agent,
 )
 from mistralai.workflows.plugins.mistralai.agent import Agent
+from mistralai.workflows.plugins.mistralai.connectors.constants import MISTRALAI_PLUGIN_KEY
+from mistralai.workflows.plugins.mistralai.connectors.models import (
+    ResolvedConnectorBinding,
+    resolved_connector_bindings_from_extension,
+)
+from mistralai.workflows.plugins.mistralai.connectors.run_as import (
+    ConnectorRunAs,
+    pinned_run_as_values,
+    raise_if_mixed_run_as,
+)
 from mistralai.workflows.plugins.mistralai.mcp import (
     CollectMCPToolsParams,
     ExecuteMCPToolParams,
@@ -55,6 +65,7 @@ class RemoteSession(Session[Message]):
         self._mcp_tool_registry: dict[str, int] = {}  # tool_name -> index in _all_mcp_configs
         self._stream = stream
         self._pending_tool_call_ids: set[str] = set()
+        self._run_as: ConnectorRunAs = ConnectorRunAs.AUTO
 
     def is_conversation_active(self) -> bool:
         """Return whether a remote conversation is active for this session."""
@@ -71,6 +82,8 @@ class RemoteSession(Session[Message]):
         """
         if self._conversation_id:
             raise ValueError("Session already started")
+        # One conversation identity for the whole handoff graph.
+        self._run_as = self._resolve_conversation_run_as(agent)
         # Prepare remote agents deeply (create or update) and mutate ids
         self._agent_mapping = await self._prepare_agent_mapping(agent)
         await self._create_all_agent_handoffs(self._agent_mapping)
@@ -79,11 +92,13 @@ class RemoteSession(Session[Message]):
         messages = self._convert_inputs_to_messages(inputs)
         if self._stream:
             response = await mistralai_start_conversation_stream(
-                mistralai_models.ConversationRequest(agent_id=mistral_agent.id, inputs=messages)
+                mistralai_models.ConversationRequest(agent_id=mistral_agent.id, inputs=messages),
+                run_as=self._run_as,
             )
         else:
             response = await mistralai_start_conversation(
-                mistralai_models.ConversationRequest(agent_id=mistral_agent.id, inputs=messages)
+                mistralai_models.ConversationRequest(agent_id=mistral_agent.id, inputs=messages),
+                run_as=self._run_as,
             )
         self._conversation_id = response.conversation_id
         outputs = cast(RemoteSessionOutputs, response.outputs)
@@ -122,9 +137,9 @@ class RemoteSession(Session[Message]):
             raise ValueError("Session not started")
         request = ConversationAppendRequest(conversation_id=self._conversation_id, inputs=messages)
         if self._stream:
-            response = await mistralai_append_conversation_stream(request)
+            response = await mistralai_append_conversation_stream(request, run_as=self._run_as)
         else:
-            response = await mistralai_append_conversation(request)
+            response = await mistralai_append_conversation(request, run_as=self._run_as)
 
         outputs = cast(RemoteSessionOutputs, response.outputs)
         self._pending_tool_call_ids = self._open_function_call_ids(outputs)
@@ -248,7 +263,6 @@ class RemoteSession(Session[Message]):
         # The connector_id can be the connector name — the API resolves it.
         all_tools = local_tools
         if agent.connectors:
-            self._validate_connector_bindings(agent)
             connector_tools = [
                 mistralai_models.CustomConnector(connector_id=slot.connector_name) for slot in agent.connectors
             ]
@@ -282,7 +296,9 @@ class RemoteSession(Session[Message]):
             )
             if all_tools is not None:
                 update_payload["tools"] = all_tools
-            mistral_agent = await mistralai_update_agent(AgentUpdateRequest(agent_id=agent.id, **update_payload))
+            mistral_agent = await mistralai_update_agent(
+                AgentUpdateRequest(agent_id=agent.id, **update_payload), run_as=self._run_as
+            )
         else:
             # Create new remote agent, ensure id is not sent in creation request
             agent_creation_request = mistralai_models.CreateAgentRequest.model_validate(
@@ -290,51 +306,88 @@ class RemoteSession(Session[Message]):
                     exclude={"handoffs", "mcp_clients", "connectors", "id"}
                 )
             )
-            mistral_agent = await mistralai_create_agent(agent_creation_request)
+            mistral_agent = await mistralai_create_agent(agent_creation_request, run_as=self._run_as)
             # Mutate local agent with created id
             agent.id = mistral_agent.id
 
             # If MCP tools were collected, update tools post-creation
             if all_tools is not None and all_tools != local_tools:
                 mistral_agent = await mistralai_update_agent(
-                    AgentUpdateRequest.model_validate({"agent_id": mistral_agent.id, "tools": all_tools})
+                    AgentUpdateRequest.model_validate({"agent_id": mistral_agent.id, "tools": all_tools}),
+                    run_as=self._run_as,
                 )
         return mistral_agent
 
+    @classmethod
+    def _resolve_conversation_run_as(cls, agent: Agent) -> ConnectorRunAs:
+        """Validate connector bindings across the handoff graph and resolve its identity.
+
+        A conversation runs as one identity, so every connector across every agent
+        reachable via handoffs must share the same run_as. Agents without connectors
+        impose no constraint. Defaults to AUTO when no connectors are present.
+        """
+        binding_by_name = cls._resolved_bindings_by_name()
+        graph_run_as: set[ConnectorRunAs] = set()
+        for reachable in Agent.iterate_agents_deeply_in_handoffs(agent):
+            graph_run_as |= cls._validate_connector_bindings(reachable, binding_by_name)
+        raise_if_mixed_run_as(f"Agent handoff graph rooted at '{agent.name}'", graph_run_as)
+        return graph_run_as.pop() if graph_run_as else ConnectorRunAs.AUTO
+
     @staticmethod
-    def _validate_connector_bindings(agent: Agent) -> None:
-        """Validate that agent connectors have been resolved via @uses_connectors."""
-        if not agent.connectors:
-            return
+    def _resolved_bindings_by_name() -> dict[str, ResolvedConnectorBinding] | None:
+        """Interceptor-resolved bindings keyed by connector name.
 
-        from mistralai.workflows.plugins.mistralai.connectors.constants import (
-            MISTRALAI_PLUGIN_KEY,
-        )
-        from mistralai.workflows.plugins.mistralai.connectors.models import (
-            resolved_connector_bindings_from_extension,
-        )
-
+        ``None`` outside a workflow context (e.g. LocalSession), which is distinct from
+        an empty mapping — the latter means preflight ran and resolved nothing.
+        """
         ctx = retrieve_context()
         if ctx is None:
-            # Outside a workflow context (e.g. LocalSession) — skip validation.
-            return
-
+            return None
         mistralai_ext = (ctx.trusted_extensions or {}).get(MISTRALAI_PLUGIN_KEY, {})
         bindings = resolved_connector_bindings_from_extension(mistralai_ext)
-        resolved_names = {b.connector_name for b in bindings}
+        return {binding.connector_name: binding for binding in bindings}
 
-        agent_connector_names = {slot.connector_name for slot in agent.connectors}
-        unresolved = agent_connector_names - resolved_names
-        if unresolved:
-            connector_args = ", ".join(f'connector("{n}")' for n in sorted(unresolved))
-            raise ValueError(
-                f"Agent '{agent.name}' uses connectors "
-                f"{sorted(unresolved)} that were not resolved by "
-                f"the workflow. Add "
-                f"@uses_connectors({connector_args}) to your "
-                f"workflow class to enable connector auth "
-                f"preflight."
-            )
+    @staticmethod
+    def _validate_connector_bindings(
+        agent: Agent, binding_by_name: dict[str, ResolvedConnectorBinding] | None
+    ) -> set[ConnectorRunAs]:
+        """Validate an agent's connectors and return the identities they pin.
+
+        Outside a workflow context there are no bindings, so only explicit values pin.
+        """
+        if not agent.connectors:
+            return set()
+
+        if binding_by_name is not None:
+            unresolved = {slot.connector_name for slot in agent.connectors} - set(binding_by_name)
+            if unresolved:
+                connector_args = ", ".join(f'connector("{n}")' for n in sorted(unresolved))
+                raise ValueError(
+                    f"Agent '{agent.name}' uses connectors "
+                    f"{sorted(unresolved)} that were not resolved by "
+                    f"the workflow. Add "
+                    f"@uses_connectors({connector_args}) to your "
+                    f"workflow class to enable connector auth "
+                    f"preflight."
+                )
+
+            mismatched = [
+                f"{slot.connector_name}: agent run_as='{slot.run_as.value}', "
+                f"@uses_connectors run_as='{binding_by_name[slot.connector_name].run_as.value}'"
+                for slot in agent.connectors
+                if slot.run_as_explicit and slot.run_as != binding_by_name[slot.connector_name].run_as
+            ]
+            if mismatched:
+                raise ValueError(
+                    f"Agent '{agent.name}' has connector run_as values that do not match "
+                    f"the workflow preflight bindings: {', '.join(mismatched)}. Use matching "
+                    f"connector(...) declarations in Agent(connectors=...) and @uses_connectors(...), "
+                    f"or omit run_as on the agent connector to inherit the resolved binding."
+                )
+
+        pinned = pinned_run_as_values(agent.connectors, binding_by_name)
+        raise_if_mixed_run_as(f"Agent '{agent.name}'", pinned)
+        return pinned
 
     async def _create_all_agent_handoffs(self, agent_mapping: AgentMapping) -> None:
         await asyncio.gather(
@@ -343,7 +396,8 @@ class RemoteSession(Session[Message]):
                     AgentUpdateRequest(
                         agent_id=mistral_agent.id,
                         handoffs=[agent_mapping[agent].id for agent in agent.handoffs],
-                    )
+                    ),
+                    run_as=self._run_as,
                 )
                 for agent, mistral_agent in agent_mapping.items()
                 if agent.handoffs

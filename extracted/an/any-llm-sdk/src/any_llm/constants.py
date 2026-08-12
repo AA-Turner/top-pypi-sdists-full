@@ -54,6 +54,7 @@ class LLMProvider(StrEnum):
     LMSTUDIO = "lmstudio"
     LLAMAFILE = "llamafile"
     LLAMACPP = "llamacpp"
+    META = "meta"
     MISTRAL = "mistral"
     MOONSHOT = "moonshot"
     MZAI = "mzai"
@@ -121,7 +122,6 @@ VERIFIED_PROVIDERS: frozenset[LLMProvider] = VERIFIED_LOCAL_PROVIDERS | frozense
         LLMProvider.AZUREOPENAI,
         LLMProvider.BEDROCK,
         LLMProvider.CEREBRAS,
-        LLMProvider.COHERE,
         LLMProvider.DEEPSEEK,
         LLMProvider.FIREWORKS,
         LLMProvider.GEMINI,

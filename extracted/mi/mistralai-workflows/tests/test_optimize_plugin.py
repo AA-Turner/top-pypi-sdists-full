@@ -44,7 +44,7 @@ async def opt_scorer(input_record: dict[str, Any], output: str) -> Score:
 async def bump_to_nine(request: MutatorRequest) -> MutatorProposal:
     # Custom mutator as an activity: ignores the LLM entirely, proposes x=9 directly.
     # `request` is typed — attribute access, not dict lookups.
-    return MutatorProposal(changed={"x": 9}, reasoning=f"bump x to 9 (saw {len(request.failures)} failures)")
+    return MutatorProposal(changed={"x": 9}, hypothesis=f"bump x to 9 (saw {len(request.failures)} failures)")
 
 
 @workflow.define(name="bump-mutator-subworkflow")
@@ -53,7 +53,7 @@ class BumpMutatorSubworkflow:
     async def run(self, params: MutatorRequest) -> MutatorProposal:
         # Custom mutator as a subworkflow: receives the typed request as `params`,
         # returns the same MutatorProposal contract. Proposes x=8.
-        return MutatorProposal(changed={"x": 8}, reasoning="subworkflow bump to 8")
+        return MutatorProposal(changed={"x": 8}, hypothesis="subworkflow bump to 8")
 
 
 def _mock_obs_client_with_record(output: str, value: float) -> Any:
@@ -163,7 +163,7 @@ class TestEvaluationOptimize:
         # jump the tunable to 9 (score 0.9) so the search visibly climbs off the seed.
         response = MagicMock()
         response.choices = [MagicMock()]
-        response.choices[0].message.content = json.dumps({"reasoning": "raise x hard", "x": 9})
+        response.choices[0].message.content = json.dumps({"hypothesis": "raise x hard", "x": 9})
         mock_client.chat.complete_async = AsyncMock(return_value=response)
         # The fetch activity reads per-record scores/rationales for Pareto + reflection.
         record = EvaluationRunRecordResponse(
@@ -273,7 +273,7 @@ class TestEvaluationOptimize:
         mock_client = _make_mock_obs_client()
         response = MagicMock()
         response.choices = [MagicMock()]
-        response.choices[0].message.content = json.dumps({"reasoning": "raise x", "x": 9})
+        response.choices[0].message.content = json.dumps({"hypothesis": "raise x", "x": 9})
         mock_client.chat.complete_async = AsyncMock(return_value=response)
         record = EvaluationRunRecordResponse(
             id="r1",
@@ -314,12 +314,16 @@ class TestEvaluationOptimize:
         assert create_req.source == "workflow"
         assert create_req.algorithm == "GEPA"
 
-        # 2. Every candidate run is linked to the optimization at creation.
+        # 2. Candidate runs are linked to a trial (as observations) at creation. GEPA's minibatch
+        # probes (re-scoring a parent) are intentionally left unlinked, so only assert the linked ones.
+        create_trial = mock_client.evaluation._endpoints.create_optimization_trial
+        create_trial.assert_awaited()
         run_calls = mock_client.evaluation.beta.create_run.call_args_list
-        assert run_calls, "expected candidate runs"
-        for call in run_calls:
-            assert call.kwargs["optimization_id"] == "test-optimization-id"
-            assert set(call.kwargs["optimization_metadata"]) >= {"gen", "subset"}
+        linked = [c for c in run_calls if c.kwargs.get("optimization_trial_id") is not None]
+        assert linked, "expected at least one run linked to a trial"
+        for call in linked:
+            assert call.kwargs["optimization_trial_id"] == "test-trial-id"
+            assert call.kwargs["optimization_observation_type"] is not None
 
         # 3. The optimization is finalized completed, with an outcome.
         patch = mock_client.evaluation._endpoints.patch_optimization
@@ -331,6 +335,16 @@ class TestEvaluationOptimize:
         # (optimization_url on the result is covered by the SDK test; OptimizeWorkflow here returns a
         # custom dict, not result.model_dump(), so there's nothing to assert on that front.)
         assert result["result"]["verdict"] == "success"
+
+        # 4. Each trial is finalized completed with its resolution — the seed is "baseline" and at
+        # least one candidate is "accepted" (kept) since x=9 climbs off the seed.
+        patch_trial = mock_client.evaluation._endpoints.patch_optimization_trial
+        patch_trial.assert_awaited()
+        finalized = [c.args[1] for c in patch_trial.call_args_list]
+        assert all(r.status == "completed" for r in finalized)
+        resolutions = {r.resolution for r in finalized}
+        assert "baseline" in resolutions  # the seed
+        assert "accepted" in resolutions  # a kept candidate
 
     @pytest.mark.asyncio
     async def test_optimize_marks_optimization_failed_on_search_error(self, temporal_env: Any) -> None:
@@ -374,6 +388,13 @@ class TestEvaluationOptimize:
         patch = mock_client.evaluation._endpoints.patch_optimization
         statuses = [call.args[1].status for call in patch.call_args_list]
         assert "failed" in statuses
+
+        # Trials created before the failure are finalized as failed, not left running under a failed
+        # optimization.
+        patch_trial = mock_client.evaluation._endpoints.patch_optimization_trial
+        trial_statuses = [call.args[1].status for call in patch_trial.call_args_list]
+        assert trial_statuses, "expected the in-flight trial to be finalized"
+        assert all(s == "failed" for s in trial_statuses)
 
 
 @pytest.mark.asyncio

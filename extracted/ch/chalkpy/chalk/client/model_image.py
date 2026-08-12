@@ -781,8 +781,10 @@ def upload_chalk_handler_artifacts(volume_name: str, uploads: List[Tuple[str, st
     except ImportError:
         raise ImportError("Please install `chalkcompute` to upload model artifacts.")
 
-    for local_path, basename in uploads:
-        vol.put_file_from_path(basename, local_path)
+    # Batch all files into a single commit (one version) instead of one commit per file.
+    with vol.batch_upload() as batch:
+        for local_path, basename in uploads:
+            batch.put_file(basename, local_path)
 
 
 _CHALKPY_DEV_PLACEHOLDER_VERSION = "0.0.0"
@@ -977,7 +979,7 @@ def build_image_from_spec_with_files(
     data: bytes,
     local_files: List[Tuple[str, str, Optional[int]]],
     chalk_client: Any = None,
-) -> Tuple[str, List[Dict[str, str]]]:
+) -> Tuple[str, List[Dict[str, Any]]]:
     """Rebuild from ``ImageSpec`` bytes + ``(src, dest, mode)`` files; return (uri, volume_mounts)."""
     try:
         from chalkcompute import Image, build_image_with_volumes  # pyright: ignore[reportMissingImports]
@@ -987,5 +989,4 @@ def build_image_from_spec_with_files(
     for src, dest, mode in local_files:
         img = img.add_local_file(src, dest, mode=mode, strategy="volume")
     uri, volumes = build_image_with_volumes(img, chalk_client=chalk_client)
-    mounts = [{"name": v.name, "mount_path": v.mount_path, "type": v.type} for v in volumes]
-    return uri, mounts
+    return uri, [v.to_spec_dict() for v in volumes]

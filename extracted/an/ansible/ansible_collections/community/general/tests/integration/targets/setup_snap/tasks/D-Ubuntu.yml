@@ -4,16 +4,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Install snapd (ubuntu)
-  package:
+  ansible.builtin.package:
     name: "{{ snap_packages }}"
     state: present
   notify: Remove snapd
 
 - name: Make sure that snapd is running
-  service:
+  ansible.builtin.service:
     name: snapd
     state: started
 
 - name: Inform that snap is installed
-  set_fact:
+  ansible.builtin.set_fact:
     has_snap: true

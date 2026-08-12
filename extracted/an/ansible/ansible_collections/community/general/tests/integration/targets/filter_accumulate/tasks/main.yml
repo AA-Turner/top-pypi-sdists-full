@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Filter | Accumulate | Test valid values
-  assert:
+  ansible.builtin.assert:
     that:
       - "'abc' | community.general.accumulate == ['a', 'ab', 'abc']"
       - "['a', 'b'] | community.general.accumulate == ['a', 'ab']"
@@ -15,19 +15,19 @@
 
 
 - name: Filter | Accumulate | Test invalid values | Integer
-  debug:
+  ansible.builtin.debug:
     var: "1 | community.general.accumulate"
   register: integer_result
   ignore_errors: true
 
 - name: Filter | Accumulate | Test invalid values | Non uniform list
-  debug:
+  ansible.builtin.debug:
     var: "['aa', 1] | community.general.accumulate"
   register: non_uniform_list_result
   ignore_errors: true
 
 - name: Filter | Accumulate | Test invalid values | Check errors
-  assert:
+  ansible.builtin.assert:
     that:
       - integer_result is failed
       - integer_result.msg is search('Invalid value type')

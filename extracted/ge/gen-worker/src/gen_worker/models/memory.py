@@ -30,6 +30,7 @@ from typing import Any, Dict, Iterable, List, Optional
 import msgspec
 
 from ..component_vocab import component_vocabulary
+from .structure_only import STAMP as _STRUCTURE_ONLY
 import asyncio
 
 _LOG = logging.getLogger(__name__)
@@ -625,9 +626,23 @@ def device_mismatches(obj: Any, device: str) -> List[tuple[str, str, str]]:
     The paranoid post-move walk (gw#409): a pipeline ``.to()`` that raises or
     skips mid-way leaves a mixed-device pipeline that fatals mid-denoise
     ("Expected all tensors to be on the same device"); this surfaces the miss
-    at move time instead. [] without torch / for tensor-less objects."""
+    at move time instead. [] without torch / for tensor-less objects.
+
+    VIRTUAL-BY-DESIGN TENSORS ARE NOT MISPLACED (pgw#1124). A pgw#1080
+    structure-only component is composed ON the compute device with fake
+    parameters and declines ``_apply`` outright (``_freeze_placement``), so
+    counting it here made a CPU rollback impossible to satisfy — and
+    ``place_pipeline``'s OOM demotion turned a recoverable ladder step into
+    the fatal ``CUDA OOM left the pipeline mixed-device``, deterministically,
+    on every boot-trace child of two live families. Such a component is
+    skipped whole: its fake parameters allocate nothing and its real buffers
+    are part of the graph being traced, so MOVING them would be the defect.
+    A fake tensor is exempt wherever it is found, for the same reason. A META
+    tensor is exempt only inside a structure-only component — elsewhere it is
+    an unmaterialized load, which :func:`meta_tensors` exists to report."""
     try:
         import torch
+        from torch._subclasses.fake_tensor import FakeTensor
 
         target = torch.device(device).type
     except Exception:
@@ -636,6 +651,8 @@ def device_mismatches(obj: Any, device: str) -> List[tuple[str, str, str]]:
     for cname, comp in _named_components(obj):
         if comp is None or not hasattr(comp, "named_parameters"):
             continue
+        if getattr(comp, _STRUCTURE_ONLY, False):
+            continue
         try:
             named = list(comp.named_parameters())
             if hasattr(comp, "named_buffers"):
@@ -643,7 +660,9 @@ def device_mismatches(obj: Any, device: str) -> List[tuple[str, str, str]]:
         except Exception:
             continue
         for tname, t in named:
-            if isinstance(t, torch.Tensor) and t.device.type != target:
+            if not isinstance(t, torch.Tensor) or isinstance(t, FakeTensor):
+                continue
+            if t.device.type != target:
                 out.append((cname, tname, str(t.device)))
     return out
 
@@ -675,10 +694,37 @@ def repair_device_placement(obj: Any, device: str) -> List[tuple[str, str, str]]
 
 
 def _sum_tensor_bytes(objs: Iterable[Any], *, cuda_only: bool) -> int:
+    """Weight bytes across ``objs``' components, each storage counted once.
+
+    A VIRTUAL tensor (pgw#1080's fake parameters) declares a shape and a device
+    and holds no storage, and this walk treats it as such in two places
+    (pgw#1128):
+
+    * it is never ``data_ptr()``-ed. Every FakeTensor answers ``0``, so the
+      storage dedupe collapsed a whole structure-only tree into its first
+      tensor and understated the rest; and torch deprecated the call outright
+      (*"Accessing the data pointer of FakeTensor is deprecated and will
+      error"*), so the walk that measures a virtual structure would eventually
+      raise inside the ``except`` that hides every failure as ``0.0``.
+    * it is never RESIDENT. ``cuda_only`` asks what occupies the card right
+      now, and a fake parameter occupies nothing, whatever device it claims.
+      Booking it made a structure-only pipeline look like its own weights were
+      already paid for (``select_auto_mode``'s net requirement fell to zero,
+      so every rung read "off").
+
+    It still COUNTS toward the requirement (``cuda_only=False``): the shape and
+    dtype it declares are the bytes a real load — or ``materialize_random`` in
+    the mint child — will go on to allocate. The two estimates below are the
+    two questions, and virtuality answers them differently.
+    """
     import torch
+    from torch._subclasses.fake_tensor import FakeTensor
 
     total = 0
-    seen: set[int] = set()  # data_ptr dedupe: shared storages counted ONCE
+    #: ``("ptr", data_ptr)`` for a tensor with storage — shared storages are
+    #: counted ONCE — and ``("obj", id)`` for one without, which has no storage
+    #: identity to share.
+    seen: set[tuple[str, int]] = set()
     for obj in objs:
         for c in _iter_components(obj):
             if c is None or not hasattr(c, "parameters"):
@@ -689,12 +735,17 @@ def _sum_tensor_bytes(objs: Iterable[Any], *, cuda_only: bool) -> int:
             for t in tensors:
                 if not isinstance(t, torch.Tensor):
                     continue
-                if cuda_only and t.device.type != "cuda":
+                virtual = isinstance(t, FakeTensor)
+                if cuda_only and (virtual or t.device.type != "cuda"):
                     continue
-                try:
-                    key = t.data_ptr()
-                except Exception:
-                    key = id(t)
+                key: tuple[str, int]
+                if virtual:
+                    key = ("obj", id(t))
+                else:
+                    try:
+                        key = ("ptr", t.data_ptr())
+                    except Exception:
+                        key = ("obj", id(t))
                 if key in seen:
                     continue
                 seen.add(key)
@@ -705,7 +756,9 @@ def _sum_tensor_bytes(objs: Iterable[Any], *, cuda_only: bool) -> int:
 def estimate_pipeline_size_gb(pipeline: Any) -> float:
     """Total weight bytes of a pipeline regardless of device — the *requirement*
     estimate the offload ladder compares against free VRAM. Tensors that share
-    storage (shared components) are counted once. 0.0 without torch."""
+    storage (shared components) are counted once, and a virtual (fake)
+    parameter counts for the bytes it declares, because that is what a real
+    load will allocate. 0.0 without torch."""
     try:
         return float(_sum_tensor_bytes([pipeline], cuda_only=False)) / float(1024**3)
     except Exception:
@@ -715,7 +768,13 @@ def estimate_pipeline_size_gb(pipeline: Any) -> float:
 def estimate_cuda_resident_gb(*objects: Any) -> float:
     """CUDA-resident bytes across the given pipelines/modules, shared storages
     counted once — the *residency accounting* estimate (#358: CPU-offloaded
-    pipelines must not be booked as full VRAM; shared components once)."""
+    pipelines must not be booked as full VRAM; shared components once).
+
+    pgw#1128: a VIRTUAL tensor is not resident. A pgw#1080 structure-only
+    component's parameters are fake ON the compute device by construction, and
+    booking their declared bytes as occupied VRAM is the same category error
+    pgw#1124 fixed in ``device_mismatches`` — a structure that allocates
+    nothing read as a card that was already full of it."""
     try:
         return float(_sum_tensor_bytes(objects, cuda_only=True)) / float(1024**3)
     except Exception:

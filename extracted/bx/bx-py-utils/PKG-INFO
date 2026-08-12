@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: bx_py_utils
-Version: 120
+Version: 121
 Summary: Various Python utility functions
 Project-URL: Documentation, https://github.com/boxine/bx_py_utils/
 Project-URL: Source, https://github.com/boxine/bx_py_utils/
@@ -148,6 +148,12 @@ Doc-Write, see: https://github.com/boxine/bx_py_utils/blob/master/bx_py_utils/do
 ### bx_py_utils.iteration
 
 * [`chunk_iterable()`](https://github.com/boxine/bx_py_utils/blob/master/bx_py_utils/iteration.py#L4-L21) - Returns a generator that yields slices of iterable of the given `chunk_size`.
+
+### bx_py_utils.list_utils
+
+* [`dedupe_lines()`](https://github.com/boxine/bx_py_utils/blob/master/bx_py_utils/list_utils.py#L4-L21) - Collapse runs of 4+ identical consecutive items to first, a cut marker, and last.
+* [`dedupe_text()`](https://github.com/boxine/bx_py_utils/blob/master/bx_py_utils/list_utils.py#L24-L42) - Collapse runs of 4+ identical lines in a text block to "first", "a cut marker", and "last".
+* [`unique_list()`](https://github.com/boxine/bx_py_utils/blob/master/bx_py_utils/list_utils.py#L45-L53) - >>> unique_list([2, 6, 6, 6, 1, 2, 1])
 
 ### bx_py_utils.path
 

@@ -54,8 +54,8 @@ class SnowflakePlusTypeMapper(SnowflakeTypeMapper):
         "time": "string",
     }
 
-    def to_destination_type(self, column: TColumnSchema, table: PreparedTableSchema) -> str:
-        if table.get("table_format") == "iceberg":
+    def to_destination_type(self, column: TColumnSchema, table: PreparedTableSchema = None) -> str:
+        if table and table.get("table_format") == "iceberg":
             if column["data_type"] == "double":
                 return "double"
             elif column["data_type"] == "text":

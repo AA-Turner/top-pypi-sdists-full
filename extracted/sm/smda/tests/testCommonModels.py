@@ -1,12 +1,16 @@
 import copy
 import hashlib
+import json
 import struct
+import tempfile
 import unittest
+from pathlib import Path
 
+from smda.common.BinaryInfo import BinaryInfo
 from smda.common.SmdaBasicBlock import SmdaBasicBlock
 from smda.common.SmdaFunction import INTEL_PIC_HASH_ESCAPE_VERSION, LazyIntKeyDict, SmdaFunction
 from smda.common.SmdaInstruction import SmdaInstruction
-from smda.common.SmdaReport import SmdaReport
+from smda.common.SmdaReport import REQUIRED_REPORT_FIELDS, SmdaReport
 from smda.Disassembler import Disassembler
 from smda.SmdaConfig import SmdaConfig
 
@@ -73,6 +77,212 @@ class TestCommonModels(unittest.TestCase):
         restored = SmdaReport.fromDict(report_dict)
         self.assertIsNone(restored.timestamp)
         self.assertEqual(restored.num_functions, 0)
+
+    def test_report_round_trips_through_a_utf8_file(self):
+        report = SmdaReport()
+        report.filename = "café_módulo.exe"
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            report_path = Path(tmp_dir) / "report.smda"
+            report.toFile(str(report_path))
+            self.assertEqual(SmdaReport.fromFile(str(report_path)).filename, "café_módulo.exe")
+
+            raw_path = Path(tmp_dir) / "raw.smda"
+            raw_path.write_text(json.dumps(report.toDict(), ensure_ascii=False), encoding="utf-8")
+            self.assertIn("café_módulo.exe", raw_path.read_bytes().decode("utf-8"))
+            self.assertEqual(SmdaReport.fromFile(str(raw_path)).filename, "café_módulo.exe")
+
+            with self.assertRaises(FileNotFoundError):
+                SmdaReport.fromFile(str(Path(tmp_dir) / "absent.smda"))
+
+    def test_report_rejects_non_mapping_function_payloads(self):
+        report_dict = SmdaReport().toDict()
+
+        for payload in (None, {"xcfg": []}, {"xcfg": {"0": []}}):
+            with self.subTest(payload=payload):
+                candidate = copy.deepcopy(report_dict)
+                if payload is None:
+                    candidate = payload
+                else:
+                    candidate.update(payload)
+                with self.assertRaises(ValueError):
+                    SmdaReport.fromDict(candidate)
+
+    def test_report_rejects_missing_required_fields(self):
+        report_dict = SmdaReport().toDict()
+
+        for field in sorted(REQUIRED_REPORT_FIELDS):
+            with self.subTest(field=field):
+                candidate = copy.deepcopy(report_dict)
+                candidate.pop(field)
+                with self.assertRaises(ValueError):
+                    SmdaReport.fromDict(candidate)
+
+    def test_report_rejects_malformed_container_fields(self):
+        report_dict = SmdaReport().toDict()
+        malformed_fields = [
+            ("metadata", []),
+            ("code_sections", [1]),
+            ("xdata_refs_from", []),
+            ("xdata_refs_to", []),
+            ("statistics", {"num_functions": 1}),
+            ("xdata_refs_from", {"0": [0, "1"]}),
+        ]
+
+        for field, value in malformed_fields:
+            with self.subTest(field=field, value=value):
+                candidate = copy.deepcopy(report_dict)
+                candidate[field] = value
+                with self.assertRaises(ValueError):
+                    SmdaReport.fromDict(candidate)
+
+    @staticmethod
+    def _report_with_one_function(smda_version, metadata_extra=None):
+        report_dict = SmdaReport().toDict()
+        report_dict["architecture"] = "intel"
+        report_dict["smda_version"] = smda_version
+        report_dict["xcfg"] = {
+            "0": {
+                "offset": 0,
+                "blocks": {},
+                "apirefs": {},
+                "blockrefs": {},
+                "inrefs": [],
+                "outrefs": {},
+                "metadata": {
+                    "binweight": 0,
+                    "characteristics": [],
+                    "confidence": 0,
+                    "function_name": "",
+                    "strongly_connected_components": [],
+                    "tfidf": {},
+                    **(metadata_extra or {}),
+                },
+            }
+        }
+        return report_dict
+
+    def test_legacy_report_recalculates_missing_nesting_depth(self):
+        restored = SmdaReport.fromDict(self._report_with_one_function("1.0.0"))
+
+        self.assertEqual(restored.getFunction(0).nesting_depth, 0)
+
+    def test_current_report_uses_the_cached_nesting_depth(self):
+        restored = SmdaReport.fromDict(self._report_with_one_function("4.4.0", {"nesting_depth": 3}))
+        self.assertEqual(restored.getFunction(0).nesting_depth, 3)
+
+        restored = SmdaReport.fromDict(self._report_with_one_function("4.4.0"))
+        self.assertEqual(restored.getFunction(0).nesting_depth, 0)
+
+    def test_report_rejects_non_string_instruction_fields(self):
+        report_dict = SmdaReport().toDict()
+        report_dict["architecture"] = "intel"
+        report_dict["xcfg"] = {
+            "0": {
+                "offset": 0,
+                "blocks": {"0": [[0, [], "nop", ""]]},
+                "apirefs": {},
+                "blockrefs": {},
+                "inrefs": [],
+                "outrefs": {},
+                "metadata": {
+                    "binweight": 0,
+                    "characteristics": [],
+                    "confidence": 0,
+                    "function_name": "",
+                    "nesting_depth": 0,
+                    "strongly_connected_components": [],
+                    "tfidf": {},
+                },
+            }
+        }
+
+        with self.assertRaises(ValueError):
+            SmdaReport.fromDict(report_dict)
+
+    def test_report_rejects_invalid_scalar_fields(self):
+        report_dict = SmdaReport().toDict()
+        malformed_fields = {
+            "statistics": ["invalid"],
+            "timestamp": 1,
+            "xheader": 1,
+            "xmetadata": 1,
+            "smda_version": 1,
+        }
+
+        for field, value in malformed_fields.items():
+            with self.subTest(field=field):
+                candidate = copy.deepcopy(report_dict)
+                candidate[field] = value
+                with self.assertRaises(ValueError):
+                    SmdaReport.fromDict(candidate)
+
+    def test_function_rejects_malformed_container_fields(self):
+        function_dict = SmdaFunction().toDict()
+        malformed_fields = {
+            "incomplete": {},
+            "blocks_type": {"blocks": []},
+            "block_type": {"blocks": {"0": {}}},
+            "apirefs_type": {"apirefs": []},
+            "blockrefs_type": {"blockrefs": []},
+            "outrefs_type": {"outrefs": []},
+            "blockrefs_targets": {"blockrefs": {"0": [0, "1"]}},
+            "inrefs_type": {"inrefs": {}},
+            "metadata_type": {"metadata": []},
+            "metadata_fields": {"metadata": {}},
+            "architecture_metadata_type": {"architecture_metadata": []},
+        }
+
+        for name, updates in malformed_fields.items():
+            with self.subTest(name=name):
+                candidate = copy.deepcopy(function_dict)
+                if name == "incomplete":
+                    candidate.pop("metadata")
+                candidate.update(updates)
+                with self.assertRaises(ValueError):
+                    SmdaFunction.fromDict(candidate)
+
+    def test_block_refs_are_resorted_when_a_handler_target_is_not_a_block_start(self):
+        from smda.DisassemblyResult import DisassemblyResult
+
+        disassembly = DisassemblyResult()
+        # one block at 0x200; the handler target at 0x100 belongs to no block, so it is
+        # appended as a new key and the sorted order has to be restored
+        disassembly.functions[0x200] = [[(0x200, 2, "nop", "", b"\x00\x00")]]
+        disassembly.function_metadata[0x200] = {
+            "try_ranges": [{"start_addr": 0x200, "end_addr": 0x202, "handlers": [{"target_addr": 0x100}]}]
+        }
+
+        block_refs = disassembly.getBlockRefs(0x200)
+
+        self.assertEqual([0x100, 0x200], list(block_refs))
+        self.assertEqual([], block_refs[0x100])
+        self.assertEqual([0x100], block_refs[0x200])
+
+    def test_block_refs_keep_seeded_order_when_no_handler_target_is_added(self):
+        from smda.DisassemblyResult import DisassemblyResult
+
+        disassembly = DisassemblyResult()
+        disassembly.functions[0x100] = [[(0x100, 2, "jmp", "0x200", b"\x00\x00")], [(0x200, 2, "ret", "", b"\x00\x00")]]
+        disassembly.code_refs_from[0x100] = {0x200}
+
+        block_refs = disassembly.getBlockRefs(0x100)
+
+        self.assertEqual([0x100, 0x200], list(block_refs))
+        self.assertEqual([0x200], block_refs[0x100])
+
+    def test_hash_sequences_fall_back_to_raw_bytes_without_an_escaper(self):
+        # an unsupported architecture leaves _escaper None; both sequences must still be emitted
+        function = SmdaFunction()
+        function.blocks = {
+            0x100: [SmdaInstruction([0x100, "5589e5", "push", "ebp"])],
+            0x200: [SmdaInstruction([0x200, "c3", "ret", ""])],
+        }
+        function._sorted_block_keys = [0x100, 0x200]
+
+        self.assertIsNone(function._escaper)
+        self.assertEqual(b"5589e5c3", function.getPicHashSequence(None))
+        self.assertEqual(b"5589e5c3", function.getOpcHashSequence())
 
     def test_function_hash_helpers_use_little_endian(self):
         function = SmdaFunction()
@@ -159,6 +369,31 @@ class TestCommonModels(unittest.TestCase):
         gate_version = ".".join(str(v) for v in INTEL_PIC_HASH_ESCAPE_VERSION)
 
         imported = SmdaFunction.fromDict(function_dict, version=gate_version, smda_report=report)
+
+        self.assertEqual(imported.pic_hash, stored_pic_hash)
+
+    def test_imported_report_with_a_suffixed_version_recalculates_instead_of_raising(self):
+        report = _disassemble_intel_bytes(b"\xc3")  # ret
+        function = report.getFunction(INTEL_BASE)
+        expected_pic_hash = function.pic_hash
+        function_dict = function.toDict()
+        function_dict["metadata"]["pic_hash"] = 0x0123456789ABCDEF
+
+        imported = SmdaFunction.fromDict(function_dict, version="4.4.4-dev", smda_report=report)
+
+        self.assertEqual(imported.pic_hash, expected_pic_hash)
+
+    def test_imported_report_skips_hashing_against_an_unlocated_binary_info(self):
+        report = _disassemble_intel_bytes(b"\xc3")  # ret
+        function_dict = report.getFunction(INTEL_BASE).toDict()
+        stored_pic_hash = 0x0123456789ABCDEF
+        function_dict["metadata"]["pic_hash"] = stored_pic_hash
+        unlocated = BinaryInfo(b"\xc3")
+        unlocated.architecture = "intel"
+        unlocated.base_addr = None
+        unlocated.binary_size = None
+
+        imported = SmdaFunction.fromDict(function_dict, binary_info=unlocated, version="1.0.0")
 
         self.assertEqual(imported.pic_hash, stored_pic_hash)
 
@@ -315,6 +550,45 @@ class TestCommonModels(unittest.TestCase):
         function.apirefs = {0x1000: ("Ljava/io/PrintStream;", "println")}
 
         self.assertTrue(function.isApiThunk())
+
+
+class TestBinaryInfoCodeAreas(unittest.TestCase):
+    def test_address_one_past_the_image_is_not_inside(self):
+        binary_info = BinaryInfo(b"\x90" * 0x100)
+        binary_info.base_addr = 0x400000
+        binary_info.binary_size = 0x100
+
+        self.assertTrue(binary_info.isInCodeAreas(0x400000))
+        self.assertTrue(binary_info.isInCodeAreas(0x4000FF))
+        self.assertFalse(binary_info.isInCodeAreas(0x400100))
+
+
+class TestSmdaFunctionRobustness(unittest.TestCase):
+    def test_escaper_is_declared_for_instances_built_without_a_disassembly(self):
+        self.assertIsNone(SmdaFunction()._escaper)
+        self.assertIsNone(SmdaFunction.__new__(SmdaFunction)._escaper)
+
+    def test_try_range_without_bounds_is_skipped(self):
+        function = SmdaFunction()
+        function.offset = 0x100
+        function.blocks = {0x100: []}
+        function.blockrefs = {}
+        function.architecture_metadata = {"try_ranges": [{"handlers": [{"target_addr": 0x200}]}]}
+
+        self.assertEqual(function.getNormalizedBlockRefs(), {0x100: []})
+
+    def test_code_xrefs_skip_a_function_whose_offset_is_not_an_instruction(self):
+        report = SmdaReport(None)
+        report._offset2ins = {0x2000: object()}
+        report._has_codexrefs = True
+        function = SmdaFunction()
+        function.smda_report = report
+        function.offset = 0x1000
+        function.inrefs = [0x2000]
+        function.outrefs = {0x1000: [0x2000]}
+
+        self.assertEqual(list(function.getCodeInrefs()), [])
+        self.assertEqual(list(function.getCodeOutrefs()), [])
 
 
 if __name__ == "__main__":

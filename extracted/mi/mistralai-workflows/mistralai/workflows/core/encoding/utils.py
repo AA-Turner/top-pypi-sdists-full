@@ -41,6 +41,12 @@ def build_temporal_payload_metadata(
         metadata[PayloadMetadataKeys.TRUSTED_EXTENSIONS] = json.dumps(context.trusted_extensions).encode()
     if context.on_behalf_of is not None:
         metadata[PayloadMetadataKeys.ON_BEHALF_OF] = b"true" if context.on_behalf_of else b"false"
+    if context.continued_run_id:
+        metadata[PayloadMetadataKeys.CONTINUED_RUN_ID] = context.continued_run_id.encode()
+    if context.first_execution_run_id:
+        metadata[PayloadMetadataKeys.FIRST_EXECUTION_RUN_ID] = context.first_execution_run_id.encode()
+    if context.schedule_id:
+        metadata[PayloadMetadataKeys.SCHEDULE_ID] = context.schedule_id.encode()
 
     if empty_payload:
         metadata[PayloadMetadataKeys.EMPTY_PAYLOAD] = bytes(True)
@@ -66,6 +72,13 @@ def build_info_from_payload_metadata(
     on_behalf_of_bytes = metadata.get(PayloadMetadataKeys.ON_BEHALF_OF)
     on_behalf_of: bool | None = on_behalf_of_bytes == b"true" if on_behalf_of_bytes is not None else None
 
+    continued_run_id_bytes = metadata.get(PayloadMetadataKeys.CONTINUED_RUN_ID)
+    continued_run_id = continued_run_id_bytes.decode() if continued_run_id_bytes else None
+    first_execution_run_id_bytes = metadata.get(PayloadMetadataKeys.FIRST_EXECUTION_RUN_ID)
+    first_execution_run_id = first_execution_run_id_bytes.decode() if first_execution_run_id_bytes else None
+    schedule_id_bytes = metadata.get(PayloadMetadataKeys.SCHEDULE_ID)
+    schedule_id = schedule_id_bytes.decode() if schedule_id_bytes else None
+
     workflow_context = WorkflowContext(
         namespace=metadata.get(PayloadMetadataKeys.NAMESPACE, b"").decode(),
         execution_id=metadata.get(PayloadMetadataKeys.EXECUTION_ID, b"").decode(),
@@ -75,6 +88,9 @@ def build_info_from_payload_metadata(
         extensions=extensions,
         trusted_extensions=trusted_extensions,
         on_behalf_of=on_behalf_of,
+        continued_run_id=continued_run_id,
+        first_execution_run_id=first_execution_run_id,
+        schedule_id=schedule_id,
     )
 
     empty = bool(metadata.get(PayloadMetadataKeys.EMPTY_PAYLOAD))

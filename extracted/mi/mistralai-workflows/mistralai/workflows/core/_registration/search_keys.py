@@ -31,6 +31,9 @@ logger = structlog.get_logger(__name__)
 # str/bytes are Collections too, but are valid scalar leaves.
 _SCALAR_COLLECTION_TYPES = (str, bytes, bytearray)
 
+# Owned by the SDK (e.g. the wait_for_input state key); callers must not collide with it.
+_RESERVED_KEY_PREFIX = "internal."
+
 
 def _unwrap_optional(annotation: Any) -> Any:
     if get_origin(annotation) in (Union, UnionType):
@@ -91,10 +94,12 @@ def validate_search_key_paths(
             path_errors.append("duplicate search key")
         else:
             seen.add(path)
-        if ":" in path:
-            path_errors.append("must not contain ':'")
         if not path or path != path.strip():
             path_errors.append("must not be empty or padded with whitespace")
+        if ":" in path:
+            path_errors.append("must not contain ':'")
+        if path.startswith(_RESERVED_KEY_PREFIX):
+            path_errors.append(f"must not start with `{_RESERVED_KEY_PREFIX}`, which the SDK reserves")
         if len(path) > MAX_SEARCH_KEY_CHARS:
             path_errors.append(f"must be at most {MAX_SEARCH_KEY_CHARS} characters")
         segments = path.split(".")

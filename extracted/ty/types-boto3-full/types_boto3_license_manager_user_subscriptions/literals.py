@@ -55,6 +55,7 @@ LicenseManagerUserSubscriptionsServiceName = Literal["license-manager-user-subsc
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

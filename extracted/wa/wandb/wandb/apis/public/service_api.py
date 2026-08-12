@@ -4,14 +4,18 @@ import json
 import logging
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, TypeVar, cast
 
 from wandb.proto import wandb_internal_pb2 as pb
 from wandb.proto import wandb_server_pb2 as spb
 from wandb.proto.wandb_api_pb2 import (
     ApiRequest,
     ApiResponse,
+    AuthenticateRequest,
+    AuthenticateResponse,
+    AuthRequest,
     FeaturesRequest,
+    GetAccessTokenRequest,
     GraphQLRequest,
 )
 from wandb.sdk import wandb_settings, wandb_setup
@@ -22,6 +26,9 @@ from wandb.sdk.lib.service.service_connection import (
 from wandb.sdk.mailbox.mailbox_handle import MailboxHandle
 
 _logger = logging.getLogger(__name__)
+
+
+_T = TypeVar("_T")
 
 
 @dataclass(frozen=True)
@@ -45,6 +52,19 @@ class ServiceApi:
     @property
     def app_url(self) -> str:
         return self._settings.app_url.rstrip("/") + "/"
+
+    @property
+    def base_url(self) -> str:
+        return self._settings.base_url
+
+    @property
+    def initialized(self) -> bool:
+        """Returns whether the lazy connection to wandb-core has been made.
+
+        It does not indicate the the connection is healthy, only that a connection
+        has been cached.
+        """
+        return self._api_session is not None
 
     def _get_api_session(self) -> _ServiceApiSession:
         """Connect to the service and initialize resources for API requests."""
@@ -108,11 +128,12 @@ class ServiceApi:
         variables: Mapping[str, Any] | None = None,
         timeout: float | None = None,
         *,
+        parse: Callable[[str], _T] = json.loads,
         omit_variables: Iterable[str] | None = None,
         omit_fragments: Iterable[str] | None = None,
         omit_fields: Iterable[str] | None = None,
         rename_fields: Mapping[str, str] | None = None,
-    ) -> Any:
+    ) -> _T:
         """Execute a GraphQL operation through the wandb-core sidecar.
 
         The query is sent to wandb-core, which performs the network round-trip
@@ -125,6 +146,9 @@ class ServiceApi:
                 on the wire.
             timeout: Optional timeout in seconds for waiting on wandb-core.
                 On timeout, the request is cancelled on a best-effort basis.
+            parse: Callable used to deserialize the JSON response data.
+                Its must accept a (JSON) string as input. Its output will be
+                returned from this method. Defaults to `json.loads`.
             omit_variables: Variable names ($var) to strip from the query
                 server-side before forwarding to the backend. Use this to
                 drop variables that the deployed server version does not
@@ -145,21 +169,91 @@ class ServiceApi:
                 non-successful HTTP status codes, and GraphQL `errors`
                 returned by the server.
         """
-        request = ApiRequest(
+        req = ApiRequest(
             graphql_request=GraphQLRequest(
                 query=query,
                 variables_json=json.dumps(variables or {}),
-                omit_variables=list(omit_variables) if omit_variables else None,
-                omit_fragments=list(omit_fragments) if omit_fragments else None,
-                omit_fields=list(omit_fields) if omit_fields else None,
-                rename_fields=dict(rename_fields) if rename_fields else None,
+                omit_variables=omit_variables,
+                omit_fragments=omit_fragments,
+                omit_fields=omit_fields,
+                rename_fields=rename_fields,
             )
         )
-        response = self.send_api_request(
-            request,
-            timeout=timeout if timeout is not None else self._timeout,
+        resp = self.send_api_request(
+            req,
+            timeout=self._timeout if timeout is None else timeout,
         )
-        return json.loads(response.graphql_response.data_json)
+        return parse(resp.graphql_response.data_json)
+
+    def authenticate(
+        self,
+        timeout: float | None = None,
+    ) -> AuthenticateResponse:
+        """Verify credentials with the W&B server and identify their account.
+
+        The credentials come from the settings this object was created with:
+        an API key, or an identity token file when using federated identity.
+        wandb-core authenticates to the W&B backend and asks it who the
+        credentials belong to.
+
+        Args:
+            timeout: Optional timeout in seconds for waiting on wandb-core.
+                On timeout, the request is cancelled on a best-effort basis.
+
+        Returns:
+            Information about the authenticated account (a user or a
+            service account), including the default entity and username.
+
+        Raises:
+            WandbApiFailedError: If the server rejects the credentials or the
+                request fails for any other reason, including timeouts while
+                waiting on wandb-core and transport errors.
+        """
+        req = ApiRequest(
+            auth_request=AuthRequest(authenticate_request=AuthenticateRequest())
+        )
+        resp = self.send_api_request(
+            req,
+            timeout=self._timeout if timeout is None else timeout,
+        )
+        return resp.auth_response.authenticate_response
+
+    def access_token(
+        self,
+        timeout: float | None = None,
+    ) -> str | None:
+        """Fetch the access token for the session credentials, if any.
+
+        A token exists only when using federated identity, in which case
+        wandb-core exchanges the identity token configured in the settings
+        for an access token, caching it in the credentials file and
+        refreshing it when it is at or near expiration.
+
+        Args:
+            timeout: Optional timeout in seconds for waiting on wandb-core.
+                On timeout, the request is cancelled on a best-effort basis.
+
+        Returns:
+            The access token, or None when the settings do not use
+            token-based credentials. When not using federated identity,
+            this returns None without a service round-trip.
+
+        Raises:
+            WandbApiFailedError: If the token exchange fails or the request
+                fails for any other reason, including timeouts while waiting
+                on wandb-core and transport errors.
+        """
+        if not self._settings.identity_token_file:
+            return None
+
+        req = ApiRequest(
+            auth_request=AuthRequest(get_access_token_request=GetAccessTokenRequest())
+        )
+        resp = self.send_api_request(
+            req,
+            timeout=self._timeout if timeout is None else timeout,
+        )
+        return resp.auth_response.get_access_token_response.access_token or None
 
     async def send_api_request_async(
         self,
@@ -174,6 +268,15 @@ class ServiceApi:
         session = self._get_api_session()
         request.api_id = session.api_id
         return await session.connection.api_request_async(request)
+
+    def api_publish(
+        self,
+        request: ApiRequest,
+    ) -> None:
+        """Publish an API request to the backend service, without awaiting a reply."""
+        session = self._get_api_session()
+        request.api_id = session.api_id
+        session.connection.api_publish(request)
 
     def feature_enabled(
         self,

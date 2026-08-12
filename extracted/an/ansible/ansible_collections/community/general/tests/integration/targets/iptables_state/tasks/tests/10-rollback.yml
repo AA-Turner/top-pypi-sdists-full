@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: "create a blocking ruleset with a DROP policy"
-  copy:
+  ansible.builtin.copy:
     dest: "{{ iptables_tests }}"
     content: |
       *filter
@@ -13,14 +13,14 @@
 
 
 - name: "restore state from the test file (check_mode, must report a change)"
-  iptables_state:
+  community.general.iptables_state:
     path: "{{ iptables_tests }}"
     state: restored
   register: iptables_state
   check_mode: true
 
 - name: "assert that results are as expected"
-  assert:
+  ansible.builtin.assert:
     that:
       - iptables_state is changed
 
@@ -28,7 +28,7 @@
 - name: "fail to restore state from the test file"
   block:
     - name: "restore state from the test file (bad policies, expected error -> rollback)"
-      iptables_state:
+      community.general.iptables_state:
         path: "{{ iptables_tests }}"
         state: restored
       register: iptables_state
@@ -37,7 +37,7 @@
 
   rescue:
     - name: "explain expected failure"
-      assert:
+      ansible.builtin.assert:
         that:
           - iptables_state is not changed
           - not iptables_state.applied
@@ -52,7 +52,7 @@
           expected.
 
 - name: "check that the expected failure happened"
-  assert:
+  ansible.builtin.assert:
     that:
       - iptables_state is failed
 
@@ -60,7 +60,7 @@
 - name: "fail to restore state from the test file (again)"
   block:
     - name: "try again, with a higher timeout (bad policies, same expected error)"
-      iptables_state:
+      community.general.iptables_state:
         path: "{{ iptables_tests }}"
         state: restored
       register: iptables_state
@@ -71,7 +71,7 @@
 
   rescue:
     - name: "explain expected failure"
-      assert:
+      ansible.builtin.assert:
         that:
           - iptables_state is not changed
           - not iptables_state.applied
@@ -86,13 +86,13 @@
           expected.
 
 - name: "check that the expected failure happened"
-  assert:
+  ansible.builtin.assert:
     that:
       - iptables_state is failed
 
 
 - name: "restore state from backup (must NOT report a change)"
-  iptables_state:
+  community.general.iptables_state:
     path: "{{ iptables_saved }}"
     state: restored
   register: iptables_state
@@ -100,13 +100,13 @@
   poll: 0
 
 - name: "assert that results are as expected"
-  assert:
+  ansible.builtin.assert:
     that:
       - iptables_state is not changed
 
 
 - name: "restore state from backup (mangle, must NOT report a change)"
-  iptables_state:
+  community.general.iptables_state:
     path: "{{ iptables_saved }}"
     table: mangle
     state: restored
@@ -115,13 +115,13 @@
   poll: 0
 
 - name: "assert that results are as expected"
-  assert:
+  ansible.builtin.assert:
     that:
       - iptables_state is not changed
 
 
 - name: "create a blocking ruleset with a REJECT rule"
-  copy:
+  ansible.builtin.copy:
     dest: "{{ iptables_tests }}"
     content: |
       *filter
@@ -132,7 +132,7 @@
 - name: "fail to restore state from the test file (again)"
   block:
     - name: "restore state from the test file (bad rules, expected error -> rollback)"
-      iptables_state:
+      community.general.iptables_state:
         path: "{{ iptables_tests }}"
         state: restored
       register: iptables_state
@@ -141,7 +141,7 @@
 
   rescue:
     - name: "explain expected failure"
-      assert:
+      ansible.builtin.assert:
         that:
           - iptables_state is not changed
           - not iptables_state.applied
@@ -156,7 +156,7 @@
           expected.
 
 - name: "check that the expected failure happened"
-  assert:
+  ansible.builtin.assert:
     that:
       - iptables_state is failed
 
@@ -164,7 +164,7 @@
 - name: "fail to restore state from the test file (again)"
   block:
     - name: "try again, with a higher timeout (bad rules, same expected error)"
-      iptables_state:
+      community.general.iptables_state:
         path: "{{ iptables_tests }}"
         state: restored
       register: iptables_state
@@ -175,7 +175,7 @@
 
   rescue:
     - name: "explain expected failure"
-      assert:
+      ansible.builtin.assert:
         that:
           - iptables_state is not changed
           - not iptables_state.applied
@@ -190,6 +190,6 @@
           expected.
 
 - name: "check that the expected failure happened"
-  assert:
+  ansible.builtin.assert:
     that:
       - iptables_state is failed

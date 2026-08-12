@@ -501,7 +501,7 @@ files:
   $modules/apt_rpm.py:
     maintainers: evgkrsk
   $modules/archive.py:
-    maintainers: bendoh
+    maintainers: bendoh aardbol
   $modules/awall.py:
     maintainers: tdtrask
   $modules/beadm.py:
@@ -545,6 +545,8 @@ files:
   $modules/consul:
     ignore: colin-nolan Hakon
     maintainers: $team_consul
+  $modules/consul_kv_info.py:
+    maintainers: $team_consul Shreyashxredhat
   $modules/copr.py:
     maintainers: schlupov
   $modules/cpanm.py:
@@ -1472,6 +1474,8 @@ files:
     maintainers: $team_wdc
   $modules/wdc_redfish_info.py:
     maintainers: $team_wdc
+  $modules/write_binary_file.py:
+    maintainers: felixfontein
   $modules/xattr.py:
     labels: xattr
     maintainers: bcoca

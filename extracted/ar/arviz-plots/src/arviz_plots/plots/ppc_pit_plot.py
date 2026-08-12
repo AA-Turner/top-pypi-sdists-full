@@ -175,7 +175,7 @@ def plot_ppc_pit(
 
     References
     ----------
-    .. [1] Tasso et al. *LOO-PIT predictive model checking* arXiv:2603.02928 (2026).
+    .. [1] Tesso et al. *LOO-PIT predictive model checking* arXiv:2603.02928 (2026).
     """
     envelope_prob = validate_or_use_rcparam(envelope_prob, "stats.envelope_prob")
     aes_by_visuals = validate_dict_argument(aes_by_visuals, (plot_ppc_pit, "aes_by_visuals"))
@@ -206,10 +206,10 @@ def plot_ppc_pit(
 
     plot_collection = plot_ecdf_pit(
         new_dt,
-        var_names=var_names,
-        filter_vars=filter_vars,
+        var_names=None,
+        filter_vars=None,
         group="ecdf_pit",
-        coords=coords,
+        coords=None,
         sample_dims=new_dt.ecdf_pit.dims,
         method=method,
         envelope_prob=envelope_prob,

@@ -21,6 +21,7 @@ from typing import (
 import requests
 
 from chalk.client.models import (
+    AggregateBackfillResponse,
     BranchDeployResponse,
     BranchIdParam,
     BulkOnlineQueryResponse,
@@ -3414,7 +3415,7 @@ class ChalkClient:
         resource_group: str | None = None,
         input_sql: str | None = None,
         plan_only: bool = False,
-    ) -> Any:
+    ) -> AggregateBackfillResponse:
         """Trigger one or more aggregate backfill jobs.
 
         Parameters
@@ -3434,7 +3435,8 @@ class ChalkClient:
             Requires both `lower_bound` and `upper_bound`.
         allow_empty_tiles : bool
             If `True`, empty tile spans are skipped instead of raising an error.
-            Defaults to `True`. Set to `False` to raise an error when a backfill produces no tile files.
+            Defaults to `True`, but is only meaningful together with `store_offline=True`:
+            without an offline target it is always sent as `False`.
         exact : bool, optional
             If `True`, execute the underlying SQL source to determine the exact
             number of rows that need to migrate.
@@ -3445,13 +3447,36 @@ class ChalkClient:
         input_sql : str, optional
             Chalk SQL query to use to resolve event data. Mutually exclusive with `resolver`.
         plan_only : bool, optional
-            If `True`, return the aggregate backfill plan without creating jobs.
+            If `True`, validate the request and return the planner's split with cost
+            estimates without creating anything. The response's `job` is `None`, and
+            there is no backfill id to poll. The same validation runs as for a real
+            backfill, so a request that plans cleanly will also create cleanly.
 
         Returns
         -------
-        list | PlanAggregateBackfillResponse
-            A list of aggregate backfill job responses, one per planned backfill job,
-            or the plan when `plan_only=True`.
+        AggregateBackfillResponse
+            `job` is the single aggregate backfill row covering every job this request
+            launched -- `job.id` is the aggregate backfill id -- and is `None` when
+            `plan_only=True`. `sub_backfills` is the planner's split of the request, each
+            entry pairing the features that sub-backfill covers with its cost estimate.
+            `response.features` is every feature covered across the whole request.
+
+        Examples
+        --------
+        >>> from chalk.client import AggregateBackfillStatus, ChalkClient
+        >>> client = ChalkClient()
+        >>> response = client.trigger_aggregate_backfill(features=["user.spend_30d"])
+        >>> response.job.id
+        '0e3f...'
+        >>> response.job.status
+        <AggregateBackfillStatus.QUEUED: 'queued'>
+        >>> response.features
+        ['user.spend_30d']
+        >>> plan = client.trigger_aggregate_backfill(features=["user.spend_30d"], plan_only=True)
+        >>> plan.job is None
+        True
+        >>> plan.sub_backfills[0].estimate.expected_bytes
+        1048576
         """
         ...
 

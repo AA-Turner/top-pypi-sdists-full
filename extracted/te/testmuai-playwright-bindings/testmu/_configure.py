@@ -8,6 +8,8 @@ This replaces the old pattern of baking values into capability.py
 and test.py as string literals.
 """
 import logging
+import os
+import uuid
 
 _log = logging.getLogger("testmu")
 
@@ -124,3 +126,15 @@ def _reset():
     # Also reset variable stores populated by configure()
     from testmu._vars import _reset_store
     _reset_store()
+
+
+_BILLING_RUN_ID = uuid.uuid4().hex
+
+
+def billing_run_id() -> str:
+    """Identifier for the current run, used to scope usage attribution.
+
+    Prefers BILLING_RUN_ID when set, for hosts that run several tests in one
+    process; otherwise the per-process uuid, which is already unique per run.
+    """
+    return os.getenv("BILLING_RUN_ID") or _BILLING_RUN_ID

@@ -1514,6 +1514,59 @@ fn test_html_block_unclosed_pre_extends_to_eof() {
     }
 }
 
+#[test]
+fn test_html_block_nested_pre_with_split_closing_tag_ends_with_outer_block() {
+    // Prettier wraps a long closing tag as `</pre\n>`, which no single-line
+    // search for `</pre>` can match. Inside an already-open <table> block that
+    // must not matter: the <pre> is block content, not a second block, so the
+    // whole thing ends at the blank line that ends the <table>.
+    let content = "<table>\n<tr><td>\n<pre>\nx</pre\n>\n</td></tr>\n</table>\n\nafter\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+
+    assert!(
+        ctx.is_in_html_block(3),
+        "line 3 (`<pre>`) is content of the <table> block"
+    );
+    assert!(ctx.is_in_html_block(7), "line 7 (`</table>`) is still in the block");
+    assert!(
+        !ctx.is_in_html_block(9),
+        "line 9 (`after`) must be ordinary markdown: the <table> block ended at the blank line"
+    );
+}
+
+#[test]
+fn test_html_block_top_level_pre_with_split_closing_tag_still_extends_to_eof() {
+    // Guardrail for the case above. A Type-1 block that is NOT nested has
+    // nothing else to close it, so CommonMark really does run it to EOF when
+    // the end tag is split across lines. Narrowing that would be a regression.
+    let content = "<pre>\nx</pre\n>\n\nafter\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+
+    for line_num in 1..=5 {
+        assert!(
+            ctx.is_in_html_block(line_num),
+            "line {line_num} of a top-level <pre> with a split end tag should reach EOF",
+        );
+    }
+}
+
+#[test]
+fn test_html_block_nested_pre_does_not_outlive_a_type_6_parent() {
+    // The same shape without a split tag: a <div> ends at its blank line even
+    // though the <pre> it contains was never closed at all.
+    let content = "<div>\n<pre>\nx\n</div>\n\nafter\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+
+    assert!(
+        ctx.is_in_html_block(2),
+        "line 2 (`<pre>`) is content of the <div> block"
+    );
+    assert!(
+        !ctx.is_in_html_block(6),
+        "line 6 (`after`) must be ordinary markdown: the <div> block ended at the blank line"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Pulldown-cmark gives the same empty CowStr for both "no title" and "explicit
 // empty title" (`""`/`''`/`()`). The link parser now rescans the source span
@@ -1586,6 +1639,84 @@ fn test_reference_link_empty_title_in_definition() {
     let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
     assert_eq!(ctx.reference_defs.len(), 1);
     assert_eq!(ctx.reference_defs[0].title.as_deref(), Some(""));
+}
+
+// ---------------------------------------------------------------------------
+// Markdown inside an HTML block is not markdown: CommonMark renders it as
+// literal text. Pulldown-cmark reports no links there, but the regex fallback
+// used to re-add reference links (and reference images) while dropping inline
+// ones, so the same construct was visible or invisible depending on which
+// syntax the author picked.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_reference_link_in_an_html_block_is_not_parsed() {
+    let content = "<details>\n<summary>[link][ref]</summary>\n</details>\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    assert!(
+        ctx.links.is_empty(),
+        "a reference link inside an HTML block renders literally, so it is not a link: {:?}",
+        ctx.links
+    );
+}
+
+#[test]
+fn test_inline_link_in_an_html_block_is_not_parsed() {
+    // The matched control for the test above: same position, same rendering,
+    // and this half was already correct.
+    let content = "<details>\n<summary>[link](https://example.com)</summary>\n</details>\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    assert!(ctx.links.is_empty(), "unexpected links: {:?}", ctx.links);
+}
+
+#[test]
+fn test_reference_image_in_an_html_block_is_not_parsed() {
+    let content = "<details>\n<summary>![alt][img]</summary>\n</details>\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    assert!(
+        ctx.images.is_empty(),
+        "a reference image inside an HTML block renders literally: {:?}",
+        ctx.images
+    );
+}
+
+#[test]
+fn test_reference_link_in_a_markdown_attribute_block_is_still_parsed() {
+    // The `markdown` attribute is what MkDocs, kramdown and Jekyll use to say
+    // the body IS markdown. Those lines carry `in_html_block` as well, so
+    // suppressing on that flag alone would take real links with it.
+    let content = "<div class=\"note\" markdown=\"1\">\n[link][ref]\n</div>\n\n[ref]: https://example.com\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    assert_eq!(
+        ctx.links.len(),
+        1,
+        "the body of a markdown=\"1\" block holds real markdown: {:?}",
+        ctx.links
+    );
+    assert_eq!(ctx.links[0].line, 2);
+    assert!(ctx.links[0].is_reference);
+}
+
+#[test]
+fn test_reference_image_in_a_markdown_attribute_block_is_still_parsed() {
+    let content = "<div class=\"note\" markdown=\"1\">\n![alt][img]\n</div>\n\n[img]: https://example.com/i.png\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    assert_eq!(
+        ctx.images.len(),
+        1,
+        "the body of a markdown=\"1\" block holds real markdown: {:?}",
+        ctx.images
+    );
+    assert_eq!(ctx.images[0].line, 2);
+}
+
+#[test]
+fn test_reference_link_after_an_html_block_is_still_parsed() {
+    // The suppression is per line, not "everything below the first tag".
+    let content = "<details>\n<summary>[dead][ref]</summary>\n</details>\n\n[live][ref]\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    assert_eq!(ctx.links.len(), 1, "unexpected links: {:?}", ctx.links);
+    assert_eq!(ctx.links[0].text, "live");
 }
 
 #[test]

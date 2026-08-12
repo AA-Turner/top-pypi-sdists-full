@@ -15,10 +15,7 @@
 
 use std::path::PathBuf;
 
-use super::{
-    AppState, PostQuery, PreQuery, ServerConfig, execute::execute_query, init::InitOptions,
-    serve_with_state,
-};
+use super::{AppState, ServerConfig, execute::execute_query, init::InitOptions, serve_with_state};
 use crate::{DirSQL, Extension, Row, Table};
 use clap::{Args, Parser, Subcommand};
 
@@ -76,9 +73,9 @@ struct Cli {
 struct ConfigArgs {
     /// Path to a config file. **Repeatable** (`-c a -c b`): the configs load
     /// and merge in argv order -- their `[[table]]`, `ignore`, and
-    /// `[[dirsql.extension]]` entries accumulate, and their `pre-query` /
-    /// `post-query` hooks chain FIFO. With none given, no named tables are
-    /// defined -- query the filesystem with a path-table (`FROM './'`). A
+    /// `[[dirsql.extension]]` entries accumulate. With none given, no named
+    /// tables are defined -- query the filesystem with a path-table
+    /// (`FROM './'`). A
     /// `./.dirsql.toml` on disk is NOT auto-loaded (#602); pass it explicitly
     /// to use it. A `-c` naming a missing file is an error. The index is rooted at the
     /// invocation directory (cwd), not a config's location (#540). For `query`,
@@ -135,13 +132,6 @@ impl ConfigArgs {
         }
         builder.no_ignore(self.no_ignore)
     }
-
-    /// The config paths passed via `-c`/`--config`. Empty when none were given
-    /// -- no named tables are defined, and there is no implicit
-    /// `./.dirsql.toml` discovery (#602).
-    fn config_paths(&self) -> Vec<PathBuf> {
-        self.config.clone()
-    }
 }
 
 #[derive(Debug, Subcommand)]
@@ -155,9 +145,11 @@ enum Command {
     /// Run one SQL query against the indexed directory, print the result
     /// rows as JSON on stdout, and exit. No server, no watch. This is the
     /// explicit synonym for the default `dirsql "<sql>"`. Shares the
-    /// server's query pipeline, so config loading, hooks, the query
-    /// timeout, the read-only rule, and error classification are identical
-    /// to `POST /query`. Config flags follow the SQL: `dirsql query <sql> -c <cfg>`.
+    /// server's query pipeline, so config loading, hooks, the read-only
+    /// rule, and error classification are identical to `POST /query`.
+    /// Unlike the server there is no per-query timeout: the query runs to
+    /// completion (cap it externally, e.g. `timeout 60 dirsql query ...`).
+    /// Config flags follow the SQL: `dirsql query <sql> -c <cfg>`.
     Query(QueryArgs),
 
     /// Start the long-lived HTTP server exposing a SQL view of the directory
@@ -188,7 +180,7 @@ struct QueryArgs {
     /// Attach a parser to every path-table in the query. The command follows
     /// the `on-file` hook contract (`docs/reference/hooks.md`): argv splitting,
     /// `{path}`/`{root}` placeholders, a JSON array of row objects on stdout,
-    /// per-file failure isolation, and the hook timeout. With it set, a
+    /// and per-file failure isolation. With it set, a
     /// path-table's rows and schema come from the parser instead of the stat
     /// columns. One `--on-file` max; for multiple tables use a config file.
     #[arg(long = "on-file")]
@@ -326,20 +318,10 @@ async fn run_query(args: QueryArgs) -> u8 {
     };
     let state = load_state(&args.common, parser);
     let skipped = report_scan_failures(&state);
-    let pre_query = load_pre_queries(&args.common);
-    let post_query = load_post_queries(&args.common);
-    // Same default the server binds with; the pipeline enforces it.
-    let timeout = ServerConfig::default().query_timeout;
 
-    match execute_query(
-        &state,
-        query_body(&args.sql),
-        timeout,
-        &pre_query,
-        &post_query,
-    )
-    .await
-    {
+    // Unbounded: the process IS the query, so `timeout(1)` expresses any cap
+    // natively; only the long-lived server enforces `query_timeout` (408).
+    match execute_query(&state, query_body(&args.sql), None).await {
         Ok(value) => {
             println!("{value}");
             // The query ran and its rows are on stdout, so this is not a
@@ -388,8 +370,8 @@ fn report_scan_failures(state: &AppState) -> bool {
 }
 
 /// Synthesize the exact `POST /query` body for a positional SQL argument,
-/// so the shared pipeline's intake validation and `pre-query` hook see
-/// byte-for-byte what an HTTP client would send.
+/// so the shared pipeline's intake validation sees byte-for-byte what an
+/// HTTP client would send.
 fn query_body(sql: &str) -> String {
     serde_json::json!({ "sql": sql }).to_string()
 }
@@ -425,13 +407,7 @@ async fn run_server(args: ServerArgs) -> u8 {
     // The server has no `--on-file`: clap rejects it as an unknown flag before
     // reaching here. Path-tables served over HTTP keep their stat columns.
     let state = load_state(&args.common, None);
-    let mut server_config = ServerConfig::bind(args.host.clone(), args.port);
-    for pre_query in load_pre_queries(&args.common) {
-        server_config = server_config.with_pre_query(pre_query);
-    }
-    for post_query in load_post_queries(&args.common) {
-        server_config = server_config.with_post_query(post_query);
-    }
+    let server_config = ServerConfig::bind(args.host.clone(), args.port);
 
     let host = args.host.clone();
     let handle = match serve_with_state(server_config, state).await {
@@ -532,72 +508,6 @@ fn parse_extension_specs(specs: &[String]) -> Vec<Extension> {
             },
         })
         .collect()
-}
-
-/// Collect the `pre-query` hooks declared across the configs, in argv order,
-/// so the server chains them FIFO (#546/#547).
-///
-/// Each config contributes at most one `pre-query`; a config that is absent,
-/// unresolvable, unparsable, or declares none is skipped (its load failure
-/// degrades the index in [`load_state`], so the hook is simply omitted here).
-/// Each hook's working directory is its own config file's parent, mirroring
-/// the `on-file` contract, and it carries that config's `hook-timeout`.
-fn load_pre_queries(cfg: &ConfigArgs) -> Vec<PreQuery> {
-    let mut hooks = Vec::new();
-    for config_path in &cfg.config_paths() {
-        if !config_path.exists() {
-            continue;
-        }
-        let Ok(resolved) = config_path.canonicalize() else {
-            continue;
-        };
-        let Ok(config) = crate::config::load_config(&resolved) else {
-            continue;
-        };
-        let Some(command) = config.pre_query else {
-            continue;
-        };
-        let Some(parent) = resolved.parent() else {
-            continue;
-        };
-        let mut pre_query = PreQuery::new(command, parent.to_path_buf());
-        if let Some(timeout) = config.hook_timeout {
-            pre_query = pre_query.with_timeout(timeout);
-        }
-        hooks.push(pre_query);
-    }
-    hooks
-}
-
-/// Collect the `post-query` hooks declared across the configs, in argv order,
-/// so the server chains them FIFO. Mirrors [`load_pre_queries`]: one hook per
-/// config, skipped when absent/unloadable, each running from its own config's
-/// parent under its own `hook-timeout`.
-fn load_post_queries(cfg: &ConfigArgs) -> Vec<PostQuery> {
-    let mut hooks = Vec::new();
-    for config_path in &cfg.config_paths() {
-        if !config_path.exists() {
-            continue;
-        }
-        let Ok(resolved) = config_path.canonicalize() else {
-            continue;
-        };
-        let Ok(config) = crate::config::load_config(&resolved) else {
-            continue;
-        };
-        let Some(command) = config.post_query else {
-            continue;
-        };
-        let Some(parent) = resolved.parent() else {
-            continue;
-        };
-        let mut post_query = PostQuery::new(command, parent.to_path_buf());
-        if let Some(timeout) = config.hook_timeout {
-            post_query = post_query.with_timeout(timeout);
-        }
-        hooks.push(post_query);
-    }
-    hooks
 }
 
 /// With no `-c`, dirsql indexes the invocation directory but defines no named
@@ -708,21 +618,21 @@ mod tests {
     }
 
     #[test]
-    fn config_paths_is_empty_without_a_config_flag() {
+    fn config_is_empty_without_a_config_flag() {
         // No `-c` -> no config paths at all, with no implicit `./.dirsql.toml`
         // discovery (#602).
         let cli = Cli::parse_from(["dirsql", "SELECT 1"]);
-        assert!(cli.common.config_paths().is_empty());
+        assert!(cli.common.config.is_empty());
     }
 
     #[test]
-    fn config_paths_returns_exactly_the_passed_paths() {
+    fn config_holds_exactly_the_passed_paths() {
         // Default query mode (no subcommand): `-c` accumulates at the top
         // level alongside the positional SQL; the paths are exactly those, in
         // argv order.
         let cli = Cli::parse_from(["dirsql", "SELECT 1", "-c", "a.toml", "-c", "b.toml"]);
         assert_eq!(
-            cli.common.config_paths(),
+            cli.common.config,
             vec![PathBuf::from("a.toml"), PathBuf::from("b.toml")]
         );
     }
@@ -743,7 +653,7 @@ mod tests {
         let cli = Cli::parse_from(["dirsql", "SELECT 1", "-c", "a.toml"]);
         assert!(cli.command.is_none());
         assert_eq!(cli.sql.as_deref(), Some("SELECT 1"));
-        assert_eq!(cli.common.config_paths(), vec![PathBuf::from("a.toml")]);
+        assert_eq!(cli.common.config, vec![PathBuf::from("a.toml")]);
     }
 
     #[test]
@@ -792,7 +702,7 @@ mod tests {
         // Config flags are subcommand-local: `dirsql server -c a -c b`.
         match Cli::parse_from(["dirsql", "server", "-c", "a.toml", "-c", "b.toml"]).command {
             Some(Command::Server(args)) => assert_eq!(
-                args.common.config_paths(),
+                args.common.config,
                 vec![PathBuf::from("a.toml"), PathBuf::from("b.toml")]
             ),
             other => panic!("expected a server subcommand, got {other:?}"),
@@ -815,7 +725,7 @@ mod tests {
             query_common(&[
                 "dirsql", "query", "SELECT 1", "-c", "a.toml", "-c", "b.toml"
             ])
-            .config_paths(),
+            .config,
             vec![PathBuf::from("a.toml"), PathBuf::from("b.toml")]
         );
     }

@@ -135,6 +135,7 @@ SageMakergeospatialcapabilitiesServiceName = Literal["sagemaker-geospatial"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

@@ -6,7 +6,7 @@
 ## testing modify_inactive_option option
 
 - name: test-modify_inactive_option 1 - create test file
-  copy:
+  ansible.builtin.copy:
     content: |
 
       [section1]
@@ -16,7 +16,7 @@
     dest: "{{ output_file }}"
 
 - name: test-modify_inactive_option 1 - set value for foo with modify_inactive_option set to true
-  ini_file:
+  community.general.ini_file:
     path: "{{ output_file }}"
     section: section1
     option: foo
@@ -25,12 +25,12 @@
   register: result1
 
 - name: test-modify_inactive_option 1 - read content from output file
-  slurp:
+  ansible.builtin.slurp:
     src: "{{ output_file }}"
   register: output_content
 
 - name: test-modify_inactive_option 1 - set expected content and get current ini file content
-  set_fact:
+  ansible.builtin.set_fact:
     expected1: |
 
       [section1]
@@ -40,7 +40,7 @@
     content1: "{{ output_content.content | b64decode }}"
 
 - name: test-modify_inactive_option 1 - assert 'changed' is true, content is OK and option changed
-  assert:
+  ansible.builtin.assert:
     that:
       - result1 is changed
       - result1.msg == 'option changed'
@@ -48,7 +48,7 @@
 
 
 - name: test-modify_inactive_option 2 - create test file
-  copy:
+  ansible.builtin.copy:
     content: |
 
       [section1]
@@ -58,7 +58,7 @@
     dest: "{{ output_file }}"
 
 - name: test-modify_inactive_option 2 - set value for foo with modify_inactive_option set to false
-  ini_file:
+  community.general.ini_file:
     path: "{{ output_file }}"
     section: section1
     option: foo
@@ -67,12 +67,12 @@
   register: result2
 
 - name: test-modify_inactive_option 2 - read content from output file
-  slurp:
+  ansible.builtin.slurp:
     src: "{{ output_file }}"
   register: output_content
 
 - name: test-modify_inactive_option 2 - set expected content and get current ini file content
-  set_fact:
+  ansible.builtin.set_fact:
     expected2: |
 
       [section1]
@@ -83,7 +83,7 @@
     content2: "{{ output_content.content | b64decode }}"
 
 - name: test-modify_inactive_option 2 - assert 'changed' is true and content is OK and option added
-  assert:
+  ansible.builtin.assert:
     that:
       - result2 is changed
       - result2.msg == 'option added'
@@ -91,7 +91,7 @@
 
 
 - name: test-modify_inactive_option 3 - remove foo=bar with modify_inactive_option set to true to ensure it doesn't have effect for removal
-  ini_file:
+  community.general.ini_file:
     path: "{{ output_file }}"
     section: section1
     option: foo
@@ -101,12 +101,12 @@
   register: result3
 
 - name: test-modify_inactive_option 3 - read content from output file
-  slurp:
+  ansible.builtin.slurp:
     src: "{{ output_file }}"
   register: output_content
 
 - name: test-modify_inactive_option 3 - set expected content and get current ini file content
-  set_fact:
+  ansible.builtin.set_fact:
     expected3: |
 
       [section1]
@@ -116,7 +116,7 @@
     content3: "{{ output_content.content | b64decode }}"
 
 - name: test-modify_inactive_option 3 - assert 'changed' is true and content is OK and active option removed
-  assert:
+  ansible.builtin.assert:
     that:
       - result3 is changed
       - result3.msg == 'option changed'
@@ -124,7 +124,7 @@
 
 
 - name: test-modify_inactive_option 4 - create test file with spaces before commented option
-  copy:
+  ansible.builtin.copy:
     content: |
 
       [section1]
@@ -134,7 +134,7 @@
     dest: "{{ output_file }}"
 
 - name: test-modify_inactive_option 4 - set value for foo with modify_inactive_option set to true
-  ini_file:
+  community.general.ini_file:
     path: "{{ output_file }}"
     section: section1
     option: foo
@@ -143,12 +143,12 @@
   register: result4
 
 - name: test-modify_inactive_option 4 - read content from output file
-  slurp:
+  ansible.builtin.slurp:
     src: "{{ output_file }}"
   register: output_content
 
 - name: test-modify_inactive_option 4 - set expected content and get current ini file content
-  set_fact:
+  ansible.builtin.set_fact:
     expected4: |
 
       [section1]
@@ -158,7 +158,7 @@
     content4: "{{ output_content.content | b64decode }}"
 
 - name: test-modify_inactive_option 4 - assert 'changed' is true and content is OK and option changed
-  assert:
+  ansible.builtin.assert:
     that:
       - result4 is changed
       - result4.msg == 'option changed'

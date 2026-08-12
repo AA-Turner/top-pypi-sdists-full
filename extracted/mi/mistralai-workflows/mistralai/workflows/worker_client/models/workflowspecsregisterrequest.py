@@ -22,9 +22,9 @@ from typing_extensions import NotRequired, TypedDict
 class WorkflowSpecsRegisterRequestTypedDict(TypedDict):
     definitions: List[WorkflowSpecWithTaskQueueTypedDict]
     r"""List of workflow specs to register"""
-    deployment_name: NotRequired[Nullable[str]]
+    deployment_name: str
     r"""Name of the deployment this worker belongs to"""
-    worker_name: NotRequired[Nullable[str]]
+    worker_name: str
     r"""Human-readable name of this worker process (hostname or pod name)"""
     deployment_location: NotRequired[Nullable[DeploymentLocationTypedDict]]
     r"""Metadata about where this deployment is running (local, k8s, etc.)"""
@@ -34,10 +34,10 @@ class WorkflowSpecsRegisterRequest(BaseModel):
     definitions: List[WorkflowSpecWithTaskQueue]
     r"""List of workflow specs to register"""
 
-    deployment_name: OptionalNullable[str] = UNSET
+    deployment_name: str
     r"""Name of the deployment this worker belongs to"""
 
-    worker_name: OptionalNullable[str] = UNSET
+    worker_name: str
     r"""Human-readable name of this worker process (hostname or pod name)"""
 
     deployment_location: OptionalNullable[DeploymentLocation] = UNSET
@@ -45,8 +45,8 @@ class WorkflowSpecsRegisterRequest(BaseModel):
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["deployment_name", "worker_name", "deployment_location"])
-        nullable_fields = set(["deployment_name", "worker_name", "deployment_location"])
+        optional_fields = set(["deployment_location"])
+        nullable_fields = set(["deployment_location"])
         serialized = handler(self)
         m = {}
 

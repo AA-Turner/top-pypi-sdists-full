@@ -116,7 +116,8 @@ def load_arviz_data(dataset=None, data_home=None, **kwargs):
     """
     if dataset in LOCAL_DATASETS:
         resource = LOCAL_DATASETS[dataset]
-        return open_datatree(resource.filename, **kwargs).load()
+        with open_datatree(resource.filename, **kwargs) as dt:
+            return dt.load()
 
     if dataset in REMOTE_DATASETS:
         remote = REMOTE_DATASETS[dataset]
@@ -135,7 +136,7 @@ def load_arviz_data(dataset=None, data_home=None, **kwargs):
                     download_success = True
                 elif os.path.exists(file_path):
                     os.remove(file_path)
-            except Exception:
+            except Exception:  # pylint: disable=broad-exception-caught
                 if os.path.exists(file_path):
                     os.remove(file_path)
 
@@ -153,7 +154,8 @@ def load_arviz_data(dataset=None, data_home=None, **kwargs):
                 "Run `arviz.clear_data_home()` and try again, or please open an issue."
             )
 
-        return open_datatree(file_path, **kwargs).load()
+        with open_datatree(file_path, **kwargs) as dt:
+            return dt.load()
 
     if dataset is None:
         return dict(itertools.chain(LOCAL_DATASETS.items(), REMOTE_DATASETS.items()))
@@ -173,12 +175,11 @@ def load_arviz_data(dataset=None, data_home=None, **kwargs):
             msg = f"Did you mean one of these? {', '.join(suggestions)}"
 
         raise ValueError(f"Dataset '{dataset}' not found. {msg}")
-    else:
-        raise ValueError(
-            f"Dataset {dataset} not found! The following are available:"
-            f"\n\n{', '.join(all_datasets)}\n\n"
-            f"{list_datasets()}"
-        )
+    raise ValueError(
+        f"Dataset {dataset} not found! The following are available:"
+        f"\n\n{', '.join(all_datasets)}\n\n"
+        f"{list_datasets()}"
+    )
 
 
 def list_datasets():

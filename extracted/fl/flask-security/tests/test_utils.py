@@ -44,12 +44,15 @@ def authenticate(
     password="password",
     endpoint=None,
     csrf=False,
+    remember=False,
     **kwargs,
 ):
-    data = dict(email=email, password=password, remember="y")
+    data = dict(email=email, password=password)
     if csrf:
         response = client.get(endpoint or "/login")
         data["csrf_token"] = get_form_input_value(response, "csrf_token")
+    if remember:
+        data["remember"] = "y"
     return client.post(endpoint or "/login", data=data, **kwargs)
 
 
@@ -91,8 +94,9 @@ def verify_token(client_nc, token, status=None):
         "/token",
         headers={"Content-Type": "application/json", "Authentication-Token": token},
     )
-    assert response.cache_control.private
-    assert response.cache_control.no_store
+    # /token is an application endpoint - SECURITY_CACHE_CONTROL must not
+    # be applied to it (see issue #1263).
+    assert "Cache-Control" not in response.headers
     if status:
         assert response.status_code == status
     else:

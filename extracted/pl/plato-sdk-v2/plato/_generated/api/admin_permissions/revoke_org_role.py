@@ -41,7 +41,12 @@ def sync(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> OrgPermissionUser:
-    """Revoke an org-level capability role from a user."""
+    """Revoke an org-level capability role from a user.
+
+    Revoking the user's *last* role in an org ends their membership there, so
+    this path upholds the same invariants as `remove_user_from_org`: it refuses
+    when that org is their only one, and re-points the active org when the
+    membership it pointed at is the one going away."""
 
     request_args = _build_request_args(
         org_public_id=org_public_id,
@@ -64,7 +69,12 @@ async def asyncio(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> OrgPermissionUser:
-    """Revoke an org-level capability role from a user."""
+    """Revoke an org-level capability role from a user.
+
+    Revoking the user's *last* role in an org ends their membership there, so
+    this path upholds the same invariants as `remove_user_from_org`: it refuses
+    when that org is their only one, and re-points the active org when the
+    membership it pointed at is the one going away."""
 
     request_args = _build_request_args(
         org_public_id=org_public_id,

@@ -8,7 +8,7 @@
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-- debug:
+- ansible.builtin.debug:
     msg: "{{ ansible_facts.os_family }} / {{ ansible_facts.distribution }} / {{ ansible_facts.distribution_major_version }}"
 
 - when:
@@ -19,45 +19,45 @@
     # Test for proper failures without pyodbc
     #
     # Some of the docker images already have pyodbc installed on it
-    - include_tasks: no_pyodbc.yml
+    - ansible.builtin.include_tasks: no_pyodbc.yml
       when: ansible_facts.os_family != 'FreeBSD' and ansible_facts.os_family != 'Suse' and ansible_facts.os_family != 'Debian'
 
     #
     # Install PostgreSQL ODBC driver from AUR on Arch Linux
     #
-    - include_tasks: install_arch_odbc.yml
+    - ansible.builtin.include_tasks: install_arch_odbc.yml
       when: ansible_facts.os_family == 'Archlinux'
 
     #
     # Get pyodbc installed
     #
-    - include_tasks: install_pyodbc.yml
+    - ansible.builtin.include_tasks: install_pyodbc.yml
 
     #
     # Test missing parameters & invalid DSN
     #
-    - include_tasks: negative_tests.yml
+    - ansible.builtin.include_tasks: negative_tests.yml
 
     #
     # Setup DSN per env
     #
     - name: Changing DSN for Suse
-      set_fact:
+      ansible.builtin.set_fact:
         dsn: "DRIVER={PSQL};Server=localhost;Port=5432;Database=postgres;Uid={{ my_user }};Pwd={{ my_pass_decrypted }};UseUnicode=True"
       when: ansible_facts.os_family == 'Suse' or ansible_facts.os_family == 'Alpine'
 
     - name: Changing DSN for Alpine
-      set_fact:
+      ansible.builtin.set_fact:
         dsn: "DRIVER={/usr/lib/psqlodbcw.so};Server=localhost;Port=5432;Database=postgres;Uid={{ my_user }};Pwd={{ my_pass_decrypted }};UseUnicode=True"
       when: ansible_facts.os_family == 'Alpine'
 
     - name: Changing DSN for Debian
-      set_fact:
+      ansible.builtin.set_fact:
         dsn: "DRIVER={PostgreSQL Unicode};Server=localhost;Port=5432;Database=postgres;Uid={{ my_user }};Pwd={{ my_pass_decrypted }};UseUnicode=True"
       when: ansible_facts.os_family == 'Debian'
 
     - name: Changing DSN for Arch Linux
-      set_fact:
+      ansible.builtin.set_fact:
         dsn: "DRIVER={/usr/lib/psqlodbcw.so};Server=localhost;Port=5432;Database=postgres;Uid={{ my_user }};Pwd={{ my_pass_decrypted }};UseUnicode=True"
       when: ansible_facts.os_family == 'Archlinux'
 
@@ -65,12 +65,12 @@
     # Name setup database
     #
     - name: Create a user to run the tests with
-      shell: echo "CREATE USER {{ my_user }} SUPERUSER PASSWORD '{{ my_pass }}'" | psql postgres
+      ansible.builtin.shell: echo "CREATE USER {{ my_user }} SUPERUSER PASSWORD '{{ my_pass }}'" | psql postgres
       become_user: "{{ pg_user }}"
       become: true
 
     - name: Create a table
-      odbc:
+      community.general.odbc:
         dsn: "{{ dsn }}"
         query: |
             CREATE TABLE films (
@@ -85,7 +85,7 @@
       become: true
       register: results
 
-    - assert:
+    - ansible.builtin.assert:
         that:
           - results is changed
 
@@ -93,19 +93,19 @@
     # Insert records
     #
     - name: Insert a record without params
-      odbc:
+      community.general.odbc:
         dsn: "{{ dsn }}"
         query: "INSERT INTO films (code, title, did, date_prod, kind, len) VALUES ('asdfg', 'My First Movie', 1, '2019-01-12', 'SyFi', '02:00')"
       become_user: "{{ pg_user }}"
       become: true
       register: results
 
-    - assert:
+    - ansible.builtin.assert:
         that:
           - results is changed
 
     - name: Insert a record with params
-      odbc:
+      community.general.odbc:
         dsn: "{{ dsn }}"
         query: "INSERT INTO films (code, title, did, date_prod, kind, len) VALUES (?, ?, ?, ?, ?, ?)"
         params:
@@ -119,7 +119,7 @@
       become: true
       register: results
 
-    - assert:
+    - ansible.builtin.assert:
         that:
           - results is changed
           - results['row_count'] == -1
@@ -130,19 +130,19 @@
     # Select data
     #
     - name: Perform select single row without params (do not coherse changed)
-      odbc:
+      community.general.odbc:
         dsn: "{{ dsn }}"
         query: "SELECT * FROM films WHERE code='asdfg'"
       register: results
 
-    - assert:
+    - ansible.builtin.assert:
         that:
           - results is changed
           - results is successful
           - results.row_count == 1
 
     - name: Perform select multiple rows with params (coherse changed)
-      odbc:
+      community.general.odbc:
         dsn: "{{ dsn }}"
         query: 'SELECT * FROM films WHERE code=? or code=?'
         params:
@@ -151,19 +151,19 @@
       register: results
       changed_when: false
 
-    - assert:
+    - ansible.builtin.assert:
         that:
           - results is not changed
           - results is successful
           - results.row_count == 2
 
     - name: Drop the table
-      odbc:
+      community.general.odbc:
         dsn: "{{ dsn }}"
         query: "DROP TABLE films"
       register: results
 
-    - assert:
+    - ansible.builtin.assert:
         that:
           - results is successful
           - results is changed

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: composio-openai-agents
-Version: 0.18.2
+Version: 0.19.0
 Summary: Use Composio to get array of strongly typed tools for OpenAI Agents
 Home-page: https://github.com/ComposioHQ/composio
 Author: Composio

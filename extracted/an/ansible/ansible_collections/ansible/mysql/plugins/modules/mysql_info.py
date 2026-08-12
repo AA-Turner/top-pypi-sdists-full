@@ -14,6 +14,7 @@ DOCUMENTATION = r'''
 module: mysql_info
 short_description: Gather information about MySQL or MariaDB servers
 description:
+- "Important: MariaDB support will be dropped in collection version 6.0.0. Use the M(ansible.mariadb.mariadb_info) instead."
 - Gathers information about MySQL or MariaDB servers.
 
 options:
@@ -785,9 +786,9 @@ def main():
                'Exception message: %s' % (connector_name, connector_version, config_file, to_native(e)))
         module.fail_json(msg)
 
-    server_implementation = get_server_implementation(cursor)
+    server_implementation = get_server_implementation(module, cursor)
     server_version = get_server_version(cursor)
-    user_implementation = get_user_implementation(cursor)
+    user_implementation = get_user_implementation(module, cursor)
 
     ###############################
     # Create object and do main job

@@ -66,7 +66,6 @@ class TestSlashMenu(unittest.TestCase):
                 "/message",
                 "/save",
                 "/resume",
-                "/login",
                 "/logout",
             ],
         )
@@ -74,6 +73,12 @@ class TestSlashMenu(unittest.TestCase):
         # /help footer now, reachable as a typed command but not a primary action.
         self.assertNotIn("/worlds", commands)
         self.assertNotIn("/world", commands)
+        # /login is demoted the same way, and for a sharper reason: you are already signed in
+        # whenever you can read this menu, so listing "sign in" was offering a no-op as a primary
+        # action. It remains a TYPED command for the one case it exists for — a session that
+        # expired mid-REPL — which test_resume_sessions.py pins so the repair path cannot be
+        # deleted along with the menu entry.
+        self.assertNotIn("/login", commands)
 
     def test_palette_finds_every_help_command(self):
         # POSTURE, not a second hand-maintained list: EVERY command /help lists must be reachable in the palette

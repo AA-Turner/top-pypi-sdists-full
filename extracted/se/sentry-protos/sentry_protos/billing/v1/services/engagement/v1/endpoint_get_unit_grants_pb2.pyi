@@ -7,11 +7,35 @@ import builtins
 import collections.abc
 import google.protobuf.descriptor
 import google.protobuf.internal.containers
+import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
 import sentry_protos.billing.v1.date_pb2
+import sys
 import typing
 
+if sys.version_info >= (3, 10):
+    import typing as typing_extensions
+else:
+    import typing_extensions
+
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
+
+class _EffectiveUnitSource:
+    ValueType = typing.NewType("ValueType", builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _EffectiveUnitSourceEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_EffectiveUnitSource.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    EFFECTIVE_UNIT_SOURCE_UNSPECIFIED: _EffectiveUnitSource.ValueType  # 0
+    EFFECTIVE_UNIT_SOURCE_TRIAL: _EffectiveUnitSource.ValueType  # 1
+    EFFECTIVE_UNIT_SOURCE_RECURRING_CREDIT: _EffectiveUnitSource.ValueType  # 2
+
+class EffectiveUnitSource(_EffectiveUnitSource, metaclass=_EffectiveUnitSourceEnumTypeWrapper): ...
+
+EFFECTIVE_UNIT_SOURCE_UNSPECIFIED: EffectiveUnitSource.ValueType  # 0
+EFFECTIVE_UNIT_SOURCE_TRIAL: EffectiveUnitSource.ValueType  # 1
+EFFECTIVE_UNIT_SOURCE_RECURRING_CREDIT: EffectiveUnitSource.ValueType  # 2
+global___EffectiveUnitSource = EffectiveUnitSource
 
 @typing.final
 class EffectiveUnitGrant(google.protobuf.message.Message):
@@ -22,10 +46,12 @@ class EffectiveUnitGrant(google.protobuf.message.Message):
     UNITS_FIELD_NUMBER: builtins.int
     START_DATE_FIELD_NUMBER: builtins.int
     END_DATE_FIELD_NUMBER: builtins.int
+    SOURCE_FIELD_NUMBER: builtins.int
     line_item_uid: builtins.str
     is_unlimited: builtins.bool
     units: builtins.int
     """this should be expressed line item's billable metric prior to unit conversion (ie milliseconds, bytes, etc.)"""
+    source: global___EffectiveUnitSource.ValueType
     @property
     def start_date(self) -> sentry_protos.billing.v1.date_pb2.Date:
         """Grants only apply to days between [start_date, end_date] (inclusive)
@@ -43,9 +69,10 @@ class EffectiveUnitGrant(google.protobuf.message.Message):
         units: builtins.int = ...,
         start_date: sentry_protos.billing.v1.date_pb2.Date | None = ...,
         end_date: sentry_protos.billing.v1.date_pb2.Date | None = ...,
+        source: global___EffectiveUnitSource.ValueType = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["amount", b"amount", "end_date", b"end_date", "is_unlimited", b"is_unlimited", "start_date", b"start_date", "units", b"units"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["amount", b"amount", "end_date", b"end_date", "is_unlimited", b"is_unlimited", "line_item_uid", b"line_item_uid", "start_date", b"start_date", "units", b"units"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["amount", b"amount", "end_date", b"end_date", "is_unlimited", b"is_unlimited", "line_item_uid", b"line_item_uid", "source", b"source", "start_date", b"start_date", "units", b"units"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["amount", b"amount"]) -> typing.Literal["is_unlimited", "units"] | None: ...
 
 global___EffectiveUnitGrant = EffectiveUnitGrant

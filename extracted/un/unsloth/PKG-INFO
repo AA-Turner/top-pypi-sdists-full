@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unsloth
-Version: 2026.8.12
+Version: 2026.8.15
 Summary: 2-5X faster training, reinforcement learning & finetuning
 Author: Unsloth AI team
 Author-email: info@unsloth.ai
@@ -49,26 +49,33 @@ Requires-Dist: structlog>=24.1.0
 Requires-Dist: click>=8.0
 Requires-Dist: rich
 Provides-Extra: studio
-Requires-Dist: typer; extra == "studio"
-Requires-Dist: fastapi; extra == "studio"
-Requires-Dist: uvicorn; extra == "studio"
-Requires-Dist: pydantic; extra == "studio"
-Requires-Dist: packaging; extra == "studio"
+Requires-Dist: typer==0.27.1; python_version >= "3.10" and extra == "studio"
+Requires-Dist: typer==0.23.2; python_version < "3.10" and extra == "studio"
+Requires-Dist: fastapi==0.141.1; python_version >= "3.10" and extra == "studio"
+Requires-Dist: fastapi==0.128.8; python_version < "3.10" and extra == "studio"
+Requires-Dist: uvicorn==0.52.1; python_version >= "3.10" and extra == "studio"
+Requires-Dist: uvicorn==0.39.0; python_version < "3.10" and extra == "studio"
+Requires-Dist: pydantic==2.13.4; extra == "studio"
+Requires-Dist: packaging==26.3; extra == "studio"
 Requires-Dist: matplotlib==3.10.9; extra == "studio"
-Requires-Dist: pandas; extra == "studio"
-Requires-Dist: nest_asyncio; extra == "studio"
+Requires-Dist: pandas==2.3.3; extra == "studio"
+Requires-Dist: nest_asyncio==1.6.0; extra == "studio"
 Requires-Dist: datasets==4.3.0; extra == "studio"
-Requires-Dist: pyjwt; extra == "studio"
+Requires-Dist: pyjwt==2.13.0; extra == "studio"
 Requires-Dist: huggingface-hub<2.0,>=1.23.0; python_version >= "3.10" and extra == "studio"
 Requires-Dist: huggingface-hub==0.36.2; python_version < "3.10" and extra == "studio"
 Requires-Dist: urllib3>=2.3.0; extra == "studio"
 Requires-Dist: structlog>=24.1.0; extra == "studio"
-Requires-Dist: diceware; extra == "studio"
-Requires-Dist: ddgs; extra == "studio"
+Requires-Dist: diceware==1.0.1; extra == "studio"
+Requires-Dist: ddgs==9.14.4; python_version >= "3.10" and extra == "studio"
+Requires-Dist: ddgs==9.8.0; python_version < "3.10" and extra == "studio"
 Requires-Dist: cryptography>=42.0.0; extra == "studio"
 Requires-Dist: boto3>=1.34.0; extra == "studio"
 Requires-Dist: httpx>=0.27.0; extra == "studio"
 Requires-Dist: fastmcp>=3.0.2; extra == "studio"
+Requires-Dist: gguf==0.19.0; python_version >= "3.10" and extra == "studio"
+Requires-Dist: gguf==0.18.0; python_version < "3.10" and extra == "studio"
+Requires-Dist: av>=12.0.0; extra == "studio"
 Requires-Dist: sqlite-vec==0.1.9; extra == "studio"
 Requires-Dist: pymupdf==1.27.2.3; extra == "studio"
 Requires-Dist: pymupdf4llm==0.3.4; extra == "studio"
@@ -101,7 +108,7 @@ Requires-Dist: pydantic; extra == "huggingface"
 Requires-Dist: pyyaml; extra == "huggingface"
 Requires-Dist: nest-asyncio; extra == "huggingface"
 Provides-Extra: huggingfacenotorch
-Requires-Dist: unsloth_zoo>=2026.8.9; extra == "huggingfacenotorch"
+Requires-Dist: unsloth_zoo>=2026.8.10; extra == "huggingfacenotorch"
 Requires-Dist: wheel>=0.42.0; extra == "huggingfacenotorch"
 Requires-Dist: packaging; extra == "huggingfacenotorch"
 Requires-Dist: numpy; extra == "huggingfacenotorch"
@@ -124,7 +131,7 @@ Provides-Extra: amd
 Requires-Dist: unsloth[huggingfacenotorch]; extra == "amd"
 Requires-Dist: bitsandbytes>=0.50.0; ("linux" in sys_platform and (platform_machine == "AMD64" or platform_machine == "x86_64" or platform_machine == "aarch64")) and extra == "amd"
 Requires-Dist: bitsandbytes>=0.50.0; (sys_platform == "win32" and (platform_machine == "AMD64" or platform_machine == "x86_64")) and extra == "amd"
-Requires-Dist: unsloth_zoo>=2026.8.9; extra == "amd"
+Requires-Dist: unsloth_zoo>=2026.8.10; extra == "amd"
 Requires-Dist: torchvision; extra == "amd"
 Requires-Dist: unsloth[triton]; extra == "amd"
 Provides-Extra: windows
@@ -417,7 +424,7 @@ Requires-Dist: bitsandbytes!=0.46.0,!=0.48.0,>=0.45.5; extra == "colab-ampere-to
 Requires-Dist: unsloth[cu121onlytorch220]; extra == "colab-ampere-torch220"
 Requires-Dist: unsloth[flashattention]; extra == "colab-ampere-torch220"
 Provides-Extra: colab-new
-Requires-Dist: unsloth_zoo>=2026.8.9; extra == "colab-new"
+Requires-Dist: unsloth_zoo>=2026.8.10; extra == "colab-new"
 Requires-Dist: packaging; extra == "colab-new"
 Requires-Dist: tyro; extra == "colab-new"
 Requires-Dist: transformers!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.0,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.5.0,>=4.51.3; extra == "colab-new"
@@ -669,23 +676,23 @@ Download the native Unsloth desktop app for your operating system:
   </tr>
   <tr>
     <td><b>Windows</b></td>
-    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.60-beta/Unsloth-Desktop-0_1_60_beta-Windows.exe'>Download</a></td>
+    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.70-beta/Unsloth-Desktop-0_1_70_beta-Windows.exe'>Download</a></td>
   </tr>
   <tr>
     <td><b>macOS</b></td>
-    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.60-beta/Unsloth-Desktop-0_1_60_beta-MacOS.dmg'>Download</a></td>
+    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.70-beta/Unsloth-Desktop-0_1_70_beta-MacOS.dmg'>Download</a></td>
   </tr>
   <tr>
     <td><b>Linux (deb)</b></td>
-    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.60-beta/Unsloth-Desktop-0_1_60_beta-Linux.deb'>Download</a></td>
+    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.70-beta/Unsloth-Desktop-0_1_70_beta-Linux.deb'>Download</a></td>
   </tr>
   <tr>
     <td><b>Linux (AppImage)</b></td>
-    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.60-beta/Unsloth-Desktop-0_1_60_beta-Linux.AppImage'>Download</a></td>
+    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.70-beta/Unsloth-Desktop-0_1_70_beta-Linux.AppImage'>Download</a></td>
   </tr>
   <tr>
     <td><b>Linux (Arm64)</b></td>
-    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.60-beta/Unsloth-Desktop-0_1_60_beta-ARM64.app.tar.gz'>Download</a></td>
+    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.70-beta/Unsloth-Desktop-0_1_70_beta-ARM64.app.tar.gz'>Download</a></td>
   </tr>
 </table>
 
@@ -1036,7 +1043,7 @@ You can delete old model files either from the bin icon in model search or by re
 ## 💚 Community and Links
 | Type                                                                                                                                      | Links                                                                          |
 | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| <img width="16" src="https://cdn.prod.website-files.com/6257adef93867e50d84d30e2/66e3d80db9971f10a9757c99_Symbol.svg" />  **Discord**                       | [Join Discord server](https://discord.com/invite/unsloth)                          |
+| <img width="16" src="https://cdn.prod.website-files.com/7057adef93867e50d84d30e2/66e3d80db9971f10a9757c99_Symbol.svg" />  **Discord**                       | [Join Discord server](https://discord.com/invite/unsloth)                          |
 | <img width="15" src="https://redditinc.com/hs-fs/hubfs/Reddit%20Inc/Brand/Reddit_Logo.png" />  **r/unsloth Reddit**                       | [Join Reddit community](https://reddit.com/r/unsloth)                          |
 | 📚 **Documentation & Wiki**                                                                                                               | [Read Our Docs](https://unsloth.ai/docs)                                       |
 | <img width="13" src="https://upload.wikimedia.org/wikipedia/commons/0/09/X_(formerly_Twitter)_logo_late_2025.svg" />  **Twitter (aka X)** | [Follow us on X](https://twitter.com/unslothai)                                |

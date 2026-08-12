@@ -10,6 +10,7 @@ from reqif.models.reqif_spec_object_type import (
     SpecAttributeDefinition,
 )
 from reqif.models.reqif_types import SpecObjectAttributeType
+from reqif.parsers.alternative_id_parser import AlternativeIDParser
 
 
 class AttributeDefinitionParser:
@@ -233,6 +234,7 @@ class AttributeDefinitionParser:
             else:
                 raise NotImplementedError(attribute_definition) from None
             attribute_definition = SpecAttributeDefinition(
+                alternative_id=AlternativeIDParser.parse(attribute_definition),
                 xml_node=attribute_definition,
                 attribute_type=attribute_type,
                 description=description,
@@ -311,6 +313,7 @@ class AttributeDefinitionParser:
                 raise NotImplementedError
 
         return SpecAttributeDefinition(
+            alternative_id=AlternativeIDParser.parse(xml_attribute_definition),
             xml_node=xml_attribute_definition,
             attribute_type=SpecObjectAttributeType.XHTML,
             description=description,
@@ -357,9 +360,13 @@ class AttributeDefinitionParser:
         if attribute.xml_node is not None:
             children_tags = list(map(lambda el: el.tag, list(attribute.xml_node)))
         else:
-            children_tags = ["DEFAULT-VALUE", "TYPE"]
+            children_tags = ["ALTERNATIVE-ID", "DEFAULT-VALUE", "TYPE"]
         for tag in children_tags:
-            if tag == "DEFAULT-VALUE":
+            if tag == "ALTERNATIVE-ID":
+                output += AlternativeIDParser.unparse(
+                    attribute.alternative_id, "              "
+                )
+            elif tag == "DEFAULT-VALUE":
                 attribute_default_value = attribute.default_value
                 if attribute_default_value is not None:
                     unparsed_default_value = (

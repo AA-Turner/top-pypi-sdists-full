@@ -12,6 +12,7 @@ from .output.table import (
 from . import users
 
 from .pagination.pagination import get_many_entries
+from .pagination import normalize_page_args
 
 
 def query(ctx, **kwargs):
@@ -20,6 +21,7 @@ def query(ctx, **kwargs):
     kwargs["org_id"] = input_helpers.get_org_from_input_or_ctx(ctx, **kwargs)
     dt_from = kwargs.pop("dt_from", "now-1day")
     kwargs = strip_none(kwargs)
+    kwargs = normalize_page_args(kwargs)
 
     query_results = apiclient.audits_api.list_audits(dt_from=dt_from, **kwargs)
 
@@ -95,6 +97,7 @@ def query_auth_audits(ctx, limit=None, map_email=False, **kwargs):
     dt_from = kwargs.pop("dt_from", "now-1day")
     kwargs = strip_none(kwargs)
     kwargs["dt_from"] = dt_from
+    kwargs = normalize_page_args(kwargs)
 
     emails = {}
     if map_email:

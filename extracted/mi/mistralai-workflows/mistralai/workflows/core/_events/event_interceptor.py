@@ -170,7 +170,7 @@ class _EventWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundIntercep
 
         await temporalio.workflow.execute_local_activity(
             _emit_workflow_started,
-            args=[task_id, info.workflow_type, list(input.args), display_name],
+            args=[task_id, info.workflow_type, list(input.args), display_name, info.attempt],
             start_to_close_timeout=timedelta(seconds=10),
             retry_policy=temporalio.common.RetryPolicy(maximum_attempts=3),
         )
@@ -180,7 +180,7 @@ class _EventWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundIntercep
 
             await temporalio.workflow.execute_local_activity(
                 _emit_workflow_completed,
-                args=[task_id, result],
+                args=[task_id, result, info.attempt],
                 start_to_close_timeout=timedelta(seconds=10),
                 retry_policy=temporalio.common.RetryPolicy(maximum_attempts=3),
             )
@@ -190,7 +190,7 @@ class _EventWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundIntercep
         except asyncio.CancelledError as e:
             await temporalio.workflow.execute_local_activity(
                 _emit_workflow_canceled,
-                args=[task_id, str(e) if str(e) else None],
+                args=[task_id, str(e) if str(e) else None, info.attempt],
                 start_to_close_timeout=timedelta(seconds=10),
                 retry_policy=temporalio.common.RetryPolicy(maximum_attempts=3),
             )
@@ -199,7 +199,7 @@ class _EventWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundIntercep
         except Exception as e:
             await temporalio.workflow.execute_local_activity(
                 _emit_workflow_failed,
-                args=[task_id, str(e)],
+                args=[task_id, str(e), info.attempt],
                 start_to_close_timeout=timedelta(seconds=10),
                 retry_policy=temporalio.common.RetryPolicy(maximum_attempts=3),
             )

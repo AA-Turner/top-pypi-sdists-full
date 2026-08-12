@@ -53,6 +53,9 @@ commands:
     - lldp run
 """
 from ansible.module_utils.basic import AnsibleModule
+from ansible_collections.ansible.netcommon.plugins.module_utils.network.common.utils import (
+    emit_warnings,
+)
 
 from ansible_collections.arista.eos.plugins.module_utils.network.eos.eos import (
     get_config,
@@ -110,6 +113,7 @@ def main():
         result["session_name"] = response.get("session")
         result["changed"] = True
 
+    emit_warnings(module, result)
     module.exit_json(**result)
 
 

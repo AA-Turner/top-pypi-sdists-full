@@ -3,6 +3,7 @@ from typing import Optional
 
 from reqif.helpers.lxml import lxml_is_self_closed_tag
 from reqif.models.reqif_relation_group_type import ReqIFRelationGroupType
+from reqif.parsers.alternative_id_parser import AlternativeIDParser
 from reqif.parsers.attribute_definition_parser import AttributeDefinitionParser
 
 
@@ -37,6 +38,7 @@ class RelationGroupTypeParser:
         )
 
         return ReqIFRelationGroupType(
+            alternative_id=AlternativeIDParser.parse(xml_spec_relation_type_xml),
             is_self_closed=is_self_closed,
             description=description,
             identifier=identifier,
@@ -59,11 +61,15 @@ class RelationGroupTypeParser:
             spec_relation_type.attribute_definitions is not None
             and len(spec_relation_type.attribute_definitions) > 0
         )
-        if spec_relation_type.is_self_closed and not has_attributes:
+        has_children = has_attributes or spec_relation_type.alternative_id is not None
+        if spec_relation_type.is_self_closed and not has_children:
             output += "/>\n"
             return output
 
         output += ">\n"
+        output += AlternativeIDParser.unparse(
+            spec_relation_type.alternative_id, "          "
+        )
 
         if spec_relation_type.attribute_definitions is not None:
             output += "          <SPEC-ATTRIBUTES>\n"

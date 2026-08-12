@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: onnx-ir
-Version: 0.2.1
+Version: 1.0.0
 Summary: Efficient in-memory representation for ONNX
 Author-email: ONNX Contributors <onnx-technical-discuss@lists.lfaidata.foundation>
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://onnx.ai/ir-py
 Project-URL: Issues, https://github.com/onnx/ir-py/issues
 Project-URL: Repository, https://github.com/onnx/ir-py
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE

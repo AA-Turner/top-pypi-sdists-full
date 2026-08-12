@@ -5,12 +5,12 @@ from chalk.streams.base import StreamSource
 from chalk.utils.duration import Duration
 
 if TYPE_CHECKING:
-    from pydantic import BaseModel
+    from pydantic import BaseModel, Field
 else:
     try:
-        from pydantic.v1 import BaseModel
+        from pydantic.v1 import BaseModel, Field
     except ImportError:
-        from pydantic import BaseModel
+        from pydantic import BaseModel, Field
 
 _PUBSUB_PROJECT_ID_NAME = "PUBSUB_PROJECT_ID"
 _PUBSUB_SUBSCRIPTION_ID_NAME = "PUBSUB_SUBSCRIPTION_ID"
@@ -46,7 +46,7 @@ class PubSubSource(StreamSource, BaseModel, frozen=True):
     'pubsub.topics.publish' if this is set.
     """
 
-    service_account_credentials_base64: Optional[str] = None
+    service_account_credentials_base64: Optional[str] = Field(default=None, repr=False)
     """
     Base64-encoded GCP service account credentials JSON for authenticating with PubSub.
     When set, these credentials are used instead of the default application credentials.

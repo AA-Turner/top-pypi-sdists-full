@@ -5,30 +5,30 @@
 
 - block:
     - name: Create link - broken link ({{ format }})
-      file:
+      ansible.builtin.file:
         src: /nowhere
         dest: "{{ remote_tmp_dir }}/nowhere.txt"
         state: link
         force: true
 
     - name: Archive - broken link ({{ format }})
-      archive:
+      community.general.archive:
         path: "{{ remote_tmp_dir }}/*.txt"
         dest: "{{ remote_tmp_dir }}/archive_broken_link.{{ format }}"
         format: "{{ format }}"
 
     - name: Verify archive exists - broken link ({{ format }})
-      file:
+      ansible.builtin.file:
         path: "{{ remote_tmp_dir }}/archive_broken_link.{{ format }}"
         state: file
 
     - name: Remove archive - broken link ({{ format }})
-      file:
+      ansible.builtin.file:
         path: "{{ remote_tmp_dir }}/archive_broken_link.{{ format }}"
         state: absent
 
     - name: Remove link - broken link ({{ format }})
-      file:
+      ansible.builtin.file:
         path: "{{ remote_tmp_dir }}/nowhere.txt"
         state: absent
   # 'zip' does not support symlink's

@@ -15,12 +15,8 @@ from typing_extensions import NotRequired, TypedDict
 class WorkflowSpecsRegisterResponseTypedDict(TypedDict):
     has_conflicts: bool
     r"""Whether one of the provided workflow specs has already been registered"""
-    workflow_version_ids: NotRequired[List[str]]
-    r"""Deprecated: use workflow_registration_ids"""
     workflow_registration_ids: NotRequired[List[str]]
     r"""List of workflow IDs that were registered"""
-    workflow_version_refs: NotRequired[List[WorkflowRegistrationRefOutputTypedDict]]
-    r"""Deprecated: use workflow_registration_refs"""
     workflow_registration_refs: NotRequired[
         List[WorkflowRegistrationRefOutputTypedDict]
     ]
@@ -33,14 +29,8 @@ class WorkflowSpecsRegisterResponse(BaseModel):
     has_conflicts: bool
     r"""Whether one of the provided workflow specs has already been registered"""
 
-    workflow_version_ids: Optional[List[str]] = None
-    r"""Deprecated: use workflow_registration_ids"""
-
     workflow_registration_ids: Optional[List[str]] = None
     r"""List of workflow IDs that were registered"""
-
-    workflow_version_refs: Optional[List[WorkflowRegistrationRefOutput]] = None
-    r"""Deprecated: use workflow_registration_refs"""
 
     workflow_registration_refs: Optional[List[WorkflowRegistrationRefOutput]] = None
     r"""List of workflow registration references"""
@@ -51,13 +41,7 @@ class WorkflowSpecsRegisterResponse(BaseModel):
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
         optional_fields = set(
-            [
-                "workflow_version_ids",
-                "workflow_registration_ids",
-                "workflow_version_refs",
-                "workflow_registration_refs",
-                "warnings",
-            ]
+            ["workflow_registration_ids", "workflow_registration_refs", "warnings"]
         )
         serialized = handler(self)
         m = {}

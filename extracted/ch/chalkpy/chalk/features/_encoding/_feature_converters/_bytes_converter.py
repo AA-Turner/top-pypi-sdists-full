@@ -29,11 +29,6 @@ from ._base import (
 
 # pyright: reportPrivateUsage=false, reportIncompatibleMethodOverride=false, reportReturnType=false, reportUnnecessaryCast=false, reportUnnecessaryComparison=false
 
-try:
-    import polars as pl
-except ImportError:
-    pl = None
-
 
 def _coerce_bytes(x: Any) -> bytes:
     """Convert x to bytes. Accepts bytes passthrough, pa.Buffer, and memoryview."""
@@ -65,7 +60,7 @@ class BytesFeatureConverter(
     _primitive_type_value: ClassVar[Type[bytes]] = bytes
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.binary()
     _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(binary=pb.EmptyMessage())
-    _polars_dtype_value: ClassVar[Any] = pl.Binary() if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None
 
     _coerce_fn = staticmethod(_coerce_bytes)
     _arrow_coerce_fn = staticmethod(_to_arrow_bytes)
@@ -154,7 +149,7 @@ class LargeBinaryFeatureConverter(
     _primitive_type_value: ClassVar[Type[bytes]] = bytes
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.large_binary()
     _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(large_binary=pb.EmptyMessage())
-    _polars_dtype_value: ClassVar[Any] = pl.Binary() if pl is not None else None
+    _polars_dtype_value: ClassVar[Any] = None
 
     _coerce_fn = staticmethod(_coerce_bytes)
     _arrow_coerce_fn = staticmethod(_to_arrow_bytes)

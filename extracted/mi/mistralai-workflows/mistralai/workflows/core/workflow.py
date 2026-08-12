@@ -811,11 +811,12 @@ class workflow:
                 is skipped.
 
         Raises:
-            ApplicationError: If a key is empty, contains ':', or if more than 20 keys are
-                passed in one call, and if the upsert itself hits an unexpected error such
-                as a TypeError. Raised non-retryable, so it fails the execution outright
-                rather than wedging it on infinite task retry. Both are code bugs that fail
-                identically on every run, so prefer literals over keys built from data.
+            ApplicationError: If a key is empty, contains ':', starts with the SDK-reserved
+                `internal.` prefix, or if more than 20 keys are passed in one call, and if
+                the upsert itself hits an unexpected error such as a TypeError. Raised
+                non-retryable, so it fails the execution outright rather than wedging it on
+                infinite task retry. Both are code bugs that fail identically on every run,
+                so prefer literals over keys built from data.
 
         Example:
             customer = await fetch_customer(payload.id)

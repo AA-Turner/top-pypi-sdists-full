@@ -54,6 +54,7 @@ Route53RecoveryReadinessServiceName = Literal["route53-recovery-readiness"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

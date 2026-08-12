@@ -18,6 +18,7 @@ license-files = [
     "LICENSE",
 ]
 dependencies = [
+    "argcomplete>=3.6.3",
     "blinker",
     "packaging>22.0",
     "platformdirs",
@@ -57,7 +58,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
-version = "2.28.0"
+version = "2.28.1"
 
 [project.urls]
 Homepage = "https://pdm-project.org"
@@ -88,6 +89,7 @@ all = [
 locked = [
     "anyio==4.13.0",
     "anysqlite==0.0.5",
+    "argcomplete==3.7.0",
     "blinker==1.9.0",
     "certifi==2026.4.22",
     "dep-logic==0.5.2",
@@ -168,7 +170,6 @@ doc = [
 workflow = [
     "parver>=0.3.1",
     "towncrier>=20",
-    "pycomplete~=0.3",
 ]
 
 [tool.ruff]
@@ -196,7 +197,9 @@ extend-select = [
 extend-ignore = [
     "B018",
     "B019",
+    "BLE001",
     "RUF018",
+    "PLW1510",
 ]
 
 [tool.ruff.lint.mccabe]
@@ -230,7 +233,7 @@ type = [
 
 [tool.pytest.ini_options]
 filterwarnings = [
-    "ignore::DeprecationWarning",
+    "default::DeprecationWarning",
 ]
 markers = [
     "network: Tests that require network",
@@ -261,6 +264,7 @@ omit = [
 ]
 
 [tool.coverage.report]
+fail_under = 84
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",
@@ -334,4 +338,4 @@ help = "Build the documentation site"
 
 [tool.pdm.scripts.complete]
 call = "tasks.complete:main"
-help = "Create autocomplete files for bash and fish"
+help = "Create autocomplete files with argcomplete"

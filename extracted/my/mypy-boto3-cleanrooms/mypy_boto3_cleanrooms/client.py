@@ -27,6 +27,7 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListAnalysisLogExportsPaginator,
     ListAnalysisTemplatesPaginator,
     ListCollaborationAnalysisTemplatesPaginator,
     ListCollaborationChangeRequestsPaginator,
@@ -100,6 +101,8 @@ from .type_defs import (
     DeleteMembershipInputTypeDef,
     DeletePrivacyBudgetTemplateInputTypeDef,
     DisallowIntermediateTableInputTypeDef,
+    GetAnalysisLogExportInputTypeDef,
+    GetAnalysisLogExportOutputTypeDef,
     GetAnalysisTemplateInputTypeDef,
     GetAnalysisTemplateOutputTypeDef,
     GetCollaborationAnalysisTemplateInputTypeDef,
@@ -144,6 +147,8 @@ from .type_defs import (
     GetSchemaAnalysisRuleOutputTypeDef,
     GetSchemaInputTypeDef,
     GetSchemaOutputTypeDef,
+    ListAnalysisLogExportsInputTypeDef,
+    ListAnalysisLogExportsOutputTypeDef,
     ListAnalysisTemplatesInputTypeDef,
     ListAnalysisTemplatesOutputTypeDef,
     ListCollaborationAnalysisTemplatesInputTypeDef,
@@ -196,6 +201,8 @@ from .type_defs import (
     PopulateIntermediateTableOutputTypeDef,
     PreviewPrivacyImpactInputTypeDef,
     PreviewPrivacyImpactOutputTypeDef,
+    StartAnalysisLogExportInputTypeDef,
+    StartAnalysisLogExportOutputTypeDef,
     StartProtectedJobInputTypeDef,
     StartProtectedJobOutputTypeDef,
     StartProtectedQueryInputTypeDef,
@@ -605,11 +612,22 @@ class CleanRoomsServiceClient(BaseClient):
         self, **kwargs: Unpack[DisallowIntermediateTableInputTypeDef]
     ) -> dict[str, Any]:
         """
-        Invalidates a specific intermediate table that references the caller's base
+        Marks an intermediate table as invalid when it references the caller's base
         table.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/disallow_intermediate_table.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cleanrooms/client/#disallow_intermediate_table)
+        """
+
+    def get_analysis_log_export(
+        self, **kwargs: Unpack[GetAnalysisLogExportInputTypeDef]
+    ) -> GetAnalysisLogExportOutputTypeDef:
+        """
+        Returns information about an analysis log export, including its current status
+        and, if the export failed, the reason for the failure.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/get_analysis_log_export.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cleanrooms/client/#get_analysis_log_export)
         """
 
     def get_analysis_template(
@@ -828,6 +846,16 @@ class CleanRoomsServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/get_schema_analysis_rule.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cleanrooms/client/#get_schema_analysis_rule)
+        """
+
+    def list_analysis_log_exports(
+        self, **kwargs: Unpack[ListAnalysisLogExportsInputTypeDef]
+    ) -> ListAnalysisLogExportsOutputTypeDef:
+        """
+        Lists analysis log exports, sorted by the most recent export.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/list_analysis_log_exports.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cleanrooms/client/#list_analysis_log_exports)
         """
 
     def list_analysis_templates(
@@ -1074,8 +1102,8 @@ class CleanRoomsServiceClient(BaseClient):
         self, **kwargs: Unpack[PopulateIntermediateTableInputTypeDef]
     ) -> PopulateIntermediateTableOutputTypeDef:
         """
-        Executes the stored query of an intermediate table to materialize data into
-        managed storage.
+        Runs the stored query of an intermediate table and makes the results available
+        for querying.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/populate_intermediate_table.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cleanrooms/client/#populate_intermediate_table)
@@ -1090,6 +1118,17 @@ class CleanRoomsServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/preview_privacy_impact.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cleanrooms/client/#preview_privacy_impact)
+        """
+
+    def start_analysis_log_export(
+        self, **kwargs: Unpack[StartAnalysisLogExportInputTypeDef]
+    ) -> StartAnalysisLogExportOutputTypeDef:
+        """
+        Starts an export of the Apache Spark logs for a protected query to an Amazon S3
+        bucket that you own.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/start_analysis_log_export.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cleanrooms/client/#start_analysis_log_export)
         """
 
     def start_protected_job(
@@ -1288,6 +1327,17 @@ class CleanRoomsServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/update_protected_query.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cleanrooms/client/#update_protected_query)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_analysis_log_exports"]
+    ) -> ListAnalysisLogExportsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cleanrooms/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

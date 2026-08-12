@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 - name: Copy expected results to remote
-  copy:
+  ansible.builtin.copy:
     src: "results/{{ item }}"
     dest: "/tmp/{{ item }}"
   with_items:
@@ -13,13 +13,13 @@
 
 # NOTE: Jinja2 templating eats trailing newlines
 - name: Read from xmlstring (not using pretty_print)
-  xml:
+  community.general.xml:
     xmlstring: "{{ lookup('file', '{{ role_path }}/fixtures/ansible-xml-beers.xml') }}"
     xpath: .
   register: xmlresponse
 
 - name: Compare to expected result
-  copy:
+  ansible.builtin.copy:
     content: "{{ xmlresponse.xmlstring }}\n"
     dest: '/tmp/test-pretty-print-only.xml'
   check_mode: true
@@ -27,22 +27,22 @@
   register: comparison
 
 - name: Test expected result
-  assert:
+  ansible.builtin.assert:
     that:
       - xmlresponse is not changed
       - comparison is not changed  # identical
-  # command: diff -u {{ role_path }}/results/test-pretty-print-only.xml /tmp/ansible-xml-beers.xml
+  # ansible.builtin.command: diff -u {{ role_path }}/results/test-pretty-print-only.xml /tmp/ansible-xml-beers.xml
 
 
 # NOTE: Jinja2 templating eats trailing newlines
 - name: Read from xmlstring (using pretty_print)
-  xml:
+  community.general.xml:
     xmlstring: "{{ lookup('file', '{{ role_path }}/fixtures/ansible-xml-beers.xml') }}"
     pretty_print: true
   register: xmlresponse
 
 - name: Compare to expected result
-  copy:
+  ansible.builtin.copy:
     content: '{{ xmlresponse.xmlstring }}'
     dest: '/tmp/test-pretty-print-only.xml'
   check_mode: true
@@ -51,16 +51,16 @@
 
 # FIXME: This change is related to the newline added by pretty_print
 - name: Test expected result
-  assert:
+  ansible.builtin.assert:
     that:
       - xmlresponse is changed
       - comparison is not changed  # identical
-  # command: diff -u {{ role_path }}/results/test-pretty-print-only.xml /tmp/ansible-xml-beers.xml
+  # ansible.builtin.command: diff -u {{ role_path }}/results/test-pretty-print-only.xml /tmp/ansible-xml-beers.xml
 
 
 # NOTE: Jinja2 templating eats trailing newlines
 - name: Read from xmlstring
-  xml:
+  community.general.xml:
     xmlstring: "{{ lookup('file', '{{ role_path }}/fixtures/ansible-xml-beers.xml') }}"
     xpath: /business/beers
     pretty_print: true
@@ -69,7 +69,7 @@
   register: xmlresponse_modification
 
 - name: Compare to expected result
-  copy:
+  ansible.builtin.copy:
     content: '{{ xmlresponse_modification.xmlstring }}'
     dest: '/tmp/test-pretty-print.xml'
   check_mode: true
@@ -78,8 +78,8 @@
 
 # FIXME: This change is related to the newline added by pretty_print
 - name: Test expected result
-  assert:
+  ansible.builtin.assert:
     that:
       - xmlresponse_modification is changed
       - comparison is not changed  # identical
-  # command: diff -u {{ role_path }}/results/test-pretty-print.xml /tmp/ansible-xml-beers.xml
+  # ansible.builtin.command: diff -u {{ role_path }}/results/test-pretty-print.xml /tmp/ansible-xml-beers.xml

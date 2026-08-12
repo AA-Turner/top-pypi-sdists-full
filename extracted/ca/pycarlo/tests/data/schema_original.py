@@ -1640,6 +1640,34 @@ class ClassifiedAssetType(sgqlc.types.Enum):
     __choices__ = ("FIELD", "TABLE")
 
 
+class ClusteringDerivation(sgqlc.types.Enum):
+    """How a cluster's membership is computed. Mirrors the model's
+    ``ClusterDerivation``.
+
+    Enumeration Choices:
+
+    * `LLM`None
+    * `RULE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("LLM", "RULE")
+
+
+class ClusteringFacet(sgqlc.types.Enum):
+    """Which panel tab a space serves. Mirrors the model's
+    ``ClusteringSpaceFacet``.
+
+    Enumeration Choices:
+
+    * `INTENT`None
+    * `ISSUE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("INTENT", "ISSUE")
+
+
 class CollectionNodeModelStatus(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -2100,11 +2128,59 @@ class ContextUsage(sgqlc.types.Enum):
     __choices__ = ("CUSTOM_FIELDS", "PROMPT_AND_RESPONSE", "PROMPT_ONLY", "RESPONSE_ONLY")
 
 
+class ConversationClusteringRunKind(sgqlc.types.Enum):
+    """Whether a run performed taxonomy discovery or conversation
+    assignment.  CLASSIFICATION covers both flavors of assignment run:
+    an intent space's LLM classification batch, and an issue space's
+    rule evaluation (which submits no conversations to an LLM — its
+    conversationsSubmitted stays 0).
+
+    Enumeration Choices:
+
+    * `CLASSIFICATION`None
+    * `DISCOVERY`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CLASSIFICATION", "DISCOVERY")
+
+
+class ConversationClusteringRunStage(sgqlc.types.Enum):
+    """DISCOVERY-run sequencing only; null on CLASSIFICATION runs.
+
+    Enumeration Choices:
+
+    * `SUMMARIZE`None
+    * `SYNTHESIZE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("SUMMARIZE", "SYNTHESIZE")
+
+
+class ConversationClusteringRunStatus(sgqlc.types.Enum):
+    """Current lifecycle state of a run.
+
+    Enumeration Choices:
+
+    * `COMPLETED`None
+    * `ERROR`None
+    * `RUNNING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("COMPLETED", "ERROR", "RUNNING")
+
+
 class ConversationClusteringState(sgqlc.types.Enum):
-    """Enablement state for an (agent, scope). ``OPT_IN`` /
-    ``LOW_VOLUME`` are surfaced by the windowed panel read (P7); this
-    read emits DISABLED / DISCOVERING / ENABLED from Postgres alone
-    (no ClickHouse volume count).
+    """Enablement state for an (agent, scope, facet). ``OPT_IN`` /
+    ``LOW_VOLUME`` are surfaced by the windowed panel read (P7) and
+    arise only on intent spaces; this read emits DISABLED /
+    DISCOVERING / ENABLED from Postgres alone (no volume count).
+    DISCOVERING means taxonomy discovery is in progress on an intent
+    space; an issue space never runs discovery, so there it is the
+    window between opt-in and the first rule-evaluation run seeding
+    the space's rule clusters.
 
     Enumeration Choices:
 
@@ -2186,6 +2262,20 @@ class ConversationStatus(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("ERROR", "OK")
+
+
+class CostBucketSize(sgqlc.types.Enum):
+    """Calendar period the cost series is grouped into.
+
+    Enumeration Choices:
+
+    * `DAY`None
+    * `MONTH`None
+    * `WEEK`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("DAY", "MONTH", "WEEK")
 
 
 class Criticality(sgqlc.types.Enum):
@@ -9314,6 +9404,22 @@ class ValidationTimeWindowPeriod(sgqlc.types.Enum):
     )
 
 
+class WarehouseCostUnsupportedReason(sgqlc.types.Enum):
+    """Why a warehouse can't contribute to the cost series.
+
+    Enumeration Choices:
+
+    * `GATHERING_DATA`None
+    * `NOT_ENABLED`None
+    * `NOT_SCHEDULED`None
+    * `NOT_SUPPORTED`None
+    * `PAUSED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("GATHERING_DATA", "NOT_ENABLED", "NOT_SCHEDULED", "NOT_SUPPORTED", "PAUSED")
+
+
 class WarehouseModelConnectionType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -11209,6 +11315,7 @@ class ClusteringConfigInput(sgqlc.types.Input):
         "classify_cadence_minutes",
         "collection_lag_hours",
         "percentile_window_days",
+        "eval_score_threshold",
     )
     discovery_model_id = sgqlc.types.Field(String, graphql_name="discoveryModelId")
     """Bedrock model id for the one-time taxonomy synthesis."""
@@ -11262,8 +11369,13 @@ class ClusteringConfigInput(sgqlc.types.Input):
     percentile_window_days = sgqlc.types.Field(Int, graphql_name="percentileWindowDays")
     """Trailing window, in days, over which issue-space percentile
     thresholds (e.g. p95 duration) are resolved each run. Issue spaces
-    only — rejected on intent spaces, which are the only spaces
-    creatable via the API today.
+    only — rejected on intent spaces.
+    """
+
+    eval_score_threshold = sgqlc.types.Field(Float, graphql_name="evalScoreThreshold")
+    """Conversations whose latest score for one of a monitor's evals
+    falls below this threshold join that eval's issue cluster. Issue
+    spaces only — rejected on intent spaces.
     """
 
 
@@ -11590,9 +11702,10 @@ class ConversationFiltersInput(sgqlc.types.Input):
     cluster_keys = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="clusterKeys"
     )
-    """Filter the list to conversations assigned to these intent clusters
-    (within the query's clusteringSpaceUuid). Empty or omitted applies
-    no cluster filter; requires clusteringSpaceUuid to be set.
+    """Filter the list to conversations assigned to these clusters
+    (within the query's clusteringSpaceUuid — intent or issue facet).
+    Empty or omitted applies no cluster filter; requires
+    clusteringSpaceUuid to be set.
     """
 
     run_uuid = sgqlc.types.Field(UUID, graphql_name="runUuid")
@@ -11775,6 +11888,7 @@ class CreateOrUpdateConversationClusteringSpaceInput(sgqlc.types.Input):
         "agent_name",
         "trace_table_mcon",
         "scope_workflow",
+        "facet",
         "is_enabled",
         "user_guidance",
         "config_overrides",
@@ -11791,14 +11905,32 @@ class CreateOrUpdateConversationClusteringSpaceInput(sgqlc.types.Input):
     scope_workflow = sgqlc.types.Field(String, graphql_name="scopeWorkflow")
     """Null = whole agent; set on create, immutable."""
 
+    facet = sgqlc.types.Field(ClusteringFacet, graphql_name="facet")
+    """On create: which facet to create. Omit to opt in to both an intent
+    and an issue space for the scope in one call — the enablement
+    toggle's shape. configOverrides and userGuidance then land on the
+    intent space only; the issue space is created with its facet
+    defaults — tune its cadence or percentile window with a follow-up
+    update against its own uuid, the same way pause already works. Set
+    explicitly to create only that facet's space. On update: immutable
+    — must match the target space's facet.
+    """
+
     is_enabled = sgqlc.types.Field(Boolean, graphql_name="isEnabled")
-    """Pause (false) / resume (true) an existing space."""
+    """Pause (false) / resume (true) an existing space. On the create-
+    both opt-in (facet omitted, no spaceUuid), applies to both spaces.
+    """
 
     user_guidance = sgqlc.types.Field(String, graphql_name="userGuidance")
-    """Free-text guidance that steers cluster identity during discovery."""
+    """Free-text guidance that steers cluster identity during discovery;
+    rejected on an issue-facet space, which has no discovery step. On
+    the create-both opt-in, applies to the intent space only.
+    """
 
     config_overrides = sgqlc.types.Field(ClusteringConfigInput, graphql_name="configOverrides")
-    """Partial config overrides applied on top of the current settings."""
+    """Partial config overrides applied on top of the current settings.
+    On the create-both opt-in, applies to the intent space only.
+    """
 
 
 class CreateOrUpdatePlatformAgentInput(sgqlc.types.Input):
@@ -13744,10 +13876,10 @@ class GetConversationsInput(sgqlc.types.Input):
     """Optional filters"""
 
     clustering_space_uuid = sgqlc.types.Field(UUID, graphql_name="clusteringSpaceUuid")
-    """Clustering scope for this query. When set, each conversation's
-    intentCluster is populated from this space's current taxonomy, and
-    any clusterKeys filter resolves against it. Omit to exclude intent
-    clusters.
+    """Clustering scope for this query — a space of either facet. When
+    set, each conversation's cluster assignments are populated from
+    this space's current taxonomy, and any clusterKeys filter resolves
+    against it. Omit to exclude cluster assignments.
     """
 
     first = sgqlc.types.Field(Int, graphql_name="first")
@@ -16025,7 +16157,7 @@ class RecordPreflightRunInput(sgqlc.types.Input):
 
 class RedshiftConnectionDetails(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("db_name", "host", "port", "user", "password")
+    __field_names__ = ("db_name", "host", "port", "user", "password", "ssl_options")
     db_name = sgqlc.types.Field(String, graphql_name="dbName")
     """Name of database to add connection for"""
 
@@ -16040,11 +16172,14 @@ class RedshiftConnectionDetails(sgqlc.types.Input):
 
     password = sgqlc.types.Field(String, graphql_name="password")
     """User's password"""
+
+    ssl_options = sgqlc.types.Field("SslOptions", graphql_name="sslOptions")
+    """Optional SSL options."""
 
 
 class RedshiftUpdateConnectionDetails(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("db_name", "host", "port", "user", "password")
+    __field_names__ = ("db_name", "host", "port", "user", "password", "ssl_options")
     db_name = sgqlc.types.Field(String, graphql_name="dbName")
     """Name of database to add connection for"""
 
@@ -16059,6 +16194,9 @@ class RedshiftUpdateConnectionDetails(sgqlc.types.Input):
 
     password = sgqlc.types.Field(String, graphql_name="password")
     """User's password"""
+
+    ssl_options = sgqlc.types.Field("SslUpdateOptions", graphql_name="sslOptions")
+    """Optional SSL options."""
 
 
 class ReportArgumentsUnionInput(sgqlc.types.Input):
@@ -27613,6 +27751,7 @@ class ClusteringConfig(sgqlc.types.Type):
         "classify_cadence_minutes",
         "collection_lag_hours",
         "percentile_window_days",
+        "eval_score_threshold",
     )
     discovery_model_id = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="discoveryModelId"
@@ -27688,8 +27827,15 @@ class ClusteringConfig(sgqlc.types.Type):
     )
     """Trailing window, in days, over which issue-space percentile
     thresholds (e.g. p95 duration) are resolved each run. Issue spaces
-    only — rejected on intent spaces, which are the only spaces
-    creatable via the API today.
+    only — rejected on intent spaces.
+    """
+
+    eval_score_threshold = sgqlc.types.Field(
+        sgqlc.types.non_null(Float), graphql_name="evalScoreThreshold"
+    )
+    """Conversations whose latest score for one of a monitor's evals
+    falls below this threshold join that eval's issue cluster. Issue
+    spaces only — rejected on intent spaces.
     """
 
 
@@ -28520,6 +28666,7 @@ class Conversation(sgqlc.types.Type):
         "start_time",
         "end_time",
         "duration_seconds",
+        "active_duration_seconds",
         "status",
         "errors_count",
         "workflows",
@@ -28546,6 +28693,14 @@ class Conversation(sgqlc.types.Type):
         sgqlc.types.non_null(Float), graphql_name="durationSeconds"
     )
     """Total conversation duration in seconds (end_time - start_time)"""
+
+    active_duration_seconds = sgqlc.types.Field(
+        sgqlc.types.non_null(Float), graphql_name="activeDurationSeconds"
+    )
+    """Sum of each trace's duration in seconds across the conversation,
+    excluding idle gaps between traces. May exceed durationSeconds
+    when traces overlap within the same conversation.
+    """
 
     status = sgqlc.types.Field(sgqlc.types.non_null(ConversationStatus), graphql_name="status")
     """ERROR if any trace had a root span error, otherwise OK"""
@@ -28633,6 +28788,8 @@ class ConversationClusterStat(sgqlc.types.Type):
         "ordinal",
         "conversation_count",
         "share_pct",
+        "condition",
+        "rule",
     )
     cluster_key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="clusterKey")
     """Stable cluster slug."""
@@ -28641,7 +28798,7 @@ class ConversationClusterStat(sgqlc.types.Type):
     """Human-readable cluster name."""
 
     description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
-    """One-line intent descriptor."""
+    """One-line summary of what belongs in this cluster."""
 
     ordinal = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="ordinal")
     """Display order; Uncategorized sorts last."""
@@ -28657,9 +28814,25 @@ class ConversationClusterStat(sgqlc.types.Type):
     cards can overlap and shares are not guaranteed to sum to 100.
     """
 
+    condition = sgqlc.types.Field("FilterGroup", graphql_name="condition")
+    """The cluster's criteria as a filter tree — the payload the ops-
+    agent hand-off carries. For an eval-monitor- or percentile-derived
+    cluster this may hold a marker-bearing FilterSql or literal rather
+    than an executable predicate. Null on LLM-derived clusters.
+    """
+
+    rule = sgqlc.types.Field(String, graphql_name="rule")
+    """The cluster's membership criteria rendered for display, e.g.
+    "duration_seconds greater than 42.0" for a plain-threshold rule
+    cluster. An eval-monitor-derived cluster renders the literal
+    "[custom SQL condition]" instead of a readable rule, and a
+    percentile-derived cluster renders its still-unresolved marker
+    rather than the resolved threshold. Null on LLM-derived clusters.
+    """
+
 
 class ConversationClusterType(sgqlc.types.Type):
-    """One discovered cluster in a space's current taxonomy version."""
+    """One cluster in a space's current taxonomy version."""
 
     __schema__ = schema
     __field_names__ = (
@@ -28671,6 +28844,10 @@ class ConversationClusterType(sgqlc.types.Type):
         "exemplars",
         "ordinal",
         "taxonomy_version",
+        "derivation",
+        "rule",
+        "condition",
+        "source_monitor_uuid",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Stable cluster id."""
@@ -28682,7 +28859,7 @@ class ConversationClusterType(sgqlc.types.Type):
     """Human-readable cluster name."""
 
     description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
-    """One-line intent descriptor."""
+    """One-line summary of what belongs in this cluster."""
 
     classification_criteria = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="classificationCriteria"
@@ -28703,6 +28880,30 @@ class ConversationClusterType(sgqlc.types.Type):
 
     taxonomy_version = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="taxonomyVersion")
     """Taxonomy version this cluster belongs to."""
+
+    derivation = sgqlc.types.Field(
+        sgqlc.types.non_null(ClusteringDerivation), graphql_name="derivation"
+    )
+    """How membership is computed: LLM classification or FilterGroup SQL."""
+
+    rule = sgqlc.types.Field(String, graphql_name="rule")
+    """The cluster's membership criteria rendered for display, e.g.
+    "duration_seconds greater than 42.0" for a plain-threshold rule
+    cluster. An eval-monitor-derived cluster renders the literal
+    "[custom SQL condition]" instead of a readable rule, and a
+    percentile-derived cluster renders its still-unresolved marker
+    rather than the resolved threshold. Null on LLM-derived clusters.
+    """
+
+    condition = sgqlc.types.Field("FilterGroup", graphql_name="condition")
+    """The cluster's criteria as a filter tree — the payload the ops-
+    agent hand-off carries. For an eval-monitor- or percentile-derived
+    cluster this may hold a marker-bearing FilterSql or literal rather
+    than an executable predicate. Null on LLM-derived clusters.
+    """
+
+    source_monitor_uuid = sgqlc.types.Field(UUID, graphql_name="sourceMonitorUuid")
+    """For an eval-monitor-derived issue cluster, the monitor it tracks."""
 
 
 class ConversationClusteringResult(sgqlc.types.Type):
@@ -28737,7 +28938,10 @@ class ConversationClusteringResult(sgqlc.types.Type):
     eligible_conversation_count = sgqlc.types.Field(
         sgqlc.types.non_null(Int), graphql_name="eligibleConversationCount"
     )
-    """Conversations in the window eligible for classification."""
+    """Conversations in the window eligible for classification. On an
+    issue space, this is the M in "N of M conversations carry at least
+    one issue."
+    """
 
     classified_conversation_count = sgqlc.types.Field(
         sgqlc.types.non_null(Int), graphql_name="classifiedConversationCount"
@@ -28745,8 +28949,92 @@ class ConversationClusteringResult(sgqlc.types.Type):
     """Conversations in the window carrying a current-taxonomy cluster
     assignment. Classification runs on a schedule, so the most
     recently completed conversations are normally not classified yet
-    and this trails eligibleConversationCount.
+    and this trails eligibleConversationCount. On an issue space, rule
+    evaluation writes no Uncategorized sentinel — a conversation
+    matching no rule simply gets no assignment row — so this is
+    exactly the N in "N of M conversations carry at least one issue."
     """
+
+
+class ConversationClusteringRunConnection(sgqlc.types.relay.Connection):
+    __schema__ = schema
+    __field_names__ = ("page_info", "edges", "total_count")
+    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
+    """Pagination data for this connection."""
+
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("ConversationClusteringRunEdge")),
+        graphql_name="edges",
+    )
+    """Contains the nodes in this connection."""
+
+    total_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalCount")
+    """Total runs recorded for the space."""
+
+
+class ConversationClusteringRunEdge(sgqlc.types.Type):
+    """A Relay edge containing a `ConversationClusteringRun` and its
+    cursor.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field("ConversationClusteringRunType", graphql_name="node")
+    """The item at the end of the edge"""
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+    """A cursor for use in pagination"""
+
+
+class ConversationClusteringRunType(sgqlc.types.Type):
+    """One discovery or classification execution for a clustering space."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "kind",
+        "stage",
+        "status",
+        "attempt",
+        "started_at",
+        "completed_at",
+        "conversations_submitted",
+        "error",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Stable run id."""
+
+    kind = sgqlc.types.Field(
+        sgqlc.types.non_null(ConversationClusteringRunKind), graphql_name="kind"
+    )
+    """Whether this run performed discovery or classification."""
+
+    stage = sgqlc.types.Field(ConversationClusteringRunStage, graphql_name="stage")
+    """Discovery sequencing step; null on CLASSIFICATION runs."""
+
+    status = sgqlc.types.Field(
+        sgqlc.types.non_null(ConversationClusteringRunStatus), graphql_name="status"
+    )
+    """Current run status."""
+
+    attempt = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="attempt")
+    """Retry counter for this run."""
+
+    started_at = sgqlc.types.Field(DateTime, graphql_name="startedAt")
+    """When the run started; null before dispatch."""
+
+    completed_at = sgqlc.types.Field(DateTime, graphql_name="completedAt")
+    """When the run finished (success or error); null while running."""
+
+    conversations_submitted = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="conversationsSubmitted"
+    )
+    """Conversations submitted to the run's LLM batch. Always 0 on a
+    rule-evaluation run, which has no LLM batch.
+    """
+
+    error = sgqlc.types.Field(String, graphql_name="error")
+    """Error message; set only when status is ERROR."""
 
 
 class ConversationClusteringSpaceConnection(sgqlc.types.relay.Connection):
@@ -28787,6 +29075,7 @@ class ConversationClusteringSpaceType(sgqlc.types.Type):
         "uuid",
         "agent_name",
         "scope_workflow",
+        "facet",
         "is_enabled",
         "taxonomy_version",
         "discovery_completed_at",
@@ -28794,6 +29083,7 @@ class ConversationClusteringSpaceType(sgqlc.types.Type):
         "state",
         "config",
         "clusters",
+        "runs",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Stable space id."""
@@ -28803,6 +29093,11 @@ class ConversationClusteringSpaceType(sgqlc.types.Type):
 
     scope_workflow = sgqlc.types.Field(String, graphql_name="scopeWorkflow")
     """Null = whole agent; else one workflow."""
+
+    facet = sgqlc.types.Field(sgqlc.types.non_null(ClusteringFacet), graphql_name="facet")
+    """Which panel tab this space serves; drives lifecycle, config, and
+    read cardinality.
+    """
 
     is_enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isEnabled")
     """Whether clustering is active; false means paused (taxonomy
@@ -28814,7 +29109,9 @@ class ConversationClusteringSpaceType(sgqlc.types.Type):
 
     discovery_completed_at = sgqlc.types.Field(DateTime, graphql_name="discoveryCompletedAt")
     """When the current taxonomy completed discovery; null while still
-    discovering.
+    discovering. Permanently null on an issue space, which never runs
+    discovery — use state, not this field, to decide whether an issue
+    space has cards to read.
     """
 
     user_guidance = sgqlc.types.Field(String, graphql_name="userGuidance")
@@ -28841,6 +29138,28 @@ class ConversationClusteringSpaceType(sgqlc.types.Type):
         ),
     )
     """Current-version taxonomy clusters, in display order.
+
+    Arguments:
+
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+    runs = sgqlc.types.Field(
+        ConversationClusteringRunConnection,
+        graphql_name="runs",
+        args=sgqlc.types.ArgDict(
+            (
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """Discovery/classification run history for this space, newest first.
 
     Arguments:
 
@@ -29451,6 +29770,26 @@ class CorrelationSamplingResult(sgqlc.types.Type):
     """List of value distribution samples"""
 
 
+class CostTimeSeriesPointOutput(sgqlc.types.Type):
+    """Storage and query cost totals for one bucket of the series."""
+
+    __schema__ = schema
+    __field_names__ = ("date", "storage_cost", "query_cost", "currency")
+    date = sgqlc.types.Field(sgqlc.types.non_null(Date), graphql_name="date")
+    """Start of the bucket (day, week, or month)."""
+
+    storage_cost = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="storageCost")
+    """Total storage cost in the bucket, in `currency`."""
+
+    query_cost = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="queryCost")
+    """Total query (compute) cost in the bucket, in `currency`. Covers
+    every compute-family cost type.
+    """
+
+    currency = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="currency")
+    """Currency code of this bucket's amounts, e.g. "USD"."""
+
+
 class CreateAccessToken(sgqlc.types.Type):
     """Generate an API Access Token and associate to user"""
 
@@ -30058,8 +30397,26 @@ class CreateOrUpdateComparisonRule(sgqlc.types.Type):
 
 class CreateOrUpdateConversationClusteringSpace(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("space",)
+    __field_names__ = ("space", "spaces")
     space = sgqlc.types.Field(ConversationClusteringSpaceType, graphql_name="space")
+    """DEPRECATED. End of life: February 1, 2027. The primary space
+    touched by this call: the created/updated space for an update or
+    single-facet create; the intent space on the create-both opt-in
+    (facet omitted, no spaceUuid) — kept so existing callers that only
+    read `space` see unchanged behavior. See `spaces` to read both
+    facets.
+    """
+
+    spaces = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(ConversationClusteringSpaceType))
+        ),
+        graphql_name="spaces",
+    )
+    """Every space this call touched: one entry for an update or single-
+    facet create; both the intent and issue spaces, in that order, for
+    the create-both opt-in.
+    """
 
 
 class CreateOrUpdateCustomIntegration(sgqlc.types.Type):
@@ -34029,6 +34386,12 @@ class DeleteCollibraIntegration(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("deleted",)
     deleted = sgqlc.types.Field(Boolean, graphql_name="deleted")
+
+
+class DeleteConversationClusteringSpace(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
 
 
 class DeleteCustomDashboardWidget(sgqlc.types.Type):
@@ -45065,6 +45428,7 @@ class Mutation(sgqlc.types.Type):
         "update_platform_service",
         "create_or_update_conversation_clustering_space",
         "refresh_conversation_clustering_space",
+        "delete_conversation_clustering_space",
         "create_or_update_agent_trace_table",
         "configure_linear_integration",
         "set_linear_webhook_secret",
@@ -46681,7 +47045,9 @@ class Mutation(sgqlc.types.Type):
         ),
     )
     """(experimental) Create or update a conversation-clustering space:
-    scope, config overrides, guidance, and pause/resume.
+    scope, facet, config overrides, guidance, and pause/resume.
+    Creating with facet omitted opts into both an intent and an issue
+    space for the scope in one call.
 
     Arguments:
 
@@ -46704,6 +47070,29 @@ class Mutation(sgqlc.types.Type):
     )
     """(experimental) Regenerate a clustering space's taxonomy from
     scratch (bumps the taxonomy version and re-discovers).
+
+    Arguments:
+
+    * `space_uuid` (`UUID!`)None
+    """
+
+    delete_conversation_clustering_space = sgqlc.types.Field(
+        DeleteConversationClusteringSpace,
+        graphql_name="deleteConversationClusteringSpace",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "space_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="spaceUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Delete a clustering space, its taxonomy clusters,
+    and its run history. Existing per-conversation assignments become
+    unreachable and age out.
 
     Arguments:
 
@@ -72988,6 +73377,7 @@ class Query(sgqlc.types.Type):
         "simulate_query_perf_monitor_evaluation",
         "get_query_perf_monitor_explanation_for_event",
         "get_query_perf_monitor_explanation",
+        "warehouse_cost_time_series",
         "get_warehouse_price_rates",
         "get_performance_page_insights",
         "get_indexed_field_specs",
@@ -73831,6 +74221,7 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.non_null(String), graphql_name="traceTableMcon", default=None
                     ),
                 ),
+                ("facet", sgqlc.types.Arg(ClusteringFacet, graphql_name="facet", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
@@ -73838,13 +74229,17 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) List conversation-clustering spaces for an agent +
-    trace table, each with its current-version taxonomy clusters.
+    """(experimental) List conversation-clustering spaces for one facet
+    of an agent + trace table, each with its current-version taxonomy
+    clusters.
 
     Arguments:
 
     * `agent_name` (`String!`)None
     * `trace_table_mcon` (`String!`)None
+    * `facet` (`ClusteringFacet`): Which facet's spaces to list;
+      defaults to INTENT. Alias the field twice to read both facets in
+      one query.
     * `before` (`String`)None
     * `after` (`String`)None
     * `first` (`Int`)None
@@ -73868,6 +74263,7 @@ class Query(sgqlc.types.Type):
                     "scope_workflow",
                     sgqlc.types.Arg(String, graphql_name="scopeWorkflow", default=None),
                 ),
+                ("facet", sgqlc.types.Arg(ClusteringFacet, graphql_name="facet", default=None)),
             )
         ),
     )
@@ -73881,6 +74277,9 @@ class Query(sgqlc.types.Type):
     * `input` (`GetConversationsFiltersDataInput!`)None
     * `scope_workflow` (`String`): Null = agent-wide taxonomy; a
       workflow selects that scope's taxonomy.
+    * `facet` (`ClusteringFacet`): Which facet's panel to read;
+      defaults to INTENT. Alias the field twice to read both facets in
+      one query.
     """
 
     get_agent_metadata = sgqlc.types.Field(
@@ -80031,6 +80430,55 @@ class Query(sgqlc.types.Type):
 
     * `request` (`GetExplanationRequestType!`)None
     * `config` (`QPMonitorConfigInputType!`): QP monitor config
+    """
+
+    warehouse_cost_time_series = sgqlc.types.Field(
+        sgqlc.types.non_null("WarehouseCostTimeSeriesOutput"),
+        graphql_name="warehouseCostTimeSeries",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "start_time",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="startTime", default=None
+                    ),
+                ),
+                (
+                    "end_time",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="endTime", default=None
+                    ),
+                ),
+                (
+                    "warehouse_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="warehouseUuids",
+                        default=None,
+                    ),
+                ),
+                (
+                    "bucket_size",
+                    sgqlc.types.Arg(CostBucketSize, graphql_name="bucketSize", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Storage and query cost over time for the account.
+    Buckets are calendar-aligned (weeks start Monday, months on the
+    1st) and default to daily unless `bucketSize` is given.
+    `startTime` can be at most one year before now. Amounts are
+    estimates in the billing currency.
+
+    Arguments:
+
+    * `start_time` (`DateTime!`): Start of the range (inclusive).
+    * `end_time` (`DateTime!`): End of the range (inclusive).
+    * `warehouse_uuids` (`[UUID!]`): Scope the series to these
+      warehouses. Omit or pass an empty list for the account-wide
+      total across every warehouse.
+    * `bucket_size` (`CostBucketSize`): Group the series by this
+      calendar period. Omit to bucket by day.
     """
 
     get_warehouse_price_rates = sgqlc.types.Field(
@@ -106353,6 +106801,25 @@ class UnsubscribeFromDashboardScheduleMutation(sgqlc.types.Type):
     """True if unsubscribed successfully."""
 
 
+class UnsupportedWarehouseOutput(sgqlc.types.Type):
+    """A warehouse that can't contribute to the series, and why."""
+
+    __schema__ = schema
+    __field_names__ = ("warehouse_uuid", "reason", "detail")
+    warehouse_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="warehouseUuid")
+    """UUID of the warehouse."""
+
+    reason = sgqlc.types.Field(
+        sgqlc.types.non_null(WarehouseCostUnsupportedReason), graphql_name="reason"
+    )
+    """Why the warehouse can't contribute cost data."""
+
+    detail = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="detail")
+    """Human-readable explanation of the specific cause, including the
+    required collector build when a version is the blocker.
+    """
+
+
 class UpdateAccountDisplayCatalogSearchTags(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("account",)
@@ -108895,6 +109362,32 @@ class Warehouse(sgqlc.types.Type):
         sgqlc.types.list_of("WarehouseRelation"), graphql_name="warehouseRelations"
     )
     """List of relations this warehouse has to other warehouses"""
+
+
+class WarehouseCostTimeSeriesOutput(sgqlc.types.Type):
+    """Account-level storage and query cost over time, summed across the
+    in-scope warehouses into a single combined series.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("points", "bucket_size", "unsupported_warehouses")
+    points = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(CostTimeSeriesPointOutput))),
+        graphql_name="points",
+    )
+    """Cost buckets over the requested range, ordered by bucket start."""
+
+    bucket_size = sgqlc.types.Field(sgqlc.types.non_null(CostBucketSize), graphql_name="bucketSize")
+    """The calendar period the points are grouped into."""
+
+    unsupported_warehouses = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UnsupportedWarehouseOutput))),
+        graphql_name="unsupportedWarehouses",
+    )
+    """In-scope warehouses that can't contribute cost data, each with a
+    reason. A warehouse that is contributing (or whose window is
+    simply empty) is not listed.
+    """
 
 
 class WarehouseDomain(sgqlc.types.Type):

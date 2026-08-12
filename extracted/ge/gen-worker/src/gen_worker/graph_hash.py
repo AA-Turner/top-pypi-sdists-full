@@ -1,15 +1,16 @@
 """Canonical GRAPH identity (pgw#716).
 
-**What this digest is USED for today (pgw#1031, read this before the ruling
-below):** it is the pgw#917 same-class comparator and the per-entry
-``graph_witness`` — recorded on every cell by ``aot_mint.keying_block`` and
-compared at adopt time by ``aot_identity.verify_graph_witness``. It is **not**
-folded into ``cell_key``: the ``graph`` axis is ``combined_graph_hash`` over
-``class_hash``, which folds the graph INTERFACE and no node digest, so two
-different computations behind one declaration share a key (measured
-2026-08-10). Whether this digest should BECOME the key is pgw#1031's depth
-question and Paul's to rule; the witness is the fail-closed floor that holds
-either way.
+**What this digest is USED for (pgw#1031, Paul-ruled option a):** it is the
+pgw#917 same-class comparator, the per-entry ``graph_witness`` recorded on
+every cell by ``aot_mint.keying_block``, AND — since pgw#1031 — a folded input
+to the key. ``aot_serve.class_hash`` (facts v3) folds ``graph_witness`` so the
+``graph`` axis (``combined_graph_hash`` over ``class_hash``) is the traced
+COMPUTATION, not merely the traced ingress: two different computations behind
+one declaration now key APART (before the fold they shared a key — measured
+2026-08-10, ``micro-pad32`` vs ``micro-pad32-branchy``). The witness also
+stays recorded as a top-level sibling and is compared at adopt time by
+``aot_identity.verify_graph_witness`` — the fail-closed backstop that catches
+any residual witness-blind collision (defense-in-depth).
 
 Paul's ruling: "I'd rather key on the graph that is changed, not hash on code
 changes... look at some code and be like 'oh this is graph-ABC' and that is the
@@ -354,6 +355,63 @@ def graph_hash(obj: Any) -> str:
     return digest_lines(canonical_lines(obj))
 
 
+def device_placement(obj: Any) -> Tuple[str, ...]:
+    """The distinct devices — WITH index — the traced program touches.
+
+    A SEPARATE observation, deliberately outside the canonical form (pgw#1113,
+    the pgw#819 remedy). The canonical form scrubs the device INDEX by design
+    (``_render_scalar``, *"cuda:1 -> cuda"*) and that stays: a graph is the
+    same graph wherever it runs, and un-scrubbing it would re-key every
+    published cell to record a fact all of them state trivially.
+
+    What was missing is the OTHER half of that sentence — a model whose own
+    device map splits its modules across ``cuda:0``/``cuda:1`` has inductor
+    bake that placement into the compiled artifact, and pgw#819 measured that
+    such a cell publishes under a key byte-identical to the single-GPU one, in
+    both directions. So the placement is observed here, recorded on the keying
+    block, and folded into ``aot_serve.class_hash`` ONLY when it is
+    non-trivial (more than one distinct device). Every cell the fleet has
+    published is single-device, so every one of them keeps its key.
+
+    Returns sorted distinct ``"<type>:<index>"`` strings ("cuda:0"), or ``()``
+    when the program states no device at all.
+    """
+    import torch
+
+    seen: set = set()
+
+    def _note(value: Any) -> None:
+        if isinstance(value, torch.device):
+            index = value.index
+            seen.add(
+                f"{value.type}:{index}" if index is not None else value.type)
+        elif isinstance(value, torch.Tensor):
+            _note(value.device)
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                _note(item)
+        elif isinstance(value, dict):
+            for item in value.values():
+                _note(item)
+
+    if isinstance(obj, torch.export.ExportedProgram):
+        graph = obj.graph_module.graph
+    else:
+        graph = getattr(obj, "graph", None) if not isinstance(
+            obj, torch.fx.Graph) else obj
+    if graph is None or not hasattr(graph, "nodes"):
+        raise GraphHashError(
+            f"{type(obj).__module__}.{type(obj).__qualname__} is not a graph IR "
+            "(want torch.fx.GraphModule or torch.export.ExportedProgram)")
+    for node in graph.nodes:
+        present, raw_val = _node_val(node)
+        if present:
+            _note(raw_val)
+        _note(node.args)
+        _note(node.kwargs)
+    return tuple(sorted(seen))
+
+
 def digest_lines(lines: Iterable[str]) -> str:
     """Digest an already-canonical line sequence."""
     payload = "\n".join(lines).encode()
@@ -373,6 +431,7 @@ __all__ = [
     "SPEC_PREFIX",
     "SYM_PREFIX",
     "canonical_lines",
+    "device_placement",
     "digest_lines",
     "graph_hash",
 ]
